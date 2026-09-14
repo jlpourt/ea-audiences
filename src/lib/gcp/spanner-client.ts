@@ -35,7 +35,7 @@ export async function runSpannerGraphQuery(
   let cleanedGql = gqlQuery.trim();
   
   if (!cleanedGql.startsWith("GRAPH ")) {
-    cleanedGql = `GRAPH EAPlayerGraph\n${cleanedGql}`;
+    cleanedGql = `GRAPH ABKPlayerGraph\n${cleanedGql}`;
   }
 
   // Ensure node table reference matches Spanner DDL (Players table)
@@ -89,13 +89,13 @@ export async function runSpannerGraphQuery(
             lng: Number(r.lng || r.p?.lng || -0.1278),
             game_telemetry: telemetry,
             purchased_items: purchasedItems,
-            followed_creators: r.followed_creators || telemetry?.followed_creators || [r.primary_creator_influence || "creator-nickrtfm"],
-            primary_creator_influence: r.primary_creator_influence || telemetry?.primary_creator_influence || "creator-nickrtfm",
-            favorite_club: r.favorite_club || r.p?.favorite_club || telemetry?.favorite_club || "Real Madrid CF",
-            favorite_player: r.favorite_player || r.p?.favorite_player || telemetry?.favorite_player || "Kylian Mbappé",
-            favorite_formation: r.favorite_formation || r.p?.favorite_formation || telemetry?.favorite_formation || "4-3-3 Attack",
+            followed_creators: r.followed_creators || telemetry?.followed_creators || [r.primary_creator_influence || "creator-scump"],
+            primary_creator_influence: r.primary_creator_influence || telemetry?.primary_creator_influence || "creator-scump",
+            favorite_club: r.favorite_club || r.p?.favorite_club || telemetry?.favorite_club || "OpTic Gaming",
+            favorite_player: r.favorite_player || r.p?.favorite_player || telemetry?.favorite_player || "Seth 'Scump' Abner",
+            favorite_formation: r.favorite_formation || r.p?.favorite_formation || telemetry?.favorite_formation || "MCW / Striker 9",
             _spanner_metadata: {
-              source: "Google Cloud Spanner Enterprise (EAPlayerGraph)",
+              source: "Google Cloud Spanner Enterprise (ABKPlayerGraph)",
               instance: GCP_CONFIG.spannerInstanceId,
               database: GCP_CONFIG.spannerDatabaseId,
               execution_time_ms: executionTimeMs,
@@ -127,19 +127,21 @@ export async function runSpannerGraphQuery(
   let filtered = allPlayers;
 
   // Franchise filtering
-  if (lowerGql.includes("fc26") && lowerGql.includes("apex")) {
+  if (lowerGql.includes("cod") && (lowerGql.includes("wow") || lowerGql.includes("diablo"))) {
     filtered = filtered.filter((p: any) => 
-      p.primary_franchise === "FC26" || p.primary_franchise === "APEX" ||
-      (p.franchises_played && (p.franchises_played.includes("FC26") || p.franchises_played.includes("APEX")))
+      p.primary_franchise === "COD" || p.primary_franchise === "WOW" || p.primary_franchise === "DIABLO4" ||
+      (p.franchises_played && (p.franchises_played.includes("COD") || p.franchises_played.includes("WOW") || p.franchises_played.includes("DIABLO4")))
     );
-  } else if (lowerGql.includes("apex")) {
-    filtered = filtered.filter((p: any) => p.primary_franchise === "APEX" || (p.franchises_played && p.franchises_played.includes("APEX")));
-  } else if (lowerGql.includes("madden")) {
-    filtered = filtered.filter((p: any) => p.primary_franchise === "MADDEN25" || (p.franchises_played && p.franchises_played.includes("MADDEN25")));
-  } else if (lowerGql.includes("battlefield")) {
-    filtered = filtered.filter((p: any) => p.primary_franchise === "BATTLEFIELD" || (p.franchises_played && p.franchises_played.includes("BATTLEFIELD")));
-  } else if (lowerGql.includes("sims")) {
-    filtered = filtered.filter((p: any) => p.primary_franchise === "SIMS4" || (p.franchises_played && p.franchises_played.includes("SIMS4")));
+  } else if (lowerGql.includes("cod") || lowerGql.includes("warzone")) {
+    filtered = filtered.filter((p: any) => p.primary_franchise === "COD" || (p.franchises_played && p.franchises_played.includes("COD")));
+  } else if (lowerGql.includes("wow") || lowerGql.includes("warcraft")) {
+    filtered = filtered.filter((p: any) => p.primary_franchise === "WOW" || (p.franchises_played && p.franchises_played.includes("WOW")));
+  } else if (lowerGql.includes("diablo")) {
+    filtered = filtered.filter((p: any) => p.primary_franchise === "DIABLO4" || (p.franchises_played && p.franchises_played.includes("DIABLO4")));
+  } else if (lowerGql.includes("overwatch")) {
+    filtered = filtered.filter((p: any) => p.primary_franchise === "OVERWATCH2" || (p.franchises_played && p.franchises_played.includes("OVERWATCH2")));
+  } else if (lowerGql.includes("candy")) {
+    filtered = filtered.filter((p: any) => p.primary_franchise === "CANDYCRUSH" || (p.franchises_played && p.franchises_played.includes("CANDYCRUSH")));
   }
 
   // Archetype filtering
@@ -211,8 +213,8 @@ export async function runSpannerGraphQuery(
     dma_market: p.dma_market,
     lat: p.lat,
     lng: p.lng,
-    followed_creators: p.followed_creators || [p.primary_creator_influence || "creator-nickrtfm"],
-    primary_creator_influence: p.primary_creator_influence || "creator-nickrtfm",
+    followed_creators: p.followed_creators || [p.primary_creator_influence || "creator-scump"],
+    primary_creator_influence: p.primary_creator_influence || "creator-scump",
     game_telemetry: p.game_telemetry || {},
     purchased_items: p.purchased_items || [],
   }));

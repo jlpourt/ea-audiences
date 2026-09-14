@@ -5,8 +5,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const userPrompt = body.prompt || "What do you think of this campaign offer?";
-    const campaignTitle = body.campaign_title || "FUT Champions Weekend League Retention & Tilt Shield";
-    const franchise = body.franchise || "EA SPORTS FC 26";
+    const campaignTitle = body.campaign_title || "Warzone Gulag Retention & BlackCell Recovery Shield";
+    const franchise = body.franchise || "Call of Duty: Warzone";
     const platform = body.platform || "focus_group"; // "focus_group" | "discord" | "reddit"
     const cohortContext = body.cohort_context;
     const sampledPlayers: any[] = body.sampled_players || [];
@@ -22,15 +22,15 @@ export async function POST(request: NextRequest) {
       ? `Target Audience Cohort: "${cohortContext.query}" (~${cohortContext.estimatedTotal?.toLocaleString() || "4,200"} players, Dominant: ${cohortContext.dominantArchetype})`
       : "Target Audience: Active Live Service Players";
 
-    const p1Name = sampledPlayers[0]?.name || sampledPlayers[0]?.gamerTag || "R9_881";
-    const p2Name = sampledPlayers[1]?.name || sampledPlayers[1]?.gamerTag || "Bellingham_Pro_66";
-    const p3Name = sampledPlayers[2]?.name || sampledPlayers[2]?.gamerTag || "DeBruyne_Elite_853";
-    const p4Name = sampledPlayers[3]?.name || sampledPlayers[3]?.gamerTag || "SBCSolver_XI_91";
+    const p1Name = sampledPlayers[0]?.name || sampledPlayers[0]?.gamerTag || "Ghost_771";
+    const p2Name = sampledPlayers[1]?.name || sampledPlayers[1]?.gamerTag || "Price_BlackCell_88";
+    const p3Name = sampledPlayers[2]?.name || sampledPlayers[2]?.gamerTag || "Soap_Resurgence_99";
+    const p4Name = sampledPlayers[3]?.name || sampledPlayers[3]?.gamerTag || "ZombieHunter_42";
 
-    const p1Role = sampledPlayers[0]?.division || "FUT Champions Elite";
-    const p2Role = sampledPlayers[1]?.division || "Icon Collector Whale ($3.5k+)";
-    const p3Role = sampledPlayers[2]?.division || "Rush 5v5 Captain";
-    const p4Role = sampledPlayers[3]?.division || "Career Mode Tactician";
+    const p1Role = sampledPlayers[0]?.division || "Warzone Top 250 Ranked";
+    const p2Role = sampledPlayers[1]?.division || "BlackCell Vault Whale ($3k+)";
+    const p3Role = sampledPlayers[2]?.division || "Resurgence 4-Stack Captain";
+    const p4Role = sampledPlayers[3]?.division || "Solo Campaign & Zombie Tactician";
 
     try {
       let systemPrompt = "";
@@ -48,9 +48,9 @@ Marketer's Discussion Trigger / Question:
 "${userPrompt}"
 
 Generate 4 realistic Discord chat messages from 4 authentic gamers reacting to this specific question (taking into account the price of $${dynamicPrice.toFixed(2)} if applicable):
-1. Competitive Player (reacts to rank, loss streak, MMR, loan card utility at $${dynamicPrice.toFixed(2)})
-2. High-Spend Whale (reacts to points vaults, spend threshold at $${dynamicPrice.toFixed(2)})
-3. Social Co-op Squad Leader (reacts to Rush 5v5 squad value, playing with friends at $${dynamicPrice.toFixed(2)})
+1. Competitive Player (reacts to rank, loss streak, weapon TTK, Gulag retry utility at $${dynamicPrice.toFixed(2)})
+2. High-Spend Whale (reacts to BlackCell vaults, spend threshold at $${dynamicPrice.toFixed(2)})
+3. Social Co-op Squad Leader (reacts to Resurgence 4-player squad value, playing with friends at $${dynamicPrice.toFixed(2)})
 4. F2P Purist / Critic (critiques pricing, microtransactions, game balance)
 
 Output strict JSON:

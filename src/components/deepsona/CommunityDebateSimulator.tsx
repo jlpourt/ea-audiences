@@ -59,30 +59,30 @@ export default function CommunityDebateSimulator({
   const [threadTitle, setThreadTitle] = useState("");
 
   const subredditName =
-    selectedGame === "FC26"
-      ? "r/EASportsFC"
-      : selectedGame === "APEX"
-      ? "r/ApexLegends"
-      : selectedGame === "MADDEN25"
-      ? "r/MaddenUltimateTeam"
-      : selectedGame === "SIMS4"
-      ? "r/thesims"
-      : selectedGame === "BATTLEFIELD"
-      ? "r/battlefield2042"
-      : "r/gaming";
+    selectedGame === "COD"
+      ? "r/CODWarzone"
+      : selectedGame === "WOW"
+      ? "r/wow"
+      : selectedGame === "DIABLO4"
+      ? "r/diablo4"
+      : selectedGame === "OVERWATCH2"
+      ? "r/Overwatch"
+      : selectedGame === "CANDYCRUSH"
+      ? "r/candycrush"
+      : "r/battlenet";
 
   const discordServerName =
-    selectedGame === "FC26"
-      ? "EA SPORTS FC Official Discord"
-      : selectedGame === "APEX"
-      ? "Apex Legends Hub"
-      : selectedGame === "MADDEN25"
-      ? "Madden Competitive Discord"
-      : selectedGame === "SIMS4"
-      ? "Sims Community Discord"
-      : selectedGame === "BATTLEFIELD"
-      ? "Battlefield All-Out Warfare"
-      : "EA Gaming Community";
+    selectedGame === "COD"
+      ? "Call of Duty: Warzone Official Discord"
+      : selectedGame === "WOW"
+      ? "Warcraft Mythic Guild Hub"
+      : selectedGame === "DIABLO4"
+      ? "Diablo IV Sanctuary Discord"
+      : selectedGame === "OVERWATCH2"
+      ? "Overwatch 2 Competitive Hub"
+      : selectedGame === "CANDYCRUSH"
+      ? "Candy Crush Community"
+      : "Battle.net Community Hub";
 
   // Clean empty initial state
   const [redditComments, setRedditComments] = useState<CommunityComment[]>([]);

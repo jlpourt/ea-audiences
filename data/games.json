@@ -1,192 +1,37 @@
 [
   {
-    "game_id": "game-fc26",
-    "franchise": "FC26",
-    "title": "EA SPORTS FC 26",
-    "genre": "Football Simulation & Card Collecting",
-    "is_parent_hub": true,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID", "STEAM_ID", "COMPANION_APP"],
-    "base_hours": [100, 2200],
-    "base_spend": [50, 5000]
+    "game_id": "game-cod",
+    "franchise": "COD",
+    "title": "Call of Duty: Warzone / BO6",
+    "genre": "Battle Royale & Tactical FPS",
+    "active_players": 2200000
   },
   {
-    "game_id": "game-fc26-ultimate-team",
-    "franchise": "FC26",
-    "title": "FC 26 Ultimate Team (FUT)",
-    "genre": "Competitive Card & Squad Building",
-    "is_parent_hub": false,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID", "COMPANION_APP", "STEAM_ID"],
-    "base_hours": [100, 2200],
-    "base_spend": [50, 4500]
+    "game_id": "game-wow",
+    "franchise": "WOW",
+    "title": "World of Warcraft: The War Within",
+    "genre": "MMORPG",
+    "active_players": 1850000
   },
   {
-    "game_id": "game-fc26-clubs-rush",
-    "franchise": "FC26",
-    "title": "FC 26 Clubs & Rush 5v5",
-    "genre": "Team Social & 11v11 / 5v5",
-    "is_parent_hub": false,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID", "STEAM_ID"],
-    "base_hours": [50, 1200],
-    "base_spend": [0, 350]
+    "game_id": "game-diablo",
+    "franchise": "DIABLO4",
+    "title": "Diablo IV: Vessel of Hatred",
+    "genre": "Action RPG",
+    "active_players": 1400000
   },
   {
-    "game_id": "game-fc26-career-mode",
-    "franchise": "FC26",
-    "title": "FC 26 Manager Career",
-    "genre": "Tactical Management Simulation",
-    "is_parent_hub": false,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID", "STEAM_ID"],
-    "base_hours": [40, 900],
-    "base_spend": [0, 70]
+    "game_id": "game-ow2",
+    "franchise": "OVERWATCH2",
+    "title": "Overwatch 2",
+    "genre": "Competitive Hero Shooter",
+    "active_players": 1150000
   },
   {
-    "game_id": "game-fc26-online-seasons",
-    "franchise": "FC26",
-    "title": "FC 26 Online Seasons",
-    "genre": "Head-to-Head Competitive",
-    "is_parent_hub": false,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID"],
-    "base_hours": [20, 600],
-    "base_spend": [0, 50]
-  },
-  {
-    "game_id": "game-apex",
-    "franchise": "APEX",
-    "title": "Apex Legends",
-    "genre": "Hero Battle Royale & Tactical Shooter",
-    "is_parent_hub": true,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID", "STEAM_ID", "NINTENDO_SWITCH"],
-    "base_hours": [150, 3000],
-    "base_spend": [0, 3200]
-  },
-  {
-    "game_id": "game-apex-ranked-br",
-    "franchise": "APEX",
-    "title": "Apex Ranked Battle Royale",
-    "genre": "Competitive Ranked Ladder (Predator/Master)",
-    "is_parent_hub": false,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID", "STEAM_ID"],
-    "base_hours": [200, 2500],
-    "base_spend": [20, 2500]
-  },
-  {
-    "game_id": "game-apex-trios-squads",
-    "franchise": "APEX",
-    "title": "Apex Trios Social Squads",
-    "genre": "Squad Co-op Battle Royale",
-    "is_parent_hub": false,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID", "STEAM_ID"],
-    "base_hours": [50, 1000],
-    "base_spend": [0, 400]
-  },
-  {
-    "game_id": "game-apex-mixtape",
-    "franchise": "APEX",
-    "title": "Apex Mixtape (Gun Run / Control)",
-    "genre": "Fast-Paced Casual Arena",
-    "is_parent_hub": false,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID", "STEAM_ID"],
-    "base_hours": [30, 800],
-    "base_spend": [0, 150]
-  },
-  {
-    "game_id": "game-madden25",
-    "franchise": "MADDEN25",
-    "title": "Madden NFL 25",
-    "genre": "American Football Simulation & MUT",
-    "is_parent_hub": true,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID", "STEAM_ID", "COMPANION_APP"],
-    "base_hours": [80, 1800],
-    "base_spend": [50, 4200]
-  },
-  {
-    "game_id": "game-madden25-mut",
-    "franchise": "MADDEN25",
-    "title": "Madden Ultimate Team (MUT)",
-    "genre": "Card Collecting & Head-to-Head Champions",
-    "is_parent_hub": false,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID", "COMPANION_APP"],
-    "base_hours": [120, 2000],
-    "base_spend": [60, 4000]
-  },
-  {
-    "game_id": "game-madden25-franchise",
-    "franchise": "MADDEN25",
-    "title": "Madden Connected Franchise",
-    "genre": "Multi-Season Head Coach Simulation",
-    "is_parent_hub": false,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID"],
-    "base_hours": [50, 900],
-    "base_spend": [0, 70]
-  },
-  {
-    "game_id": "game-madden25-superstar",
-    "franchise": "MADDEN25",
-    "title": "Madden Superstar Showdown",
-    "genre": "3v3 Arcade Football & Player Progression",
-    "is_parent_hub": false,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID"],
-    "base_hours": [30, 600],
-    "base_spend": [0, 200]
-  },
-  {
-    "game_id": "game-battlefield",
-    "franchise": "BATTLEFIELD",
-    "title": "Battlefield 2042",
-    "genre": "All-Out Tactical FPS & Vehicle Warfare",
-    "is_parent_hub": true,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID", "STEAM_ID"],
-    "base_hours": [80, 2000],
-    "base_spend": [20, 1500]
-  },
-  {
-    "game_id": "game-bf-conquest",
-    "franchise": "BATTLEFIELD",
-    "title": "Battlefield 64v64 Conquest",
-    "genre": "Large-Scale Combined Arms Warfare",
-    "is_parent_hub": false,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID", "STEAM_ID"],
-    "base_hours": [100, 1800],
-    "base_spend": [0, 800]
-  },
-  {
-    "game_id": "game-bf-breakthrough",
-    "franchise": "BATTLEFIELD",
-    "title": "Battlefield Breakthrough Squads",
-    "genre": "Attack & Defend Tactical Warfare",
-    "is_parent_hub": false,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID", "STEAM_ID"],
-    "base_hours": [50, 1200],
-    "base_spend": [0, 500]
-  },
-  {
-    "game_id": "game-sims4",
-    "franchise": "SIMS4",
-    "title": "The Sims 4",
-    "genre": "Life Simulation & Architectural Sandbox",
-    "is_parent_hub": true,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID", "STEAM_ID"],
-    "base_hours": [150, 4000],
-    "base_spend": [0, 1200]
-  },
-  {
-    "game_id": "game-sims4-expansion-dlc",
-    "franchise": "SIMS4",
-    "title": "The Sims 4 Expansion Packs",
-    "genre": "DLC Collection (Lovestruck/For Rent/Growing Together)",
-    "is_parent_hub": false,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID", "STEAM_ID"],
-    "base_hours": [200, 3500],
-    "base_spend": [100, 1100]
-  },
-  {
-    "game_id": "game-sims4-build-buy",
-    "franchise": "SIMS4",
-    "title": "The Sims 4 Build & Buy Sandbox",
-    "genre": "Architectural Design & Custom Content Mods",
-    "is_parent_hub": false,
-    "platforms": ["EA_ACCOUNT", "PLAYSTATION_PSN", "XBOX_XUID", "STEAM_ID"],
-    "base_hours": [100, 2500],
-    "base_spend": [0, 400]
+    "game_id": "game-candy",
+    "franchise": "CANDYCRUSH",
+    "title": "Candy Crush Saga",
+    "genre": "Match-3 Casual Mobile",
+    "active_players": 4500000
   }
 ]

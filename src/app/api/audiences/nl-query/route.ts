@@ -44,28 +44,28 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // If generic creator / streamer mention without specific name, include top 4 creators
+    // If generic creator / streamer mention without specific name, include top ABK creators
     if (matchedCreatorIds.length === 0 && (lowerQ.includes("creator") || lowerQ.includes("streamer") || lowerQ.includes("influencer") || lowerQ.includes("youtube") || lowerQ.includes("twitch"))) {
-      matchedCreatorIds = ["creator-nickrtfm", "creator-castro1021", "creator-dannyaarons", "creator-boraslegend"];
+      matchedCreatorIds = ["creator-scump", "creator-timthetatman", "creator-asmongold", "creator-wudijo"];
     }
 
     // Detect franchises in query
-    if (lowerQ.includes("fc") && lowerQ.includes("apex")) {
-      targetFranchises = ["FC26", "APEX"];
-    } else if (lowerQ.includes("apex")) {
-      targetFranchises = ["APEX"];
-    } else if (lowerQ.includes("madden") || lowerQ.includes("mut")) {
-      targetFranchises = ["MADDEN25"];
-    } else if (lowerQ.includes("battlefield") || lowerQ.includes("conquest")) {
-      targetFranchises = ["BATTLEFIELD"];
-    } else if (lowerQ.includes("sims") || lowerQ.includes("expansion")) {
-      targetFranchises = ["SIMS4"];
-    } else if (lowerQ.includes("fc") || lowerQ.includes("fut") || lowerQ.includes("rush")) {
-      targetFranchises = ["FC26"];
+    if (lowerQ.includes("cod") && (lowerQ.includes("wow") || lowerQ.includes("diablo"))) {
+      targetFranchises = ["COD", "DIABLO4"];
+    } else if (lowerQ.includes("cod") || lowerQ.includes("warzone") || lowerQ.includes("ops")) {
+      targetFranchises = ["COD"];
+    } else if (lowerQ.includes("wow") || lowerQ.includes("warcraft")) {
+      targetFranchises = ["WOW"];
+    } else if (lowerQ.includes("diablo") || lowerQ.includes("sanctuary")) {
+      targetFranchises = ["DIABLO4"];
+    } else if (lowerQ.includes("overwatch") || lowerQ.includes("ow2")) {
+      targetFranchises = ["OVERWATCH2"];
+    } else if (lowerQ.includes("candy") || lowerQ.includes("crush") || lowerQ.includes("king")) {
+      targetFranchises = ["CANDYCRUSH"];
     } else if (selectedGame !== "ALL") {
       targetFranchises = [selectedGame];
     } else {
-      targetFranchises = ["FC26", "APEX"]; // Default cross-franchise pair
+      targetFranchises = ["COD", "DIABLO4"]; // Default cross-franchise pair
     }
 
     // 1. Live Vertex AI Gemini NL-to-GQL Translation
@@ -79,10 +79,10 @@ Active Game Filter: "${selectedGame}"
 Translate the request into a Spanner Property Graph GQL query.
 Output strict JSON:
 {
-  "gql_query": "GRAPH EAPlayerGraph MATCH (p:Player) WHERE ... RETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak LIMIT 150",
+  "gql_query": "GRAPH ABKPlayerGraph MATCH (p:Player) WHERE ... RETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak LIMIT 150",
   "explanation": "...",
   "dominant_archetype": "...",
-  "target_franchises": ["FC26", "APEX"]
+  "target_franchises": ["COD", "DIABLO4"]
 }
 `;
       const generatedText = await generateVertexContent(prompt, true);
@@ -98,7 +98,7 @@ Output strict JSON:
     }
 
     // 2. Deterministic Semantic Fallback
-    if (!generatedGql || !generatedGql.includes("GRAPH EAPlayerGraph")) {
+    if (!generatedGql || !generatedGql.includes("GRAPH ABKPlayerGraph")) {
       // Check for geographic tokens
       let geoFilter = "";
       if (lowerQ.includes("dallas")) geoFilter = "p.dma_market LIKE '%Dallas%'";
@@ -118,21 +118,21 @@ Output strict JSON:
 
       const geoClause = geoFilter ? `AND ${geoFilter}` : "";
 
-      if (targetFranchises.length === 2 && targetFranchises.includes("FC26") && targetFranchises.includes("APEX")) {
+      if (targetFranchises.length === 2 && targetFranchises.includes("COD") && (targetFranchises.includes("DIABLO4") || targetFranchises.includes("WOW"))) {
         const minSpendFilter = spendVal || 3500;
-        generatedGql = `GRAPH EAPlayerGraph\nMATCH (p:Player)\nWHERE (p.primary_franchise IN ('FC26', 'APEX') OR 'APEX' IN p.franchises_played)\nAND p.lifetime_spend_usd >= ${minSpendFilter} ${geoClause}\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
-        targetArchetype = "ULTIMATE_TEAM_WHALE";
-      } else if (lowerQ.includes("club") || lowerQ.includes("rush") || lowerQ.includes("5v5")) {
-        generatedGql = `GRAPH EAPlayerGraph\nMATCH (p:Player)\nWHERE p.primary_archetype = 'CASUAL_SOCIALIZER' ${geoClause}\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.country, p.dma_market\nLIMIT 120;`;
+        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)\nWHERE (p.primary_franchise IN ('COD', 'DIABLO4', 'WOW') OR 'DIABLO4' IN p.franchises_played)\nAND p.lifetime_spend_usd >= ${minSpendFilter} ${geoClause}\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
+        targetArchetype = "BLACKCELL_WHALE";
+      } else if (lowerQ.includes("clan") || lowerQ.includes("guild") || lowerQ.includes("squad")) {
+        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)\nWHERE p.primary_archetype = 'CASUAL_SOCIALIZER' ${geoClause}\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.country, p.dma_market\nLIMIT 120;`;
         targetArchetype = "CASUAL_SOCIALIZER";
       } else if (spendVal !== null) {
-        generatedGql = `GRAPH EAPlayerGraph\nMATCH (p:Player)\nWHERE p.lifetime_spend_usd >= ${spendVal} ${geoClause}\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
-        targetArchetype = "ULTIMATE_TEAM_WHALE";
+        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)\nWHERE p.lifetime_spend_usd >= ${spendVal} ${geoClause}\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
+        targetArchetype = "BLACKCELL_WHALE";
       } else if (geoFilter) {
-        generatedGql = `GRAPH EAPlayerGraph\nMATCH (p:Player)\nWHERE ${geoFilter}\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.country, p.dma_market\nLIMIT 150;`;
+        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)\nWHERE ${geoFilter}\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.country, p.dma_market\nLIMIT 150;`;
         targetArchetype = "CASUAL_SOCIALIZER";
       } else {
-        generatedGql = `GRAPH EAPlayerGraph\nMATCH (p:Player)\nWHERE (p.tilt_sensitivity >= 0.65 OR p.recent_loss_streak >= 2)\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.country, p.dma_market\nLIMIT 110;`;
+        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)\nWHERE (p.tilt_sensitivity >= 0.65 OR p.recent_loss_streak >= 2)\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.country, p.dma_market\nLIMIT 110;`;
         targetArchetype = "COMPETITIVE_GRINDER";
       }
     }
@@ -150,11 +150,11 @@ Output strict JSON:
 
     // 4. Add Relevant Game Hubs with Proper Spatial Anchors
     const hubColors: Record<string, string> = {
-      FC26: "#E6FF00",
-      APEX: "#00F0FF",
-      MADDEN25: "#00FF88",
-      BATTLEFIELD: "#FF7A00",
-      SIMS4: "#A855F7",
+      COD: "#F59E0B",
+      WOW: "#00F0FF",
+      DIABLO4: "#FF334B",
+      OVERWATCH2: "#38BDF8",
+      CANDYCRUSH: "#EC4899",
     };
 
     if (targetFranchises.length >= 2) {
@@ -209,46 +209,46 @@ Output strict JSON:
       });
     } else {
       // Single Title View (FC26 or other EA title)
-      const activeFranchise = targetFranchises[0] || "FC26";
+      const activeFranchise = targetFranchises[0] || "COD";
 
-      if (activeFranchise === "FC26") {
-        // Exact Layout from Golden Screenshot
+      if (activeFranchise === "COD") {
+        // Spatial Layout for Call of Duty Warzone & BO6
         nodes.push({
-          id: "game-fc26-ultimate-team",
-          name: "FC 26 Ultimate Team (FUT)",
+          id: "game-cod-warzone-resurgence",
+          name: "Warzone: Resurgence & Verdansk",
           type: "GAME",
-          franchise: "FC26",
+          franchise: "COD",
           val: 34,
-          color: "#E6FF00",
+          color: "#F59E0B",
           fx: -10,
           fy: -140,
         });
         nodes.push({
-          id: "game-fc26-clubs-rush",
-          name: "FC 26 Clubs & Online Seasons",
+          id: "game-cod-bo6-multiplayer",
+          name: "Black Ops 6 Ranked & CDL",
           type: "GAME",
-          franchise: "FC26",
+          franchise: "COD",
           val: 34,
-          color: "#E6FF00",
+          color: "#F59E0B",
           fx: -260,
           fy: 10,
         });
         nodes.push({
-          id: "game-fc26-career-mode",
-          name: "FC 26 Manager Career",
+          id: "game-cod-zombies",
+          name: "Round-Based Zombies",
           type: "GAME",
-          franchise: "FC26",
+          franchise: "COD",
           val: 34,
-          color: "#E6FF00",
+          color: "#F59E0B",
           fx: -10,
           fy: 160,
         });
         nodes.push({
-          id: "offer-fc26-ultimate-upgrade",
-          name: "FC 26 Ultimate Edition Upgrade DLC ($99.99)",
+          id: "offer-cod-blackcell-s1",
+          name: "Season 1 BlackCell Pass ($29.99)",
           type: "OFFER",
-          franchise: "FC26",
-          spend: 99.99,
+          franchise: "COD",
+          spend: 29.99,
           val: 32,
           color: "#FFB800",
           fx: 260,
@@ -257,10 +257,10 @@ Output strict JSON:
 
         // 5 Store Offers Around Outer Perimeter
         nodes.push({
-          id: "offer-fc26-points-500",
-          name: "500 FC Points Starter Pack ($4.99)",
+          id: "offer-cod-gulag-shield",
+          name: "Gulag Loss Recovery Shield ($4.99)",
           type: "OFFER",
-          franchise: "FC26",
+          franchise: "COD",
           spend: 4.99,
           val: 26,
           color: "#FF4757",
@@ -268,10 +268,10 @@ Output strict JSON:
           fy: -260,
         });
         nodes.push({
-          id: "offer-fc26-points-1050",
-          name: "1,050 FC Points Pack ($9.99)",
+          id: "offer-cod-points-1100",
+          name: "1,100 CoD Points Pack ($9.99)",
           type: "OFFER",
-          franchise: "FC26",
+          franchise: "COD",
           spend: 9.99,
           val: 26,
           color: "#EC4899",
@@ -279,32 +279,32 @@ Output strict JSON:
           fy: -260,
         });
         nodes.push({
-          id: "offer-fc26-points-2800",
-          name: "2,800 FC Points Pack ($24.99)",
+          id: "offer-cod-points-2400",
+          name: "Pro Pack + 2,400 CP ($19.99)",
           type: "OFFER",
-          franchise: "FC26",
-          spend: 24.99,
+          franchise: "COD",
+          spend: 19.99,
           val: 26,
           color: "#EC4899",
           fx: -380,
           fy: 0,
         });
         nodes.push({
-          id: "offer-fc26-points-5900",
-          name: "5,900 FC Points Pack ($49.99)",
+          id: "offer-cod-points-5000",
+          name: "5,000 (+800) CoD Points ($39.99)",
           type: "OFFER",
-          franchise: "FC26",
-          spend: 49.99,
+          franchise: "COD",
+          spend: 39.99,
           val: 28,
           color: "#A855F7",
           fx: -200,
           fy: 260,
         });
         nodes.push({
-          id: "offer-fc26-points-12000",
-          name: "12,000 FC Points Vault ($99.99)",
+          id: "offer-cod-points-13000",
+          name: "13,000 CoD Points Vault ($99.99)",
           type: "OFFER",
-          franchise: "FC26",
+          franchise: "COD",
           spend: 99.99,
           val: 32,
           color: "#FFB800",
@@ -363,7 +363,7 @@ Output strict JSON:
             id: creatorObj.creator_id,
             name: `${creatorObj.handle} (${creatorObj.subscribers})`,
             type: "CREATOR",
-            franchise: "FC26",
+            franchise: creatorObj.franchise || "COD",
             val: 38,
             color: creatorObj.color || "#00F0FF",
             creator_data: creatorObj,
@@ -400,7 +400,7 @@ Output strict JSON:
       const p = row.toJSON ? row.toJSON() : row;
       const pid = p.player_id || p[0];
       const dname = p.display_name || p[1] || pid;
-      const pFranchise = p.primary_franchise || p[2] || targetFranchises[0] || "FC26";
+      const pFranchise = p.primary_franchise || p[2] || targetFranchises[0] || "COD";
       const fPlayed: string[] = Array.isArray(p.franchises_played) ? p.franchises_played : (p[3] ? [p[3]] : [pFranchise]);
       const arch = p.primary_archetype || p[4] || targetArchetype || "COMPETITIVE_GRINDER";
       const spend = Number(p.lifetime_spend_usd ?? p[5] ?? 0);
@@ -431,7 +431,7 @@ Output strict JSON:
       // Give player a randomized distributed initial offset to prevent clustering
       const angle = (idx / sampleRows.length) * 2 * Math.PI;
       const dist = 75 + (idx % 4) * 30;
-      const centerOffsetX = pFranchise === "APEX" ? 180 : pFranchise === "FC26" ? 0 : -180;
+      const centerOffsetX = pFranchise === "DIABLO4" ? 180 : pFranchise === "COD" ? 0 : -180;
 
       nodes.push({
         id: pid,

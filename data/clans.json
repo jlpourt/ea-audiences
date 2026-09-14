@@ -1,562 +1,74 @@
 [
   {
-    "clan_id": "club-0001",
-    "clan_name": "TotalFootball FC",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 25,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0002",
-    "clan_name": "IconsXI Squad",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 18,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0003",
-    "clan_name": "Dynasty XI",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 27,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0004",
-    "clan_name": "SambaKings Division",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 26,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0005",
-    "clan_name": "Athletic Alliance",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 22,
-    "activity_level": "CASUAL"
-  },
-  {
-    "clan_id": "club-0006",
-    "clan_name": "IconsXI Kings",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 20,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0007",
-    "clan_name": "JogaBonito XI",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 11,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0008",
-    "clan_name": "SambaKings Syndicate",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 13,
-    "activity_level": "CASUAL"
-  },
-  {
-    "clan_id": "club-0009",
-    "clan_name": "TotalFootball Elite",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 18,
-    "activity_level": "MODERATE"
-  },
-  {
-    "clan_id": "club-0010",
-    "clan_name": "Galacticos Kings",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 21,
-    "activity_level": "CASUAL"
-  },
-  {
-    "clan_id": "club-0011",
-    "clan_name": "TikiTaka Warriors",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 26,
-    "activity_level": "MODERATE"
-  },
-  {
-    "clan_id": "club-0012",
-    "clan_name": "Dynasty Alliance",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 26,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0013",
-    "clan_name": "IconsXI Warriors",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 15,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0014",
-    "clan_name": "TotalFootball Pro",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 14,
-    "activity_level": "MODERATE"
-  },
-  {
-    "clan_id": "club-0015",
-    "clan_name": "JogaBonito Elite",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 13,
-    "activity_level": "MODERATE"
-  },
-  {
-    "clan_id": "club-0016",
-    "clan_name": "TikiTaka Brigade",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 19,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0017",
-    "clan_name": "JogaBonito Kings",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 19,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0018",
-    "clan_name": "Kopites Clubs",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 8,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0019",
-    "clan_name": "Kopites Pro",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 18,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0020",
-    "clan_name": "Dynasty Syndicate",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 11,
-    "activity_level": "CASUAL"
-  },
-  {
-    "clan_id": "club-0021",
-    "clan_name": "Gunners Kings",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 20,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0022",
-    "clan_name": "IconsXI Legion",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 24,
-    "activity_level": "CASUAL"
-  },
-  {
-    "clan_id": "club-0023",
-    "clan_name": "Dynasty Pro",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 18,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0024",
-    "clan_name": "Real Academy",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 22,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0025",
-    "clan_name": "TotalFootball Squad",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 24,
-    "activity_level": "CASUAL"
-  },
-  {
-    "clan_id": "club-0026",
-    "clan_name": "PrimeXI United",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 24,
-    "activity_level": "CASUAL"
-  },
-  {
-    "clan_id": "club-0027",
-    "clan_name": "Real Legion",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 16,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0028",
-    "clan_name": "TotalFootball Legion",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 28,
-    "activity_level": "MODERATE"
-  },
-  {
-    "clan_id": "club-0029",
-    "clan_name": "TotalFootball Warriors",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 21,
-    "activity_level": "CASUAL"
-  },
-  {
-    "clan_id": "club-0030",
-    "clan_name": "RedDevils Legion",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 21,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0031",
-    "clan_name": "Real Esports",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 15,
-    "activity_level": "MODERATE"
-  },
-  {
-    "clan_id": "club-0032",
-    "clan_name": "Real Alliance",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 15,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0033",
-    "clan_name": "Athletic FC",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 13,
-    "activity_level": "CASUAL"
-  },
-  {
-    "clan_id": "club-0034",
-    "clan_name": "RedDevils Esports",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 30,
-    "activity_level": "MODERATE"
-  },
-  {
-    "clan_id": "club-0035",
-    "clan_name": "IconsXI Clubs",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 23,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0036",
-    "clan_name": "TikiTaka Academy",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 16,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0037",
-    "clan_name": "ApexFC Academy",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 30,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0038",
-    "clan_name": "Vanguard XI",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 19,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0039",
-    "clan_name": "FutChamps Pro",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 22,
-    "activity_level": "MODERATE"
-  },
-  {
-    "clan_id": "club-0040",
-    "clan_name": "Bavaria Kings",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 15,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0041",
-    "clan_name": "TikiTaka Syndicate",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 16,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0042",
-    "clan_name": "Dynasty Division",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 28,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0043",
-    "clan_name": "IconsXI United",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 18,
-    "activity_level": "MODERATE"
-  },
-  {
-    "clan_id": "club-0044",
-    "clan_name": "TikiTaka Division",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 17,
-    "activity_level": "CASUAL"
-  },
-  {
-    "clan_id": "club-0045",
-    "clan_name": "SambaKings Squad",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 26,
-    "activity_level": "CASUAL"
-  },
-  {
-    "clan_id": "club-0046",
-    "clan_name": "IconsXI Academy",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 19,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0047",
-    "clan_name": "TotalFootball Esports",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 14,
-    "activity_level": "MODERATE"
-  },
-  {
-    "clan_id": "club-0048",
-    "clan_name": "Azzurri XI",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 35,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0049",
-    "clan_name": "TotalFootball Clubs",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 25,
-    "activity_level": "MODERATE"
-  },
-  {
-    "clan_id": "club-0050",
-    "clan_name": "TotalFootball Division",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 21,
-    "activity_level": "CASUAL"
-  },
-  {
-    "clan_id": "club-0051",
-    "clan_name": "ApexFC XI",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 30,
-    "activity_level": "CASUAL"
-  },
-  {
-    "clan_id": "club-0052",
-    "clan_name": "IconsXI United",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 24,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0053",
-    "clan_name": "Galacticos FC",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 17,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0054",
-    "clan_name": "JogaBonito XI",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 13,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0055",
-    "clan_name": "Gunners Clubs",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 20,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0056",
-    "clan_name": "Gunners Legion",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 16,
-    "activity_level": "CASUAL"
-  },
-  {
-    "clan_id": "club-0057",
-    "clan_name": "FutChamps XI",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 22,
-    "activity_level": "CASUAL"
-  },
-  {
-    "clan_id": "club-0058",
-    "clan_name": "ApexFC Alliance",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 16,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0059",
-    "clan_name": "Dynasty Clubs",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 17,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0060",
-    "clan_name": "Galacticos Academy",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 26,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0061",
-    "clan_name": "Galacticos United",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 23,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0062",
-    "clan_name": "PrimeXI United",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 15,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0063",
-    "clan_name": "Gunners Esports",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 13,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0064",
-    "clan_name": "Dynasty Clubs",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 16,
-    "activity_level": "CASUAL"
-  },
-  {
-    "clan_id": "club-0065",
-    "clan_name": "Dynasty Syndicate",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 17,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0066",
-    "clan_name": "Kopites Division",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 22,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0067",
-    "clan_name": "FutChamps Kings",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 20,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0068",
-    "clan_name": "RedDevils Kings",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 18,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0069",
-    "clan_name": "TikiTaka Alliance",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 21,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0070",
-    "clan_name": "Catalan United",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 29,
-    "activity_level": "MODERATE"
-  },
-  {
-    "clan_id": "club-0071",
-    "clan_name": "FutChamps Brigade",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 19,
-    "activity_level": "MODERATE"
-  },
-  {
-    "clan_id": "club-0072",
-    "clan_name": "PrimeXI FC",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 16,
-    "activity_level": "MODERATE"
-  },
-  {
-    "clan_id": "club-0073",
-    "clan_name": "TotalFootball Squad",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 20,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0074",
-    "clan_name": "Athletic Squad",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 27,
-    "activity_level": "HIGH"
-  },
-  {
-    "clan_id": "club-0075",
-    "clan_name": "Kopites Alliance",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 23,
-    "activity_level": "MODERATE"
-  },
-  {
-    "clan_id": "club-0076",
-    "clan_name": "Real Academy",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 24,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0077",
-    "clan_name": "TikiTaka XI",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 27,
-    "activity_level": "EXTREME"
-  },
-  {
-    "clan_id": "club-0078",
-    "clan_name": "RedDevils Syndicate",
-    "game_id": "game-fc26-ultimate-team",
-    "member_count": 20,
-    "activity_level": "MODERATE"
-  },
-  {
-    "clan_id": "club-0079",
-    "clan_name": "JogaBonito Kings",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 16,
-    "activity_level": "CASUAL"
-  },
-  {
-    "clan_id": "club-0080",
-    "clan_name": "Athletic FC",
-    "game_id": "game-fc26-clubs-rush",
-    "member_count": 22,
-    "activity_level": "HIGH"
+    "clan_id": "clan-optic",
+    "name": "OpTic Nation",
+    "franchise": "COD",
+    "region": "us-dfw",
+    "member_count": 8420,
+    "tier": "PRO_ESPORTS"
+  },
+  {
+    "clan_id": "clan-faze",
+    "name": "FaZe Clan",
+    "franchise": "COD",
+    "region": "us-lax",
+    "member_count": 9250,
+    "tier": "PRO_ESPORTS"
+  },
+  {
+    "clan_id": "clan-taskforce",
+    "name": "Task Force 141 Milsim",
+    "franchise": "COD",
+    "region": "uk-lon",
+    "member_count": 3120,
+    "tier": "COMMUNITY_WARRIORS"
+  },
+  {
+    "clan_id": "clan-echo",
+    "name": "Echo Esports",
+    "franchise": "WOW",
+    "region": "de-ber",
+    "member_count": 1450,
+    "tier": "WORLD_FIRST_MYTHIC"
+  },
+  {
+    "clan_id": "clan-liquid",
+    "name": "Team Liquid Guild",
+    "franchise": "WOW",
+    "region": "us-nyc",
+    "member_count": 1820,
+    "tier": "WORLD_FIRST_MYTHIC"
+  },
+  {
+    "clan_id": "clan-method",
+    "name": "Method Gaming",
+    "franchise": "WOW",
+    "region": "uk-lon",
+    "member_count": 2100,
+    "tier": "HALL_OF_FAME"
+  },
+  {
+    "clan_id": "clan-sanctuary",
+    "name": "Infernal Lords of Sanctuary",
+    "franchise": "DIABLO4",
+    "region": "us-chi",
+    "member_count": 4200,
+    "tier": "HARDCORE_COVEN"
+  },
+  {
+    "clan_id": "clan-dallasfuel",
+    "name": "Dallas Fuel Supporters",
+    "franchise": "OVERWATCH2",
+    "region": "us-dfw",
+    "member_count": 3600,
+    "tier": "OWL_SUPPORTERS"
+  },
+  {
+    "clan_id": "clan-kingcrushers",
+    "name": "King Royal Crushers Club",
+    "franchise": "CANDYCRUSH",
+    "region": "uk-lon",
+    "member_count": 12800,
+    "tier": "GLOBAL_CASUAL"
   }
 ]

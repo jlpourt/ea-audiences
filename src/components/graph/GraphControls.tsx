@@ -18,53 +18,54 @@ interface GraphControlsProps {
 
 const GAME_OPTIONS: { id: GameFranchise; label: string; icon: string }[] = [
   { id: "ALL", label: "All Franchises", icon: "🌐" },
-  { id: "FC26", label: "EA SPORTS FC 26", icon: "⚽" },
-  { id: "APEX", label: "Apex Legends", icon: "🎯" },
-  { id: "MADDEN25", label: "Madden NFL 25", icon: "🏈" },
-  { id: "BATTLEFIELD", label: "Battlefield 2042", icon: "🪖" },
-  { id: "SIMS4", label: "The Sims 4", icon: "🏠" },
+  { id: "COD", label: "Call of Duty", icon: "🎯" },
+  { id: "WOW", label: "World of Warcraft", icon: "⚔️" },
+  { id: "DIABLO4", label: "Diablo IV", icon: "🔥" },
+  { id: "OVERWATCH2", label: "Overwatch 2", icon: "🛡️" },
+  { id: "CANDYCRUSH", label: "Candy Crush Saga", icon: "🍬" },
 ];
 
 const COHORT_FILTERS_BY_GAME: Record<GameFranchise, { value: string; label: string }[]> = {
   ALL: [
     { value: "ALL", label: "All Players (Macro Galaxy)" },
-    { value: "ULTIMATE_TEAM_WHALE", label: "Cross-Title Whales ($3,500+ spend)" },
+    { value: "BLACKCELL_WHALE", label: "Cross-Title Whales ($3,500+ spend)" },
     { value: "COMPETITIVE_GRINDER", label: "Competitive Sweat Grinders" },
     { value: "CASUAL_SOCIALIZER", label: "Social Squad Warriors" },
-    { value: "LORE_SEEKER", label: "Single-Player & Franchise Purists" },
+    { value: "LORE_SEEKER", label: "Campaign & Franchise Purists" },
   ],
-  FC26: [
-    { value: "ALL", label: "All FC 26 Cohorts" },
-    { value: "COMPETITIVE_GRINDER", label: "FUT Champions Grinders" },
-    { value: "ULTIMATE_TEAM_WHALE", label: "Ultimate Team Whales" },
-    { value: "CASUAL_SOCIALIZER", label: "Pro Clubs & Rush 5v5" },
-    { value: "LORE_SEEKER", label: "Manager Career Purists" },
+  COD: [
+    { value: "ALL", label: "All Call of Duty Cohorts" },
+    { value: "COMPETITIVE_GRINDER", label: "Warzone Resurgence Sweats" },
+    { value: "BLACKCELL_WHALE", label: "BlackCell Pass Whales" },
+    { value: "CASUAL_SOCIALIZER", label: "Co-op & Social Squads" },
+    { value: "LORE_SEEKER", label: "Campaign Purists" },
   ],
-  APEX: [
-    { value: "ALL", label: "All Apex Legends Cohorts" },
-    { value: "RANKED_SWEAT", label: "Ranked Predator Sweats" },
-    { value: "HEIRLOOM_WHALE", label: "Heirloom Shards Whales ($500+)" },
-    { value: "CASUAL_SOCIALIZER", label: "Trios Social Squads" },
-    { value: "CASUAL_WARRIOR", label: "Mixtape Pub Stompers" },
+  WOW: [
+    { value: "ALL", label: "All World of Warcraft Cohorts" },
+    { value: "MYTHIC_RAIDER", label: "Mythic+ & Guild Raiders" },
+    { value: "BLACKCELL_WHALE", label: "Mount & Pet Whales ($1k+)" },
+    { value: "CASUAL_SOCIALIZER", label: "Casual Guild Socializers" },
+    { value: "LORE_SEEKER", label: "Lore & Quest Purists" },
   ],
-  MADDEN25: [
-    { value: "ALL", label: "All Madden NFL Cohorts" },
-    { value: "COMPETITIVE_GRINDER", label: "MUT Champions & WL Sweats" },
-    { value: "MUT_WHALE", label: "Madden Ultimate Team Whales" },
-    { value: "CASUAL_SOCIALIZER", label: "Superstar Showdown 3v3" },
-    { value: "LORE_SEEKER", label: "Connected Franchise Gaffers" },
+  DIABLO4: [
+    { value: "ALL", label: "All Diablo IV Cohorts" },
+    { value: "SANCTUARY_COLLECTOR", label: "The Pit & Infernal Grinders" },
+    { value: "BLACKCELL_WHALE", label: "Sanctuary Deluxe Whales" },
+    { value: "CASUAL_SOCIALIZER", label: "World Boss & Legion Stacks" },
+    { value: "LORE_SEEKER", label: "Campaign & Sanctuary Purists" },
   ],
-  BATTLEFIELD: [
-    { value: "ALL", label: "All Battlefield Cohorts" },
-    { value: "CONQUEST_LEADER", label: "Conquest Squad Leaders" },
-    { value: "CASUAL_SOCIALIZER", label: "Breakthrough Co-op Squads" },
-    { value: "LORE_SEEKER", label: "Hardcore Mil-Sim Purists" },
+  OVERWATCH2: [
+    { value: "ALL", label: "All Overwatch 2 Cohorts" },
+    { value: "COMPETITIVE_GRINDER", label: "Competitive Grandmasters" },
+    { value: "BLACKCELL_WHALE", label: "Mythic Skin Prism Whales" },
+    { value: "CASUAL_SOCIALIZER", label: "5v5 Role Queue Stacks" },
+    { value: "CASUAL_WARRIOR", label: "Stadium & Arcade Stompers" },
   ],
-  SIMS4: [
-    { value: "ALL", label: "All The Sims 4 Cohorts" },
-    { value: "SIMS_COLLECTOR", label: "DLC Pack Whales (12+ Packs)" },
-    { value: "BUILDER_CREATOR", label: "Architectural & CC Builders" },
-    { value: "LORE_SEEKER", label: "Legacy Generations Storycrafters" },
+  CANDYCRUSH: [
+    { value: "ALL", label: "All Candy Crush Cohorts" },
+    { value: "BOOSTER_WHALE", label: "Booster Whales ($1,200+)" },
+    { value: "CASUAL_SOCIALIZER", label: "Casual Commuters (Daily)" },
+    { value: "COMPETITIVE_GRINDER", label: "Level 1,000+ Grinders" },
   ],
 };
 

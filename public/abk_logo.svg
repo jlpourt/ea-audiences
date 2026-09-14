@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 120" fill="none">
+  <defs>
+    <linearGradient id="abkGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <linearGradient id="blizzCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="50%" stop-color="#00A3FF"/>
+      <stop offset="100%" stop-color="#0284C7"/>
+    </linearGradient>
+    <linearGradient id="kingPink" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F472B6"/>
+      <stop offset="50%" stop-color="#EC4899"/>
+      <stop offset="100%" stop-color="#DB2777"/>
+    </linearGradient>
+    <filter id="subtleGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- ABK Hex Emblem -->
+  <g transform="translate(15, 20)">
+    <!-- Outer Hex Shield -->
+    <polygon points="40,5 72,23 72,60 40,78 8,60 8,23" fill="url(#blizzCyan)" fill-opacity="0.12" stroke="url(#blizzCyan)" stroke-width="2.5"/>
+    <polygon points="40,12 66,27 66,57 40,71 14,57 14,27" fill="#0D1117" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+    
+    <!-- Central Battle.net Swirl Nodes -->
+    <circle cx="40" cy="42" r="5" fill="#FFFFFF" filter="url(#subtleGlow)"/>
+    <circle cx="28" cy="30" r="3.5" fill="url(#blizzCyan)"/>
+    <circle cx="52" cy="30" r="3.5" fill="url(#abkGold)"/>
+    <circle cx="28" cy="54" r="3.5" fill="url(#kingPink)"/>
+    <circle cx="52" cy="54" r="3.5" fill="url(#blizzCyan)"/>
+    
+    <path d="M28,30 Q40,36 40,42 M52,30 Q40,36 40,42 M28,54 Q40,48 40,42 M52,54 Q40,48 40,42" stroke="url(#blizzCyan)" stroke-width="2" stroke-linecap="round" fill="none"/>
+  </g>
+
+  <!-- Brand Typography Lockup -->
+  <!-- ACTIVISION -->
+  <text x="110" y="58" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Rajdhani', Inter, sans-serif" font-weight="900" font-size="28" fill="#FFFFFF" letter-spacing="4">ACTIVISION</text>
+  
+  <!-- Divider 1 -->
+  <path d="M305 32 L300 74" stroke="rgba(255,255,255,0.25)" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- BLIZZARD -->
+  <text x="320" y="58" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Rajdhani', Inter, sans-serif" font-weight="800" font-style="italic" font-size="27" fill="url(#blizzCyan)" letter-spacing="3">BLIZZARD</text>
+
+  <!-- Divider 2 -->
+  <path d="M495 32 L490 74" stroke="rgba(255,255,255,0.25)" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- KING -->
+  <g transform="translate(508, 30)">
+    <!-- Tiny King Crown above text -->
+    <path d="M12,5 L18,12 L26,4 L34,12 L40,5 L38,15 L14,15 Z" fill="url(#abkGold)"/>
+    <circle cx="12" cy="4" r="1.5" fill="#FFF"/>
+    <circle cx="26" cy="3" r="1.5" fill="#FFF"/>
+    <circle cx="40" cy="4" r="1.5" fill="#FFF"/>
+    <text x="4" y="32" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Rounded', 'SF Pro Display', Inter, sans-serif" font-weight="900" font-size="26" fill="url(#kingPink)" letter-spacing="2">KING</text>
+  </g>
+
+  <!-- Subtitle Tagline -->
+  <text x="112" y="82" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, sans-serif" font-weight="600" font-size="10.5" fill="#9CA3AF" letter-spacing="2.5">UNIFIED ENTERPRISE INTELLIGENCE COMMAND</text>
+</svg>

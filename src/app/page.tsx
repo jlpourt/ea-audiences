@@ -138,16 +138,16 @@ export default function CommandCenterPage() {
 
     const activeFranchise =
       selectedGame === "ALL"
-        ? (cohortContext?.franchise && cohortContext.franchise !== "ALL" ? cohortContext.franchise : "EA Live Service")
-        : selectedGame === "FC26"
-        ? "EA SPORTS FC 26"
-        : selectedGame === "APEX"
-        ? "Apex Legends"
-        : selectedGame === "MADDEN25"
-        ? "Madden NFL 25"
-        : selectedGame === "BATTLEFIELD"
-        ? "Battlefield 2042"
-        : "The Sims 4";
+        ? (cohortContext?.franchise && cohortContext.franchise !== "ALL" ? cohortContext.franchise : "Activision Blizzard King")
+        : selectedGame === "COD"
+        ? "Call of Duty: Warzone"
+        : selectedGame === "WOW"
+        ? "World of Warcraft"
+        : selectedGame === "DIABLO4"
+        ? "Diablo IV"
+        : selectedGame === "OVERWATCH2"
+        ? "Overwatch 2"
+        : "Candy Crush Saga";
 
     let targetTitle = "Contextual Marketing & Retention Intervention";
     let spend = 120000;
@@ -155,28 +155,28 @@ export default function CommandCenterPage() {
       targetTitle = `${cohortContext.query} — Real-Time Intervention`;
     } else if (target) {
       targetTitle = `${target.name} • ${target.archetype || "Player"} Direct Contextual Offer`;
-    } else if (selectedGame === "APEX") {
-      targetTitle = "Apex Legends Battle Pass Ultimate+ & 1,000 Coins Starter ($4.99 - $19.99)";
-      spend = 180000;
-    } else if (selectedGame === "MADDEN25") {
-      targetTitle = "Madden NFL 25 MUT Field Pass & 500 Points Starter ($4.99 - $9.99)";
-      spend = 150000;
-    } else if (selectedGame === "SIMS4") {
-      targetTitle = "The Sims 4: Lovestruck & Riviera Creator Kits ($4.99 - $39.99)";
+    } else if (selectedGame === "COD") {
+      targetTitle = "Call of Duty: Warzone BlackCell Battle Pass & 1,100 CP Starter ($9.99 - $29.99)";
+      spend = 220000;
+    } else if (selectedGame === "WOW") {
+      targetTitle = "World of Warcraft 6-Month Subscription Bundle & Mount Voucher ($14.99 - $77.94)";
+      spend = 190000;
+    } else if (selectedGame === "DIABLO4") {
+      targetTitle = "Diablo IV: Vessel of Hatred Deluxe & Infernal Relic Cache ($19.99 - $59.99)";
+      spend = 160000;
+    } else if (selectedGame === "OVERWATCH2") {
+      targetTitle = "Overwatch 2 Mythic Skin Prism Bundle & 2,200 Coins ($9.99 - $39.99)";
       spend = 140000;
-    } else if (selectedGame === "BATTLEFIELD") {
-      targetTitle = "Battlefield 2042 Elite Edition Upgrade & 500 BFC Starter ($4.99 - $39.99)";
-      spend = 110000;
     } else {
-      targetTitle = "EA SPORTS FC 26 Ultimate Edition & 500 FC Points Starter ($4.99 - $99.99)";
-      spend = 120000;
+      targetTitle = "Candy Crush Saga Infinite Lives & 50 Gold Bars Bundle ($4.99 - $19.99)";
+      spend = 110000;
     }
 
     setPreloadedCreativeTitle(targetTitle);
     setPreloadedFranchise(activeFranchise);
 
     const playerNodes = graphData.nodes.filter(
-      (n) => n.type === "PLAYER" && (selectedGame === "ALL" || n.franchise === selectedGame || (n.franchise || "").includes(selectedGame === "FC26" ? "FC" : selectedGame))
+      (n) => n.type === "PLAYER" && (selectedGame === "ALL" || n.franchise === selectedGame || (n.franchise || "").includes(selectedGame === "COD" ? "COD" : selectedGame))
     );
     let sampledPlayers: any[] = [];
     if (playerNodes.length > 0) {
@@ -202,7 +202,7 @@ export default function CommandCenterPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          campaign_id: `camp-ea-${Date.now()}`,
+          campaign_id: `camp-abk-${Date.now()}`,
           franchise: activeFranchise,
           creative_title: targetTitle,
           proposed_spend: spend,
@@ -261,7 +261,7 @@ export default function CommandCenterPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          franchise: result.franchise || (selectedGame === "ALL" ? "EA SPORTS FC 26" : selectedGame),
+          franchise: result.franchise || (selectedGame === "ALL" ? "Call of Duty: Warzone" : selectedGame),
           segment: result.target_cohort_query || (cohortContext?.query ? cohortContext.query : "Segmented Audience Cohort"),
           creative_title: result.creative_title,
           predicted_conversion_lift: result.predicted_conversion_lift,
@@ -325,9 +325,9 @@ export default function CommandCenterPage() {
             title="Return to Start Page"
           >
             <img
-              src="/ea_logo.webp"
-              alt="Electronic Arts"
-              className="h-5 sm:h-5.5 w-auto object-contain brightness-110"
+              src="/abk_logo.svg"
+              alt="Activision Blizzard King"
+              className="h-6 sm:h-7 w-auto object-contain brightness-110"
             />
           </div>
 

@@ -31,7 +31,7 @@ const REGIONS: GeoRegion[] = [
     coordinates: [-74.006, 40.7128],
     addressablePlayers: 184000,
     avgSpendUsd: 480,
-    dominantArchetype: "ULTIMATE_TEAM_WHALE",
+    dominantArchetype: "BLACKCELL_WHALE",
     whaleCount: 1420,
     serverPingMs: 9,
     activeLossStreakPlayers: 340,
@@ -45,7 +45,7 @@ const REGIONS: GeoRegion[] = [
     coordinates: [-118.2437, 34.0522],
     addressablePlayers: 215000,
     avgSpendUsd: 520,
-    dominantArchetype: "ULTIMATE_TEAM_WHALE",
+    dominantArchetype: "BLACKCELL_WHALE",
     whaleCount: 1890,
     serverPingMs: 11,
     activeLossStreakPlayers: 410,
@@ -87,7 +87,7 @@ const REGIONS: GeoRegion[] = [
     coordinates: [-0.1278, 51.5074],
     addressablePlayers: 320000,
     avgSpendUsd: 640,
-    dominantArchetype: "ULTIMATE_TEAM_WHALE",
+    dominantArchetype: "BLACKCELL_WHALE",
     whaleCount: 3450,
     serverPingMs: 7,
     activeLossStreakPlayers: 890,
@@ -115,7 +115,7 @@ const REGIONS: GeoRegion[] = [
     coordinates: [2.3522, 48.8566],
     addressablePlayers: 240000,
     avgSpendUsd: 490,
-    dominantArchetype: "ULTIMATE_TEAM_WHALE",
+    dominantArchetype: "BLACKCELL_WHALE",
     whaleCount: 2100,
     serverPingMs: 8,
     activeLossStreakPlayers: 540,
@@ -404,7 +404,7 @@ export default function GeoAudienceMap({
               <span className="text-base font-semibold text-white font-mono mt-0.5 block">
                 {selectedRegion.addressablePlayers.toLocaleString()}
               </span>
-              <span className="text-[10px] text-gray-500 block mt-0.5">active FC 26 players</span>
+              <span className="text-[10px] text-gray-500 block mt-0.5">active ABK players</span>
             </div>
 
             <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
@@ -424,7 +424,7 @@ export default function GeoAudienceMap({
             </div>
 
             <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-              <span className="text-[10px] text-gray-500 uppercase block">Weekend League Ping</span>
+              <span className="text-[10px] text-gray-500 uppercase block">Battle.net Match Ping</span>
               <span className="text-base font-semibold text-cyan-400 font-mono mt-0.5 block">
                 {selectedRegion.serverPingMs} ms
               </span>
@@ -439,10 +439,10 @@ export default function GeoAudienceMap({
               <span>Live Situational Trigger in DMA</span>
             </div>
             <p className="text-[11px] text-gray-300 leading-relaxed font-normal">
-              <strong>{selectedRegion.activeLossStreakPlayers} players</strong> in {selectedRegion.name} are currently on a 3+ loss streak in FUT Champions Weekend League.
+              <strong>{selectedRegion.activeLossStreakPlayers} players</strong> in {selectedRegion.name} are currently on a 3+ loss streak in competitive queues.
             </p>
             <div className="text-[10px] text-emerald-400 font-medium pt-1">
-              ✓ Recommended: Deliver $4.99 Loss Shield & Loan Icon
+              ✓ Recommended: Deliver $9.99 BlackCell Pass & Loss Shield
             </div>
           </div>
         </div>

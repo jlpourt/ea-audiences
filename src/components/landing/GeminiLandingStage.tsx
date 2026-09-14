@@ -39,43 +39,43 @@ interface GeminiLandingStageProps {
 
 const FRANCHISES: { id: GameFranchise; label: string; dotColor: string }[] = [
   { id: "ALL", label: "All Titles", dotColor: "#00F0FF" },
-  { id: "FC26", label: "FC 26", dotColor: "#E6FF00" },
-  { id: "APEX", label: "Apex Legends", dotColor: "#00F0FF" },
-  { id: "MADDEN25", label: "Madden NFL", dotColor: "#00FF88" },
-  { id: "BATTLEFIELD", label: "Battlefield", dotColor: "#FF7A00" },
-  { id: "SIMS4", label: "The Sims 4", dotColor: "#A855F7" },
+  { id: "COD", label: "Call of Duty", dotColor: "#F59E0B" },
+  { id: "WOW", label: "World of Warcraft", dotColor: "#00F0FF" },
+  { id: "DIABLO4", label: "Diablo IV", dotColor: "#FF334B" },
+  { id: "OVERWATCH2", label: "Overwatch 2", dotColor: "#38BDF8" },
+  { id: "CANDYCRUSH", label: "Candy Crush", dotColor: "#EC4899" },
 ];
 
 const AURA_THEMES: Record<GameFranchise, { primary: string; secondary: string; pulse: string }> = {
   ALL: {
-    primary: "rgba(0, 240, 255, 0.14)",     // Cyan
-    secondary: "rgba(16, 185, 129, 0.12)",   // Emerald
-    pulse: "rgba(168, 85, 247, 0.10)",      // Purple
+    primary: "rgba(0, 240, 255, 0.14)",     // Arcane Cyan
+    secondary: "rgba(245, 158, 11, 0.12)",  // Amber Gold
+    pulse: "rgba(236, 72, 153, 0.10)",      // Candy Pink
   },
-  FC26: {
-    primary: "rgba(230, 255, 0, 0.16)",     // Volt Neon
-    secondary: "rgba(16, 185, 129, 0.14)",  // Pitch Green
-    pulse: "rgba(0, 240, 255, 0.08)",       // Cyan accent
+  COD: {
+    primary: "rgba(245, 158, 11, 0.18)",    // Tactical Amber / Gold
+    secondary: "rgba(16, 185, 129, 0.12)",  // Night-Vision Emerald
+    pulse: "rgba(239, 68, 68, 0.10)",       // Warzone Red Alert
   },
-  APEX: {
-    primary: "rgba(0, 240, 255, 0.18)",     // Electric Cyan
-    secondary: "rgba(139, 92, 246, 0.14)",  // Phase Void Violet
-    pulse: "rgba(255, 71, 87, 0.10)",       // Red Pred accent
+  WOW: {
+    primary: "rgba(0, 240, 255, 0.18)",     // Arcane Cyan / Azeroth Sky
+    secondary: "rgba(168, 85, 247, 0.14)",  // Void Purple
+    pulse: "rgba(234, 179, 8, 0.10)",       // Legendary Gold
   },
-  MADDEN25: {
-    primary: "rgba(0, 255, 136, 0.16)",     // Turf Emerald
-    secondary: "rgba(255, 184, 0, 0.14)",   // Trophy Gold
-    pulse: "rgba(0, 240, 255, 0.08)",       // Cyan accent
+  DIABLO4: {
+    primary: "rgba(255, 51, 75, 0.18)",     // Crimson Blood
+    secondary: "rgba(245, 158, 11, 0.12)",  // Hellfire Amber
+    pulse: "rgba(147, 51, 234, 0.10)",      // Occult Violet
   },
-  BATTLEFIELD: {
-    primary: "rgba(255, 122, 0, 0.16)",     // Tactical Orange
-    secondary: "rgba(0, 240, 255, 0.12)",   // HUD Cyan
-    pulse: "rgba(255, 71, 87, 0.10)",       // Crimson accent
+  OVERWATCH2: {
+    primary: "rgba(56, 189, 248, 0.18)",    // Vanguard Sky Blue
+    secondary: "rgba(249, 115, 22, 0.14)",  // Overwatch Orange
+    pulse: "rgba(0, 240, 255, 0.10)",       // Tracer Cyan
   },
-  SIMS4: {
-    primary: "rgba(16, 185, 129, 0.18)",    // Plumbob Green
-    secondary: "rgba(236, 72, 153, 0.14)",  // Whimsical Pink
-    pulse: "rgba(168, 85, 247, 0.12)",      // Magic Purple
+  CANDYCRUSH: {
+    primary: "rgba(236, 72, 153, 0.18)",    // King Bubblegum Pink
+    secondary: "rgba(245, 158, 11, 0.14)",  // Gold Bar Amber
+    pulse: "rgba(168, 85, 247, 0.12)",      // Jelly Purple
   },
 };
 
@@ -119,41 +119,41 @@ const MASTER_PILLARS: MasterFunctionPillar[] = [
     iconColor: "text-cyan-400",
     bgAccent: "bg-cyan-500/10",
     coreFinding: {
-      title: "High-Frustration Drop-Off in Competitive Queues",
-      metricPill: "78.4% Churn Risk",
+      title: "Gulag Defeat & Loss Streaks Surge 14-Day Churn",
+      metricPill: "74.6% Churn Risk",
       pillColor: "bg-rose-500/15 text-rose-300 border-rose-500/30",
       base: "5,000 Master Players • Spanner Property Graph (Live)",
-      summary: "Players on 3+ consecutive Weekend League losses exhibit an 8.2x surge in 14-day churn risk. 68% of drop-offs happen within 120 minutes of defeat without an in-game recovery bridge.",
+      summary: "Warzone Resurgence players on 3+ consecutive Gulag eliminations exhibit a 7.8x surge in 14-day churn risk. 71% of drop-offs happen within 90 minutes without an in-game recovery bridge.",
       caveats: [
-        "Telemetry window: 90-day real-time Spanner property graph session streams (FC 26 FUT Champs & Apex Ranked).",
-        "Lapse velocity: Churn probability doubles after match defeat #3 compared to match defeat #2.",
-        "Monetization elasticity: Willingness-to-pay for $4.99 recovery shields peaks within 15 minutes of session end.",
+        "Telemetry window: 90-day real-time Spanner property graph session streams (Warzone Resurgence & BO6 Ranked).",
+        "Lapse velocity: Churn probability doubles after Gulag defeat #3 compared to defeat #2.",
+        "Monetization elasticity: Willingness-to-pay for $9.99 BlackCell starter bundles peaks within 15 minutes of session end.",
       ],
       actionLabel: "Load High-Tilt Cohort in Spanner Graph",
-      queryToRun: "FUT Champions players with 3+ loss streaks & high tilt in London Metro",
-      franchise: "FC26",
+      queryToRun: "Warzone Resurgence players with 3+ Gulag losses & high tilt in Los Angeles",
+      franchise: "COD",
     },
     prompts: [
       {
-        title: "FUT Champs High-Tilt in London",
-        query: "FUT Champions players with 3+ loss streaks & high tilt in London Metro",
-        franchise: "FC26",
-        tag: "FC 26",
+        title: "Warzone Resurgence High-Tilt",
+        query: "Warzone Resurgence players with 3+ Gulag losses & high tilt in Los Angeles",
+        franchise: "COD",
+        tag: "Warzone",
         highlight: "3+ Losses",
       },
       {
-        title: "NickRTFM & Castro Audiences",
-        query: "FUT Champions players following NickRTFM and Castro1021 with spend over $1,000",
-        franchise: "FC26",
-        tag: "FC Creators",
-        highlight: "Nick & Castro",
+        title: "Scump & TimTheTatman Fans",
+        query: "Competitive Warzone players following Scump and TimTheTatman with spend over $1,000",
+        franchise: "COD",
+        tag: "COD Creators",
+        highlight: "Scump & Tim",
       },
       {
-        title: "Active Clubs Rush 5v5 Squads",
-        query: "Social Squad Warriors active in Clubs Rush 5v5 and Apex Trios",
-        franchise: "FC26",
-        tag: "FC 26",
-        highlight: "Social Squads",
+        title: "Mythic+ Raid Guild Squads",
+        query: "Hardcore WoW Mythic+ dungeon runners active in 20-player guild raids",
+        franchise: "WOW",
+        tag: "World of Warcraft",
+        highlight: "Mythic+ Raids",
       },
     ],
   },
@@ -162,44 +162,44 @@ const MASTER_PILLARS: MasterFunctionPillar[] = [
     label: "02. Creative Insights",
     shortLabel: "Creative",
     badge: "Google Veo & Imagen 3",
-    description: "Generate personalized 4K posters and 5-second cinematic Veo videos",
+    description: "Generate personalized 4K operator cards and 5-second cinematic Veo killcams",
     icon: Sparkles,
     iconColor: "text-amber-400",
     bgAccent: "bg-amber-500/10",
     coreFinding: {
-      title: "Personalized Club Kits Drive Video Engagement",
-      metricPill: "+41.2% CTR Lift",
+      title: "Custom Weapon Blueprints Drive Video Engagement",
+      metricPill: "+43.8% CTR Lift",
       pillColor: "bg-amber-500/15 text-amber-300 border-amber-500/30",
       base: "Google Veo & Imagen 3 Multi-Modal Pipeline",
-      summary: "Personalized 5-second Google Veo stadium recovery videos featuring the player's favorite club kit and gamer tag drove a +41.2% CTR over generic static store banners.",
+      summary: "Personalized 5-second Google Veo cinematic killcam replay videos featuring the player's favorite weapon camo and BattleTag drove a +43.8% CTR over generic static Battle.net banners.",
       caveats: [
-        "Asset Generation: Vertex AI Gemini 3.7 Pro selects gamer tag + favorite club from Spanner telemetry.",
-        "Render Latency: Google Veo video generation completes in sub-8 seconds for companion app delivery.",
-        "Fatigue Rate: Personalized dynamic video creative retains effectiveness 3.2x longer than static assets.",
+        "Asset Generation: Vertex AI Gemini 2.5 Pro selects BattleTag + weapon blueprint telemetry from Spanner.",
+        "Render Latency: Google Veo video generation completes in sub-8 seconds for Battle.net companion app delivery.",
+        "Fatigue Rate: Dynamic weapon showcase video creative retains effectiveness 3.4x longer than static key art.",
       ],
-      actionLabel: "Inspect AI Video Hooks for FC 26",
-      queryToRun: "Extract 5 high-tilt FC 26 players for personalized Veo stadium video generation",
-      franchise: "FC26",
+      actionLabel: "Inspect AI Video Hooks for Warzone",
+      queryToRun: "Extract 5 high-tilt Call of Duty players for personalized Veo killcam generation",
+      franchise: "COD",
     },
     prompts: [
       {
-        title: "Personalized Veo Stadium Video",
-        query: "Extract 5 high-tilt FC 26 players for personalized Veo stadium video generation",
-        franchise: "FC26",
+        title: "Personalized Veo Killcam Video",
+        query: "Extract 5 high-tilt Call of Duty players for personalized Veo killcam generation",
+        franchise: "COD",
         tag: "Google Veo",
         highlight: "5s Video Hook",
       },
       {
-        title: "4K Imagen Match Posters",
-        query: "Generate 4K Imagen match posters with player gamer tags in Bayern Munich kit",
-        franchise: "FC26",
+        title: "4K Imagen Master Operator Posters",
+        query: "Generate 4K Imagen operator posters with player BattleTags and Mastery Camo",
+        franchise: "COD",
         tag: "Imagen 3",
         highlight: "4K Render",
       },
       {
-        title: "Dynamic Ad Variant Testing",
-        query: "Generate personalized recovery copy hooks for tilted Division 1 competitors",
-        franchise: "FC26",
+        title: "Diablo IV Infernal Relic Ad Variants",
+        query: "Generate personalized dark fantasy recovery copy hooks for Pit tier 80+ grinders",
+        franchise: "DIABLO4",
         tag: "Creative Studio",
         highlight: "Copy Generator",
       },
@@ -215,39 +215,39 @@ const MASTER_PILLARS: MasterFunctionPillar[] = [
     iconColor: "text-emerald-400",
     bgAccent: "bg-emerald-500/10",
     coreFinding: {
-      title: "Post-Match Defeat Shields Prevent Churn",
-      metricPill: "+28.5% Net Revenue Lift",
+      title: "BlackCell Battle Pass Recovery Shields Prevent Churn",
+      metricPill: "+31.2% Net Revenue Lift",
       pillColor: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
       base: "DeepSona 6-Agent Multi-Agent Simulation Engine",
-      summary: "Multi-agent debate across 1,000 synthetic player personas predicts a +28.5% conversion lift and 34.2% churn reduction when offering a $4.99 recovery pack immediately post-defeat.",
+      summary: "Multi-agent debate across 1,000 synthetic player personas predicts a +31.2% conversion lift and 36.8% churn reduction when offering a $9.99 BlackCell starter bundle immediately post-defeat streak.",
       caveats: [
         "Simulation Fidelity: Grounded in real Spanner historical purchase behaviors and loss sensitivity.",
-        "Price Elasticity: Conversion rate drops 48% when price is increased from $4.99 to $9.99.",
-        "Cohort Consensus: 84% synthetic agent consensus achieved across Grinder, Whale, and Social personas.",
+        "Price Elasticity: Conversion drops 42% when priced above $14.99; bundling CP coins doubles conversion elasticity.",
+        "Cohort Consensus: 87% synthetic agent consensus achieved across Warzone Sweats, WoW Guild Masters, and Casual Whales.",
       ],
       actionLabel: "Launch DeepSona Focus Group Simulation",
-      queryToRun: "Simulate +28.5% sales lift for $4.99 post-match starter pack in DeepSona",
-      franchise: "FC26",
+      queryToRun: "Simulate +31.2% sales lift for $9.99 BlackCell post-defeat starter bundle in DeepSona",
+      franchise: "COD",
     },
     prompts: [
       {
-        title: "Defeat Shield +28.5% Lift",
-        query: "Simulate +28.5% sales lift for $4.99 post-match starter pack in DeepSona",
-        franchise: "FC26",
+        title: "BlackCell Shield +31.2% Lift",
+        query: "Simulate +31.2% sales lift for $9.99 BlackCell post-defeat starter bundle in DeepSona",
+        franchise: "COD",
         tag: "DeepSona",
-        highlight: "+28.5% Lift",
+        highlight: "+31.2% Lift",
       },
       {
-        title: "14-Day Retention Recovery",
-        query: "Simulate 14-day retention recovery when loss-mitigation shields are active",
-        franchise: "ALL",
+        title: "WoW 6-Month Sub Retention",
+        query: "Simulate 6-month subscription retention when Mount voucher incentives are active",
+        franchise: "WOW",
         tag: "Attribution",
-        highlight: "+34.2% Ret.",
+        highlight: "+38.4% Ret.",
       },
       {
-        title: "Price Elasticity Simulation",
-        query: "Simulate purchase conversion rates at $4.99 vs $9.99 price points",
-        franchise: "FC26",
+        title: "Candy Crush Booster WTP Curve",
+        query: "Simulate purchase conversion rates for Gold Bars at $1.99 vs $4.99 price points",
+        franchise: "CANDYCRUSH",
         tag: "DeepSona",
         highlight: "WTP Curve",
       },
@@ -255,47 +255,47 @@ const MASTER_PILLARS: MasterFunctionPillar[] = [
   },
   {
     id: "advertising",
-    label: "04. EA Advertising",
+    label: "04. ABK Media Network",
     shortLabel: "Advertising",
-    badge: "Situational Triggers & Media",
-    description: "Trigger in-game offers and companion app hero banners in real time",
+    badge: "Battle.net & In-Game Triggers",
+    description: "Trigger Battle.net launcher takeovers and companion push in real time",
     icon: Radio,
     iconColor: "text-pink-400",
     bgAccent: "bg-pink-500/10",
     coreFinding: {
-      title: "Companion App Inactivity Window Opportunity",
-      metricPill: "3.4x Open Surge",
+      title: "Battle.net Launcher Desktop Window Opportunity",
+      metricPill: "4.1x Open Surge",
       pillColor: "bg-pink-500/15 text-pink-300 border-pink-500/30",
-      base: "LiveOps Situational Event Bus & Telemetry",
-      summary: "Social squad players check the EA Companion App within 15 minutes of session completion on Friday evenings. Dynamic hero banners delivered here capture 3.4x higher conversion than in-game popups.",
+      base: "LiveOps Situational Event Bus & Battle.net Launcher Telemetry",
+      summary: "Warzone and WoW players open the Battle.net client within 10 minutes of session completion. Dynamic hero launcher takeovers delivered here capture 4.1x higher conversion than in-game popups.",
       caveats: [
-        "Trigger Pipeline: Sub-50ms JSON-RPC event notification from game client to Companion App ad server.",
-        "Social Multiplier: Squad captains who purchase starter packs trigger 2.1x follow-on purchases within their squad.",
+        "Trigger Pipeline: Sub-50ms JSON-RPC event notification from game client to Battle.net launcher ad gateway.",
+        "Social Multiplier: Clan officers who purchase BlackCell passes trigger 2.4x follow-on purchases within their clan.",
         "Ad Fatigue Guard: Strict 1-offer per 72-hour cap prevents user perception of aggressive monetization.",
       ],
-      actionLabel: "Deploy Companion App Hero Banner Trigger",
-      queryToRun: "Deploy targeted companion app hero banner for Friday night Rush socializers",
-      franchise: "FC26",
+      actionLabel: "Deploy Battle.net Launcher Hero Takeover",
+      queryToRun: "Deploy targeted Battle.net hero takeover for Friday night Warzone resurgence grinders",
+      franchise: "COD",
     },
     prompts: [
       {
-        title: "Companion App Hero Banner",
-        query: "Deploy targeted companion app hero banner for Friday night Rush socializers",
-        franchise: "FC26",
-        tag: "In-Game Ad",
-        highlight: "Rush 5v5",
+        title: "Battle.net Launcher Hero Takeover",
+        query: "Deploy targeted Battle.net hero takeover for Friday night Warzone resurgence grinders",
+        franchise: "COD",
+        tag: "Battle.net Ad",
+        highlight: "Desktop Takeover",
       },
       {
-        title: "Extra-Time Defeat Trigger",
-        query: "Schedule dynamic in-game offer triggers upon extra-time match losses",
-        franchise: "FC26",
+        title: "Gulag Elimination Trigger",
+        query: "Schedule dynamic in-game offer triggers upon 3rd consecutive Gulag elimination",
+        franchise: "COD",
         tag: "LiveOps",
         highlight: "Auto-Trigger",
       },
       {
-        title: "Weekend League Ad Optimization",
-        query: "Optimize programmatic ad bids and sponsored rewards for Weekend League",
-        franchise: "FC26",
+        title: "Overwatch Mythic Skin Prism Bidding",
+        query: "Optimize programmatic ad bids and reward token drops during Overwatch 2 Contenders",
+        franchise: "OVERWATCH2",
         tag: "Ad Server",
         highlight: "Bidding",
       },
@@ -311,41 +311,41 @@ const MASTER_PILLARS: MasterFunctionPillar[] = [
     iconColor: "text-purple-400",
     bgAccent: "bg-purple-500/10",
     coreFinding: {
-      title: "Multi-Title Whale Liquidity Spillover",
-      metricPill: "$3,850 Avg LTV",
+      title: "Battle.net Cross-Title Whale Spillover",
+      metricPill: "$4,250 Avg LTV",
       pillColor: "bg-purple-500/15 text-purple-300 border-purple-500/30",
       base: "Cross-Franchise Identity Graph (5 Core Titles)",
-      summary: "12.4% of top-tier FUT Champions spenders actively migrate to Apex Legends during seasonal content lulls, spending an additional $1,200+ on Heirloom events when cross-promoted.",
+      summary: "14.8% of high-spend Call of Duty players actively migrate to World of Warcraft and Diablo IV during seasonal content lulls, spending an additional $1,400+ on seasonal vaults when cross-promoted.",
       caveats: [
-        "Identity Resolution: 15,663 linked gamer tags unified via EA Account ID graph edges.",
-        "Migration Timing: Apex playtime surges 65% during FC 26 Team of the Season (TOTS) transition gaps.",
-        "Cross-Reward Strategy: Cross-game cosmetic loyalty rewards boost retention across both franchises by 22%.",
+        "Identity Resolution: 7,788 linked platform identities unified via Battle.net Account ID graph edges.",
+        "Migration Timing: Diablo IV playtime surges 58% during Call of Duty mid-season balance patch gaps.",
+        "Cross-Reward Strategy: Cross-game cosmetic loyalty rewards (e.g., Mounts & Weapon Camos) boost retention across all titles by 26%.",
       ],
       actionLabel: "Explore Cross-Franchise Whale Graph",
-      queryToRun: "Cross-title Whales with spend over $3,500 across FC and Apex",
+      queryToRun: "Cross-title Whales with spend over $3,500 across Call of Duty and World of Warcraft",
       franchise: "ALL",
     },
     prompts: [
       {
-        title: "Apex Demotion Rage-Quits",
-        query: "Apex Ranked Predators with 3+ RP demotion losses and high churn risk",
-        franchise: "APEX",
-        tag: "Apex Legends",
-        highlight: "Predators",
+        title: "Diablo Pit Demotion Rage-Quits",
+        query: "Diablo IV Pit tier 80+ players with 3+ boss wipe streaks and high churn risk",
+        franchise: "DIABLO4",
+        tag: "Diablo IV",
+        highlight: "Pit Wipes",
       },
       {
-        title: "Sims 4 DLC Whales (10+ Packs)",
-        query: "DLC Whales with 10+ Expansion Packs owned across PC and Console",
-        franchise: "SIMS4",
-        tag: "The Sims 4",
-        highlight: "10+ Packs",
+        title: "Candy Crush Level 500+ Whales",
+        query: "Casual Commuters stuck on level 500+ with booster depletion and high purchase propensity",
+        franchise: "CANDYCRUSH",
+        tag: "Candy Crush",
+        highlight: "Level 500+",
       },
       {
-        title: "Madden MUT Churn Intervention",
-        query: "MUT Champions players with 3+ loss streaks and high spend",
-        franchise: "MADDEN25",
-        tag: "Madden NFL",
-        highlight: "MUT Champs",
+        title: "WoW Mythic Raid Fatigue",
+        query: "Mythic raid guild officers experiencing wipe fatigue and 30-day subscription expiration",
+        franchise: "WOW",
+        tag: "World of Warcraft",
+        highlight: "Mythic Fatigue",
       },
     ],
   },
@@ -406,9 +406,9 @@ export default function GeminiLandingStage({
         <div className="flex items-center gap-3">
           <div className="flex items-center">
             <img
-              src="/ea_logo.webp"
-              alt="Electronic Arts"
-              className="h-5 sm:h-6 w-auto object-contain brightness-110"
+              src="/abk_logo.svg"
+              alt="Activision Blizzard King"
+              className="h-6 sm:h-7 w-auto object-contain brightness-110"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -471,7 +471,7 @@ export default function GeminiLandingStage({
         {/* Hero Title */}
         <div className="space-y-1 text-center">
           <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white leading-tight">
-            EA Engagement &amp; Marketing Intelligence
+            Activision Blizzard King Engagement &amp; Marketing Intelligence
           </h1>
           <p className="text-xs sm:text-sm text-zinc-400 max-w-lg mx-auto leading-relaxed">
             Unified multi-agent intelligence across 500M+ players, Spanner Property Graph, and Google Cloud AI.
@@ -492,7 +492,7 @@ export default function GeminiLandingStage({
                   handleRunSearch();
                 }
               }}
-              placeholder="Ask anything across EA's ecosystem (e.g. 'Whales with spend over $3,500 across FC and Apex' or 'FUT Champions players with high tilt')..."
+              placeholder="Ask anything across ABK's ecosystem (e.g. 'Whales with spend over $3,500 across Call of Duty and WoW' or 'Warzone players with high tilt')..."
               className="w-full bg-transparent text-sm text-white placeholder-zinc-500 focus:outline-none px-3 pt-1 resize-none font-normal leading-relaxed disabled:opacity-60"
             />
           </div>

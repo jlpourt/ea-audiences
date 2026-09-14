@@ -7,8 +7,8 @@ import { CampaignBrief } from "@/lib/types";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const franchise = body.franchise || "EA SPORTS FC 26";
-    const segment = body.segment || "High-Tilt FUT Champions Grinders & Friday 6PM Squads";
+    const franchise = body.franchise || "Call of Duty: Warzone";
+    const segment = body.segment || "High-Tilt Warzone Grinders & Friday Night Squads";
     const creativeTitle = body.creative_title || "Contextual Marketing Offer";
     const predictedLift = Number(body.predicted_conversion_lift || 28.5);
     const audienceSize = Number(body.audience_size || 245000);
@@ -28,7 +28,7 @@ Addressable Audience Size: ${audienceSize.toLocaleString()}
 
 Generate the structured Campaign Brief in strict JSON format:
 {
-  "brief_id": "brief-fc-...",
+  "brief_id": "brief-abk-...",
   "title": "...",
   "franchise": "${franchise}",
   "target_segment": "${segment}",
@@ -52,15 +52,15 @@ Generate the structured Campaign Brief in strict JSON format:
       const parsed = JSON.parse(generatedText.trim());
 
       brief = {
-        brief_id: parsed.brief_id || `brief-fc-${Date.now()}`,
+        brief_id: parsed.brief_id || `brief-abk-${Date.now()}`,
         title: parsed.title || `${franchise} • ${segment} Campaign Brief`,
         franchise: parsed.franchise || franchise,
         target_segment: parsed.target_segment || segment,
         audience_size: Number(parsed.audience_size || audienceSize),
         trigger_rules: parsed.trigger_rules || [
-          "Consecutive Loss Streak >= 3 in FUT Champions Weekend League within 60 minutes",
-          "Friday 18:00 UTC Promo Drop Squad Login Surge",
-          "Tilt Index > 0.70 derived from match rage-quit telemetry",
+          "Consecutive Loss Streak >= 3 in Warzone Resurgence within 45 minutes",
+          "Friday 18:00 UTC Double XP Squad Login Surge",
+          "Tilt Index > 0.70 derived from match defeat and Gulag elimination telemetry",
         ],
         deepsona_consensus:
           parsed.deepsona_consensus ||
@@ -71,80 +71,80 @@ Generate the structured Campaign Brief in strict JSON format:
           parsed.recommended_action ||
           `Deploy dynamic in-game situational trigger offering '${creativeTitle}' to qualified ${segment} players.`,
         creative_hooks: parsed.creative_hooks || [
-          "Salvage your Weekend League run: Champions Shield + 10-Game Loan R9 Icon",
-          "Bounce back in Division Rivals: 500 FC Points + 2x Extra Weekend League Entries",
-          "Friday 6PM Rush Drop: Double XP + Squad Evolution Token",
+          "Salvage your Resurgence run: Gulag Shield + 1-Hour 2x Weapon XP",
+          "Bounce back in Warzone: 500 CoD Points + 2x Battle Pass Tier Skips",
+          "Friday Squad Drop: Double XP + BlackCell Sector Accelerator",
         ],
         generated_at: new Date().toISOString(),
       };
     } catch (aiErr) {
       console.warn("[Vertex AI Brief] Using calibrated brief generator:", aiErr);
       
-      const isWhale = segment.toLowerCase().includes("whale") || creativeTitle.toLowerCase().includes("whale") || creativeTitle.toLowerCase().includes("icon");
-      const isRush = segment.toLowerCase().includes("rush") || segment.toLowerCase().includes("club");
-      const isCreatorCohort = segment.toLowerCase().includes("creator") || segment.toLowerCase().includes("streamer") || segment.toLowerCase().includes("nickrtfm") || segment.toLowerCase().includes("castro") || segment.toLowerCase().includes("danny") || segment.toLowerCase().includes("bateson") || segment.toLowerCase().includes("boras");
+      const isWhale = segment.toLowerCase().includes("whale") || creativeTitle.toLowerCase().includes("whale") || creativeTitle.toLowerCase().includes("vault");
+      const isRush = segment.toLowerCase().includes("squad") || segment.toLowerCase().includes("clan") || segment.toLowerCase().includes("guild");
+      const isCreatorCohort = segment.toLowerCase().includes("creator") || segment.toLowerCase().includes("streamer") || segment.toLowerCase().includes("scump") || segment.toLowerCase().includes("asmongold") || segment.toLowerCase().includes("timthetatman") || segment.toLowerCase().includes("wudijo") || segment.toLowerCase().includes("swagg");
 
       if (isCreatorCohort) {
         brief = {
-          brief_id: `brief-fc-creator-${Date.now()}`,
+          brief_id: `brief-abk-creator-${Date.now()}`,
           title: `${franchise} • Creator Co-Branded Stream & Community Brief`,
           franchise,
           target_segment: segment,
           audience_size: audienceSize,
           trigger_rules: [
-            "Player Follows Verified Creator (NickRTFM / Castro1021 / Danny Aarons / BorasLegend / Bateson87)",
-            "Live Stream Drop Event Active during Weekend League (Friday–Sunday UTC)",
-            "Deliver Creator-Curated Evolution Booster & Custom Tactics Preset upon Stream Link",
+            "Player Follows Verified Creator (Scump / TimTheTatman / Asmongold / Wudijo / FaZe Swagg)",
+            "Live Stream Drop Event Active during Season Launch Weekend (Friday–Sunday UTC)",
+            "Deliver Creator-Curated Weapon Blueprint & Custom Loadout Preset upon Stream Account Link",
           ],
           deepsona_consensus:
-            "DeepSona multi-agent simulation recorded a +37.8% engagement lift for creator-endorsed campaigns compared to unbranded store offers. Personas cited trusted meta recommendations and high social authenticity.",
+            "DeepSona multi-agent simulation recorded a +37.8% engagement lift for creator-endorsed campaigns compared to unbranded store offers. Personas cited trusted meta weapon tunings and high social authenticity.",
           predicted_conversion_lift: 37.8,
           projected_roi: 3.80,
           recommended_action:
-            "Launch co-branded Twitch & YouTube stream drop campaign featuring creator-curated custom SBC packs and 5-second personalized video hooks.",
+            "Launch co-branded Twitch & YouTube stream drop campaign featuring creator-curated custom loadout weapon blueprints and 5-second personalized video hooks.",
           creative_hooks: [
-            "NickRTFM Market Special: Smart Coin Management Pack + First Owner Evolution Token",
-            "Castro1021 Midnight Stream Drop: Mega Walkout Pack live for stream viewers",
-            "Danny Aarons Weekend League Recovery: Tilt Shield + Bonus Draft Entry",
-            "BorasLegend Pro Coaching Preset: Meta 5-2-1-2 Custom Tactics + Loan Defensive Master",
+            "Scump CDL Special: Meta MCW Blueprint + 1-Hour Double Weapon XP",
+            "TimTheTatman Midnight Drop: Exclusive WZ Operator Bundle live for stream viewers",
+            "Asmongold Transmog Special: 6-Month Sub Bonus Mount + Collector Pet",
+            "Wudijo Hardcore Pit Preset: Masterwork Materials Bundle + Pit Loss Elixir",
           ],
           generated_at: new Date().toISOString(),
         };
       } else if (isWhale) {
         brief = {
-          brief_id: `brief-fc-${Date.now()}`,
-          title: `${franchise} • High-LTV Whale Icon Campaign Brief`,
+          brief_id: `brief-abk-${Date.now()}`,
+          title: `${franchise} • Battle.net High-LTV Vault Campaign Brief`,
           franchise,
           target_segment: segment,
           audience_size: audienceSize,
           trigger_rules: [
-            "Whale Session Inactivity >= 4 Days with In-Game Balance < 500 FC Points",
-            "Lifetime Spend Tier >= $3,500 with Active Weekend League Participation",
-            "Trigger 4,800 FC Points ($49.99) Guaranteed 88+ Icon Flash in Companion App & Console Store",
+            "Whale Session Inactivity >= 4 Days with In-Game Balance < 1,000 CoD Points / Platinum",
+            "Lifetime Spend Tier >= $2,500 with Active Battle.net Multi-Title Engagement",
+            "Trigger 13,000 CoD Points ($99.99) or Diablo Platinum Vault Flash in Battle.net Launcher",
           ],
           deepsona_consensus:
-            "DeepSona multi-agent focus group verified +31.2% conversion lift with 96% authenticity score among High-LTV Whales. Personas favored guaranteed 88+ walkout selection over RNG pack dilution.",
+            "DeepSona multi-agent focus group verified +31.2% conversion lift with 96% authenticity score among High-LTV Whales. Personas favored guaranteed exclusive masterwork cosmetics over standard battle pass tiers.",
           predicted_conversion_lift: 31.2,
           projected_roi: 3.45,
           recommended_action:
-            "Deploy exclusive in-game and Companion App flash banner for 'Guaranteed 88+ Campaign Icon Flash ($49.99 / 4,800 FC Points)' with 48-hour expiration timer.",
+            "Deploy exclusive Battle.net launcher flash banner for 'BlackCell Season 1 Vault Bundle ($99.99 / 13,000 CP)' with 48-hour expiration timer.",
           creative_hooks: [
-            "Upgrade your Ultimate Team: Guaranteed 88+ Campaign Icon Selection live for 48 hours",
-            "Lead your squad with Prime Icons: 4,800 FC Points + Uncapped First Owner Pick",
-            "Exclusive Founder Vault: 12,000 FC Points Pack with Bonus Evolution Token",
+            "Upgrade your Arsenal: Guaranteed Animated Mastercraft Weapon Selection live for 48 hours",
+            "Lead your squad with BlackCell: 13,000 CoD Points + Uncapped Prestige Weapon Blueprint",
+            "Exclusive Battle.net Founder Vault: 11,500 Platinum + Diablo IV Mount Armor",
           ],
           generated_at: new Date().toISOString(),
         };
       } else if (isRush) {
         brief = {
-          brief_id: `brief-fc-${Date.now()}`,
-          title: `${franchise} • Pro Clubs & Rush 5v5 Squad Campaign Brief`,
+          brief_id: `brief-abk-${Date.now()}`,
+          title: `${franchise} • Squad & Guild Co-op Campaign Brief`,
           franchise,
           target_segment: segment,
           audience_size: audienceSize,
           trigger_rules: [
-            "Active 4-Stack Club Lobby Formation on Friday 18:00 UTC",
-            "Club Win Rate >= 55% in Rush 5v5 Competitive Mode",
+            "Active 4-Stack Warzone Squad Lobby Formation on Friday 18:00 UTC",
+            "Squad Win Rate >= 45% in Resurgence Ranked Mode",
             "Deliver $7.99 Shared Squad Double XP Pass upon 3rd Match Completion",
           ],
           deepsona_consensus:
@@ -152,36 +152,36 @@ Generate the structured Campaign Brief in strict JSON format:
           predicted_conversion_lift: 29.4,
           projected_roi: 2.85,
           recommended_action:
-            "Trigger in-lobby notification to Club Captain offering 'Rush 5v5 Squad Double XP Pass ($7.99)' applied to all teammates in the current session.",
+            "Trigger in-lobby notification to Squad Leader offering 'Resurgence Squad Double XP Pass ($7.99)' applied to all teammates in the current session.",
           creative_hooks: [
-            "Power up your squad this weekend: 2x Rush Points for all 4 club members",
-            "Captain's Choice: Unlock +3 Rating Evolution Slot for your Pro player",
-            "Climb the divisions together: Friday Night Rush 5v5 Boost active now",
+            "Power up your squad this weekend: 2x Weapon & Battle Pass XP for all 4 squad members",
+            "Squad Leader Choice: Unlock Exclusive Tactical Camo for your entire team",
+            "Climb the divisions together: Friday Night Resurgence Squad Boost active now",
           ],
           generated_at: new Date().toISOString(),
         };
       } else {
         brief = {
-          brief_id: `brief-fc-${Date.now()}`,
-          title: `${franchise} • Live Momentum Booster & Starter Retention Brief`,
+          brief_id: `brief-abk-${Date.now()}`,
+          title: `${franchise} • Live Momentum Booster & Gulag Retention Brief`,
           franchise,
           target_segment: segment,
           audience_size: audienceSize,
           trigger_rules: [
-            "Consecutive Loss Streak >= 3 in FUT Champions Weekend League within 60 minutes",
+            "Consecutive Loss Streak >= 3 in Warzone Resurgence with early Gulag elimination within 45 minutes",
             "Tilt Sensitivity Score >= 0.70 derived from match defeat telemetry",
-            "Present 500 FC Points Instant Booster ($4.99) in Store Flash Tile upon match defeat",
+            "Present 500 CoD Points Instant Booster ($4.99) in Store Flash Tile upon match defeat",
           ],
           deepsona_consensus:
-            "DeepSona simulation achieved 94% authenticity score among competitive grinders. Immediate 500 FC Points starter reload reduced rage-quit churn intent with +28.5% predicted conversion lift.",
+            "DeepSona simulation achieved 94% authenticity score among competitive grinders. Immediate 500 CoD Points starter reload reduced rage-quit churn intent with +28.5% predicted conversion lift.",
           predicted_conversion_lift: 28.5,
           projected_roi: 3.10,
           recommended_action:
-            "Deploy in-game store flash banner offering the '500 FC Points Starter Pack ($4.99)' to replenish player stamina and draft entry tokens.",
+            "Deploy in-game store flash banner offering the '500 CoD Points Gulag Recovery Pack ($4.99)' to replenish player momentum and battle pass progression.",
           creative_hooks: [
-            "Refuel your Ultimate Team squad: 500 FC Points Starter Pack + Draft Token",
-            "Bounce back in Division Rivals: Instant 500 FC Points Reload",
-            "Reset your momentum: Reload points and enter Weekend League qualifiers",
+            "Refuel your Warzone squad: 500 CoD Points Starter Pack + Gulag Retry Token",
+            "Bounce back in Ranked Resurgence: Instant 500 CoD Points Reload",
+            "Reset your momentum: Reload points and unlock meta weapon blueprint",
           ],
           generated_at: new Date().toISOString(),
         };

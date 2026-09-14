@@ -81,9 +81,9 @@ export default function PlayerMarketingJourneySankey({
   // 2. Filter Players based on selected cohort preset
   const filteredPlayers = useMemo(() => {
     if (selectedCohortPreset === "ALL") return rawPlayers;
-    if (selectedCohortPreset === "WHALES") return rawPlayers.filter((p) => (p.spend || 0) >= 1000);
+    if (selectedCohortPreset === "WHALES") return rawPlayers.filter((p) => (p.spend || 0) >= 1000 || (p.archetype || "").includes("WHALE"));
     if (selectedCohortPreset === "TILT_SLUMP") return rawPlayers.filter((p) => (p.loss_streak || 0) >= 2 || (p.tilt || 0) >= 0.65);
-    if (selectedCohortPreset === "RUSH_SOCIAL") return rawPlayers.filter((p) => (p.archetype || "").includes("SOCIAL") || (p.game_telemetry?.primary_playstyle || "").includes("Rush"));
+    if (selectedCohortPreset === "RUSH_SOCIAL") return rawPlayers.filter((p) => (p.archetype || "").includes("SOCIAL") || (p.archetype || "").includes("RAIDER") || (p.clan_name !== undefined && p.clan_name !== null));
     return rawPlayers;
   }, [rawPlayers, selectedCohortPreset]);
 
@@ -97,33 +97,41 @@ export default function PlayerMarketingJourneySankey({
       if (player.followed_creators && player.followed_creators.length > 0) {
         acqId = "acq_creator";
         acqName = "Creator Streams";
-        acqSub = "NickRTFM / Castro";
+        acqSub = "Scump / TimTheTatman";
       } else if ((player.spend || 0) >= 200 || (player.hours || 0) >= 300) {
         acqId = "acq_preorder";
-        acqName = "Deluxe Pre-Order";
-        acqSub = "Retail / Digital";
-      } else if ((player.spend || 0) < 30 || player.archetype === "LORE_SEEKER") {
-        acqId = "acq_eaplay";
-        acqName = "EA Play Trial";
-        acqSub = "10-Hour Access";
+        acqName = "Vault Pre-Order";
+        acqSub = "Battle.net / Retail";
+      } else if ((player.spend || 0) < 30 || (player.franchise === "CANDYCRUSH")) {
+        acqId = "acq_bnet";
+        acqName = "Battle.net & Mobile";
+        acqSub = "Cross-Play Gravity";
       }
 
       // Stage 1: Core Mode
-      let modeId = "mode_champs";
-      let modeName = "FUT Champions";
-      let modeSub = "Weekend League";
-      if (player.archetype === "CASUAL_SOCIALIZER" || (player.game_telemetry?.primary_playstyle || "").includes("Rush")) {
-        modeId = "mode_rush";
-        modeName = "Rush 5v5";
-        modeSub = "Social Co-op";
-      } else if (player.archetype === "ULTIMATE_TEAM_WHALE" || (player.spend || 0) >= 1000) {
-        modeId = "mode_rivals";
-        modeName = "Division Rivals";
-        modeSub = "High Division";
-      } else if (player.archetype === "LORE_SEEKER" || (player.spend || 0) < 50) {
-        modeId = "mode_career";
-        modeName = "Manager Career";
-        modeSub = "Offline FC IQ";
+      let modeId = "mode_warzone";
+      let modeName = "Warzone Resurgence";
+      let modeSub = "Squads BR";
+      if (player.franchise === "WOW" || player.archetype === "MYTHIC_RAIDER") {
+        modeId = "mode_wow";
+        modeName = "Mythic+ Dungeons";
+        modeSub = "20-Player Raids";
+      } else if (player.franchise === "DIABLO4" || player.archetype === "SANCTUARY_COLLECTOR") {
+        modeId = "mode_pit";
+        modeName = "The Pit & Hordes";
+        modeSub = "Tier 80+ Grinds";
+      } else if (player.franchise === "CANDYCRUSH" || player.archetype === "BOOSTER_WHALE") {
+        modeId = "mode_candy";
+        modeName = "Candy Crush Saga";
+        modeSub = "Commuter Match-3";
+      } else if (player.franchise === "OVERWATCH2") {
+        modeId = "mode_ow2";
+        modeName = "Overwatch 2 Ranked";
+        modeSub = "Role Queue 5v5";
+      } else if (player.archetype === "COMPETITIVE_GRINDER" || (player.hours || 0) > 400) {
+        modeId = "mode_bo6";
+        modeName = "BO6 Ranked Play";
+        modeSub = "Competitive CDL";
       }
 
       // Stage 2: Friction Trigger
@@ -131,35 +139,47 @@ export default function PlayerMarketingJourneySankey({
       let fricName = "Smooth Flow";
       let fricSub = "Low Friction";
       if ((player.loss_streak || 0) >= 2 || (player.tilt || 0) >= 0.65) {
-        fricId = "fric_tilt";
-        fricName = "3+ Defeat Tilt";
-        fricSub = "Slump Trigger";
-      } else if ((player.spend || 0) >= 600) {
-        fricId = "fric_sbc";
-        fricName = "SBC Wall";
-        fricSub = "Chemistry Deficit";
+        fricId = "fric_gulag";
+        fricName = "Gulag / Wipe Tilt";
+        fricSub = "Elimination Slump";
+      } else if ((player.spend || 0) >= 600 || player.archetype === "BLACKCELL_WHALE") {
+        fricId = "fric_bp_cap";
+        fricName = "Battle Pass Fatigue";
+        fricSub = "Progression Wall";
+      } else if (player.franchise === "CANDYCRUSH" || (player.game_telemetry?.current_level || 0) > 500) {
+        fricId = "fric_booster";
+        fricName = "Booster Depletion";
+        fricSub = "Level 500+ Wall";
       } else if (player.archetype === "COMPETITIVE_GRINDER") {
-        fricId = "fric_qual";
-        fricName = "WL Qualifiers";
-        fricSub = "Rank Barrier";
+        fricId = "fric_rank";
+        fricName = "Rank Demotion";
+        fricSub = "Skill Barrier";
       }
 
       // Stage 3: Marketing Offer
       let offId = "off_free";
-      let offName = "Free Evolution";
+      let offName = "Free Seasonal Cache";
       let offSub = "$0 Milestone";
-      if (fricId === "fric_tilt") {
-        offId = "off_loss_shield";
-        offName = "Loss Shield Pack";
+      if (fricId === "fric_gulag") {
+        offId = "off_blackcell";
+        offName = "BlackCell Bundle";
+        offSub = "$9.99 CP Coins";
+      } else if (player.franchise === "WOW") {
+        offId = "off_wow_sub";
+        offName = "6-Month Sub & Mount";
+        offSub = "$77.94 Bundle";
+      } else if (player.franchise === "DIABLO4") {
+        offId = "off_relic";
+        offName = "Infernal Relic Pack";
+        offSub = "$19.99 Platinum";
+      } else if (player.franchise === "CANDYCRUSH") {
+        offId = "off_goldbars";
+        offName = "50 Gold Bars Starter";
         offSub = "$4.99 Reload";
-      } else if (player.archetype === "ULTIMATE_TEAM_WHALE" || (player.spend || 0) >= 1000) {
-        offId = "off_icon_walkout";
-        offName = "Walkout Promo";
-        offSub = "$39.99 Pack";
-      } else if (modeId === "mode_rush") {
-        offId = "off_rush_pass";
-        offName = "Rush Squad Pass";
-        offSub = "$7.99 2x XP";
+      } else if ((player.spend || 0) >= 1000) {
+        offId = "off_vault_vault";
+        offName = "Battle.net Vault Pack";
+        offSub = "$49.99 Collector";
       }
 
       // Stage 4: Lifecycle Outcome
@@ -169,7 +189,7 @@ export default function PlayerMarketingJourneySankey({
       if ((player.spend || 0) >= 700 && (player.churn_risk || 0) < 0.4) {
         outId = "out_whale";
         outName = "Whale Retained";
-        outSub = "$850+ LTV";
+        outSub = "$1,200+ LTV";
       } else if (player.primary_creator_influence) {
         outId = "out_creator_reengaged";
         outName = "Creator Fan";
@@ -378,8 +398,8 @@ export default function PlayerMarketingJourneySankey({
             <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#00F0FF]" />
             <span className="text-sm font-semibold tracking-tight text-white flex items-center gap-2">
               <span>Player Marketing Journeys</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-mono font-medium">
-                FC 26 Funnel
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 font-mono font-medium">
+                ABK Cross-Title Funnel
               </span>
             </span>
           </div>
@@ -389,10 +409,10 @@ export default function PlayerMarketingJourneySankey({
           {/* Preset Cohort Filter Pills */}
           <div className="flex items-center gap-1.5 bg-white/[0.04] p-1 rounded-xl border border-white/10">
             {[
-              { id: "ALL", label: "All FC 26 Players" },
-              { id: "WHALES", label: "💎 Whales ($1k+)" },
-              { id: "TILT_SLUMP", label: "⚡ High Tilt (70%+)" },
-              { id: "RUSH_SOCIAL", label: "⚽ Rush 5v5 Squads" },
+              { id: "ALL", label: "All ABK Players" },
+              { id: "WHALES", label: "💎 Battle.net Whales ($1k+)" },
+              { id: "TILT_SLUMP", label: "⚡ Gulag / Wipe Tilt" },
+              { id: "RUSH_SOCIAL", label: "🎯 Squads & Mythic Guilds" },
             ].map((preset) => (
               <button
                 key={preset.id}
@@ -435,7 +455,7 @@ export default function PlayerMarketingJourneySankey({
           </div>
 
           <button
-            onClick={() => onLaunchDeepSona && onLaunchDeepSona(undefined, "FC 26 End-to-End Funnel Simulation")}
+            onClick={() => onLaunchDeepSona && onLaunchDeepSona(undefined, "ABK Battle.net Cross-Title Funnel Simulation")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-black hover:bg-gray-200 text-xs font-semibold shadow-lg transition-all"
           >
             <Users className="w-3.5 h-3.5 text-black" />

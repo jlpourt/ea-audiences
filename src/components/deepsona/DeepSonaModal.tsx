@@ -35,12 +35,12 @@ function generateDynamicQuote(
     return reactionQuote;
   }
 
-  const rawFranchise = (node.franchise || activeGame || "FC26").toUpperCase();
-  const isApex = rawFranchise.includes("APEX");
-  const isMadden = rawFranchise.includes("MADDEN");
-  const isSims = rawFranchise.includes("SIMS");
-  const isBF = rawFranchise.includes("BATTLEFIELD") || rawFranchise.includes("BF");
-  const isFC = !isApex && !isMadden && !isSims && !isBF;
+  const rawFranchise = (node.franchise || activeGame || "COD").toUpperCase();
+  const isCOD = rawFranchise.includes("COD") || rawFranchise.includes("CALL OF DUTY") || rawFranchise.includes("WARZONE");
+  const isWOW = rawFranchise.includes("WOW") || rawFranchise.includes("WARCRAFT");
+  const isDiablo = rawFranchise.includes("DIABLO");
+  const isCandy = rawFranchise.includes("CANDY");
+  const isOW = rawFranchise.includes("OVERWATCH") || rawFranchise.includes("OW");
 
   const spend = node.spend !== undefined && node.spend > 0 ? node.spend : slotIndex === 1 ? 4200 : slotIndex === 0 ? 450 : slotIndex === 2 ? 140 : 40;
   const lossStreak = node.loss_streak !== undefined && node.loss_streak > 0 ? node.loss_streak : slotIndex === 0 ? 3 : 1;
@@ -49,60 +49,60 @@ function generateDynamicQuote(
 
   // Slot 0: Frustrated Competitive Sweats (Loss Streak / Defeat Trigger)
   if (slotIndex === 0) {
-    if (isApex) {
-      return `After getting third-partied ${lossStreak} matches in a row (tilt at ${tilt}%), grabbing the $4.99 1,000 Coins starter reload on the defeat screen gets me right back into the queue.`;
-    } else if (isMadden) {
-      return `Gave up a 4th-quarter turnover in MUT Champions (${lossStreak} game slump, ${tilt}% tilt). A quick 500 Points reload right after defeat helps reset the momentum immediately.`;
-    } else if (isBF) {
-      return `Tough defeat defending the final sector on Breakthrough. A 2x Squad XP booster lets me push through weapon attachments without grinding all night.`;
-    } else if (isSims) {
-      return `Building intricate multi-story legacy lots can get tedious when custom content breaks. Modular Creator Kits ready to load keep my build momentum.`;
+    if (isCOD) {
+      return `After getting eliminated in the Gulag ${lossStreak} matches in a row (tilt at ${tilt}%), grabbing the $9.99 BlackCell starter reload on the defeat screen gets me right back into Resurgence.`;
+    } else if (isWOW) {
+      return `Wiping on Mythic Queen Ansurak ${lossStreak} pulls in a row (${tilt}% tilt). A 30-day token or mount voucher softens the burn so our guild can regroup.`;
+    } else if (isDiablo) {
+      return `Got one-shot by the Pit tier 85 boss (${lossStreak} wipe slump, ${tilt}% tilt). A $19.99 Infernal Relic Cache with masterworking mats gives the stat push needed to clear.`;
+    } else if (isCandy) {
+      return `Failed level 540 with 1 jelly remaining 3 times in a row. A $1.99 50 Gold Bars booster pack lets me clear the level and keep my streak.`;
     } else {
-      return `Lost 2 penalty shootouts in Weekend League qualifiers (${lossStreak} losses, tilt ${tilt}%). $4.99 for 500 FC Points to grab contracts and player picks keeps me locked in.`;
+      return `Suffered ${lossStreak} straight rank demotion losses in competitive role queue (${tilt}% tilt). A Mythic Prisms reload keeps morale high.`;
     }
   }
 
   // Slot 1: High-LTV Whales & Collection Event Hunters (Big Spenders)
   if (slotIndex === 1) {
-    if (isApex) {
-      return `I've invested ${formattedSpend} into my collection. When the Mythic Heirloom Shards unlock event is live, I buy out the full 24-item pack milestone on day one.`;
-    } else if (isMadden) {
-      return `Lifetime spend of ${formattedSpend} on Ultimate Team. I rip bundles every Saturday morning for Legends releases, so the 12,000 Madden Points Vault is my standard reload.`;
-    } else if (isBF) {
-      return `Tier 1 armor mastery with ${formattedSpend} invested. The Specialist Elite vehicle and weapon packs give our squad high-visibility battlefield dominance.`;
-    } else if (isSims) {
-      return `I own all major expansion packs (${formattedSpend} total spend). The $39.99 Lovestruck + For Rent bundle is an instant add to my catalog.`;
+    if (isCOD) {
+      return `I've invested ${formattedSpend} into Call of Duty. Every seasonal launch I buy the $29.99 BlackCell Vault bundle with 20 tier skips and animated operator camos instantly.`;
+    } else if (isWOW) {
+      return `20-year WoW veteran with ${formattedSpend} lifetime account value. The 12-Month Subscription bundle with 4 exclusive mounts and collector pets is an automatic renewal.`;
+    } else if (isDiablo) {
+      return `Sanctuary Whale with ${formattedSpend} invested. The Vessel of Hatred Ultimate Edition with wings, town portal animations, and platinum is mandatory for my collection.`;
+    } else if (isCandy) {
+      return `Lifetime spend of ${formattedSpend} on boosters and extra moves. When I'm in the top 1% weekly leaderboard, I stock up on Gold Bars and Color Bombs.`;
     } else {
-      return `Lifetime spend of ${formattedSpend} on Ultimate Team. Guaranteed campaign walkouts and 12,000 Points Vault reloads are an automatic Friday purchase for my squad.`;
+      return `Invested ${formattedSpend} on Overwatch cosmetics. Whenever a new Mythic Skin releases, I unlock all 4 color variants and custom voice lines immediately.`;
     }
   }
 
   // Slot 2: Squad Co-op / Socializers (Team Play & Group Passes)
   if (slotIndex === 2) {
-    if (isApex) {
-      return `Our 3-stack hops on every Friday night. The Battle Pass Ultimate+ with 10 tier skips and crafting metals is something our whole premade squad buys together.`;
-    } else if (isMadden) {
-      return `3v3 Superstar Showdown with my squad is our main mode (${formattedSpend} spend). Squad XP passes that boost archetype ratings faster are an easy pick for our group.`;
-    } else if (isBF) {
-      return `Squad lead for a 4-man assault unit. Squad XP boosters help all 4 of us level our loadouts together during weekend clan ops.`;
-    } else if (isSims) {
-      return `I love sharing custom builds and room makeover videos with my community. Boutique furniture creator kits under $5 are great impulse buys.`;
+    if (isCOD) {
+      return `Our 4-stack drops into Warzone Resurgence every Friday night. Clan XP boosts and weapon blueprint bundles are things our whole squad buys together.`;
+    } else if (isWOW) {
+      return `Guild officer for a 20-player Mythic raiding roster. Guild vault cauldrons and feast vouchers under $15 save our officers hundreds of hours of prep.`;
+    } else if (isDiablo) {
+      return `We run 4-player Torment IV Infernal Hordes together every weekend. Infernal Compass keys provide massive group loot efficiency under $10.`;
+    } else if (isCandy) {
+      return `I trade lives daily with my social team. Group milestone booster packs keep our team at the top of the leaderboard.`;
     } else {
-      return `We run 4-player Rush 5v5 every weekend. Double Rush Points tokens and group evolution slots provide massive team value under $10.`;
+      return `Our 5-stack queues Competitive every weekend. Team battle pass XP boost passes give great squad progression under $10.`;
     }
   }
 
   // Slot 3: Value Optimizers & Casual Story Purists (Price-Conscious / Franchise Purist)
-  if (isApex) {
-    return `I usually stick to the free battle pass track, but a $4.99 starter bundle with a character skin and bonus coins is fair value that bypasses store clutter.`;
-  } else if (isMadden) {
-    return `Connected Franchise league player (${formattedSpend} spend). Keep microtransactions balanced and don't make online leagues pay-to-win, and the pricing is reasonable.`;
-  } else if (isBF) {
-    return `Casual conquest player with limited gaming time. Season pass weapon cosmetics under $10 give solid visual upgrades without grinding 50 hours.`;
-  } else if (isSims) {
-    return `I play legacy storylines across 10 generations. Emotional depth and family dynamic kits add huge sentimental value to my saves.`;
+  if (isCOD) {
+    return `I usually stick to free Warzone, but a $9.99 starter pack with an operator skin and CP coins is fair value that avoids store clutter.`;
+  } else if (isWOW) {
+    return `Casual subscriber who plays for the lore and expansion campaign. 6-Month subscription bundles with bonus mounts provide great long-term value.`;
+  } else if (isDiablo) {
+    return `Solo seasonal campaign grinder. Cosmetic battle passes under $10 give solid dark fantasy visual upgrades without pay-to-win.`;
+  } else if (isCandy) {
+    return `Casual commuter playing on the subway. 99¢ booster reloads for sticky levels keep the game fun without overspending.`;
   } else {
-    return `Career Mode manager purist (${formattedSpend} spend). As long as monetization stays out of offline tactical modes and offers fair starter value for casuals, I'm supportive.`;
+    return `Casual arcade player with limited gaming time. Starter skin packs under $10 give clean visual identity without pressure.`;
   }
 }
 
@@ -123,7 +123,7 @@ export default function DeepSonaModal({
   const [creativeTitle, setCreativeTitle] = useState(
     initialCreativeTitle || "Contextual Marketing & Retention Intervention"
   );
-  const [franchise, setFranchise] = useState(initialFranchise || "EA Live Service");
+  const [franchise, setFranchise] = useState(initialFranchise || "Activision Blizzard King");
   const [proposedSpend, setProposedSpend] = useState(120000);
   const [targetRoas, setTargetRoas] = useState(2.45);
   const [isLoading, setIsLoading] = useState(false);
@@ -144,7 +144,7 @@ export default function DeepSonaModal({
     const playerNodes = rawPlayerNodes.filter((n) =>
       game === "ALL" ||
       n.franchise === game ||
-      (n.franchise || "").toUpperCase().includes(game === "FC26" ? "FC" : game)
+      (n.franchise || "").toUpperCase().includes(game === "COD" ? "COD" : game)
     );
     const arch = cohortContext?.dominantArchetype || targetNode?.archetype || "COMPETITIVE_GRINDER";
     const q = cohortContext?.query?.toLowerCase() || "";
@@ -229,57 +229,58 @@ export default function DeepSonaModal({
             ? 1
             : 0;
 
-        const nodeFranchise = (node.franchise || game || "FC26").toUpperCase();
-        const isApex = nodeFranchise.includes("APEX");
-        const isMadden = nodeFranchise.includes("MADDEN");
-        const isSims = nodeFranchise.includes("SIMS");
-        const isBF = nodeFranchise.includes("BATTLEFIELD") || nodeFranchise.includes("BF");
+        const nodeFranchise = (node.franchise || game || "COD").toUpperCase();
+        const isCOD = nodeFranchise.includes("COD") || nodeFranchise.includes("CALL OF DUTY") || nodeFranchise.includes("WARZONE");
+        const isWOW = nodeFranchise.includes("WOW") || nodeFranchise.includes("WARCRAFT");
+        const isDiablo = nodeFranchise.includes("DIABLO");
+        const isCandy = nodeFranchise.includes("CANDY");
+        const isOW = nodeFranchise.includes("OVERWATCH") || nodeFranchise.includes("OW");
 
         let pArch =
           slotIdx === 0
             ? "COMPETITIVE_GRINDER"
             : slotIdx === 1
-            ? "ULTIMATE_TEAM_WHALE"
+            ? "BLACKCELL_WHALE"
             : slotIdx === 2
             ? "CASUAL_SOCIALIZER"
             : "LORE_SEEKER";
 
-        if (isApex) {
+        if (isWOW) {
           pArch =
             slotIdx === 0
-              ? "RANKED_SWEAT"
+              ? "MYTHIC_RAIDER"
               : slotIdx === 1
-              ? "HEIRLOOM_WHALE"
+              ? "BLACKCELL_WHALE"
               : slotIdx === 2
               ? "CASUAL_SOCIALIZER"
-              : "CASUAL_WARRIOR";
-        } else if (isMadden) {
+              : "LORE_SEEKER";
+        } else if (isDiablo) {
+          pArch =
+            slotIdx === 0
+              ? "SANCTUARY_COLLECTOR"
+              : slotIdx === 1
+              ? "BLACKCELL_WHALE"
+              : slotIdx === 2
+              ? "CASUAL_SOCIALIZER"
+              : "LORE_SEEKER";
+        } else if (isCandy) {
+          pArch =
+            slotIdx === 0
+              ? "BOOSTER_WHALE"
+              : slotIdx === 1
+              ? "BLACKCELL_WHALE"
+              : slotIdx === 2
+              ? "CASUAL_SOCIALIZER"
+              : "COMPETITIVE_GRINDER";
+        } else if (isOW) {
           pArch =
             slotIdx === 0
               ? "COMPETITIVE_GRINDER"
               : slotIdx === 1
-              ? "MUT_WHALE"
+              ? "BLACKCELL_WHALE"
               : slotIdx === 2
               ? "CASUAL_SOCIALIZER"
-              : "LORE_SEEKER";
-        } else if (isSims) {
-          pArch =
-            slotIdx === 0
-              ? "BUILDER_CREATOR"
-              : slotIdx === 1
-              ? "SIMS_COLLECTOR"
-              : slotIdx === 2
-              ? "CASUAL_WARRIOR"
-              : "LORE_SEEKER";
-        } else if (isBF) {
-          pArch =
-            slotIdx === 0
-              ? "CONQUEST_LEADER"
-              : slotIdx === 1
-              ? "ICON_COMMANDER"
-              : slotIdx === 2
-              ? "CASUAL_SOCIALIZER"
-              : "LORE_SEEKER";
+              : "CASUAL_WARRIOR";
         }
 
         const cardTier: PersonaProfile["cardTier"] =
@@ -302,24 +303,24 @@ export default function DeepSonaModal({
         const fsmState =
           liveReaction?.final_fsm_state || (wtp > 0 ? "PURCHASED" : "ENGAGED_FREE");
 
-        const franchiseName = isMadden
-          ? "Madden NFL 25"
-          : isApex
-          ? "Apex Legends"
-          : isSims
-          ? "The Sims 4"
-          : isBF
-          ? "Battlefield 2042"
-          : "EA SPORTS FC 26";
+        const franchiseName = isCOD
+          ? "Call of Duty: Warzone"
+          : isWOW
+          ? "World of Warcraft"
+          : isDiablo
+          ? "Diablo IV"
+          : isCandy
+          ? "Candy Crush Saga"
+          : "Overwatch 2";
 
         const division =
           slotIdx === 0
-            ? `${franchiseName} • ${isMadden ? "All-Madden Div 1" : isApex ? "Apex Predator (Rank 42)" : isSims ? "Architectural Master" : isBF ? "Breakthrough Tier 1" : "FUT Champs Elite"}`
+            ? `${franchiseName} • ${isCOD ? "BO6 Iridescent (Rank 1)" : isWOW ? "Mythic+ Title (3,200 IO)" : isDiablo ? "The Pit Tier 100" : isCandy ? "Level 5,000+ Master" : "Grandmaster 1"}`
             : slotIdx === 1
-            ? `${franchiseName} • ${isMadden ? "MUT Legends Whale" : isApex ? "Heirloom Collector" : isSims ? "All 18 DLCs Owned" : isBF ? "Tier 1 Armor Ace" : "Icon Collector ($3.5k+)"}`
+            ? `${franchiseName} • ${isCOD ? "BlackCell Vault Whale" : isWOW ? "20-Year Collector ($4k+)" : isDiablo ? "Sanctuary Ultimate Collector" : isCandy ? "VIP Booster Whale" : "Mythic Prism Collector"}`
             : slotIdx === 2
-            ? `${franchiseName} • ${isMadden ? "Superstar 3v3 Squad" : isApex ? "Trios Pre-made Stack" : isSims ? "Stream Community Builder" : isBF ? "4-Man Assault Lead" : "Rush 5v5 Captain"}`
-            : `${franchiseName} • ${isMadden ? "Connected Franchise Commish" : isApex ? "Casual Mixtape Solo" : isSims ? "10-Gen Legacy Story" : isBF ? "Portal MilSim Purist" : "Career Mode Tactician"}`;
+            ? `${franchiseName} • ${isCOD ? "Resurgence Quad Captain" : isWOW ? "Mythic Raid Guild Master" : isDiablo ? "Infernal Horde 4-Stack" : isCandy ? "Daily Commuter Social" : "Role Queue 5-Stack Lead"}`
+            : `${franchiseName} • ${isCOD ? "Campaign Purist" : isWOW ? "Casual Lore Explorer" : isDiablo ? "Solo Seasonal Purist" : isCandy ? "Subway Commuter" : "Arcade Casual"}`;
 
         return {
           id: node.id,
@@ -342,352 +343,352 @@ export default function DeepSonaModal({
       return sampled;
     }
 
-    // 2. APEX LEGENDS PERSONAS FALLBACK
-    if (game === "APEX" || q.includes("apex") || q.includes("predator") || q.includes("heirloom")) {
+    // 2. CALL OF DUTY PERSONAS FALLBACK
+    if (game === "COD" || q.includes("cod") || q.includes("warzone") || q.includes("resurgence") || q.includes("gulag")) {
       return [
         {
-          id: "Apex_Pred_Wraith99",
-          name: "Kai 'Pred' Tanaka",
-          gamerTag: "Wraith_Pred_99",
-          archetype: "RANKED_SWEAT",
-          cardTier: "ICON",
-          ovrRating: 99,
-          division: "Apex Predator (Rank 42)",
-          matchesPlayed: 2450,
-          spendLtv: 850.0,
-          tiltLevel: 88,
-          wtp: 4.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 3,
-          quote: "After getting third-partied 3 matches in a row, grabbing the $4.99 1,000 Apex Coins starter pack with the bonus character skin got me right back into the queue.",
-        },
-        {
-          id: "Heirloom_Sniper_Octane",
-          name: "Austin 'Vault' Miller",
-          gamerTag: "Heirloom_Octane_Prime",
-          archetype: "HEIRLOOM_WHALE",
-          cardTier: "TOTY",
-          ovrRating: 98,
-          division: "Collection Event Whale",
-          matchesPlayed: 1800,
-          spendLtv: 3400.0,
-          tiltLevel: 15,
-          wtp: 160.00,
-          fsmState: "PURCHASED",
-          recentLossStreak: 0,
-          quote: "150 Mythic Heirloom Shards guaranteed for finishing the 24-item event collection? I'll buy out the entire pack event day one.",
-        },
-        {
-          id: "Trios_Squad_Conduit",
-          name: "Chloe & Premade",
-          gamerTag: "Conduit_Shield_Squad",
-          archetype: "CASUAL_SOCIALIZER",
-          cardTier: "HERO",
-          ovrRating: 89,
-          division: "Diamond Trios Pre-made",
-          matchesPlayed: 620,
-          spendLtv: 120.0,
-          tiltLevel: 30,
-          wtp: 19.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 1,
-          quote: "The Battle Pass Ultimate+ Edition gives our entire squad instant Legend access, 10 tier skips, and 1,200 Crafting Metals. Easy buy.",
-        },
-        {
-          id: "Mixtape_Demon_R99",
-          name: "Liam 'GunRun' S.",
-          gamerTag: "Mixtape_Grinder_XI",
-          archetype: "CASUAL_WARRIOR",
-          cardTier: "GOLD_RARE",
-          ovrRating: 86,
-          division: "Gun Run / Control Casual",
-          matchesPlayed: 410,
-          spendLtv: 40.0,
-          tiltLevel: 20,
-          wtp: 4.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 0,
-          quote: "The 1,000 Apex Coins starter bundle is great value for unlocking featured weapon skins without sweating.",
-        },
-      ];
-    }
-
-    // 3. MADDEN NFL PERSONAS FALLBACK
-    else if (game === "MADDEN25" || q.includes("madden") || q.includes("mut")) {
-      return [
-        {
-          id: "MUT_Whale_Mahomes",
-          name: "Travis B.",
-          gamerTag: "Mahomes_MUT_Whale",
-          archetype: "MUT_WHALE",
-          cardTier: "ICON",
-          ovrRating: 97,
-          division: "MUT Champions Top 100",
-          matchesPlayed: 1400,
-          spendLtv: 6200.0,
-          tiltLevel: 25,
-          wtp: 99.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 0,
-          quote: "12,000 Madden Points Vault for ripping Saturday morning Legends Fantasy bundles is an instant reload.",
-        },
-        {
-          id: "MUT_Champs_Sweat",
-          name: "DeAndre 'Blitz' Cole",
-          gamerTag: "Cover3_Beater_XI",
+          id: "COD_WarzoneSweat_94",
+          name: "Marcus 'Ghost' Vance",
+          gamerTag: "Ghost_Resurgence_94",
           archetype: "COMPETITIVE_GRINDER",
           cardTier: "GOLD_RARE",
           ovrRating: 94,
-          division: "MUT Weekend League",
-          matchesPlayed: 920,
+          division: "Call of Duty • BO6 Iridescent (Rank 1)",
+          matchesPlayed: 1450,
           spendLtv: 480.0,
-          tiltLevel: 85,
-          wtp: 4.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 3,
-          quote: "A $4.99 500 Madden Points starter reload gave me the quick pack and stamina I needed to get right back in.",
-        },
-        {
-          id: "Superstar_Showdown_3v3",
-          name: "Malik & Squad",
-          gamerTag: "Superstar_Showdown_3v3",
-          archetype: "CASUAL_SOCIALIZER",
-          cardTier: "HERO",
-          ovrRating: 88,
-          division: "3v3 Arcade Football",
-          matchesPlayed: 340,
-          spendLtv: 60.0,
-          tiltLevel: 20,
+          tiltLevel: 88,
           wtp: 9.99,
           fsmState: "PURCHASED",
-          recentLossStreak: 0,
-          quote: "Squad XP passes that boost our WR archetype ratings faster are great for Friday night sessions with the boys.",
+          recentLossStreak: 3,
+          quote: "After getting eliminated in the Gulag 3 matches in a row, grabbing the $9.99 BlackCell starter reload with 1,100 CP coins gets me right back into Resurgence squads.",
         },
         {
-          id: "Franchise_Gaffer_Purist",
-          name: "Coach Greg M.",
-          gamerTag: "Lombardi_Chaser_07",
+          id: "BlackCell_Whale_01",
+          name: "Alexander 'Vault' Price",
+          gamerTag: "BlackCell_Whale_01",
+          archetype: "BLACKCELL_WHALE",
+          cardTier: "ICON",
+          ovrRating: 98,
+          division: "Call of Duty • BlackCell Vault Collector ($3.5k+)",
+          matchesPlayed: 2100,
+          spendLtv: 3800.0,
+          tiltLevel: 12,
+          wtp: 29.99,
+          fsmState: "PURCHASED",
+          recentLossStreak: 0,
+          quote: "Guaranteed mastercraft weapon blueprint and animated operator camos with 2,400 CP Coins? That's an immediate reload for my seasonal vault.",
+        },
+        {
+          id: "Resurgence_Captain_10",
+          name: "Liam 'Squad' Miller",
+          gamerTag: "Resurgence_Captain_10",
+          archetype: "CASUAL_SOCIALIZER",
+          cardTier: "HERO",
+          ovrRating: 91,
+          division: "Call of Duty • Resurgence Quad Captain",
+          matchesPlayed: 620,
+          spendLtv: 140.0,
+          tiltLevel: 28,
+          wtp: 9.99,
+          fsmState: "PURCHASED",
+          recentLossStreak: 1,
+          quote: "Our whole 4-player Resurgence quad logs in Friday night. The Clan 2x Weapon XP Pass was bought by all 4 of us immediately.",
+        },
+        {
+          id: "Campaign_Purist_Echo",
+          name: "David 'Bravo' Chen",
+          gamerTag: "Campaign_Purist_Echo",
           archetype: "LORE_SEEKER",
           cardTier: "MANAGER",
           ovrRating: 86,
-          division: "32-User Connected Franchise",
-          matchesPlayed: 520,
-          spendLtv: 0.0,
+          division: "Call of Duty • Campaign & Solo Purist",
+          matchesPlayed: 340,
+          spendLtv: 70.0,
           tiltLevel: 10,
           wtp: 0.0,
           fsmState: "ENGAGED_FREE",
           recentLossStreak: 0,
-          quote: "Keep pay-to-win microtransactions out of our Connected Franchise league and we're happy.",
+          quote: "As long as weapons stay balanced and narrative modes don't get paywalled, I support the seasonal liveops.",
         },
       ];
     }
 
-    // 4. THE SIMS 4 PERSONAS FALLBACK
-    else if (game === "SIMS4" || q.includes("sims") || q.includes("expansion")) {
+    // 3. WORLD OF WARCRAFT PERSONAS FALLBACK
+    else if (game === "WOW" || q.includes("wow") || q.includes("warcraft") || q.includes("raid") || q.includes("mythic")) {
       return [
         {
-          id: "Sims_DLC_Whale",
-          name: "Elena 'SulSul' Vance",
-          gamerTag: "Plumbob_Queen_AllDLC",
-          archetype: "SIMS_COLLECTOR",
+          id: "Mythic_Raider_Ansurak",
+          name: "Theron 'Void' Sunstrider",
+          gamerTag: "Void_Raider_Ansurak",
+          archetype: "MYTHIC_RAIDER",
+          cardTier: "GOLD_RARE",
+          ovrRating: 94,
+          division: "World of Warcraft • Mythic+ Title (3,200 IO)",
+          matchesPlayed: 1800,
+          spendLtv: 620.0,
+          tiltLevel: 85,
+          wtp: 14.99,
+          fsmState: "PURCHASED",
+          recentLossStreak: 3,
+          quote: "Wiping on Mythic raid bosses 3 times in a row tests team morale. A 30-day token or feast pack softens the grind for our guild.",
+        },
+        {
+          id: "WoW_20Year_Whale",
+          name: "Thorvald 'Aman' Proudmoore",
+          gamerTag: "Aman_Collector_Whale",
+          archetype: "BLACKCELL_WHALE",
+          cardTier: "ICON",
+          ovrRating: 99,
+          division: "World of Warcraft • 20-Year Collector ($4k+)",
+          matchesPlayed: 5200,
+          spendLtv: 4500.0,
+          tiltLevel: 8,
+          wtp: 77.94,
+          fsmState: "PURCHASED",
+          recentLossStreak: 0,
+          quote: "12-Month Subscription bundle with 4 exclusive mounts and collector pets is an automatic renewal for my 20-year account.",
+        },
+        {
+          id: "Guild_Master_Elysium",
+          name: "Victoria 'Valk' Sterling",
+          gamerTag: "Elysium_Guild_Lead",
+          archetype: "CASUAL_SOCIALIZER",
+          cardTier: "HERO",
+          ovrRating: 92,
+          division: "World of Warcraft • Mythic Raid Guild Master",
+          matchesPlayed: 2400,
+          spendLtv: 340.0,
+          tiltLevel: 25,
+          wtp: 14.99,
+          fsmState: "PURCHASED",
+          recentLossStreak: 1,
+          quote: "Guild cauldron vouchers and group repair discounts save our officers hundreds of hours of gold farming every tier.",
+        },
+        {
+          id: "Azeroth_Lore_Explorer",
+          name: "Sean 'Lore' Walker",
+          gamerTag: "Azeroth_Lore_Explorer",
+          archetype: "LORE_SEEKER",
+          cardTier: "MANAGER",
+          ovrRating: 88,
+          division: "World of Warcraft • Lore & Quest Purist",
+          matchesPlayed: 890,
+          spendLtv: 180.0,
+          tiltLevel: 10,
+          wtp: 14.99,
+          fsmState: "PURCHASED",
+          recentLossStreak: 0,
+          quote: "I play through every expansion campaign for the world storytelling. The 6-Month sub with bonus mount is solid value.",
+        },
+      ];
+    }
+
+    // 4. DIABLO IV PERSONAS FALLBACK
+    else if (game === "DIABLO4" || q.includes("diablo") || q.includes("pit") || q.includes("sanctuary")) {
+      return [
+        {
+          id: "Pit_Grinder_Tier90",
+          name: "Kaelen 'Bane' Cross",
+          gamerTag: "Pit_Master_Bane",
+          archetype: "SANCTUARY_COLLECTOR",
+          cardTier: "GOLD_RARE",
+          ovrRating: 94,
+          division: "Diablo IV • The Pit Tier 100 Grinder",
+          matchesPlayed: 1200,
+          spendLtv: 380.0,
+          tiltLevel: 84,
+          wtp: 19.99,
+          fsmState: "PURCHASED",
+          recentLossStreak: 3,
+          quote: "Got one-shot by the Pit tier 85 boss 3 runs in a row. An Infernal Relic Cache with masterworking obducite gives the stat push to clear.",
+        },
+        {
+          id: "Sanctuary_Whale_Deluxe",
+          name: "Lilith 'Inarius' Thorne",
+          gamerTag: "Sanctuary_Whale_Prime",
+          archetype: "BLACKCELL_WHALE",
           cardTier: "ICON",
           ovrRating: 98,
-          division: "All 18 Expansion Packs Owned",
-          matchesPlayed: 3200,
-          spendLtv: 1150.0,
-          tiltLevel: 5,
+          division: "Diablo IV • Sanctuary Deluxe Collector",
+          matchesPlayed: 1950,
+          spendLtv: 2800.0,
+          tiltLevel: 15,
+          wtp: 59.99,
+          fsmState: "PURCHASED",
+          recentLossStreak: 0,
+          quote: "Vessel of Hatred Ultimate Edition with wings, town portal animations, and 3,000 Platinum was an immediate pre-order.",
+        },
+        {
+          id: "Horde_4Stack_Leader",
+          name: "Darius 'Hammer' Stone",
+          gamerTag: "Infernal_Horde_Stack",
+          archetype: "CASUAL_SOCIALIZER",
+          cardTier: "HERO",
+          ovrRating: 90,
+          division: "Diablo IV • Torment IV 4-Stack Lead",
+          matchesPlayed: 650,
+          spendLtv: 160.0,
+          tiltLevel: 20,
+          wtp: 9.99,
+          fsmState: "PURCHASED",
+          recentLossStreak: 1,
+          quote: "Our 4-player party runs Torment Hordes every Friday. Infernal Compass keys and party loot boosts give huge group efficiency.",
+        },
+        {
+          id: "Solo_Seasonal_Purist",
+          name: "Elena 'Rogue' Frost",
+          gamerTag: "Solo_Seasonal_Purist",
+          archetype: "LORE_SEEKER",
+          cardTier: "MANAGER",
+          ovrRating: 87,
+          division: "Diablo IV • Solo Seasonal Purist",
+          matchesPlayed: 480,
+          spendLtv: 70.0,
+          tiltLevel: 10,
+          wtp: 0.0,
+          fsmState: "ENGAGED_FREE",
+          recentLossStreak: 0,
+          quote: "As long as the battle pass remains cosmetic-only and season mechanics are free, I enjoy clearing the seasonal journey.",
+        },
+      ];
+    }
+
+    // 5. OVERWATCH 2 PERSONAS FALLBACK
+    else if (game === "OVERWATCH2" || q.includes("overwatch") || q.includes("ow2")) {
+      return [
+        {
+          id: "OW2_Top500_Tracer",
+          name: "Maya 'Blink' Lin",
+          gamerTag: "Tracer_Top500_Pulse",
+          archetype: "COMPETITIVE_GRINDER",
+          cardTier: "GOLD_RARE",
+          ovrRating: 95,
+          division: "Overwatch 2 • Top 500 Grandmaster",
+          matchesPlayed: 2100,
+          spendLtv: 520.0,
+          tiltLevel: 86,
+          wtp: 9.99,
+          fsmState: "PURCHASED",
+          recentLossStreak: 3,
+          quote: "After 3 straight rank demotion losses in competitive role queue, a Mythic Prisms reload keeps morale high.",
+        },
+        {
+          id: "Mythic_Prism_Whale",
+          name: "Austin 'Reinhardt' Miller",
+          gamerTag: "Mythic_Prism_King",
+          archetype: "BLACKCELL_WHALE",
+          cardTier: "ICON",
+          ovrRating: 98,
+          division: "Overwatch 2 • Mythic Prism Collector",
+          matchesPlayed: 1750,
+          spendLtv: 2400.0,
+          tiltLevel: 14,
           wtp: 39.99,
           fsmState: "PURCHASED",
           recentLossStreak: 0,
-          quote: "The Lovestruck + For Rent Expansion bundle for $39.99 is a 30% discount. Buying immediately for the new world builds.",
+          quote: "Whenever a new Mythic Skin drops, I unlock all 4 weapon visual variants and sound effects immediately.",
         },
         {
-          id: "CC_Builder_Architect",
-          name: "Maya 'BuildMode' Lin",
-          gamerTag: "Modern_Mansions_CC",
-          archetype: "BUILDER_CREATOR",
+          id: "RoleQueue_5Stack_Lead",
+          name: "Chloe 'Mercy' Sterling",
+          gamerTag: "RoleQueue_5Stack_Lead",
+          archetype: "CASUAL_SOCIALIZER",
           cardTier: "HERO",
-          ovrRating: 94,
-          division: "Architectural Creator",
-          matchesPlayed: 1800,
-          spendLtv: 320.0,
-          tiltLevel: 8,
+          ovrRating: 91,
+          division: "Overwatch 2 • Role Queue 5-Stack Lead",
+          matchesPlayed: 780,
+          spendLtv: 120.0,
+          tiltLevel: 22,
+          wtp: 9.99,
+          fsmState: "PURCHASED",
+          recentLossStreak: 1,
+          quote: "Our 5-stack hops on every weekend. The Premium Battle Pass with 20 tier skips gives our whole squad great unlocks.",
+        },
+        {
+          id: "Arcade_Casual_Lucio",
+          name: "Liam 'Boop' S.",
+          gamerTag: "Arcade_Casual_Lucio",
+          archetype: "CASUAL_WARRIOR",
+          cardTier: "GOLD_RARE",
+          ovrRating: 85,
+          division: "Overwatch 2 • Mystery Heroes Casual",
+          matchesPlayed: 380,
+          spendLtv: 30.0,
+          tiltLevel: 15,
           wtp: 4.99,
           fsmState: "PURCHASED",
           recentLossStreak: 0,
-          quote: "$4.99 Creator Kits with modular windows and modern furniture textures save me dozens of hours of custom content modding.",
+          quote: "1,000 Coins starter pack with a featured legendary hero skin is great value for casual players.",
+        },
+      ];
+    }
+
+    // 6. DEFAULT / CANDY CRUSH & ALL ABK PERSONAS FALLBACK
+    else {
+      return [
+        {
+          id: "Candy_Commuter_Slump",
+          name: "Brenda 'Subway' K.",
+          gamerTag: "Subway_Crush_99",
+          archetype: "BOOSTER_WHALE",
+          cardTier: "GOLD_RARE",
+          ovrRating: 92,
+          division: "Candy Crush • Level 500+ Commuter",
+          matchesPlayed: 3100,
+          spendLtv: 450.0,
+          tiltLevel: 82,
+          wtp: 1.99,
+          fsmState: "PURCHASED",
+          recentLossStreak: 3,
+          quote: "Failed level 540 with 1 jelly remaining 3 times in a row. A $1.99 50 Gold Bars booster pack lets me clear the level and keep my streak.",
         },
         {
-          id: "Legacy_Generations_Purist",
-          name: "Sarah 'Legacy' T.",
-          gamerTag: "10_Gen_Legacy_Story",
-          archetype: "LORE_SEEKER",
-          cardTier: "MANAGER",
-          ovrRating: 90,
-          division: "Legacy Storyteller (10 Gens)",
-          matchesPlayed: 1400,
-          spendLtv: 180.0,
+          id: "Candy_VIP_Whale",
+          name: "Eleanor 'Sugar' Vance",
+          gamerTag: "Candy_VIP_Whale_01",
+          archetype: "BLACKCELL_WHALE",
+          cardTier: "ICON",
+          ovrRating: 97,
+          division: "Candy Crush • VIP Hall of Fame",
+          matchesPlayed: 4500,
+          spendLtv: 1850.0,
           tiltLevel: 10,
           wtp: 19.99,
           fsmState: "PURCHASED",
           recentLossStreak: 0,
-          quote: "I love expansions that deepen family dynamics and life stages. High emotional value for legacy gameplay.",
+          quote: "I buy the $19.99 Gold Bar vault every month to maintain my position at the top of the weekly team race.",
         },
         {
-          id: "Casual_Townie_Makeover",
-          name: "Jessica W.",
-          gamerTag: "SulSul_Casual_Gamer",
-          archetype: "CASUAL_WARRIOR",
+          id: "Daily_Streak_Social",
+          name: "Jessica 'Candy' W.",
+          gamerTag: "Daily_Streak_Social",
+          archetype: "CASUAL_SOCIALIZER",
+          cardTier: "HERO",
+          ovrRating: 89,
+          division: "Candy Crush • 365-Day Daily Streak",
+          matchesPlayed: 1400,
+          spendLtv: 85.0,
+          tiltLevel: 20,
+          wtp: 4.99,
+          fsmState: "PURCHASED",
+          recentLossStreak: 1,
+          quote: "Our social team exchanges extra lives and booster gifts every morning on the train commute.",
+        },
+        {
+          id: "Subway_Casual_Gamer",
+          name: "Marcus 'Transit' B.",
+          gamerTag: "Subway_Casual_Gamer",
+          archetype: "COMPETITIVE_GRINDER",
           cardTier: "GOLD_RARE",
           ovrRating: 84,
-          division: "Casual Life Simulator",
-          matchesPlayed: 350,
-          spendLtv: 40.0,
-          tiltLevel: 12,
-          wtp: 4.99,
+          division: "Candy Crush • Casual Subway Commuter",
+          matchesPlayed: 520,
+          spendLtv: 15.0,
+          tiltLevel: 15,
+          wtp: 0.99,
           fsmState: "PURCHASED",
           recentLossStreak: 0,
-          quote: "Boutique fashion and furniture kits for $4.99 are easy impulse buys.",
-        },
-      ];
-    }
-
-    // 5. BATTLEFIELD PERSONAS FALLBACK
-    else if (game === "BATTLEFIELD" || q.includes("battlefield") || q.includes("conquest")) {
-      return [
-        {
-          id: "Conquest_Leader_TankAce",
-          name: "Sgt. Viktor 'Panzer' Hess",
-          gamerTag: "TankCommander_64v64",
-          archetype: "CONQUEST_LEADER",
-          cardTier: "ICON",
-          ovrRating: 96,
-          division: "Tier 1 Armor Mastery (850 SPM)",
-          matchesPlayed: 1600,
-          spendLtv: 420.0,
-          tiltLevel: 45,
-          wtp: 29.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 1,
-          quote: "The Specialist Elite Weapon & Vehicle bundle gives our squad high-visibility tactical armor. High immersion value.",
-        },
-        {
-          id: "Medic_Squad_Lead",
-          name: "Marcus 'Defib' Ross",
-          gamerTag: "Breakthrough_Squad_Lead",
-          archetype: "CASUAL_SOCIALIZER",
-          cardTier: "HERO",
-          ovrRating: 91,
-          division: "Breakthrough 4-Stack Lead",
-          matchesPlayed: 780,
-          spendLtv: 110.0,
-          tiltLevel: 30,
-          wtp: 4.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 0,
-          quote: "Squad 2x XP Boosters for $4.99 help all 4 of our squadmates unlock weapons together during weekend operations.",
-        },
-        {
-          id: "MilSim_Veteran_Recon",
-          name: "David 'Overwatch' Chen",
-          gamerTag: "MilSim_Sniper_Overwatch",
-          archetype: "LORE_SEEKER",
-          cardTier: "MANAGER",
-          ovrRating: 88,
-          division: "Hardcore Tactical Portal",
-          matchesPlayed: 540,
-          spendLtv: 60.0,
-          tiltLevel: 20,
-          wtp: 0.0,
-          fsmState: "ENGAGED_FREE",
-          recentLossStreak: 0,
-          quote: "As long as weapons stay balanced and grounded in authentic military tactics, I support the seasonal content.",
-        },
-        {
-          id: "Casual_AllOutWar",
-          name: "Tyler B.",
-          gamerTag: "Assault_Frontline_XI",
-          archetype: "CASUAL_WARRIOR",
-          cardTier: "GOLD_RARE",
-          ovrRating: 85,
-          division: "Casual All-Out Warfare",
-          matchesPlayed: 320,
-          spendLtv: 20.0,
-          tiltLevel: 35,
-          wtp: 9.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 1,
-          quote: "Season Battle Pass has good cosmetics and vehicle skins for $9.99.",
-        },
-      ];
-    }
-
-    // 6. DEFAULT / EA SPORTS FC 26 PERSONAS FALLBACK
-    else {
-      return [
-        {
-          id: "Marcus_ChampsSweat_94",
-          name: "Marcus T.",
-          gamerTag: "Marcus_ChampsSweat_94",
-          archetype: "COMPETITIVE_GRINDER",
-          cardTier: "GOLD_RARE",
-          ovrRating: 94,
-          division: "Elite Division (Rank 1)",
-          matchesPlayed: 890,
-          spendLtv: 480.0,
-          tiltLevel: 88,
-          wtp: 4.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 3,
-          quote: "After losing in 120th minute extra-time, $4.99 for 500 FC Points to open a quick booster pack gets me right back into the next match.",
-        },
-        {
-          id: "Alexander_IconWhale_99",
-          name: "Alexander V.",
-          gamerTag: "Alexander_IconWhale_99",
-          archetype: "ULTIMATE_TEAM_WHALE",
-          cardTier: "ICON",
-          ovrRating: 98,
-          division: "Division 1 (Icon Collector)",
-          matchesPlayed: 1650,
-          spendLtv: 11200.0,
-          tiltLevel: 12,
-          wtp: 49.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 0,
-          quote: "Guaranteed 88+ Campaign Icon selection with 4,800 FC Points? That's an immediate reload for my First Owner prime squad.",
-        },
-        {
-          id: "Liam_ClubCaptain_10",
-          name: "Liam T.",
-          gamerTag: "Liam_ClubCaptain_10",
-          archetype: "CASUAL_SOCIALIZER",
-          cardTier: "HERO",
-          ovrRating: 91,
-          division: "Pro Clubs Div 1 Captain",
-          matchesPlayed: 450,
-          spendLtv: 140.0,
-          tiltLevel: 28,
-          wtp: 7.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 1,
-          quote: "Our whole 4-player Rush squad logs in Friday night. The Squad Double XP Pass was bought by all 4 of us immediately.",
-        },
-        {
-          id: "WeekendWarrior_UK",
-          name: "Harry M.",
-          gamerTag: "WeekendWarrior_UK",
-          archetype: "COMPETITIVE_GRINDER",
-          cardTier: "GOLD_RARE",
-          ovrRating: 91,
-          division: "FUT Champions (London)",
-          matchesPlayed: 560,
-          spendLtv: 520.0,
-          tiltLevel: 76,
-          wtp: 9.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 2,
-          quote: "1,050 FC Points for $9.99 is an easy buy before jumping into Friday night Weekend League qualifiers.",
+          quote: "99¢ extra moves when I'm one match away from clearing a hard level is a no-brainer.",
         },
       ];
     }
@@ -698,37 +699,37 @@ export default function DeepSonaModal({
   useEffect(() => {
     const activeFranchise =
       selectedGame === "ALL"
-        ? (cohortContext?.franchise && cohortContext.franchise !== "ALL" ? cohortContext.franchise : "EA Live Service")
-        : selectedGame === "FC26"
-        ? "EA SPORTS FC 26"
-        : selectedGame === "APEX"
-        ? "Apex Legends"
-        : selectedGame === "MADDEN25"
-        ? "Madden NFL 25"
-        : selectedGame === "BATTLEFIELD"
-        ? "Battlefield 2042"
-        : "The Sims 4";
+        ? (cohortContext?.franchise && cohortContext.franchise !== "ALL" ? cohortContext.franchise : "Activision Blizzard King")
+        : selectedGame === "COD"
+        ? "Call of Duty: Warzone"
+        : selectedGame === "WOW"
+        ? "World of Warcraft"
+        : selectedGame === "DIABLO4"
+        ? "Diablo IV"
+        : selectedGame === "OVERWATCH2"
+        ? "Overwatch 2"
+        : "Candy Crush Saga";
     setFranchise(activeFranchise);
 
     if (cohortContext?.query) {
       setCreativeTitle(`${cohortContext.query} — Real-Time Intervention`);
     } else if (targetNode) {
       setCreativeTitle(`${targetNode.name} • ${targetNode.archetype || "Player"} Direct Contextual Offer`);
-    } else if (selectedGame === "APEX") {
-      setCreativeTitle("Apex Legends Battle Pass Ultimate+ & 1,000 Coins Starter ($4.99 - $19.99)");
-      setProposedSpend(180000);
-    } else if (selectedGame === "MADDEN25") {
-      setCreativeTitle("Madden NFL 25 MUT Field Pass & 500 Points Starter ($4.99 - $9.99)");
-      setProposedSpend(150000);
-    } else if (selectedGame === "SIMS4") {
-      setCreativeTitle("The Sims 4: Lovestruck & Riviera Creator Kits ($4.99 - $39.99)");
+    } else if (selectedGame === "COD") {
+      setCreativeTitle("Call of Duty: Warzone BlackCell Battle Pass & 1,100 CP Starter ($9.99 - $29.99)");
+      setProposedSpend(220000);
+    } else if (selectedGame === "WOW") {
+      setCreativeTitle("World of Warcraft 6-Month Subscription Bundle & Mount Voucher ($14.99 - $77.94)");
+      setProposedSpend(190000);
+    } else if (selectedGame === "DIABLO4") {
+      setCreativeTitle("Diablo IV: Vessel of Hatred Deluxe & Infernal Relic Cache ($19.99 - $59.99)");
+      setProposedSpend(160000);
+    } else if (selectedGame === "OVERWATCH2") {
+      setCreativeTitle("Overwatch 2 Mythic Skin Prism Bundle & 2,200 Coins ($9.99 - $39.99)");
       setProposedSpend(140000);
-    } else if (selectedGame === "BATTLEFIELD") {
-      setCreativeTitle("Battlefield 2042 Elite Edition Upgrade & 500 BFC Starter ($4.99 - $39.99)");
-      setProposedSpend(110000);
     } else {
-      setCreativeTitle("EA SPORTS FC 26 Ultimate Edition & 500 FC Points Starter ($4.99 - $99.99)");
-      setProposedSpend(120000);
+      setCreativeTitle("Candy Crush Saga Infinite Lives & 50 Gold Bars Bundle ($4.99 - $19.99)");
+      setProposedSpend(110000);
     }
   }, [selectedGame, cohortContext, targetNode]);
 
@@ -739,7 +740,7 @@ export default function DeepSonaModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          campaign_id: `camp-ea-${Date.now()}`,
+          campaign_id: `camp-abk-${Date.now()}`,
           franchise,
           creative_title: creativeTitle,
           proposed_spend: proposedSpend,

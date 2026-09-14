@@ -1,6 +1,6 @@
 export type NodeType = "PLAYER" | "IDENTITY" | "GAME" | "CLAN" | "OFFER" | "CREATOR";
 
-export type GameFranchise = "ALL" | "FC26" | "APEX" | "MADDEN25" | "BATTLEFIELD" | "SIMS4";
+export type GameFranchise = "ALL" | "COD" | "WOW" | "DIABLO4" | "OVERWATCH2" | "CANDYCRUSH";
 
 export type Archetype =
   | "COMPETITIVE_GRINDER"
@@ -10,6 +10,10 @@ export type Archetype =
   | "RANKED_SWEAT"
   | "HEIRLOOM_WHALE"
   | "CASUAL_WARRIOR"
+  | "BLACKCELL_WHALE"
+  | "MYTHIC_RAIDER"
+  | "SANCTUARY_COLLECTOR"
+  | "BOOSTER_WHALE"
   | "MUT_WHALE"
   | "CONQUEST_LEADER"
   | "SIMS_COLLECTOR"
@@ -47,6 +51,8 @@ export interface GraphNode {
   creator_data?: any;
   followed_creators?: string[];
   primary_creator_influence?: string;
+  clan_id?: string;
+  clan_name?: string;
   game_telemetry?: Record<string, any>;
   purchased_items?: Array<{ title: string; price: number; date: string; category: string; type?: string }>;
   country?: string;

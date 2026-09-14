@@ -54,8 +54,8 @@ export async function GET(request: NextRequest) {
       const ident = platformIdentities.find((i: any) => i.identity_id === e.identity_id);
       if (ident) {
         let identColor = "#00F0FF";
-        if (ident.platform.includes("EA")) identColor = "#FF4757";
-        else if (ident.platform.includes("COMPANION")) identColor = "#E6FF00";
+        if (ident.platform.includes("BATTLE")) identColor = "#00F0FF";
+        else if (ident.platform.includes("KING")) identColor = "#EC4899";
         else if (ident.platform.includes("PLAY")) identColor = "#0070D1";
         else if (ident.platform.includes("XBOX")) identColor = "#107C10";
         else if (ident.platform.includes("STEAM")) identColor = "#9146FF";
@@ -109,11 +109,11 @@ export async function GET(request: NextRequest) {
     if (gameFilter === "ALL") {
       // 5 Grand Franchise Hubs
       const macroHubPositions: Record<string, { fx: number; fy: number; color: string }> = {
-        "game-fc26": { fx: -340, fy: -180, color: "#E6FF00" },      // Volt Neon
-        "game-apex": { fx: 340, fy: -180, color: "#00F0FF" },       // Cyan
-        "game-madden25": { fx: -340, fy: 180, color: "#00FF88" },   // Emerald
-        "game-battlefield": { fx: 340, fy: 180, color: "#FF7A00" }, // Orange
-        "game-sims4": { fx: 0, fy: 0, color: "#A855F7" },           // Plumbob Purple
+        "game-cod": { fx: -340, fy: -180, color: "#F59E0B" },      // CoD Amber
+        "game-wow": { fx: 340, fy: -180, color: "#00F0FF" },       // WoW Cyan
+        "game-diablo": { fx: -340, fy: 180, color: "#FF334B" },    // Diablo Crimson
+        "game-ow2": { fx: 340, fy: 180, color: "#38BDF8" },       // Overwatch Sky Blue
+        "game-candy": { fx: 0, fy: 0, color: "#EC4899" },          // Candy Crush Pink
       };
 
       const parentGames = games.filter((g: any) => g.is_parent_hub);
@@ -133,14 +133,14 @@ export async function GET(request: NextRequest) {
 
       // Macro Top Major DLC & Monetization Wells (100% Real Official Store Products)
       const macroOfferPositions: Record<string, { fx: number; fy: number }> = {
-        "dlc-fc26-ultimate-edition": { fx: -500, fy: -260 },
-        "item-fc26-points-12000": { fx: -460, fy: -80 },
-        "item-apex-heirloom-event": { fx: 500, fy: -260 },
-        "dlc-apex-ultimate-plus": { fx: 460, fy: -80 },
-        "dlc-madden-deluxe-upgrade": { fx: -480, fy: 260 },
-        "dlc-bf-elite-edition": { fx: 480, fy: 260 },
-        "dlc-sims4-megabundle": { fx: 0, fy: -140 },
-        "item-sims4-lovestruck": { fx: 0, fy: 140 },
+        "off-cod-01": { fx: -500, fy: -260 },
+        "off-cod-03": { fx: -460, fy: -80 },
+        "off-wow-01": { fx: 500, fy: -260 },
+        "off-wow-03": { fx: 460, fy: -80 },
+        "off-diablo4-01": { fx: -480, fy: 260 },
+        "off-overwatch2-01": { fx: 480, fy: 260 },
+        "off-candycrush-01": { fx: 0, fy: -140 },
+        "off-candycrush-02": { fx: 0, fy: 140 },
       };
 
       for (const o of offers) {
@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
           type: "GAME",
           franchise: g.franchise,
           val: 32,
-          color: g.franchise === "FC26" ? "#E6FF00" : g.franchise === "APEX" ? "#00F0FF" : g.franchise === "MADDEN25" ? "#00FF88" : g.franchise === "BATTLEFIELD" ? "#FF7A00" : "#A855F7",
+          color: g.franchise === "COD" ? "#F59E0B" : g.franchise === "WOW" ? "#00F0FF" : g.franchise === "DIABLO4" ? "#FF334B" : g.franchise === "OVERWATCH2" ? "#38BDF8" : "#EC4899",
           fx,
           fy,
         });
@@ -215,12 +215,12 @@ export async function GET(request: NextRequest) {
 
       if (p.primary_archetype === "COMPETITIVE_GRINDER" || p.primary_archetype === "RANKED_SWEAT") {
         nodeColor = "#FF4757"; // Sweat / Tilt Red
-      } else if (p.primary_archetype === "ULTIMATE_TEAM_WHALE" || p.primary_archetype === "HEIRLOOM_WHALE" || p.primary_archetype === "MUT_WHALE" || p.primary_archetype === "SIMS_COLLECTOR") {
+      } else if (p.primary_archetype === "ULTIMATE_TEAM_WHALE" || p.primary_archetype === "BLACKCELL_WHALE" || p.primary_archetype === "SANCTUARY_COLLECTOR" || p.primary_archetype === "BOOSTER_WHALE" || p.primary_archetype === "HEIRLOOM_WHALE" || p.primary_archetype === "MUT_WHALE" || p.primary_archetype === "SIMS_COLLECTOR") {
         nodeColor = "#FFB800"; // Whale Gold
       } else if (p.primary_archetype === "LORE_SEEKER" || p.primary_archetype === "BUILDER_CREATOR") {
         nodeColor = "#00F0FF"; // Cyan
-      } else if (p.primary_archetype === "CONQUEST_LEADER") {
-        nodeColor = "#FF7A00"; // Battlefield Orange
+      } else if (p.primary_archetype === "MYTHIC_RAIDER") {
+        nodeColor = "#38BDF8"; // Raider Sky Blue
       }
 
       const size = p.lifetime_spend_usd >= 3000 ? 14 : p.lifetime_spend_usd >= 500 ? 9 : 6;

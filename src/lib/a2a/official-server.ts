@@ -52,11 +52,11 @@ function extractPlayersForA2A(promptText: string, payload: any) {
     const lower = (promptText || "").toLowerCase();
     
     // 1. Determine franchise
-    let franchise = "FC26";
-    if (lower.includes("apex")) franchise = "APEX";
-    else if (lower.includes("madden") || lower.includes("mut")) franchise = "MADDEN25";
-    else if (lower.includes("sims")) franchise = "SIMS4";
-    else if (lower.includes("battlefield") || lower.includes("bf")) franchise = "BATTLEFIELD";
+    let franchise = "COD";
+    if (lower.includes("wow") || lower.includes("warcraft")) franchise = "WOW";
+    else if (lower.includes("diablo")) franchise = "DIABLO4";
+    else if (lower.includes("candy")) franchise = "CANDYCRUSH";
+    else if (lower.includes("overwatch") || lower.includes("ow")) franchise = "OVERWATCH2";
 
     // 2. Determine count limit (default 5)
     const countMatch = promptText.match(/\b([0-9]+)\b/);
@@ -65,7 +65,7 @@ function extractPlayersForA2A(promptText: string, payload: any) {
     // 3. Filter candidates
     let candidates = allPlayers.filter((p: any) => p.primary_franchise === franchise || (p.franchises_played && p.franchises_played.includes(franchise)));
 
-    if (lower.includes("tilt") || lower.includes("loss") || lower.includes("defeat") || lower.includes("streak")) {
+    if (lower.includes("tilt") || lower.includes("loss") || lower.includes("defeat") || lower.includes("streak") || lower.includes("gulag")) {
       candidates = candidates.filter((p: any) => p.tilt_sensitivity >= 0.55 || (p.recent_loss_streak && p.recent_loss_streak >= 1));
       candidates.sort((a: any, b: any) => (b.recent_loss_streak || 0) - (a.recent_loss_streak || 0) || b.tilt_sensitivity - a.tilt_sensitivity);
     } else if (lower.includes("whale") || lower.includes("spend")) {
@@ -77,19 +77,17 @@ function extractPlayersForA2A(promptText: string, payload: any) {
 
     return matched.map((p: any) => {
       const tel = p.game_telemetry || {};
-      const favClub = tel.favorite_club || "Real Madrid";
-      const favPlayer = tel.favorite_player || "Kylian Mbappé";
-      const formation = tel.favorite_formation || "4-3-3 Attack";
-      const playstyle = tel.primary_playstyle || "Tiki-Taka High Press";
-      const rewardPref = tel.preferred_reward_type || "88+ Campaign Hero Evo Pick";
+      const loadout = tel.main_loadout || "Kastov 762 / Kar98k";
+      const charClass = tel.character_class || "Frost Death Knight";
+      const playstyle = tel.primary_playstyle || "Aggressive Resurgence Sweeper";
+      const rewardPref = tel.preferred_reward_type || "BlackCell Season Battle Pass";
       const streak = p.recent_loss_streak || 0;
-      const ovr = tel.squad_ovr || 92;
 
       return {
         player_id: p.player_id,
         gamer_tag: p.display_name,
         display_name: p.display_name,
-        primary_email: p.primary_email || `${p.display_name.toLowerCase().replace(/[^a-z0-9]/g, "_")}@ea.sample.com`,
+        primary_email: p.primary_email || `${p.display_name.toLowerCase().replace(/[^a-z0-9]/g, "_")}@battlenet.sample.com`,
         primary_franchise: p.primary_franchise,
         franchises_played: p.franchises_played || [p.primary_franchise],
         
@@ -123,24 +121,22 @@ function extractPlayersForA2A(promptText: string, payload: any) {
         },
 
         creator_affiliations: {
-          primary_creator_influence: p.primary_creator_influence || "creator-nickrtfm",
-          followed_creators: p.followed_creators || ["creator-nickrtfm"],
+          primary_creator_influence: p.primary_creator_influence || "creator-scump",
+          followed_creators: p.followed_creators || ["creator-scump"],
         },
 
         in_game_telemetry: {
           ...tel,
-          favorite_club: favClub,
-          favorite_player: favPlayer,
-          favorite_formation: formation,
+          main_loadout: loadout,
+          character_class: charClass,
           primary_playstyle: playstyle,
           preferred_reward_type: rewardPref,
-          squad_ovr: ovr,
         },
 
         purchased_items: p.purchased_items || [],
 
         campaign_context: {
-          suggested_headline: `${p.display_name} • Reset momentum in ${tel.division || "Division 1"}`,
+          suggested_headline: `${p.display_name} • Reset momentum in ${tel.rank_tier || "Ranked Play"}`,
           recovery_hook: `Targeted defeat mitigation for ${p.display_name} after ${streak} match loss streak`,
         }
       };
@@ -167,19 +163,19 @@ export function handleOfficialA2ARequest(rpcRequest: any) {
 
   // Method 2: Send Message / Execute Task
   if (method === "tasks/send" || method === "tasks/create" || method === "message/send") {
-    const taskId = params.task_id || params.taskId || `task-fc26-${Date.now()}`;
+    const taskId = params.task_id || params.taskId || `task-cod-${Date.now()}`;
     const promptText = params.message?.parts?.[0]?.text || params.prompt || "";
     
     // Resolve matching players with personalized telemetry
     const matchedPlayers = extractPlayersForA2A(promptText, params.payload || {});
 
     const artifactData = {
-      audience_segment: "FC 26 High-Tilt Personalized Cohort",
+      audience_segment: "Call of Duty: Warzone High-Tilt Personalized Cohort",
       total_cohort_estimate: 1840,
       extracted_players_count: matchedPlayers.length,
       players: matchedPlayers,
       agent_metadata: {
-        engine: "Spanner Property Graph (EAPlayerGraph)",
+        engine: "Spanner Property Graph (ABKPlayerGraph)",
         protocol: "Linux Foundation / Google A2A Open Standard v0.3",
         generated_at: new Date().toISOString()
       }

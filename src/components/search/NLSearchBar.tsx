@@ -17,40 +17,40 @@ interface NLSearchBarProps {
 
 const SAMPLE_PROMPTS_BY_GAME: Record<GameFranchise, string[]> = {
   ALL: [
-    "Cross-title Whales with spend over $3,500 across FC and Apex",
+    "Cross-title Whales with spend over $3,500 across Call of Duty and WoW",
     "Competitive players with 3+ loss streaks & high frustration",
-    "Social Squad Warriors active in Clubs and Apex Trios",
-    "Legacy players who migrated across multiple EA franchises",
+    "Social Squad Warriors active in Warzone and WoW Guild Raids",
+    "Legacy players who migrated across multiple Battle.net franchises",
   ],
-  FC26: [
-    "FUT Champions players with 3+ loss streaks & high tilt in London",
-    "Ultimate Team Whales ($3,500+ spend)",
-    "Pro Clubs and Rush 5v5 active squads",
-    "Career Mode purists who migrated from FC 24",
+  COD: [
+    "Warzone Resurgence players with 3+ Gulag losses & high tilt in Los Angeles",
+    "BlackCell Battle Pass Whales ($1,500+ spend)",
+    "Hardcore CDL and BO6 Ranked Play active squads",
+    "Scump & TimTheTatman viewers playing Warzone Squads",
   ],
-  APEX: [
-    "Apex Ranked Predators with 3+ RP demotion losses",
-    "Heirloom Whales with spend over $1,000",
-    "Active Trios premade squads playing Friday nights",
-    "Casual Mixtape players with high churn risk",
+  WOW: [
+    "Mythic+ dungeon runners with 3+ raid wipe streaks",
+    "Mount & Pet Collection Whales with 10+ years tenure",
+    "Active 20-player Guild officers with 30-day sub expiration",
+    "Casual heroic raiders seeking subscription incentives",
   ],
-  MADDEN25: [
-    "MUT Champions players with 3+ loss streaks",
-    "Madden Ultimate Team Whales ($2,000+ spend)",
-    "Superstar Showdown 3v3 active players",
-    "Connected Franchise league managers",
+  DIABLO4: [
+    "Pit Tier 80+ grinders experiencing boss wipe fatigue",
+    "Sanctuary Whales with deluxe edition & cosmetics ($800+ spend)",
+    "Hardcore seasonal realm competitors seeking masterworking mats",
+    "Vessel of Hatred campaign completers with high churn risk",
   ],
-  BATTLEFIELD: [
-    "Conquest squad leaders with 500+ hours",
-    "Vehicle specialists with Tier 1 tank mastery",
-    "Breakthrough attack squad veterans",
-    "Hardcore tactical players seeking XP boosters",
+  OVERWATCH2: [
+    "Overwatch 2 Competitive Grandmasters with 3+ demotion losses",
+    "Mythic Skin Prism Whales with spend over $600",
+    "Active 5v5 Role Queue premade stacks playing Friday nights",
+    "Casual Stadium & Arcade players with high churn risk",
   ],
-  SIMS4: [
-    "DLC Whales with 10+ Expansion Packs owned",
-    "Architectural & Custom Content (CC) builders",
-    "Legacy Generations storycrafters with 1000+ hours",
-    "Casual players who haven't bought Lovestruck DLC",
+  CANDYCRUSH: [
+    "Casual Commuters stuck on level 500+ with booster depletion",
+    "Gold Bar Whales with spend over $1,200",
+    "High-streak players on 4+ daily session frequency",
+    "Lapsed commuters with high purchase elasticity for extra lives",
   ],
 };
 

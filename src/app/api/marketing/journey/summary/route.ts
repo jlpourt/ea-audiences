@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       .join("\n");
 
     const prompt = `
-You are the Chief Growth & Marketing Analytics AI for EA SPORTS FC 26 powered by Google Cloud Vertex AI Gemini Flash Lite.
+You are the Chief Growth & Marketing Analytics AI for Activision Blizzard King (ABK) powered by Google Cloud Vertex AI Gemini Flash Lite.
 
 AUDIENCE & FUNNEL METRICS:
 - Active Cohort Preset: "${cohortPreset}"
@@ -40,15 +40,15 @@ ${playerSnippets || "None provided"}
 
 TASK:
 Provide two concise, high-impact executive intelligence summaries:
-1. "path_summary": Differentiate what drives this specific player cohort through this journey stage. Explain the behavioral friction, player psychology, and why the marketing intervention converts them. Keep it to 2-3 crisp sentences with real EA FC terminology (e.g. 'Weekend League', 'Rush 5v5', 'SBC', 'Loss Shield', 'FC Points').
-2. "funnel_summary": Provide a macro executive takeaway on the overall funnel health, highlighting the primary conversion lever and estimated revenue lift for EA Live Services.
+1. "path_summary": Differentiate what drives this specific player cohort through this journey stage. Explain the behavioral friction, player psychology, and why the marketing intervention converts them. Keep it to 2-3 crisp sentences with real ABK terminology (e.g. 'Warzone Gulag', 'BlackCell Season Pass', 'Mythic+ Raid Wipes', 'The Pit Torment', 'Battle.net cross-title play').
+2. "funnel_summary": Provide a macro executive takeaway on the overall funnel health, highlighting the primary conversion lever and estimated revenue lift for Activision Blizzard King.
 
 Output STRICT JSON matching:
 {
   "path_summary": "...",
   "funnel_summary": "...",
   "key_tactical_lever": "...",
-  "recommended_bid_modifier": "+18% on London FUT Champs Qualifiers"
+  "recommended_bid_modifier": "+22% on Warzone Gulag Slump Retries"
 }
 `;
 

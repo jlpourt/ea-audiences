@@ -79,8 +79,8 @@ export default function EntityInspector({
         avgLossStreak: 2.1,
         dominantArchetype: cohortContext?.dominantArchetype || "COMPETITIVE_GRINDER",
         topCreators: [
-          { name: "NICKRTFM", pct: "48%" },
-          { name: "CASTRO1021", pct: "36%" },
+          { name: "SCUMP", pct: "48%" },
+          { name: "TIMTHETATMAN", pct: "36%" },
         ],
         topCountries: [{ name: "United Kingdom", flag: "🇬🇧", pct: "58%" }],
       };
@@ -593,46 +593,52 @@ export default function EntityInspector({
                       <span className="text-amber-300 font-mono">{gameMeta.kd_ratio}</span>
                     </div>
                   )}
-                  {gameMeta.main_legend && (
+                  {gameMeta.gulag_win_rate !== undefined && (
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-400">Main Legend:</span>
-                      <span className="text-cyan-300">{gameMeta.main_legend}</span>
+                      <span className="text-gray-400">Gulag Win Rate:</span>
+                      <span className="text-emerald-300 font-mono">{Math.round(gameMeta.gulag_win_rate * 100)}%</span>
                     </div>
                   )}
-                  {gameMeta.squad_ovr && (
+                  {gameMeta.main_loadout && (
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-400">Squad OVR:</span>
-                      <span className="text-amber-300 font-mono">{gameMeta.squad_ovr} OVR</span>
+                      <span className="text-gray-400">Main Loadout:</span>
+                      <span className="text-cyan-300">{gameMeta.main_loadout}</span>
                     </div>
                   )}
-                  {gameMeta.favorite_club && (
+                  {gameMeta.character_class && (
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-400">Favorite Club:</span>
-                      <span className="text-cyan-300 font-medium">{gameMeta.favorite_club}</span>
+                      <span className="text-gray-400">Character Class:</span>
+                      <span className="text-yellow-300 font-medium">{gameMeta.character_class}</span>
                     </div>
                   )}
-                  {gameMeta.favorite_player && (
+                  {gameMeta.raid_progression && (
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-400">Star Player:</span>
-                      <span className="text-yellow-300 font-medium">{gameMeta.favorite_player}</span>
+                      <span className="text-gray-400">Raid Progression:</span>
+                      <span className="text-purple-300 font-mono">{gameMeta.raid_progression}</span>
                     </div>
                   )}
-                  {gameMeta.favorite_formation && (
+                  {gameMeta.pit_tier !== undefined && (
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-400">Formation:</span>
-                      <span className="text-emerald-300 font-mono">{gameMeta.favorite_formation}</span>
+                      <span className="text-gray-400">Pit Tier:</span>
+                      <span className="text-rose-300 font-mono">Tier {gameMeta.pit_tier}</span>
+                    </div>
+                  )}
+                  {gameMeta.main_hero && (
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-gray-400">Main Hero:</span>
+                      <span className="text-cyan-300 font-medium">{gameMeta.main_hero}</span>
+                    </div>
+                  )}
+                  {gameMeta.current_level !== undefined && (
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-gray-400">Current Level:</span>
+                      <span className="text-pink-300 font-mono">Level {gameMeta.current_level}</span>
                     </div>
                   )}
                   {gameMeta.primary_playstyle && (
                     <div className="flex justify-between text-[11px]">
                       <span className="text-gray-400">Playstyle:</span>
                       <span className="text-purple-300">{gameMeta.primary_playstyle}</span>
-                    </div>
-                  )}
-                  {gameMeta.expansion_packs_owned !== undefined && (
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-400">Expansion Packs:</span>
-                      <span className="text-purple-300 font-mono">{gameMeta.expansion_packs_owned} Packs Owned</span>
                     </div>
                   )}
                   {node.loss_streak !== undefined && node.loss_streak > 0 && (
@@ -670,7 +676,7 @@ export default function EntityInspector({
                     ? node.purchased_items
                     : [
                         {
-                          title: `${node.franchise || "FC 26"} Standard Retail Edition`,
+                          title: `${node.franchise || "COD"} Standard Retail Edition`,
                           price: (node.spend || 0) > 0 ? (node.spend || 0) : 0.0,
                           date: "2024-09-27",
                           category: (node.spend || 0) > 0 ? "Retail & In-Game Items" : "Free-to-Play Tier",
