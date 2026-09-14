@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Sparkles, Code, ArrowRight, CheckCircle, Users, Loader2, X, RefreshCw } from "lucide-react";
+import { Sparkles, Code, ArrowRight, CheckCircle, Users, Loader2, X, RefreshCw, AlertTriangle } from "lucide-react";
 import { GraphData, GameFranchise } from "@/lib/types";
 
 interface NLSearchBarProps {
@@ -12,45 +12,44 @@ interface NLSearchBarProps {
   setIsLoading: (loading: boolean) => void;
   isDeepSonaLoading?: boolean;
   onResetToMacro?: () => void;
-  dataSource?: "live_spanner" | "local";
 }
 
 const SAMPLE_PROMPTS_BY_GAME: Record<GameFranchise, string[]> = {
   ALL: [
-    "Cross-title Whales with spend over $3,500 across Call of Duty and WoW",
-    "Competitive players with 3+ loss streaks & high frustration",
-    "Social Squad Warriors active in Warzone and WoW Guild Raids",
-    "Legacy players who migrated across multiple Battle.net franchises",
+    "Cross-title whales with spend over $3,500 across Call of Duty and WoW",
+    "Players with 3+ loss streaks and tilt sensitivity above 0.6",
+    "Battle.net players active in both Warzone and WoW Midnight",
+    "Lapsed high-LTV accounts with churn risk over 0.70",
   ],
   COD: [
-    "Warzone Resurgence players with 3+ Gulag losses & high tilt in Los Angeles",
-    "BlackCell Battle Pass Whales ($1,500+ spend)",
-    "Hardcore CDL and BO6 Ranked Play active squads",
-    "Scump & TimTheTatman viewers playing Warzone Squads",
+    "Warzone players with 3+ Gulag losses and high tilt in Los Angeles",
+    "BlackCell whales who bought the Black Ops 7 pass ($1,500+ spend)",
+    "Black Ops 7 Ranked Play players on last-gen consoles before sunset",
+    "Scump and FaZe_Swagg followers playing Warzone",
   ],
   WOW: [
-    "Mythic+ dungeon runners with 3+ raid wipe streaks",
-    "Mount & Pet Collection Whales with 10+ years tenure",
-    "Active 20-player Guild officers with 30-day sub expiration",
-    "Casual heroic raiders seeking subscription incentives",
+    "Midnight Season 2 raiders with 3+ wipe streaks",
+    "Collectors with 10+ years tenure and 5+ expansions owned",
+    "Players holding WoW Tokens with sub lapsing in 30 days",
+    "Mists of Pandaria Classic players who never bought Midnight",
   ],
   DIABLO4: [
-    "Pit Tier 80+ grinders experiencing boss wipe fatigue",
-    "Sanctuary Whales with deluxe edition & cosmetics ($800+ spend)",
-    "Hardcore seasonal realm competitors seeking masterworking mats",
-    "Vessel of Hatred campaign completers with high churn risk",
+    "Pit grinders with death slumps and churn risk over 0.65",
+    "Sanctuary collectors with $800+ spend on cosmetics",
+    "Season 13 players who skipped the Lord of Hatred expansion",
+    "Vessel of Hatred owners who have not returned this season",
   ],
   OVERWATCH2: [
-    "Overwatch 2 Competitive Grandmasters with 3+ demotion losses",
-    "Mythic Skin Prism Whales with spend over $600",
-    "Active 5v5 Role Queue premade stacks playing Friday nights",
-    "Casual Stadium & Arcade players with high churn risk",
+    "Competitive players with 3+ demotion losses this season",
+    "Mythic Prism whales with spend over $600",
+    "Season 4 Heroes of Busan players with low match frequency",
+    "Free-to-play accounts that never converted to a battle pass",
   ],
   CANDYCRUSH: [
-    "Casual Commuters stuck on level 500+ with booster depletion",
-    "Gold Bar Whales with spend over $1,200",
-    "High-streak players on 4+ daily session frequency",
-    "Lapsed commuters with high purchase elasticity for extra lives",
+    "Players stuck out of moves on level 5,000+ with no boosters",
+    "Gold bar whales with spend over $1,200",
+    "Daily players on 4+ sessions with lapsing Sugar Track progress",
+    "Lapsed commuters with high elasticity for extra-moves offers",
   ],
 };
 
@@ -62,13 +61,16 @@ export default function NLSearchBar({
   setIsLoading,
   isDeepSonaLoading = false,
   onResetToMacro,
-  dataSource = "live_spanner",
 }: NLSearchBarProps) {
   const [query, setQuery] = useState<string>("");
   const [showGql, setShowGql] = useState<boolean>(false);
   const [currentGql, setCurrentGql] = useState<string>("");
   const [summaryText, setSummaryText] = useState<string>("");
   const [metrics, setMetrics] = useState<any>(null);
+  // A failed query previously fell through the `if (res.ok)` with no else,
+  // leaving the last successful cohort on screen. The presenter had no way to
+  // tell a stale result from a fresh one.
+  const [errorText, setErrorText] = useState<string>("");
 
   const currentPrompts = SAMPLE_PROMPTS_BY_GAME[selectedGame] || SAMPLE_PROMPTS_BY_GAME.ALL;
 
@@ -77,28 +79,42 @@ export default function NLSearchBar({
     if (!q.trim()) return;
 
     setIsLoading(true);
+    setErrorText("");
     try {
       const res = await fetch("/api/audiences/nl-query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: q, game: selectedGame, dataSource }),
+        body: JSON.stringify({ query: q, game: selectedGame }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        setCurrentGql(data.generated_gql);
-        setSummaryText(data.natural_language_summary);
-        setMetrics(data.aggregate_metrics);
-        onSearchResults(
-          { nodes: data.nodes, links: data.links },
-          data.natural_language_summary,
-          data.generated_gql,
-          data.aggregate_metrics,
-          q
+      const data = await res.json();
+
+      if (!res.ok) {
+        setSummaryText("");
+        setMetrics(null);
+        setErrorText(
+          data?.error_kind === "SPANNER_UNAVAILABLE"
+            ? `Cloud Spanner is unreachable — no results shown rather than estimated ones. ${data.error ?? ""}`
+            : data?.error || `Query failed (HTTP ${res.status}).`
         );
+        return;
       }
-    } catch (e) {
+
+      setCurrentGql(data.generated_gql);
+      setSummaryText(data.natural_language_summary);
+      setMetrics(data.aggregate_metrics);
+      onSearchResults(
+        { nodes: data.nodes, links: data.links },
+        data.natural_language_summary,
+        data.generated_gql,
+        data.aggregate_metrics,
+        q
+      );
+    } catch (e: any) {
       console.error("NL Query error:", e);
+      setSummaryText("");
+      setMetrics(null);
+      setErrorText(e?.message || "Could not reach the query service.");
     } finally {
       setIsLoading(false);
     }
@@ -116,6 +132,28 @@ export default function NLSearchBar({
 
   return (
     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 w-[92%] max-w-2xl flex flex-col items-center gap-2 font-sans">
+      {/* Failure banner. Deliberately loud: the alternative to showing this is
+          showing numbers we cannot stand behind. */}
+      {errorText && (
+        <div
+          role="alert"
+          className="w-full bg-red-950/80 backdrop-blur-2xl p-3 px-4 rounded-2xl border border-red-500/40 shadow-2xl flex items-start gap-3 animate-fade-in"
+        >
+          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <div className="text-xs font-semibold text-red-200">Query could not be completed</div>
+            <div className="text-[11px] text-red-300/80 font-mono break-words mt-0.5">{errorText}</div>
+          </div>
+          <button
+            onClick={() => setErrorText("")}
+            aria-label="Dismiss error"
+            className="ml-auto shrink-0 text-red-300/60 hover:text-red-200 transition-colors active:scale-90 motion-reduce:active:scale-100"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Sleek Segment Summary Banner */}
       {summaryText && (
         <div className="w-full bg-black/80 backdrop-blur-2xl p-3 px-4 rounded-2xl border border-white/10 shadow-2xl flex items-center justify-between gap-4 animate-fade-in">

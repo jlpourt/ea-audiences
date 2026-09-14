@@ -51,7 +51,7 @@ export default function SyntheticPersonaCard({
             <span className="text-[11px] text-gray-400 block mt-0.5">{persona.division}</span>
           </div>
 
-          {/* Was a bare FIFA-style OVR rating, which means nothing for an ABK
+          {/* Was a bare OVR rating, which means nothing for an ABK
               player. Tilt is the signal this panel actually reasons about. */}
           <div className="text-right shrink-0">
             <span className="text-[10px] text-gray-500 uppercase block">Tilt</span>

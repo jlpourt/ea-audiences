@@ -14,7 +14,7 @@ module.exports = {
         "surface-raised": "#141D2B",
         "surface-border": "#1E2C42",
         "alert-red": "#FF4757",
-        "ea-orange": "#FF7A00",
+        "alert-orange": "#FF7A00",
         "cyber-cyan": "#00F0FF",
         "neon-green": "#00FF88",
         "electric-purple": "#A855F7",

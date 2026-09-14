@@ -10,7 +10,7 @@ def main():
     print("Testing JamieRootOrchestratorAgent and DeepSonaAgent...")
     res = root_agent.deepsona_agent.simulate_campaign_reaction(
         campaign_id="test-camp-01",
-        franchise="Apex Legends",
+        franchise="Call of Duty: Warzone",
         creative_title="Season 22 Squad Breach Cut",
         proposed_spend=120000.0,
         target_roas=2.45,
@@ -26,7 +26,7 @@ def main():
     # Test Outbound A2A Brief Handoff
     print("\nTesting Outbound A2A Audience Brief Hand-off to Act 2 (Curtis Gross)...")
     a2a_res = root_agent.emit_audience_brief_to_creative_insights(
-        friction_point="Apex Season 22 Tier 15 Unlock Resistance",
+        friction_point="Warzone Gulag Loss Streak Churn Risk",
         target_archetype="COMPETITIVE_GRINDER",
     )
     print(f"✅ A2A Hand-off Status: {a2a_res['response']['status']} (Intent: {a2a_res['response']['intent']})")

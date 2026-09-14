@@ -72,7 +72,7 @@ export default function PersonaDebateFeed({ reactions }: PersonaDebateFeedProps)
             </p>
 
             <div className="flex items-center justify-between text-[10px] text-gray-400 pt-1">
-              <span>Churn Risk Score: <strong className="text-ea-orange">{(r.churn_risk_score * 100).toFixed(0)}%</strong></span>
+              <span>Churn Risk Score: <strong className="text-alert-orange">{(r.churn_risk_score * 100).toFixed(0)}%</strong></span>
               <span>Sentiment Score: <strong className={r.sentiment_score > 0 ? "text-neon-green" : "text-alert-red"}>{(r.sentiment_score * 100).toFixed(0)}</strong></span>
             </div>
           </div>

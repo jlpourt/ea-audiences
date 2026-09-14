@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Sparkles,
   ArrowRight,
@@ -22,9 +22,10 @@ import {
   FileText,
   ExternalLink,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { GameFranchise } from "@/lib/types";
-import SpannerDataSourceToggle, { SpannerDataSource } from "@/components/common/SpannerDataSourceToggle";
+import SpannerStatusPill from "@/components/common/SpannerStatusPill";
 
 interface GeminiLandingStageProps {
   onSearchQuery: (query: string, game: GameFranchise) => void;
@@ -33,8 +34,9 @@ interface GeminiLandingStageProps {
   onOpenGeoMap: () => void;
   onOpenMarketingJourney?: () => void;
   isLoading?: boolean;
-  dataSource?: SpannerDataSource;
-  onDataSourceChange?: (source: SpannerDataSource) => void;
+  /** Set when a query failed. The stage stays put and explains why. */
+  errorText?: string;
+  onDismissError?: () => void;
 }
 
 const FRANCHISES: { id: GameFranchise; label: string; dotColor: string }[] = [
@@ -125,7 +127,7 @@ const MASTER_PILLARS: MasterFunctionPillar[] = [
       base: "5,000 Master Players • Spanner Property Graph (Live)",
       summary: "Warzone Resurgence players on 3+ consecutive Gulag eliminations exhibit a 7.8x surge in 14-day churn risk. 71% of drop-offs happen within 90 minutes without an in-game recovery bridge.",
       caveats: [
-        "Telemetry window: 90-day real-time Spanner property graph session streams (Warzone Resurgence & BO6 Ranked).",
+        "Telemetry window: 90-day real-time Spanner property graph session streams (Warzone & Black Ops 7 Ranked).",
         "Lapse velocity: Churn probability doubles after Gulag defeat #3 compared to defeat #2.",
         "Monetization elasticity: Willingness-to-pay for $9.99 BlackCell starter bundles peaks within 15 minutes of session end.",
       ],
@@ -358,17 +360,57 @@ export default function GeminiLandingStage({
   onOpenGeoMap,
   onOpenMarketingJourney,
   isLoading = false,
-  dataSource = "live_spanner",
-  onDataSourceChange,
+  errorText = "",
+  onDismissError,
 }: GeminiLandingStageProps) {
   const [query, setQuery] = useState("");
   const [selectedFranchise, setSelectedFranchise] = useState<GameFranchise>("ALL");
   const [activePillarId, setActivePillarId] = useState<"audiences" | "creative" | "measurement" | "advertising" | "insights">("audiences");
   const [activeLoadingQuery, setActiveLoadingQuery] = useState<string | null>(null);
   const [isBriefModalOpen, setIsBriefModalOpen] = useState<boolean>(false);
+  const [liveFinding, setLiveFinding] = useState<any | null>(null);
 
   const activeAura = AURA_THEMES[selectedFranchise] || AURA_THEMES.ALL;
-  const currentPillar = MASTER_PILLARS.find((p) => p.id === activePillarId) || MASTER_PILLARS[0];
+
+  // The Audiences core finding is computed from Spanner rather than asserted.
+  // The card's action button loads the very cohort the headline describes, so
+  // a hardcoded figure would be contradicted the moment anyone clicked it.
+  const findingFranchise = selectedFranchise === "ALL" ? "COD" : selectedFranchise;
+  useEffect(() => {
+    let cancelled = false;
+    setLiveFinding(null);
+    fetch(`/api/insights/core-finding?franchise=${findingFranchise}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && d && !d.error) setLiveFinding(d);
+      })
+      .catch(() => {
+        // Leave `liveFinding` null; the card falls back to static copy and
+        // labels itself as such rather than showing stale numbers as live.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [findingFranchise]);
+
+  const basePillar = MASTER_PILLARS.find((p) => p.id === activePillarId) || MASTER_PILLARS[0];
+  const currentPillar =
+    basePillar.id === "audiences" && liveFinding
+      ? {
+          ...basePillar,
+          coreFinding: {
+            ...basePillar.coreFinding,
+            title: String(liveFinding.title),
+            metricPill: String(liveFinding.metric_pill),
+            base: String(liveFinding.base),
+            summary: String(liveFinding.summary),
+            caveats: (liveFinding.caveats || []) as string[],
+            actionLabel: String(liveFinding.action_label),
+            queryToRun: String(liveFinding.query_to_run),
+            franchise: liveFinding.franchise as GameFranchise,
+          },
+        }
+      : basePillar;
 
   const handleRunSearch = (customQ?: string, customFranchise?: GameFranchise) => {
     if (isLoading) return;
@@ -417,14 +459,9 @@ export default function GeminiLandingStage({
           </div>
         </div>
 
-        {/* Right Navigation & Engine Toggle */}
+        {/* Right Navigation & Live Connection Status */}
         <div className="flex items-center gap-2.5">
-          {onDataSourceChange && (
-            <SpannerDataSourceToggle
-              dataSource={dataSource}
-              onToggle={onDataSourceChange}
-            />
-          )}
+          <SpannerStatusPill />
 
           {onOpenMarketingJourney && (
             <button
@@ -477,6 +514,31 @@ export default function GeminiLandingStage({
             Unified multi-agent intelligence across 500M+ players, Spanner Property Graph, and Google Cloud AI.
           </p>
         </div>
+
+        {/* Failure banner. The landing stage deliberately does NOT advance on
+            error — showing an empty or stale graph would be worse than saying
+            plainly that nothing was computed. */}
+        {errorText && (
+          <div
+            role="alert"
+            className="w-full bg-red-950/70 backdrop-blur-2xl border border-red-500/40 rounded-2xl p-3 px-4 flex items-start gap-3 animate-fade-in"
+          >
+            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <div className="text-xs font-semibold text-red-200">No cohort was computed</div>
+              <div className="text-[11px] text-red-300/80 font-mono break-words mt-0.5">{errorText}</div>
+            </div>
+            {onDismissError && (
+              <button
+                onClick={onDismissError}
+                aria-label="Dismiss error"
+                className="ml-auto shrink-0 text-red-300/60 hover:text-red-200 transition-colors active:scale-90 motion-reduce:active:scale-100"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Universal Search Island */}
         <div className="w-full bg-[#111318]/90 backdrop-blur-3xl border border-white/10 hover:border-white/20 focus-within:border-white/30 rounded-3xl p-3 shadow-2xl transition-all space-y-2.5">

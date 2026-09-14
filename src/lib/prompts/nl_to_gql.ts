@@ -18,11 +18,11 @@ Field Semantics:
 - age: 13-65. gender: 'male' | 'female' | 'nonbinary' | 'undisclosed'.
 
 Game Franchises in Database:
-- 'COD' (Call of Duty: Warzone, Black Ops 6, BlackCell Battle Pass, Ricochet)
-- 'WOW' (World of Warcraft: The War Within, Mythic+ Raids, 6-Month Subscriptions, Mounts)
-- 'DIABLO4' (Diablo IV: Vessel of Hatred, The Pit, Torment IV, Seasonal Passes)
-- 'OVERWATCH2' (Overwatch 2: Competitive Hero Shooter, Mythic Prisms, Top 500)
-- 'CANDYCRUSH' (Candy Crush Saga: King Casual Mobile, Level 1500+ Boosters, Gold Bars)
+- 'COD' (Call of Duty: Black Ops 7, Warzone, BlackCell Battle Pass, CoD Points; Modern Warfare 4 upcoming)
+- 'WOW' (World of Warcraft: Midnight, Mythic+ Raids, monthly subscription, WoW Token, Mists of Pandaria Classic)
+- 'DIABLO4' (Diablo IV: Lord of Hatred expansion, The Pit, seasonal battle passes, Platinum)
+- 'OVERWATCH2' (Overwatch 2: competitive hero shooter, Mythic Prisms, Top 500, collab bundles)
+- 'CANDYCRUSH' (Candy Crush Saga: King casual mobile, Gold Bars, boosters, Sugar Track pass)
 
 Geographic Markets & DMAs:
 - Countries: 'United States', 'United Kingdom', 'France', 'Germany', 'Spain', 'Brazil', 'Japan', 'Saudi Arabia'

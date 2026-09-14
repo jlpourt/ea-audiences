@@ -43,7 +43,22 @@ export interface GraphNode {
   clan_id?: string;
   clan_name?: string;
   game_telemetry?: Record<string, any>;
-  purchased_items?: Array<{ title: string; price: number; date: string; category: string; type?: string }>;
+  /**
+   * `offer_id` makes a purchase joinable back to the catalogue SKU. Without it
+   * a purchase was just a display string and could not be linked in the graph.
+   */
+  purchased_items?: Array<{
+    offer_id?: string;
+    title: string;
+    price: number;
+    date: string;
+    category: string;
+    type?: string;
+  }>;
+  /** GAME nodes only: LIVE | LEGACY | UPCOMING | SUNSET. */
+  lifecycle_status?: string;
+  /** GAME nodes only, e.g. "Season 6: The Haunting". */
+  current_season?: string;
   country?: string;
   country_code?: string;
   country_flag?: string;

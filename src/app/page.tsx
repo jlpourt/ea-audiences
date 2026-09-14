@@ -11,14 +11,13 @@ import CampaignBriefModal from "@/components/brief/CampaignBriefModal";
 import A2ANegotiationFeed from "@/components/a2a/A2ANegotiationFeed";
 import GeminiLandingStage from "@/components/landing/GeminiLandingStage";
 import PlayerMarketingJourneySankey from "@/components/journey/PlayerMarketingJourneySankey";
-import SpannerDataSourceToggle, { SpannerDataSource } from "@/components/common/SpannerDataSourceToggle";
+import SpannerStatusPill from "@/components/common/SpannerStatusPill";
 import { GraphData, GraphNode, ContextualViewType, GameFranchise, DeepSonaResult, CampaignBrief } from "@/lib/types";
 import { archetypeLabel } from "@/lib/archetypes";
-import { Radio, Users, Sparkles, ArrowLeft, Database, Search, Loader2, X } from "lucide-react";
+import { Radio, Users, Sparkles, ArrowLeft, Database, Search, Loader2, X, AlertTriangle } from "lucide-react";
 
 export default function CommandCenterPage() {
   const [isLandingView, setIsLandingView] = useState<boolean>(true);
-  const [dataSource, setDataSource] = useState<SpannerDataSource>("live_spanner");
   const [currentView, setCurrentView] = useState<ContextualViewType>("audience-cohorts");
   const [selectedGame, setSelectedGame] = useState<GameFranchise>("ALL");
   const [archetypeFilter, setArchetypeFilter] = useState<string>("ALL");
@@ -30,6 +29,9 @@ export default function CommandCenterPage() {
   // Collapsing the inspector hides the drawer WITHOUT destroying the cohort.
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState<boolean>(false);
   const [isNlLoading, setIsNlLoading] = useState<boolean>(false);
+  // Surfaces a failed landing query. Without this the landing page simply did
+  // not advance, which is indistinguishable from a slow one.
+  const [landingError, setLandingError] = useState<string>("");
 
   // DeepSona Preloading & Loading states
   const [isDeepSonaLoading, setIsDeepSonaLoading] = useState<boolean>(false);
@@ -103,31 +105,44 @@ export default function CommandCenterPage() {
   };
 
   const handleLandingSearch = async (queryText: string, franchise: GameFranchise) => {
-    setIsSegmentedView(true);
     setSelectedGame(franchise);
     setIsNlLoading(true);
+    setLandingError("");
 
     try {
       const res = await fetch("/api/audiences/nl-query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: queryText, game: franchise, dataSource }),
+        body: JSON.stringify({ query: queryText, game: franchise }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        handleSearchResults(
-          { nodes: data.nodes, links: data.links },
-          data.natural_language_summary,
-          data.generated_gql,
-          data.aggregate_metrics,
-          queryText
+      const data = await res.json();
+
+      if (!res.ok) {
+        // Stay on the landing page and say why. Previously `isSegmentedView`
+        // had already been set to true before the request, so a failure left
+        // the app claiming a segment existed when none had been computed.
+        setLandingError(
+          data?.error_kind === "SPANNER_UNAVAILABLE"
+            ? `Cloud Spanner is unreachable, so no cohort was computed. ${data.error ?? ""}`
+            : data?.error || `Query failed (HTTP ${res.status}).`
         );
-        // Seamlessly transition ONLY after graph data is populated
-        setIsLandingView(false);
+        return;
       }
-    } catch (e) {
+
+      setIsSegmentedView(true);
+      handleSearchResults(
+        { nodes: data.nodes, links: data.links },
+        data.natural_language_summary,
+        data.generated_gql,
+        data.aggregate_metrics,
+        queryText
+      );
+      // Seamlessly transition ONLY after graph data is populated
+      setIsLandingView(false);
+    } catch (e: any) {
       console.error("Landing query error:", e);
+      setLandingError(e?.message || "Could not reach the query service.");
     } finally {
       setIsNlLoading(false);
     }
@@ -174,7 +189,7 @@ export default function CommandCenterPage() {
 
     const OFFER_UNDER_TEST: Record<string, { title: string; spend: number }> = {
       COD: {
-        title: "Season 1 BlackCell Battle Pass Bundle ($29.99)",
+        title: "BlackCell Battle Pass Bundle ($29.99)",
         spend: 220000,
       },
       WOW: {
@@ -334,8 +349,8 @@ export default function CommandCenterPage() {
           setIsLandingView(false);
         }}
         isLoading={isNlLoading}
-        dataSource={dataSource}
-        onDataSourceChange={setDataSource}
+        errorText={landingError}
+        onDismissError={() => setLandingError("")}
       />
     );
   }
@@ -355,17 +370,22 @@ export default function CommandCenterPage() {
             <span>Search</span>
           </button>
 
-          <div
+          {/* A real <button>: this was a clickable <div>, which is invisible to
+              keyboard and assistive tech despite being a primary navigation
+              affordance. */}
+          <button
+            type="button"
             onClick={() => setIsLandingView(true)}
-            className="flex items-center cursor-pointer hover:opacity-85 transition-opacity"
+            className="flex items-center cursor-pointer hover:opacity-85 transition-opacity active:scale-[0.97] motion-reduce:active:scale-100"
             title="Return to Start Page"
+            aria-label="Return to start page"
           >
             <img
               src="/abk_logo.svg"
               alt="Activision Blizzard King"
               className="h-6 sm:h-7 w-auto object-contain brightness-110"
             />
-          </div>
+          </button>
 
           <div className="flex items-center gap-2">
             <span className="text-gray-500 font-normal">/</span>
@@ -373,12 +393,9 @@ export default function CommandCenterPage() {
           </div>
         </div>
 
-        {/* Right Actions & Engine Toggle */}
+        {/* Right Actions & Live Connection Status */}
         <div className="flex items-center gap-2.5">
-          <SpannerDataSourceToggle
-            dataSource={dataSource}
-            onToggle={setDataSource}
-          />
+          <SpannerStatusPill />
 
           <button
             onClick={() => handleLaunchDeepSona()}
@@ -481,7 +498,6 @@ export default function CommandCenterPage() {
           isLoading={isNlLoading}
           setIsLoading={setIsNlLoading}
           isDeepSonaLoading={isDeepSonaLoading}
-          dataSource={dataSource}
           onResetToMacro={() => {
             setIsSegmentedView(false);
             setCohortContext(null);

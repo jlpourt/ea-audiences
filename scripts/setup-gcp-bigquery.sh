@@ -3,7 +3,7 @@ set -e
 
 # GCP BigQuery Setup Script for EA Engagement Intelligence Engine (01-audiences)
 PROJECT_ID="${GCP_PROJECT_ID:-jamie-bq-test}"
-DATASET_ID="${BQ_DATASET_ID:-ea_marketing_intelligence}"
+DATASET_ID="${BQ_DATASET_ID:-abk_marketing_intelligence}"
 LOCATION="${BQ_LOCATION:-US}"
 
 echo "============================================================"

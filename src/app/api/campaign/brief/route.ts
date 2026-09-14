@@ -128,7 +128,7 @@ Generate the structured Campaign Brief in strict JSON format:
           predicted_conversion_lift: 31.2,
           projected_roi: 3.45,
           recommended_action:
-            "Deploy exclusive Battle.net launcher flash banner for 'BlackCell Season 1 Vault Bundle ($99.99 / 13,000 CP)' with 48-hour expiration timer.",
+            "Deploy exclusive Battle.net launcher flash banner for 'BlackCell Vault Bundle ($99.99 / 13,000 CP)' with 48-hour expiration timer.",
           creative_hooks: [
             "Upgrade your Arsenal: Guaranteed Animated Mastercraft Weapon Selection live for 48 hours",
             "Lead your squad with BlackCell: 13,000 CoD Points + Uncapped Prestige Weapon Blueprint",

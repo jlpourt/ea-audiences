@@ -9,7 +9,7 @@ Generate an executive-ready structured Marketing Campaign Brief based on:
 Format the output in clean JSON matching:
 {
   "brief_id": "brief-cod-wz-retention",
-  "title": "Call of Duty: Warzone & Black Ops 6 Resurgence Retention Brief",
+  "title": "Call of Duty: Warzone & Black Ops 7 Retention Brief",
   "franchise": "Call of Duty: Warzone",
   "target_segment": "High-Tilt Warzone Grinders & Friday Night Resurgence Squads",
   "audience_size": 285000,
@@ -23,7 +23,7 @@ Format the output in clean JSON matching:
   "projected_roi": 3.15,
   "recommended_action": "Deploy dynamic in-game situational trigger offering the 'Warzone Gulag Recovery Pack ($4.99 / 500 CoD Points)' upon 3rd defeat at match summary screen.",
   "creative_hooks": [
-    "Bounce back in Verdansk: Gulag Recovery Shield + 1-Hour Double Weapon XP active now",
+    "Bounce back in Warzone: Gulag Recovery Shield + 1-Hour Double Weapon XP active now",
     "Reclaim your streak in Resurgence: 500 CoD Points + Exclusive Ghost Operator Blueprint",
     "Friday Squad Drop: Double XP + BlackCell Sector Fast-Track unlocked for your squad"
   ]

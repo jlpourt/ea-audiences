@@ -10,6 +10,10 @@ export const GCP_CONFIG = {
   bqDatasetId: process.env.BQ_DATASET_ID || "abk_marketing_intelligence",
   gcsBucketName: process.env.GCS_BUCKET_NAME || "abk-audiences-data-jamie-bq-test",
   vertexModel: process.env.VERTEX_MODEL || "gemini-3.5-flash-lite",
+  // Google Search grounding requires a model that supports the `googleSearch`
+  // tool. Kept separate from `vertexModel` so tuning the fast structured-output
+  // model cannot silently disable grounding.
+  vertexGroundedModel: process.env.VERTEX_GROUNDED_MODEL || "gemini-2.5-flash",
   embeddingModel: process.env.EMBEDDING_MODEL || "text-embedding-004",
   adkAgentServiceUrl: process.env.ADK_AGENT_SERVICE_URL || "http://localhost:8080",
 };

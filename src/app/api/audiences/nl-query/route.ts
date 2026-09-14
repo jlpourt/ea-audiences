@@ -1,34 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
 import { generateVertexContent, parseModelJson } from "@/lib/gcp/vertex-client";
-import { runSpannerGraphQuery } from "@/lib/gcp/spanner-client";
+import { runSpannerGraphQuery, SpannerUnavailableError } from "@/lib/gcp/spanner-client";
+import { getCatalog } from "@/lib/gcp/catalog";
 import { NL_TO_GQL_SYSTEM_PROMPT } from "@/lib/prompts/nl_to_gql";
+import { formatFollowers } from "@/lib/format";
 import { GraphNode, GraphLink, GameFranchise } from "@/lib/types";
 
-function loadJson(filename: string) {
-  const filepath = path.join(process.cwd(), "data", filename);
-  if (fs.existsSync(filepath)) {
-    return JSON.parse(fs.readFileSync(filepath, "utf-8"));
-  }
-  return [];
-}
+/**
+ * How many player rows we pull back for rendering. This is a *drawing* budget,
+ * not an audience size — the force graph becomes unreadable much beyond this,
+ * while `totalMatched` continues to report the true population.
+ */
+const RENDER_LIMIT = 56;
+
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const query = body.query || "Show cross-title whales with spend over $3,500 across FC and Apex";
+    const query = body.query || "Show cross-title whales with spend over $3,500 across Call of Duty and World of Warcraft";
     const selectedGame = (body.game || "ALL") as GameFranchise;
 
-    const allGames = loadJson("games.json");
-    const allOffers = loadJson("marketing_offers.json");
-    const allCreators = loadJson("creators.json");
+    // The catalog comes from the SAME database as the cohort. Reading it off
+    // local JSON let the two drift, and they had: `is_parent_hub` and
+    // `affinity_archetype` were read by this route and by graph/view but
+    // defined in neither the files nor the schema, so franchise hubs and
+    // archetype-aware offer matching silently did nothing at all.
+    const { games: allGames, offers: allOffers, creators: allCreators } =
+      await getCatalog();
 
     let generatedGql = "";
     let naturalLanguageSummary = "";
     let targetArchetype = "";
     let targetFranchises: string[] = [];
     let matchedCreatorIds: string[] = [];
+
+    // Which component actually produced the GQL. Reported to the client so the
+    // UI never claims Gemini authored a query the deterministic builder wrote.
+    let translator: "gemini" | "deterministic" | "caller_supplied" = "gemini";
 
     const lowerQ = query.toLowerCase();
 
@@ -113,6 +122,7 @@ Output strict JSON:
     // An explicitly supplied query is executed verbatim: no guard, no rewriting.
     if (explicitGql) {
       generatedGql = explicitGql;
+      translator = "caller_supplied";
     }
 
     // The franchise selector is authoritative. The model intermittently drops
@@ -152,15 +162,24 @@ Output strict JSON:
       );
     }
 
-    // 2. Deterministic Semantic Fallback.
+    // 2. Deterministic Semantic Fallback — for TRANSLATION ONLY.
+    //
+    // This substitutes for Gemini when the model is unreachable or returns
+    // something unusable. It does NOT substitute for Spanner: whatever it
+    // builds is still executed against the live graph, so the numbers remain
+    // real. The `translator` flag below is returned to the client so a fallback
+    // is never mistaken for a model-authored query.
+    //
     // Predicates are composed ADDITIVELY so that "at-risk whales in Germany"
     // yields churn AND spend AND geography, rather than whichever branch
     // happened to be checked first.
+    //
     // An explicitly supplied GQL is never overridden — the whole point of the
     // escape hatch is verbatim execution. Previously the prefix check below
     // silently replaced it with the fallback whenever the caller omitted the
     // "GRAPH ABKPlayerGraph" header.
     if (!explicitGql && (!generatedGql || !generatedGql.includes("GRAPH ABKPlayerGraph"))) {
+      translator = "deterministic";
       const clauses: string[] = [];
 
       const geoTokens: [string[], string][] = [
@@ -243,16 +262,17 @@ Output strict JSON:
         `p.account_tenure_days, p.currency_balance, p.country, p.dma_market${orderBy}\nLIMIT 400;`;
     }
 
-    const dataSource = (body.dataSource || "local") as "live_spanner" | "local";
-
-    // 3. Execute Spanner Graph Query.
+    // 3. Execute the query against live Spanner.
+    //
+    // There is no local fallback. A previous version quietly evaluated the
+    // predicates against a JSON file whenever Spanner was unreachable, so the
+    // UI could present confident cohort sizes that had never touched the
+    // database. A visible failure is worth far more than an invisible fiction.
+    //
     // The engine returns the LIMIT page in `rows` and the true population size
     // in `totalMatched`. These are deliberately distinct: `rows` drives what we
     // render, `totalMatched` is what a marketer reads as reachable audience.
-    let queryResult = await runSpannerGraphQuery(generatedGql, {}, dataSource);
-    if (!queryResult.rows.length && dataSource === "live_spanner") {
-      queryResult = await runSpannerGraphQuery(generatedGql, {}, "local");
-    }
+    const queryResult = await runSpannerGraphQuery(generatedGql, RENDER_LIMIT);
     const rows = queryResult.rows;
     const totalMatched = queryResult.totalMatched;
 
@@ -269,7 +289,7 @@ Output strict JSON:
     };
 
     if (targetFranchises.length >= 2) {
-      // Multi-Title / Cross-Franchise View (e.g. FC & Apex)
+      // Multi-Title / Cross-Franchise View (e.g. Call of Duty & WoW)
       const f1 = targetFranchises[0];
       const f2 = targetFranchises[1];
       const g1 = allGames.find((g: any) => g.franchise === f1 && g.is_parent_hub) || { game_id: `game-${f1.toLowerCase()}`, title: f1 };
@@ -323,10 +343,10 @@ Output strict JSON:
       const activeFranchise = targetFranchises[0] || "COD";
 
       if (activeFranchise === "COD") {
-        // Spatial Layout for Call of Duty Warzone & BO6
+        // Spatial Layout for Call of Duty Warzone & Black Ops 7
         nodes.push({
           id: "game-cod-warzone-resurgence",
-          name: "Warzone: Resurgence & Verdansk",
+          name: "Warzone",
           type: "GAME",
           franchise: "COD",
           val: 34,
@@ -336,7 +356,7 @@ Output strict JSON:
         });
         nodes.push({
           id: "game-cod-bo6-multiplayer",
-          name: "Black Ops 6 Ranked & CDL",
+          name: "Black Ops 7 Ranked & CDL",
           type: "GAME",
           franchise: "COD",
           val: 34,
@@ -356,7 +376,7 @@ Output strict JSON:
         });
         nodes.push({
           id: "offer-cod-blackcell-s1",
-          name: "Season 1 BlackCell Pass ($29.99)",
+          name: "BlackCell Pass ($29.99)",
           type: "OFFER",
           franchise: "COD",
           spend: 29.99,
@@ -472,11 +492,13 @@ Output strict JSON:
           const angle = (cIdx / matchedCreatorIds.length) * 2 * Math.PI - Math.PI / 4;
           nodes.push({
             id: creatorObj.creator_id,
-            name: `${creatorObj.handle} (${creatorObj.subscribers})`,
+            // Was `creatorObj.subscribers`, a field that exists on no creator
+            // record, so every creator node rendered "Scump (undefined)".
+            name: `${creatorObj.handle} (${formatFollowers(creatorObj.followers)})`,
             type: "CREATOR",
             franchise: creatorObj.franchise || "COD",
             val: 38,
-            color: creatorObj.color || "#00F0FF",
+            color: hubColors[creatorObj.franchise || ""] || "#00F0FF",
             creator_data: creatorObj,
             fx: Math.round(Math.cos(angle) * 340),
             fy: Math.round(Math.sin(angle) * 340),
@@ -490,39 +512,33 @@ Output strict JSON:
     let totalChurn = 0;
     const archetypeCounts: Record<string, number> = {};
 
-    // Cap on how many player nodes we draw. This is a *rendering* limit only and
-    // must never be reported as the size of the audience.
-    const RENDER_NODE_CAP = 56;
-
+    // `rows` arrives already typed and fully mapped by the Spanner client, and
+    // is already capped at RENDER_LIMIT by the query itself. The previous
+    // `row.toJSON ? ... : row` / `p[0]` positional-index scaffolding existed
+    // because rows could be raw Spanner objects, plain objects, or arrays; that
+    // ambiguity is gone, and with it a class of silent undefined-field bugs.
     let sampleRows = rows;
     if (matchedCreatorIds.length > 0) {
-      const creatorMatched = rows.filter((r: any) => {
-        const p = r.toJSON ? r.toJSON() : r;
-        const followed = Array.isArray(p.followed_creators) ? p.followed_creators : (p.primary_creator_influence ? [p.primary_creator_influence] : []);
-        return followed.some((c: string) => matchedCreatorIds.includes(c));
-      });
-      if (creatorMatched.length > 0) {
-        sampleRows = creatorMatched.slice(0, RENDER_NODE_CAP);
-      } else {
-        sampleRows = rows.slice(0, RENDER_NODE_CAP);
-      }
-    } else {
-      sampleRows = rows.slice(0, RENDER_NODE_CAP);
+      const creatorMatched = rows.filter((p) =>
+        p.followed_creators.some((c) => matchedCreatorIds.includes(c))
+      );
+      // Only narrow to creator-followers when there are any; otherwise the
+      // creator mention would empty an otherwise valid cohort.
+      if (creatorMatched.length > 0) sampleRows = creatorMatched;
     }
 
     for (let idx = 0; idx < sampleRows.length; idx++) {
-      const row = sampleRows[idx];
-      const p = row.toJSON ? row.toJSON() : row;
-      const pid = p.player_id || p[0];
-      const dname = p.display_name || p[1] || pid;
-      const pFranchise = p.primary_franchise || p[2] || targetFranchises[0] || "COD";
-      const fPlayed: string[] = Array.isArray(p.franchises_played) ? p.franchises_played : (p[3] ? [p[3]] : [pFranchise]);
-      const arch = p.primary_archetype || p[4] || targetArchetype || "COMPETITIVE_GRINDER";
-      const spend = Number(p.lifetime_spend_usd ?? p[5] ?? 0);
-      const churn = Number(p.churn_risk_score ?? p[6] ?? 0.4);
-      const tilt = Number(p.tilt_sensitivity ?? p[7] ?? 0.5);
-      const lossStreak = Number(p.recent_loss_streak ?? p[8] ?? 0);
-      const followedCreators = Array.isArray(p.followed_creators) ? p.followed_creators : (p.primary_creator_influence ? [p.primary_creator_influence] : []);
+      const p = sampleRows[idx];
+      const pid = p.player_id;
+      const dname = p.display_name || pid;
+      const pFranchise = p.primary_franchise || targetFranchises[0] || "COD";
+      const fPlayed: string[] = p.franchises_played.length ? p.franchises_played : [pFranchise];
+      const arch = p.primary_archetype || targetArchetype || "COMPETITIVE_GRINDER";
+      const spend = p.lifetime_spend_usd;
+      const churn = p.churn_risk_score;
+      const tilt = p.tilt_sensitivity;
+      const lossStreak = p.recent_loss_streak;
+      const followedCreators = p.followed_creators;
 
       totalSpend += spend;
       totalChurn += churn;
@@ -558,14 +574,16 @@ Output strict JSON:
         churn_risk: churn,
         tilt,
         loss_streak: lossStreak,
-        country: p.country,
-        country_code: p.country_code,
-        country_flag: p.country_flag,
-        dma_market: p.dma_market,
-        lat: p.lat,
-        lng: p.lng,
+        // Spanner returns NULL for absent columns; GraphNode models absence as
+        // `undefined`. Coerce at this boundary rather than widening the type.
+        country: p.country ?? undefined,
+        country_code: p.country_code ?? undefined,
+        country_flag: p.country_flag ?? undefined,
+        dma_market: p.dma_market ?? undefined,
+        lat: p.lat ?? undefined,
+        lng: p.lng ?? undefined,
         followed_creators: followedCreators,
-        primary_creator_influence: p.primary_creator_influence,
+        primary_creator_influence: p.primary_creator_influence ?? undefined,
         game_telemetry: p.game_telemetry,
         purchased_items: p.purchased_items || [],
         val: Math.max(7, Math.min(20, Math.round(spend / 100))),
@@ -659,24 +677,25 @@ Output strict JSON:
 
     // Audience size is the true count of players satisfying the predicates.
     // It is NOT derived from how many nodes we happened to draw.
-    const avgSpend = Math.round(agg.avgSpendUsd);
-    const avgChurn = Number(agg.avgChurnRisk.toFixed(2));
+    const avgSpend = Math.round(agg.avgSpend);
+    const avgChurn = Number(agg.avgChurn.toFixed(2));
     const isSampled = renderedCount < totalMatched;
 
     const franchiseNames = targetFranchises.join(" & ");
-    const provenance = queryResult.isLive ? "live Google Cloud Spanner" : "the local graph engine";
 
     return NextResponse.json({
       query,
       generated_gql: generatedGql,
+      translator,
       spanner_source: queryResult.source,
       is_live_spanner: queryResult.isLive,
       execution_time_ms: queryResult.executionTimeMs,
-      applied_predicates: queryResult.appliedPredicates,
+      where_clause: queryResult.whereClause,
+      gql_executed: queryResult.gqlExecuted,
       natural_language_summary:
         totalMatched === 0
-          ? `Executed against ${provenance} across ${franchiseNames}. No players matched these predicates — try relaxing a threshold.`
-          : `Executed against ${provenance} across ${franchiseNames}. ${totalMatched.toLocaleString()} players match${
+          ? `Executed against live Cloud Spanner across ${franchiseNames}. No players matched these predicates — try relaxing a threshold.`
+          : `Executed against live Cloud Spanner across ${franchiseNames}. ${totalMatched.toLocaleString()} players match${
               isSampled ? `, rendering a ${renderedCount}-node sample` : ""
             }. Average lifetime spend $${avgSpend.toLocaleString()}, average churn risk ${(avgChurn * 100).toFixed(
               0
@@ -703,7 +722,24 @@ Output strict JSON:
       },
     });
   } catch (error: any) {
+    // A Spanner outage is reported distinctly from a bug in this route, and
+    // carries the failing clause so it is diagnosable on stage rather than
+    // showing up as an opaque "something went wrong".
+    if (error instanceof SpannerUnavailableError) {
+      console.error("[NL Query] Spanner unavailable:", error.message);
+      return NextResponse.json(
+        {
+          error: error.message,
+          error_kind: "SPANNER_UNAVAILABLE",
+          is_live_spanner: false,
+        },
+        { status: 503 }
+      );
+    }
     console.error("NL Query error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message, error_kind: "INTERNAL" },
+      { status: 500 }
+    );
   }
 }

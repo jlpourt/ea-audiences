@@ -2,6 +2,8 @@
 
 import React, { useState, useMemo } from "react";
 import { GraphNode, GraphData, CohortContext } from "@/lib/types";
+import { archetypeLabel } from "@/lib/archetypes";
+import { formatFollowers } from "@/lib/format";
 import PlaystyleRadar from "./PlaystyleRadar";
 import {
   X,
@@ -416,7 +418,10 @@ export default function EntityInspector({
                 <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
                   <span className="text-[10px] text-gray-500 block uppercase">Store Price</span>
                   <span className="font-semibold text-emerald-400 text-base font-mono block mt-0.5">
-                    $${node.spend?.toFixed(2) || "4.99"}
+                    {/* Was `$${node.spend?.toFixed(2) || "4.99"}` — the doubled
+                        `$$` rendered every price as "$$99.99", and the fallback
+                        invented a price for any offer missing one. */}
+                    {typeof node.spend === "number" ? `$${node.spend.toFixed(2)}` : "—"}
                   </span>
                   <span className="text-[10px] text-gray-400 block mt-0.5">
                     {offerData?.category || "Monetization SKU"}
@@ -425,13 +430,27 @@ export default function EntityInspector({
                 <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
                   <span className="text-[10px] text-gray-500 block uppercase">Conversion Lift</span>
                   <span className="font-semibold text-cyan-400 text-base font-mono block mt-0.5">
-                    {offerData?.expected_conversion_boost || "+24.8%"}
+                    {/* Now a number (percentage points) rather than the old
+                        "+24.8%" string, which was also the hardcoded fallback
+                        shown whenever the real value was missing. */}
+                    {typeof offerData?.expected_conversion_boost === "number"
+                      ? `+${offerData.expected_conversion_boost.toFixed(1)}%`
+                      : "—"}
                   </span>
                   <span className="text-[10px] text-gray-400 block mt-0.5">
-                    DeepSona Validated
+                    Modelled uplift
                   </span>
                 </div>
               </div>
+
+              {offerData?.affinity_archetype && (
+                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
+                  <span className="text-[10px] text-gray-500 block uppercase">Best Fit Archetype</span>
+                  <span className="font-semibold text-pink-400 text-xs font-mono block mt-0.5">
+                    {archetypeLabel(offerData.affinity_archetype)}
+                  </span>
+                </div>
+              )}
 
               {offerData?.description && (
                 <p className="text-[11px] text-gray-300 p-3 rounded-2xl bg-white/[0.02] border border-white/5 leading-relaxed">
@@ -448,19 +467,39 @@ export default function EntityInspector({
                 <div className="p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/20">
                   <span className="text-[10px] text-cyan-300 block uppercase font-medium">Follower Reach</span>
                   <span className="font-semibold text-white text-base font-mono block mt-0.5">
-                    {creatorData?.subscribers || "1.2M+"}
+                    {/* Was `creatorData?.subscribers || "1.2M+"`. No creator
+                        record has a `subscribers` field, so every creator in
+                        the demo displayed the same invented 1.2M+ figure —
+                        including Scump, who has 3.2M. */}
+                    {formatFollowers(creatorData?.followers)}
                   </span>
                   <span className="text-[10px] text-gray-400 block mt-0.5">
-                    {creatorData?.platform || "Twitch & YouTube"}
+                    {creatorData?.platform || "—"}
                   </span>
                 </div>
                 <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                  <span className="text-[10px] text-gray-500 block uppercase">Target Audience</span>
-                  <span className="font-semibold text-pink-400 text-xs font-mono block mt-0.5 truncate">
-                    {creatorData?.primary_archetype || "COMPETITIVE_GRINDER"}
+                  <span className="text-[10px] text-gray-500 block uppercase">Avg. Concurrents</span>
+                  {/* Was `creatorData?.primary_archetype`, which creators do
+                      not have, so this always fell back to a constant. Average
+                      stream viewership is a field that actually exists and is
+                      the more useful number for a media buy. */}
+                  <span className="font-semibold text-pink-400 text-base font-mono block mt-0.5">
+                    {formatFollowers(creatorData?.avg_stream_viewers)}
+                  </span>
+                  <span className="text-[10px] text-gray-400 block mt-0.5">
+                    {creatorData?.signature_mode || "—"}
                   </span>
                 </div>
               </div>
+
+              {typeof creatorData?.conversion_affinity === "number" && (
+                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
+                  <span className="text-[10px] text-gray-500 block uppercase">Conversion Affinity</span>
+                  <span className="font-semibold text-emerald-400 text-base font-mono block mt-0.5">
+                    {(creatorData.conversion_affinity * 100).toFixed(0)}%
+                  </span>
+                </div>
+              )}
 
               {creatorData?.sponsorship_angle && (
                 <div className="p-3.5 rounded-2xl bg-black/40 border border-white/5 space-y-1.5">
@@ -482,18 +521,39 @@ export default function EntityInspector({
               <div className="grid grid-cols-2 gap-2.5">
                 <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
                   <span className="text-[10px] text-gray-500 block uppercase">Franchise</span>
-                  <span className="font-semibold text-white text-xs block mt-0.5">{node.franchise || "EA Live Service"}</span>
+                  {/* The fallback here used to name a franchise that is not in the catalog — a
+                      leftover the reskin audit missed because it does not
+                      contain any of the searched brand terms. */}
+                  <span className="font-semibold text-white text-xs block mt-0.5">
+                    {node.franchise || "—"}
+                  </span>
                 </div>
                 <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                  <span className="text-[10px] text-gray-500 block uppercase">Telemetry Status</span>
-                  <span className="font-semibold text-emerald-400 text-xs font-mono block mt-0.5">
-                    Active Spanner Hub
+                  <span className="text-[10px] text-gray-500 block uppercase">Lifecycle</span>
+                  <span
+                    className={`font-semibold text-xs font-mono block mt-0.5 ${
+                      node.lifecycle_status === "LIVE"
+                        ? "text-emerald-400"
+                        : node.lifecycle_status === "UPCOMING"
+                        ? "text-purple-400"
+                        : node.lifecycle_status === "SUNSET"
+                        ? "text-alert-red"
+                        : "text-gray-400"
+                    }`}
+                  >
+                    {node.lifecycle_status || "—"}
                   </span>
                 </div>
               </div>
-              <p className="text-[11px] text-gray-300 p-3 rounded-2xl bg-white/[0.02] border border-white/5 leading-relaxed">
-                Primary title anchor in Spanner Graph orchestrating real-time session ingestion, matchmaking events, and contextual monetization offers.
-              </p>
+
+              {node.current_season && (
+                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
+                  <span className="text-[10px] text-gray-500 block uppercase">Current Season</span>
+                  <span className="font-semibold text-white text-xs block mt-0.5">
+                    {node.current_season}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 

@@ -24,6 +24,36 @@ export async function POST(request: NextRequest) {
       ? `Target Audience Cohort: "${cohortContext.query}" (~${cohortContext.estimatedTotal?.toLocaleString() || "4,200"} addressable Spanner Graph players, Dominant: ${cohortContext.dominantArchetype || "COMPETITIVE_GRINDER"}, Avg Spend: $${cohortContext.avgSpend || 850})`
       : "Target Audience Cohort: Broad Active Live Service Player Base";
 
+    /**
+     * Summarise what this player has actually paid.
+     *
+     * The prompt used to dictate willingness-to-pay from the archetype label
+     * alone (Whale $39.99-$99.99, Casual $0-$4.99). That overrides the real
+     * signal: purchase history now reconciles to lifetime spend and carries
+     * real offer ids, so we know the actual price points each player has
+     * accepted. A "whale" who has only ever bought $9.99 passes is a very
+     * different target from one who buys $99.99 currency vaults.
+     */
+    const revealedPreference = (p: any): string => {
+      const items: any[] = Array.isArray(p?.purchased_items) ? p.purchased_items : [];
+      const prices = items
+        .map((it) => Number(it?.price_usd))
+        .filter((n) => Number.isFinite(n) && n > 0)
+        .sort((a, b) => a - b);
+
+      if (prices.length === 0) {
+        return "No recorded purchases — treat as unproven, price sensitivity unknown.";
+      }
+
+      const max = prices[prices.length - 1];
+      const median = prices[Math.floor(prices.length / 2)];
+      const total = prices.reduce((a, b) => a + b, 0);
+      return (
+        `${prices.length} purchases, $${total.toFixed(2)} total. ` +
+        `Typical price paid $${median.toFixed(2)}, highest ever $${max.toFixed(2)}.`
+      );
+    };
+
     const playersDetailsPrompt = sampledPlayers.length > 0
       ? `\n\nWe have sampled 4 REAL players from the active Spanner Property Graph segment to participate in this focus group:\n` +
         sampledPlayers.map((p, idx) => {
@@ -34,6 +64,7 @@ export async function POST(request: NextRequest) {
 - Spend: $${(p.spend || 0).toFixed(2)}
 - Loss Streak: ${p.loss_streak || 0} matches, Tilt: ${Math.round((p.tilt || 0.5) * 100)}%
 - Archetype: ${p.archetype || "GENERAL_PLAYER"}
+- Revealed price preference: ${revealedPreference(p)}
 - Telemetry: Squad: ${p.game_telemetry?.main_loadout || p.game_telemetry?.character_class || "N/A"}, Rank: ${p.game_telemetry?.rank_tier || "N/A"}`;
         }).join("\n\n")
       : "";
@@ -56,8 +87,8 @@ If 4 real players were provided above, make sure the verbatim quotes, playstyle 
 CRITICAL INSTRUCTIONS:
 - Each of the 4 personas MUST provide a UNIQUE, differentiated verbatim quote reflecting their specific playstyle, frustration level, and budget!
 - Mention realistic details from their telemetry (e.g. their defeat streak, their local DMA market, their squad setup, or their specific spend level).
-- Use authentic franchise terminology (e.g. for Call of Duty: 'Gulag clutch', 'Warzone Resurgence', 'BlackCell', 'CoD Points', 'Ricochet', 'loadout drop'; for World of Warcraft: 'Mythic+ Keystone', 'The War Within', 'Raid Wipe', '6-Month Sub Mount'; for Diablo IV: 'The Pit', 'Torment IV', 'Sanctuary Helltide', 'Platinum Treasury'; for Overwatch 2: 'Top 500', 'Mythic Prism', 'Hero Gallery'; for Candy Crush: 'Gold Bars', 'Lollipop Hammer', 'Level 2000+ booster').
-- Output willingness to pay matching their archetype: Whale ($39.99-$99.99), Competitive ($4.99-$19.99), Social ($4.99-$14.99), Casual ($0-$4.99).
+- Use authentic franchise terminology (e.g. for Call of Duty: 'Gulag clutch', 'Warzone', 'BlackCell', 'CoD Points', 'Ricochet', 'loadout drop'; for World of Warcraft: 'Mythic+ Keystone', 'Midnight', 'Raid Wipe', '6-Month Sub Mount'; for Diablo IV: 'The Pit', 'Torment IV', 'Sanctuary Helltide', 'Platinum Treasury'; for Overwatch 2: 'Top 500', 'Mythic Prism', 'Hero Gallery'; for Candy Crush: 'Gold Bars', 'Lollipop Hammer', 'Level 5000+ booster').
+- Anchor willingness_to_pay_usd on each player's REVEALED PRICE PREFERENCE above, not on their archetype label. A player's WTP should sit near the price points they have actually paid before; going far above their highest recorded purchase needs a reason grounded in the offer. Players with no recorded purchases should show low WTP and high scepticism.
 
 Output STRICT JSON matching:
 {
@@ -200,7 +231,7 @@ Output STRICT JSON matching:
             churn_risk_score: 0.05,
             final_fsm_state: "PURCHASED",
             authenticity_rating: 0.97,
-            verbatim_quote: `Lifetime spend of $${p2Spend} across Diablo titles. Vessel of Hatred Ultimate Edition with Spiritborn armor sets and tiger mounts is an instant buy.`,
+            verbatim_quote: `Lifetime spend of $${p2Spend} across Diablo titles. Lord of Hatred Ultimate Edition with the Paladin and Warlock classes is an instant buy.`,
             sentiment_score: 0.96,
           },
           {

@@ -39,7 +39,7 @@ const MATCHUPS: Record<string, { whale: Matchup; core: Matchup }> = {
     whale: {
       a: {
         id: "A",
-        name: "Season 1 BlackCell Battle Pass Bundle",
+        name: "BlackCell Battle Pass Bundle",
         price: 29.99,
         perks: ["Full BlackCell Sector unlock", "1,100 CP returned on completion", "20 Tier Skips + Operator skin"],
         conversionLift: 34.2,
@@ -159,7 +159,7 @@ const MATCHUPS: Record<string, { whale: Matchup; core: Matchup }> = {
     whale: {
       a: {
         id: "A",
-        name: "Diablo IV: Vessel of Hatred (Ultimate Edition)",
+        name: "Diablo IV: Lord of Hatred (Ultimate Edition)",
         price: 89.99,
         perks: ["Full expansion", "Cosmetic armor set + mount", "Battle pass + 20 tier skips included"],
         conversionLift: 33.5,

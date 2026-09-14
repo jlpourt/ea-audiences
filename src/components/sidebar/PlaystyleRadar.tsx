@@ -13,7 +13,7 @@ export default function PlaystyleRadar({ spend, churnRisk, tilt, archetype }: Pl
   const metrics = [
     { label: "LTV / Spend", value: Math.min(100, Math.round((spend / 1500) * 100)), raw: `$${spend.toFixed(0)}`, color: "bg-hud-gold" },
     { label: "Tilt Sensitivity", value: Math.round(tilt * 100), raw: `${(tilt * 100).toFixed(0)}%`, color: "bg-alert-red" },
-    { label: "Churn Risk Score", value: Math.round(churnRisk * 100), raw: `${(churnRisk * 100).toFixed(0)}%`, color: "bg-ea-orange" },
+    { label: "Churn Risk Score", value: Math.round(churnRisk * 100), raw: `${(churnRisk * 100).toFixed(0)}%`, color: "bg-alert-orange" },
     { label: "Session APM", value: archetype.includes("COMPETITIVE") ? 88 : 45, raw: archetype.includes("COMPETITIVE") ? "185 APM" : "95 APM", color: "bg-cyber-cyan" },
     { label: "Social Co-Play", value: archetype.includes("CASUAL") ? 92 : 35, raw: archetype.includes("CASUAL") ? "High" : "Solo", color: "bg-neon-green" },
   ];

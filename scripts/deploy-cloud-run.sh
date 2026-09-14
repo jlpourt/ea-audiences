@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-# Deployment script for EA Engagement Intelligence Engine (01-audiences) to Google Cloud Run
+# Deployment script for the ABK Engagement Intelligence Engine (01-audiences) to Google Cloud Run
 PROJECT_ID="${GCP_PROJECT_ID:-jamie-bq-test}"
-SERVICE_NAME="ea-audiences-command-center"
+SERVICE_NAME="abk-audiences-command-center"
 REGION="${GCP_REGION:-us-central1}"
 IMAGE_TAG="gcr.io/${PROJECT_ID}/${SERVICE_NAME}:latest"
 
@@ -27,7 +27,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --region="${REGION}" \
   --project="${PROJECT_ID}" \
   --allow-unauthenticated \
-  --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},GCP_REGION=${REGION},SPANNER_INSTANCE_ID=${SPANNER_INSTANCE_ID:-blackrock-spanner},SPANNER_DATABASE_ID=${SPANNER_DATABASE_ID:-ea_graph_db},BQ_DATASET_ID=${BQ_DATASET_ID:-ea_marketing_intelligence}" \
+  --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},GCP_REGION=${REGION},SPANNER_INSTANCE_ID=${SPANNER_INSTANCE_ID:-blackrock-spanner},SPANNER_DATABASE_ID=${SPANNER_DATABASE_ID:-abk_graph_db},BQ_DATASET_ID=${BQ_DATASET_ID:-abk_marketing_intelligence}" \
   --memory=2Gi \
   --cpu=2 \
   --min-instances=1 \

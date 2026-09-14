@@ -1,5 +1,78 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateVertexContent, parseModelJson } from "@/lib/gcp/vertex-client";
+import {
+  generateGroundedContent,
+  generateVertexContent,
+  parseModelJson,
+  type GroundingCitation,
+} from "@/lib/gcp/vertex-client";
+
+/** Verified-active subreddits per franchise. */
+const SUBREDDITS_BY_FRANCHISE: Record<string, string[]> = {
+  COD: ["r/CallOfDuty", "r/CODWarzone", "r/blackops7"],
+  WOW: ["r/wow", "r/classicwow", "r/CompetitiveWoW"],
+  DIABLO4: ["r/diablo4", "r/Diablo"],
+  OVERWATCH2: ["r/Overwatch", "r/Competitiveoverwatch"],
+  CANDYCRUSH: ["r/candycrush"],
+};
+
+/** Current live content, so search targets what players are playing now. */
+const LIVE_CONTEXT_BY_FRANCHISE: Record<string, string> = {
+  COD: "Call of Duty: Black Ops 7, Warzone, the BlackCell battle pass tier ($29.99), the standard battle pass, and CoD Points pricing",
+  WOW: "World of Warcraft: Midnight, the monthly subscription, the WoW Token, and paid character services",
+  DIABLO4: "Diablo IV, its current season, the Lord of Hatred expansion, and premium battle pass pricing",
+  OVERWATCH2: "Overwatch 2, its current season, Mythic Prism pricing, and collaboration skin bundles",
+  CANDYCRUSH: "Candy Crush Saga, gold bar pricing, booster bundles, and the Sugar Track season pass",
+};
+
+/**
+ * Map a free-text franchise label onto a catalog franchise code.
+ * The caller sends display strings like "Call of Duty: Warzone", and searching
+ * the wrong subreddits would quietly produce irrelevant grounding.
+ */
+function resolveFranchiseCode(raw: string): string {
+  const f = (raw || "").toUpperCase();
+  if (f.includes("WARCRAFT") || f.startsWith("WOW")) return "WOW";
+  if (f.includes("DIABLO")) return "DIABLO4";
+  if (f.includes("OVERWATCH")) return "OVERWATCH2";
+  if (f.includes("CANDY")) return "CANDYCRUSH";
+  return "COD";
+}
+
+/**
+ * Retrieve real Reddit sentiment through Google Search grounding.
+ * Throws on failure; the caller must surface that, never paper over it.
+ */
+async function fetchRedditPulse(args: {
+  franchise: string;
+  topic: string;
+  offerTitle: string;
+  price: number;
+}): Promise<{ themesText: string; citations: GroundingCitation[]; searchQueries: string[] }> {
+  const subreddits = SUBREDDITS_BY_FRANCHISE[args.franchise] || SUBREDDITS_BY_FRANCHISE.COD;
+  const liveContext = LIVE_CONTEXT_BY_FRANCHISE[args.franchise] || LIVE_CONTEXT_BY_FRANCHISE.COD;
+
+  const grounded = await generateGroundedContent(
+    `Search Reddit for what players are currently saying about ${liveContext}.
+
+Look across ${subreddits.join(", ")}.
+
+A marketing team is evaluating an offer titled "${args.offerTitle}" at $${args.price.toFixed(
+      2
+    )}, and specifically wants to understand: "${args.topic}".
+
+Report only what you actually found in the search results. For each distinct
+theme of player sentiment, name the subreddit it came from and summarise the
+player position in their own framing. Include positive and neutral sentiment
+where it exists, not only complaints. If you could not find discussion of
+something, say so explicitly rather than guessing.`
+  );
+
+  return {
+    themesText: grounded.text,
+    citations: grounded.citations,
+    searchQueries: grounded.searchQueries,
+  };
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -7,9 +80,15 @@ export async function POST(request: NextRequest) {
     const userPrompt = body.prompt || "What do you think of this campaign offer?";
     const campaignTitle = body.campaign_title || "Warzone Gulag Retention & BlackCell Recovery Shield";
     const franchise = body.franchise || "Call of Duty: Warzone";
+    const franchiseCode = resolveFranchiseCode(franchise);
     const platform = body.platform || "focus_group"; // "focus_group" | "discord" | "reddit"
     const cohortContext = body.cohort_context;
     const sampledPlayers: any[] = body.sampled_players || [];
+
+    // Populated only on the grounded (reddit) path.
+    let groundingCitations: GroundingCitation[] = [];
+    let groundingQueries: string[] = [];
+    let groundedThemes = "";
 
     // Extract dynamic price from prompt if user typed one (e.g., "$10.99", "10.99", "15 bucks", etc.)
     let dynamicPrice = body.price || 4.99;
@@ -72,8 +151,33 @@ Output strict JSON:
 }
 `;
       } else if (platform === "reddit") {
-        systemPrompt = `
-You are simulating a Reddit discussion thread on r/${franchise.replace(/[^a-zA-Z0-9]/g, '')} using Google Cloud Vertex AI Gemini.
+        // Ground the thread in real Reddit discussion before simulating it.
+        // Previously this invented upvote counts, flairs and usernames with no
+        // basis whatsoever, which is indistinguishable from real data on screen
+        // and therefore the most dangerous kind of fake in a sales demo.
+        try {
+          const pulse = await fetchRedditPulse({
+            franchise: franchiseCode,
+            topic: userPrompt,
+            offerTitle: campaignTitle,
+            price: dynamicPrice,
+          });
+          groundingCitations = pulse.citations;
+          groundingQueries = pulse.searchQueries;
+          groundedThemes = pulse.themesText;
+        } catch (e: any) {
+          console.warn("[DeepSona Debate] Reddit grounding unavailable:", e?.message);
+          return NextResponse.json(
+            {
+              error: "Live Reddit grounding is unavailable.",
+              error_kind: "SOCIAL_GROUNDING_UNAVAILABLE",
+              details: e?.message || String(e),
+            },
+            { status: 503 }
+          );
+        }
+
+        systemPrompt = `You are analysing how a ${franchise} community would react to a marketing offer.
 
 ${cohortInfo}
 Campaign Title: "${campaignTitle}"
@@ -83,45 +187,43 @@ Franchise: ${franchise}
 Marketer Question / Thread Topic:
 "${userPrompt}"
 
-Generate 4 authentic Reddit comments with realistic nested replies, flairs, and upvotes specifically evaluating "${userPrompt}" at $${dynamicPrice.toFixed(2)}:
-1. Analytical Breakdown (mathematical ROI analysis of the price $${dynamicPrice.toFixed(2)})
-2. Competitive Grinder (reaction from someone pushing ranked / seasonal progression)
-3. F2P Purist Critic (unpopular opinion / critique of live-service monetization)
-4. Casual Social Player (squad utility / Rush 5v5 / trios co-op value)
+REAL community sentiment retrieved from Reddit via live Google Search grounding:
+--- BEGIN GROUNDED RESEARCH ---
+${groundedThemes}
+--- END GROUNDED RESEARCH ---
+
+Write 4 representative comments that reflect the positions found in the grounded
+research above, reacting to "${userPrompt}" at $${dynamicPrice.toFixed(2)}.
+
+Rules:
+- Every position you write MUST trace back to a theme in the grounded research.
+- Do NOT invent statistics, upvote counts, or claims not supported above.
+- These are composite representations of real positions, not quotes from real
+  people. Do not attribute them to real usernames.
+- Cover the range of sentiment present in the research, including any positive
+  or neutral positions. Do not make them uniformly negative.
 
 Output strict JSON:
 {
-  "model_used": "Vertex AI Gemini 3.5 Flash-Lite (Reddit Simulation)",
-  "thread_title": "[Discussion] In-Game Live Drop: ${campaignTitle} — Reaction to '${userPrompt}' ($${dynamicPrice.toFixed(2)})",
-  "subreddit": "r/${franchise.replace(/[^a-zA-Z0-9]/g, '')}",
+  "thread_title": "a realistic discussion title for this topic",
+  "subreddit": "the most relevant subreddit named in the research",
   "debate_turns": [
     {
-      "persona_id": "u/Analytics_Pro",
+      "persona_id": "Value Analyst",
       "archetype": "ANALYTICAL_PURIST",
       "avatar": "📊",
-      "name": "u/Analytics_Pro",
-      "flair": "🏆 Top 100 Analyst",
-      "upvotes": 520,
-      "time_ago": "2h ago",
+      "name": "Value Analyst",
+      "flair": "Composite of grounded sentiment",
+      "grounded_theme": "which theme from the research this represents",
       "sentiment": "FAIR_VALUE",
-      "message": "Detailed mathematical reaction to '${userPrompt}' and $${dynamicPrice.toFixed(2)}...",
+      "message": "...",
       "wtp": ${dynamicPrice},
       "fsm_state": "PURCHASED",
-      "sentiment_delta": "+15%",
-      "replies": [
-        {
-          "author": "u/RTG_Veteran",
-          "flair": "📉 F2P Purist",
-          "upvotes": 180,
-          "time_ago": "1h ago",
-          "content": "Critique replying to the comment..."
-        }
-      ]
+      "sentiment_delta": "+15%"
     }
   ],
-  "facilitator_takeaway": "..."
-}
-`;
+  "facilitator_takeaway": "what the marketing team should conclude"
+}`;
       } else {
         // Standard DeepSona Player Focus Group (Tab 1)
         systemPrompt = `
@@ -199,12 +301,44 @@ Output strict JSON:
       const parsed = parseModelJson<any>(generatedText);
       if (!parsed) throw new Error("Model returned unparseable JSON");
       parsed.model_used = `Vertex AI Gemini 3.5 Flash-Lite`;
+
+      if (platform === "reddit") {
+        // Carry the provenance through to the UI so a presenter can open the
+        // actual sources rather than asking the audience to take it on faith.
+        parsed.grounded = true;
+        parsed.source = "google_search_grounding";
+        parsed.citations = groundingCitations;
+        parsed.search_queries = groundingQueries;
+        parsed.grounded_research = groundedThemes;
+      } else {
+        parsed.grounded = false;
+        parsed.source = "synthetic_persona_simulation";
+      }
+
       return NextResponse.json(parsed);
     } catch (e: any) {
       console.warn("[DeepSona Debate] Live generation parse error:", e?.message);
+
+      // The Reddit tab's entire claim is that it reflects real community
+      // sentiment. Serving canned text there would be a lie, so fail loudly.
+      if (platform === "reddit") {
+        return NextResponse.json(
+          {
+            error: "Could not structure the grounded Reddit research.",
+            error_kind: "SOCIAL_GROUNDING_UNAVAILABLE",
+            details: e?.message || String(e),
+          },
+          { status: 503 }
+        );
+      }
+
       // Dynamic fallback that still tracks the user prompt and price
       return NextResponse.json({
-        model_used: "Vertex AI Gemini 3.5 Flash-Lite (Grounded)",
+        model_used: "Vertex AI Gemini 3.5 Flash-Lite",
+        grounded: false,
+        source: "static_fallback",
+        degraded: true,
+        degraded_reason: "Live generation failed; showing illustrative personas.",
         debate_turns: [
           {
             persona_id: p1Name,

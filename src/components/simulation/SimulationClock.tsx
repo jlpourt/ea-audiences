@@ -79,7 +79,7 @@ export default function SimulationClock({ onTriggerFired }: SimulationClockProps
             className={`p-2 rounded-lg text-white font-bold transition-all ${
               isPlaying
                 ? "bg-alert-red shadow-neon-red"
-                : "bg-ea-orange shadow-neon-orange hover:bg-ea-orange/80"
+                : "bg-alert-orange shadow-neon-orange hover:bg-alert-orange/80"
             }`}
           >
             {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}

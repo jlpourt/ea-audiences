@@ -1,77 +1,125 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
 import { GraphData, GraphNode, GraphLink } from "@/lib/types";
 import { archetypeColor } from "@/lib/archetypes";
+import {
+  getCatalog,
+  getPlayersForView,
+  getPlayerById,
+  getIdentitiesForPlayer,
+  HUB_ID_BY_FRANCHISE,
+  FRANCHISE_COLORS,
+  SpannerUnavailableError,
+  type GameRow,
+  type OfferRow,
+} from "@/lib/gcp/catalog";
 
-function loadJson(filename: string) {
-  const filepath = path.join(process.cwd(), "data", filename);
-  if (fs.existsSync(filepath)) {
-    return JSON.parse(fs.readFileSync(filepath, "utf-8"));
-  }
-  return [];
+export const dynamic = "force-dynamic";
+
+/** Cap on drawn player nodes. A rendering budget, never an audience size. */
+const RENDER_LIMIT = 450;
+
+const PLATFORM_COLORS: Record<string, string> = {
+  BATTLE_NET: "#00AEFF",
+  KING_MOBILE_ID: "#EC4899",
+  PLAYSTATION_NETWORK: "#0070D1",
+  XBOX_LIVE: "#107C10",
+  STEAM: "#9146FF",
+  NINTENDO_SWITCH: "#E60012",
+};
+
+/** Macro-view hub anchor positions, keyed by the canonical hub id. */
+const MACRO_HUB_POSITIONS: Record<string, { fx: number; fy: number }> = {
+  "game-cod": { fx: -340, fy: -180 },
+  "game-wow": { fx: 340, fy: -180 },
+  "game-diablo4": { fx: -340, fy: 180 },
+  "game-overwatch2": { fx: 340, fy: 180 },
+  "game-candycrush": { fx: 0, fy: 0 },
+};
+
+function offerColor(o: OfferRow): string {
+  const isMajor = (o.offer_type || "").includes("MAJOR_DLC") || o.price_usd >= 60;
+  if (isMajor) return "#FFB800";
+  if (o.price_usd >= 30) return "#A855F7";
+  if (o.price_usd <= 5) return "#FF4757";
+  return "#EC4899";
+}
+
+function offerSize(o: OfferRow): number {
+  const isMajor = (o.offer_type || "").includes("MAJOR_DLC") || o.price_usd >= 60;
+  return isMajor ? 32 : o.price_usd >= 30 ? 28 : 22;
+}
+
+function offerNode(o: OfferRow, fx?: number, fy?: number): GraphNode {
+  return {
+    id: o.offer_id,
+    name: `${o.offer_title} ($${o.price_usd})`,
+    type: "OFFER",
+    franchise: o.target_franchise ?? undefined,
+    spend: o.price_usd,
+    val: offerSize(o),
+    color: offerColor(o),
+    offer_data: o,
+    fx,
+    fy,
+  };
 }
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const view = searchParams.get("view") || "audience-cohorts";
-  const selectedPlayerId = searchParams.get("playerId") || "ea-usr-00001";
+  const selectedPlayerId = searchParams.get("playerId");
   const gameFilter = searchParams.get("game") || "ALL";
   const archetypeFilter = searchParams.get("archetype") || "ALL";
 
-  const masterPlayers = loadJson("master_players.json");
-  const platformIdentities = loadJson("platform_identities.json");
-  const hasIdentityEdges = loadJson("has_identity_edges.json");
-  const games = loadJson("games.json");
-  const playedEdges = loadJson("played_game_edges.json");
-  const offers = loadJson("marketing_offers.json");
+  try {
+    const nodes: GraphNode[] = [];
+    const links: GraphLink[] = [];
 
-  let nodes: GraphNode[] = [];
-  let links: GraphLink[] = [];
+    // ======================================================================
+    // VIEW 1: SINGLE PLAYER IDENTITY RESOLUTION
+    // ======================================================================
+    if (view === "single-identity") {
+      // Previously this defaulted to a hardcoded player id, which
+      // does not exist in the ABK dataset, so `find` returned undefined and
+      // the view silently fell back to whichever player happened to be first.
+      const player = selectedPlayerId
+        ? await getPlayerById(selectedPlayerId)
+        : (await getPlayersForView({ limit: 1 }))[0];
 
-  // ==========================================
-  // VIEW 1: SINGLE PLAYER IDENTITY RESOLUTION
-  // ==========================================
-  if (view === "single-identity") {
-    const player = masterPlayers.find((p: any) => p.player_id === selectedPlayerId) || masterPlayers[0];
-    
-    nodes.push({
-      id: player.player_id,
-      name: player.display_name,
-      type: "PLAYER",
-      franchise: player.primary_franchise,
-      archetype: player.primary_archetype,
-      spend: player.lifetime_spend_usd,
-      churn_risk: player.churn_risk_score,
-      tilt: player.tilt_sensitivity,
-      val: 28,
-      color: "#00F0FF",
-      fx: 0,
-      fy: 0,
-    });
+      if (!player) {
+        return NextResponse.json(
+          { error: `No player found for id '${selectedPlayerId ?? "(default)"}'.` },
+          { status: 404 }
+        );
+      }
 
-    const pEdges = hasIdentityEdges.filter((e: any) => e.player_id === player.player_id);
-    for (const e of pEdges) {
-      const ident = platformIdentities.find((i: any) => i.identity_id === e.identity_id);
-      if (ident) {
-        let identColor = "#00F0FF";
-        if (ident.platform.includes("BATTLE")) identColor = "#00F0FF";
-        else if (ident.platform.includes("KING")) identColor = "#EC4899";
-        else if (ident.platform.includes("PLAY")) identColor = "#0070D1";
-        else if (ident.platform.includes("XBOX")) identColor = "#107C10";
-        else if (ident.platform.includes("STEAM")) identColor = "#9146FF";
-        else if (ident.platform.includes("SWITCH")) identColor = "#E60012";
+      nodes.push({
+        id: player.player_id,
+        name: player.display_name,
+        type: "PLAYER",
+        franchise: player.primary_franchise,
+        archetype: player.primary_archetype,
+        spend: player.lifetime_spend_usd,
+        churn_risk: player.churn_risk_score,
+        tilt: player.tilt_sensitivity,
+        val: 28,
+        color: "#00F0FF",
+        fx: 0,
+        fy: 0,
+      });
 
+      // Traversed through the graph rather than joined in JS across two files.
+      const identities = await getIdentitiesForPlayer(player.player_id);
+      for (const ident of identities) {
         nodes.push({
           id: ident.identity_id,
-          name: `${ident.platform}: ${ident.platform_handle}`,
+          name: `${ident.platform}: ${ident.platform_handle ?? "—"}`,
           type: "IDENTITY",
           platform: ident.platform,
           confidence: ident.confidence_score,
           val: 15,
-          color: identColor,
+          color: PLATFORM_COLORS[ident.platform] || "#00F0FF",
         });
-
         links.push({
           source: player.player_id,
           target: ident.identity_id,
@@ -79,145 +127,124 @@ export async function GET(request: NextRequest) {
           value: 3,
         });
       }
-    }
-  }
 
-  // ==========================================
-  // VIEW 2: MULTI-FRANCHISE & GAME-SPECIFIC COHORTS
-  // ==========================================
-  else {
-    let targetPlayers = masterPlayers;
-    let targetGames = games;
-    let targetOffers = offers;
-
-    // 1. Filter by Game Franchise if not ALL
-    if (gameFilter !== "ALL") {
-      targetPlayers = masterPlayers.filter(
-        (p: any) => p.primary_franchise === gameFilter || (p.franchises_played && p.franchises_played.includes(gameFilter))
-      );
-      targetGames = games.filter((g: any) => g.franchise === gameFilter);
-      targetOffers = offers.filter((o: any) => o.target_franchise === gameFilter);
+      return NextResponse.json({ nodes, links } as GraphData);
     }
 
-    // 2. Filter by Archetype if specified
-    if (archetypeFilter !== "ALL") {
-      targetPlayers = targetPlayers.filter((p: any) => p.primary_archetype === archetypeFilter);
-    }
+    // ======================================================================
+    // VIEW 2: MULTI-FRANCHISE & GAME-SPECIFIC COHORTS
+    // ======================================================================
+    const [{ games, offers }, players] = await Promise.all([
+      getCatalog(),
+      getPlayersForView({
+        franchise: gameFilter,
+        archetype: archetypeFilter,
+        limit: RENDER_LIMIT,
+      }),
+    ]);
 
-    const sample = targetPlayers.slice(0, 450);
-
-    // 3. Anchor Coordinates Calculation
     if (gameFilter === "ALL") {
-      // 5 Grand Franchise Hubs
-      const macroHubPositions: Record<string, { fx: number; fy: number; color: string }> = {
-        "game-cod": { fx: -340, fy: -180, color: "#F59E0B" },      // CoD Amber
-        "game-wow": { fx: 340, fy: -180, color: "#00F0FF" },       // WoW Cyan
-        "game-diablo": { fx: -340, fy: 180, color: "#FF334B" },    // Diablo Crimson
-        "game-ow2": { fx: 340, fy: 180, color: "#38BDF8" },       // Overwatch Sky Blue
-        "game-candy": { fx: 0, fy: 0, color: "#EC4899" },          // Candy Crush Pink
-      };
-
-      const parentGames = games.filter((g: any) => g.is_parent_hub);
-      for (const g of parentGames) {
-        const pos = macroHubPositions[g.game_id];
+      // ---- Franchise hubs -------------------------------------------------
+      const hubs = games.filter((g) => g.is_parent_hub);
+      for (const g of hubs) {
+        const pos = MACRO_HUB_POSITIONS[g.game_id];
         nodes.push({
           id: g.game_id,
           name: g.title,
           type: "GAME",
           franchise: g.franchise,
           val: 36,
-          color: pos?.color || "#00F0FF",
+          color: FRANCHISE_COLORS[g.franchise] || "#00F0FF",
           fx: pos?.fx,
           fy: pos?.fy,
         });
       }
 
-      // Macro Top Major DLC & Monetization Wells (100% Real Official Store Products)
-      const macroOfferPositions: Record<string, { fx: number; fy: number }> = {
-        "off-cod-01": { fx: -500, fy: -260 },
-        "off-cod-03": { fx: -460, fy: -80 },
-        "off-wow-01": { fx: 500, fy: -260 },
-        "off-wow-03": { fx: 460, fy: -80 },
-        "off-diablo4-01": { fx: -480, fy: 260 },
-        "off-overwatch2-01": { fx: 480, fy: 260 },
-        "off-candycrush-01": { fx: 0, fy: -140 },
-        "off-candycrush-02": { fx: 0, fy: 140 },
-      };
-
+      // ---- Monetisation poles ---------------------------------------------
+      // The previous implementation listed eight specific offer ids by hand,
+      // so renumbering the catalog silently emptied this ring.
+      //
+      // It now draws TWO offers per franchise, chosen to bracket the range:
+      // the most expensive current SKU and the cheapest. Taking the top two by
+      // price was tried first and showed only whale SKUs, which hides the
+      // situational-recovery half of the story — the $0.99 "extra moves" and
+      // $4.99 CP top-up are precisely what the tilt triggers point at.
+      const perFranchise = new Map<string, OfferRow[]>();
       for (const o of offers) {
-        if (macroOfferPositions[o.offer_id]) {
-          const isMajorDlc = o.offer_type.includes("MAJOR_DLC") || o.price_usd >= 60;
-          nodes.push({
-            id: o.offer_id,
-            name: `${o.offer_title} ($${o.price_usd})`,
-            type: "OFFER",
-            franchise: o.target_franchise,
-            spend: o.price_usd,
-            val: isMajorDlc ? 34 : 26,
-            color: isMajorDlc ? "#FFB800" : o.price_usd >= 30 ? "#A855F7" : "#EC4899",
-            offer_data: o,
-            fx: macroOfferPositions[o.offer_id].fx,
-            fy: macroOfferPositions[o.offer_id].fy,
-          });
-        }
+        if (!o.target_franchise) continue;
+        if (o.lifecycle_status === "LEGACY") continue;
+        const list = perFranchise.get(o.target_franchise) || [];
+        list.push(o);
+        perFranchise.set(o.target_franchise, list);
+      }
+
+      for (const [franchise, list] of perFranchise) {
+        const hubPos = MACRO_HUB_POSITIONS[HUB_ID_BY_FRANCHISE[franchise]];
+        if (!hubPos) continue;
+        const sorted = [...list].sort((a, b) => b.price_usd - a.price_usd);
+        const headline = sorted[0];
+        const recovery = sorted[sorted.length - 1];
+        const picks =
+          headline && recovery && headline.offer_id !== recovery.offer_id
+            ? [headline, recovery]
+            : [headline].filter(Boolean);
+
+        picks.forEach((o, idx) => {
+          // Park the offers just outside their hub so the ring reads as
+          // "this franchise's money", not as a decorative border.
+          const spreadX = hubPos.fx === 0 ? 0 : hubPos.fx < 0 ? -150 : 150;
+          const spreadY = idx === 0 ? -80 : 80;
+          nodes.push(offerNode(o, hubPos.fx + spreadX, hubPos.fy + spreadY));
+        });
       }
     } else {
-      // Specific Game Selected -> Sub-modes and All Game Offers & Major DLCs
-      const subGames = targetGames.filter((g: any) => !g.is_parent_hub);
-      const activeGames = subGames.length > 0 ? subGames : targetGames;
+      // ---- Single franchise: draw its surfaces and its full offer set -----
+      const franchiseGames = games.filter((g) => g.franchise === gameFilter);
+      const surfaces = franchiseGames.filter((g) => !g.is_parent_hub);
+      const activeGames: GameRow[] = surfaces.length ? surfaces : franchiseGames;
 
-      activeGames.forEach((g: any, idx: number) => {
+      activeGames.forEach((g, idx) => {
         const angle = (idx / activeGames.length) * 2 * Math.PI - Math.PI / 2;
         const radius = 220;
-        const fx = Math.round(Math.cos(angle) * radius);
-        const fy = Math.round(Math.sin(angle) * radius);
-
         nodes.push({
           id: g.game_id,
           name: g.title,
           type: "GAME",
           franchise: g.franchise,
-          val: 32,
-          color: g.franchise === "COD" ? "#F59E0B" : g.franchise === "WOW" ? "#00F0FF" : g.franchise === "DIABLO4" ? "#FF334B" : g.franchise === "OVERWATCH2" ? "#38BDF8" : "#EC4899",
-          fx,
-          fy,
+          // Legacy and sunset surfaces read as dimmer, smaller satellites:
+          // they are real revenue but not where the roadmap is.
+          val: g.lifecycle_status === "LIVE" ? 32 : 22,
+          color:
+            g.lifecycle_status === "LIVE"
+              ? FRANCHISE_COLORS[g.franchise] || "#00F0FF"
+              : g.lifecycle_status === "UPCOMING"
+              ? "#A855F7"
+              : "#6B7280",
+          lifecycle_status: g.lifecycle_status ?? undefined,
+          current_season: g.current_season ?? undefined,
+          fx: Math.round(Math.cos(angle) * radius),
+          fy: Math.round(Math.sin(angle) * radius),
         });
       });
 
-      // Position Major DLCs and In-Game Offers in Outer Orbit
-      targetOffers.forEach((o: any, idx: number) => {
-        const angle = (idx / targetOffers.length) * 2 * Math.PI;
+      const franchiseOffers = offers.filter((o) => o.target_franchise === gameFilter);
+      franchiseOffers.forEach((o, idx) => {
+        const angle = (idx / franchiseOffers.length) * 2 * Math.PI;
         const radius = 390;
-        const fx = Math.round(Math.cos(angle) * radius);
-        const fy = Math.round(Math.sin(angle) * radius);
-
-        const isMajorDlc = o.offer_type.includes("MAJOR_DLC") || o.price_usd >= 60;
-        const itemColor = isMajorDlc ? "#FFB800" : o.price_usd >= 30 ? "#A855F7" : o.price_usd <= 5 ? "#FF4757" : "#EC4899";
-
-        nodes.push({
-          id: o.offer_id,
-          name: `${o.offer_title} ($${o.price_usd})`,
-          type: "OFFER",
-          franchise: o.target_franchise,
-          spend: o.price_usd,
-          val: isMajorDlc ? 32 : o.price_usd >= 30 ? 28 : 22,
-          color: itemColor,
-          offer_data: o,
-          fx,
-          fy,
-        });
+        nodes.push(
+          offerNode(
+            o,
+            Math.round(Math.cos(angle) * radius),
+            Math.round(Math.sin(angle) * radius)
+          )
+        );
       });
     }
 
-    // 4. Player Nodes Generation
-    for (let idx = 0; idx < sample.length; idx++) {
-      const p = sample[idx];
+    // ---- Player nodes -----------------------------------------------------
+    for (const p of players) {
       // Colour comes from the canonical registry so a new or renamed archetype
       // can never silently fall through to the default green again.
-      const nodeColor = archetypeColor(p.primary_archetype);
-
-      const size = p.lifetime_spend_usd >= 3000 ? 14 : p.lifetime_spend_usd >= 500 ? 9 : 6;
-
       nodes.push({
         id: p.player_id,
         name: p.display_name,
@@ -227,146 +254,137 @@ export async function GET(request: NextRequest) {
         spend: p.lifetime_spend_usd,
         churn_risk: p.churn_risk_score,
         tilt: p.tilt_sensitivity,
-        loss_streak: p.recent_loss_streak || 0,
+        loss_streak: p.recent_loss_streak,
         game_telemetry: p.game_telemetry,
-        purchased_items: (p as any).purchased_items || [],
-        val: size,
-        color: nodeColor,
+        purchased_items: p.purchased_items,
+        val: p.lifetime_spend_usd >= 3000 ? 14 : p.lifetime_spend_usd >= 500 ? 9 : 6,
+        color: archetypeColor(p.primary_archetype),
       });
     }
 
-    // 5. Connect Links with Realistic User Purchase Diversity
-    for (let i = 0; i < nodes.length; i++) {
-      const n = nodes[i];
-      if (n.type === "PLAYER") {
-        const rawPlayer = sample.find((p: any) => p.player_id === n.id);
-        if (!rawPlayer) continue;
-        const playerSpend = n.spend || 0;
-        const isWhale = playerSpend >= 1000;
-        const isMidSpender = playerSpend >= 100 && playerSpend < 1000;
-        const isLowSpender = playerSpend > 0 && playerSpend < 100;
-        const isBaseGameOnly = playerSpend === 0 || (playerSpend <= 70 && rawPlayer.primary_archetype === "LORE_SEEKER");
+    // ---- Links ------------------------------------------------------------
+    const offerNodes = nodes.filter((n) => n.type === "OFFER");
+    const gameNodes = nodes.filter((n) => n.type === "GAME");
+    const drawnIds = new Set(nodes.map((n) => n.id));
 
-        // A. Primary Game Ownership / Play Connection
-        if (gameFilter === "ALL") {
-          const parentHubId = `game-${rawPlayer.primary_franchise.toLowerCase()}`;
-          if (nodes.some((item) => item.id === parentHubId)) {
-            links.push({
-              source: n.id,
-              target: parentHubId,
-              label: isBaseGameOnly ? "BASE_GAME_RETAIL_PURCHASER" : "PRIMARY_FRANCHISE_PLAYER",
-              value: 2,
-            });
-          }
+    players.forEach((p: any, i: number) => {
+      const spend: number = p.lifetime_spend_usd;
 
-          // Cross-Franchise Play Edges (e.g. FC player playing Apex on weekends)
-          if (rawPlayer.franchises_played && rawPlayer.franchises_played.length > 1) {
-            for (let j = 1; j < rawPlayer.franchises_played.length; j++) {
-              const secHubId = `game-${rawPlayer.franchises_played[j].toLowerCase()}`;
-              if (nodes.some((item) => item.id === secHubId)) {
-                links.push({
-                  source: n.id,
-                  target: secHubId,
-                  label: "CROSS_FRANCHISE_PLAY",
-                  value: 1,
-                  isTriggerStream: i % 5 === 0,
-                });
-              }
-            }
-          }
-        } else {
-          // Specific Game Mode Linking
-          const matchedModes = nodes.filter((item) => item.type === "GAME");
-          if (matchedModes.length > 0) {
+      // A. Franchise / surface ownership
+      if (gameFilter === "ALL") {
+        // Hub ids come from the canonical lookup, NOT from interpolating the
+        // franchise code. The interpolated form produced ids that three of the
+        // five franchises did not use, so those players drew no franchise edge.
+        const hubId = HUB_ID_BY_FRANCHISE[p.primary_franchise];
+        if (hubId && drawnIds.has(hubId)) {
+          links.push({
+            source: p.player_id,
+            target: hubId,
+            label: spend === 0 ? "BASE_GAME_RETAIL_PURCHASER" : "PRIMARY_FRANCHISE_PLAYER",
+            value: 2,
+          });
+        }
+        for (const f of p.franchises_played as string[]) {
+          if (f === p.primary_franchise) continue;
+          const secId = HUB_ID_BY_FRANCHISE[f];
+          if (secId && drawnIds.has(secId)) {
             links.push({
-              source: n.id,
-              target: matchedModes[i % matchedModes.length].id,
-              label: isBaseGameOnly ? "BASE_GAME_RETAIL_OWNER" : "ACTIVE_MODE_PLAYER",
-              value: 2,
+              source: p.player_id,
+              target: secId,
+              label: "CROSS_FRANCHISE_PLAY",
+              value: 1,
+              isTriggerStream: i % 5 === 0,
             });
           }
         }
-
-        // B. Tiered In-Game Purchases & DLC Ownership Connections
-        const availableOffers = nodes.filter((item) => item.type === "OFFER");
-
-        // Category 1: Whales ($1,000+ LTV) -> Connect to Major DLC Upgrades & Currency Vaults
-        if (isWhale) {
-          const whaleOffers = availableOffers.filter(
-            (off) =>
-              off.spend &&
-              off.spend >= 45 &&
-              (off.offer_data?.affinity_archetype === n.archetype || off.franchise === n.franchise)
-          );
-          if (whaleOffers.length > 0) {
-            const targetOffer = whaleOffers[i % whaleOffers.length];
-            links.push({
-              source: n.id,
-              target: targetOffer.id,
-              label: targetOffer.offer_data?.offer_type.includes("MAJOR_DLC") ? "MAJOR_DLC_PURCHASE" : "MONETIZATION_GRAVITY",
-              value: 3,
-              isTriggerStream: true,
-            });
-          }
-        }
-
-        // Category 2: Mid-Tier Spenders ($100 - $999 LTV) -> Connect to Expansion Packs, Collab Skins, and Battle Passes
-        else if (isMidSpender) {
-          const midOffers = availableOffers.filter(
-            (off) =>
-              off.spend &&
-              off.spend >= 10 &&
-              off.spend <= 40 &&
-              (off.franchise === n.franchise || off.offer_data?.affinity_archetype === n.archetype)
-          );
-          if (midOffers.length > 0) {
-            const targetOffer = midOffers[i % midOffers.length];
-            links.push({
-              source: n.id,
-              target: targetOffer.id,
-              label: targetOffer.offer_data?.offer_type.includes("EXPANSION") ? "EXPANSION_DLC_OWNER" : "SEASONAL_PASS_HOLDER",
-              value: 2,
-            });
-          }
-        }
-
-        // Category 3: Low-Tier & Social Spenders ($10 - $90 LTV) -> Connect to Squad Passes, Creator Kits, XP Boosters
-        else if (isLowSpender) {
-          const lowOffers = availableOffers.filter((off) => off.spend && off.spend <= 10 && off.franchise === n.franchise);
-          if (lowOffers.length > 0) {
-            const targetOffer = lowOffers[i % lowOffers.length];
-            links.push({
-              source: n.id,
-              target: targetOffer.id,
-              label: "CREATOR_OR_SQUAD_PASS",
-              value: 1.5,
-            });
-          }
-        }
-
-        // Category 4: Entry Tier Store Packs (For active / loss-streak players seeking quick squad boosters)
-        if ((n.tilt && n.tilt >= 0.60) || (n.loss_streak && n.loss_streak >= 2)) {
-          const starterOffer = availableOffers.find(
-            (off) =>
-              (off.offer_data?.offer_type === "CURRENCY_STARTER" || (off.spend !== undefined && off.spend <= 5)) &&
-              off.franchise === n.franchise
-          );
-          if (starterOffer) {
-            links.push({
-              source: n.id,
-              target: starterOffer.id,
-              label: "STARTER_PACK_INTENT",
-              value: 2,
-              isTriggerStream: true,
-            });
-          }
-        }
-
-        // Category 5: Zero-MTX / Base Game Purchasers -> Have 0 store links, only the base game node link above!
+      } else if (gameNodes.length > 0) {
+        const target = gameNodes[i % gameNodes.length];
+        links.push({
+          source: p.player_id,
+          target: target.id,
+          label: spend === 0 ? "BASE_GAME_RETAIL_OWNER" : "ACTIVE_MODE_PLAYER",
+          value: 2,
+        });
       }
-    }
-  }
 
-  const payload: GraphData = { nodes, links };
-  return NextResponse.json(payload);
+      // B. Purchases. Where a player owns a REAL SKU that is drawn, link to it
+      // directly — this is revealed preference rather than an inference from
+      // their spend tier, and it is what makes the offer ring meaningful.
+      const owned = new Set<string>(
+        (p.purchased_items || [])
+          .map((it: any) => it?.offer_id)
+          .filter(Boolean)
+      );
+      let linkedRealPurchase = false;
+      for (const offerId of owned) {
+        if (!drawnIds.has(offerId)) continue;
+        links.push({
+          source: p.player_id,
+          target: offerId,
+          label: "OWNS_SKU",
+          value: 3,
+          isTriggerStream: spend >= 1000,
+        });
+        linkedRealPurchase = true;
+      }
+
+      // C. Affinity edge for players with no drawn purchase: the single offer
+      // whose affinity archetype matches theirs, within their spend band.
+      if (!linkedRealPurchase) {
+        const band = spend >= 1000 ? 45 : spend >= 100 ? 10 : 0;
+        const candidates = offerNodes.filter((off) => {
+          const o = off.offer_data as OfferRow | undefined;
+          if (!o) return false;
+          if (o.target_franchise !== p.primary_franchise) return false;
+          if (o.price_usd < band) return false;
+          return o.affinity_archetype === p.primary_archetype;
+        });
+        if (candidates.length) {
+          const target = candidates[i % candidates.length];
+          links.push({
+            source: p.player_id,
+            target: target.id,
+            label: "ARCHETYPE_AFFINITY",
+            value: 1.5,
+          });
+        }
+      }
+
+      // D. Situational friction: a cheap recovery SKU for tilted players.
+      if (p.tilt_sensitivity >= 0.6 || p.recent_loss_streak >= 2) {
+        const starter = offerNodes.find((off) => {
+          const o = off.offer_data as OfferRow | undefined;
+          return (
+            !!o &&
+            o.target_franchise === p.primary_franchise &&
+            o.price_usd <= 5
+          );
+        });
+        if (starter) {
+          links.push({
+            source: p.player_id,
+            target: starter.id,
+            label: "STARTER_PACK_INTENT",
+            value: 2,
+            isTriggerStream: true,
+          });
+        }
+      }
+    });
+
+    return NextResponse.json({ nodes, links } as GraphData);
+  } catch (error: any) {
+    if (error instanceof SpannerUnavailableError) {
+      console.error("[graph/view] Spanner unavailable:", error.message);
+      return NextResponse.json(
+        { error: error.message, error_kind: "SPANNER_UNAVAILABLE" },
+        { status: 503 }
+      );
+    }
+    console.error("[graph/view] failed:", error);
+    return NextResponse.json(
+      { error: error?.message ?? String(error), error_kind: "INTERNAL" },
+      { status: 500 }
+    );
+  }
 }

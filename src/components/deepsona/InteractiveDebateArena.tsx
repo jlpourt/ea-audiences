@@ -140,7 +140,7 @@ export default function InteractiveDebateArena({
             <Bot className="w-8 h-8 text-electric-purple/50 mb-2 animate-bounce" />
             <p className="text-xs font-semibold text-gray-300">Live Persona Debate Arena Ready</p>
             <p className="text-[11px] text-gray-500 mt-1 max-w-md">
-              Ask a question above or click a preset to trigger turn-by-turn arguments and psychological feedback from the 4 EA FC personas.
+              Ask a question above or click a preset to trigger turn-by-turn arguments and psychological feedback from the 4 synthetic player personas.
             </p>
           </div>
         ) : (

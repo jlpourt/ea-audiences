@@ -4,7 +4,7 @@ set -e
 # GCP Spanner Graph Setup Script for EA Engagement Intelligence Engine (01-audiences)
 PROJECT_ID="${GCP_PROJECT_ID:-jamie-bq-test}"
 INSTANCE_ID="${SPANNER_INSTANCE_ID:-bravoverse-spanner}"
-DATABASE_ID="${SPANNER_DATABASE_ID:-ea_graph_db}"
+DATABASE_ID="${SPANNER_DATABASE_ID:-abk_graph_db}"
 REGION="${GCP_REGION:-us-central1}"
 
 echo "============================================================"

@@ -1,42 +1,53 @@
-import { Spanner } from "@google-cloud/spanner";
-import { GCP_CONFIG } from "../config";
-import fs from "fs";
-import path from "path";
-
-let spannerClient: Spanner | null = null;
-
-export function getSpannerDatabase() {
-  if (!spannerClient) {
-    spannerClient = new Spanner({ projectId: GCP_CONFIG.projectId });
-  }
-  const instance = spannerClient.instance(GCP_CONFIG.spannerInstanceId);
-  return instance.database(GCP_CONFIG.spannerDatabaseId);
-}
-
-let cachedPlayers: any[] | null = null;
-
-export function loadLocalMasterPlayers() {
-  if (cachedPlayers) return cachedPlayers;
-  try {
-    const playersPath = path.join(process.cwd(), "data/master_players.json");
-    if (fs.existsSync(playersPath)) {
-      const raw = fs.readFileSync(playersPath, "utf-8");
-      cachedPlayers = JSON.parse(raw);
-      return cachedPlayers as any[];
-    }
-  } catch (e) {
-    console.error("[Local Fallback] Error reading master players:", e);
-  }
-  cachedPlayers = [];
-  return cachedPlayers;
-}
-
 /**
- * Aggregates computed across the FULL matched population, not the rendered page.
+ * Live Spanner Graph client.
+ *
+ * DESIGN: Spanner is the only source of truth. There is deliberately no
+ * silent local fallback. The previous implementation attempted Spanner,
+ * swallowed the failure, and served numbers computed from a local JSON file —
+ * which meant the demo showed confident figures that had never touched the
+ * database. Every failure here is surfaced to the caller.
+ *
+ * OWNERSHIP OF THE QUERY: the language model decides the FILTER (the WHERE
+ * clause); this module owns the projection, ordering, limit and aggregates.
+ * That split means a model that returns the wrong columns, forgets a LIMIT, or
+ * invents a RETURN shape cannot break the UI, and it lets us run a genuine
+ * COUNT(*) companion query so "matched" is a real population rather than the
+ * size of the page we happened to fetch.
  */
+import { Database, Spanner } from "@google-cloud/spanner";
+import { GCP_CONFIG } from "../config";
+
+export interface PlayerRow {
+  player_id: string;
+  display_name: string;
+  gamer_tag: string;
+  primary_franchise: string;
+  franchises_played: string[];
+  primary_archetype: string;
+  lifetime_spend_usd: number;
+  churn_risk_score: number;
+  tilt_sensitivity: number;
+  recent_loss_streak: number;
+  age: number | null;
+  gender: string | null;
+  account_tenure_days: number | null;
+  currency_balance: number | null;
+  country: string | null;
+  country_code: string | null;
+  country_flag: string | null;
+  dma_market: string | null;
+  lat: number | null;
+  lng: number | null;
+  followed_creators: string[];
+  primary_creator_influence: string | null;
+  game_telemetry: Record<string, any>;
+  purchased_items: any[];
+}
+
 export interface CohortAggregates {
-  avgSpendUsd: number;
-  avgChurnRisk: number;
+  totalMatched: number;
+  avgSpend: number;
+  avgChurn: number;
   avgTilt: number;
   highChurnCount: number;
   archetypeHistogram: Record<string, number>;
@@ -45,449 +56,307 @@ export interface CohortAggregates {
   dominantArchetype: string;
 }
 
-/**
- * Result envelope for a graph query.
- *
- * `totalMatched` is the TRUE number of players satisfying the query predicates,
- * independent of `rows`, which is truncated by the query's LIMIT clause for
- * rendering. These must never be conflated: `totalMatched` is what a marketer
- * reads as reachable audience size.
- */
 export interface GraphQueryResult {
-  rows: any[];
+  rows: PlayerRow[];
   totalMatched: number;
   aggregates: CohortAggregates;
   isLive: boolean;
   source: string;
   executionTimeMs: number;
-  /** Human-readable predicates that were actually evaluated, for UI provenance. */
-  appliedPredicates: string[];
+  whereClause: string;
+  gqlExecuted: string;
 }
 
-type Predicate = (p: any) => boolean;
-
-interface ParsedAtom {
-  predicate: Predicate;
-  description: string;
-}
-
-/** Resolve a `p.field` reference against a player record, with a few aliases. */
-function fieldValue(player: any, field: string): any {
-  const f = field.replace(/^p\./, "").trim();
-  if (f in player) return player[f];
-  // Telemetry fields are nested one level down.
-  if (player.game_telemetry && f in player.game_telemetry) return player.game_telemetry[f];
-  return undefined;
-}
-
-function coerce(raw: string): string | number {
-  const trimmed = raw.trim();
-  const unquoted = trimmed.replace(/^'(.*)'$/s, "$1").replace(/^"(.*)"$/s, "$1");
-  if (unquoted === trimmed && /^-?[0-9.]+$/.test(trimmed)) return parseFloat(trimmed);
-  return unquoted;
-}
-
-function compare(op: string, left: any, right: any): boolean {
-  if (left === undefined || left === null) return false;
-  const bothNumeric = typeof right === "number";
-  const l = bothNumeric ? Number(left) : String(left).toLowerCase();
-  const r = bothNumeric ? Number(right) : String(right).toLowerCase();
-  switch (op) {
-    case ">=":
-      return l >= r;
-    case "<=":
-      return l <= r;
-    case ">":
-      return l > r;
-    case "<":
-      return l < r;
-    case "=":
-    case "==":
-      return l === r;
-    case "!=":
-    case "<>":
-      return l !== r;
-    default:
-      return false;
+export class SpannerUnavailableError extends Error {
+  readonly cause?: unknown;
+  constructor(message: string, cause?: unknown) {
+    super(message);
+    this.name = "SpannerUnavailableError";
+    this.cause = cause;
   }
 }
 
-/** Locate top-level balanced parenthesised groups within a clause. */
-function findBalancedGroups(s: string): { start: number; end: number; body: string }[] {
-  const groups: { start: number; end: number; body: string }[] = [];
-  let depth = 0;
-  let start = -1;
-  let inString = false;
-  for (let i = 0; i < s.length; i++) {
-    const ch = s[i];
-    if (ch === "'") inString = !inString;
-    if (inString) continue;
-    if (ch === "(") {
-      if (depth === 0) start = i;
-      depth++;
-    } else if (ch === ")") {
-      depth--;
-      if (depth === 0 && start >= 0) {
-        groups.push({ start, end: i, body: s.slice(start + 1, i) });
-        start = -1;
-      }
-    }
+const GRAPH = "ABKPlayerGraph";
+
+/** The projection the application relies on. The model does not get a vote. */
+const PLAYER_PROJECTION = [
+  "p.player_id",
+  "p.display_name",
+  "p.gamer_tag",
+  "p.primary_franchise",
+  "p.franchises_played",
+  "p.primary_archetype",
+  "p.lifetime_spend_usd",
+  "p.churn_risk_score",
+  "p.tilt_sensitivity",
+  "p.recent_loss_streak",
+  "p.age",
+  "p.gender",
+  "p.account_tenure_days",
+  "p.currency_balance",
+  "p.country",
+  "p.country_code",
+  "p.country_flag",
+  "p.dma_market",
+  "p.lat",
+  "p.lng",
+  "p.followed_creators",
+  "p.primary_creator_influence",
+  "p.game_telemetry",
+  "p.purchased_items",
+].join(", ");
+
+let cachedDatabase: Database | null = null;
+
+function getDatabase(): Database {
+  if (!cachedDatabase) {
+    const spanner = new Spanner({ projectId: GCP_CONFIG.projectId });
+    cachedDatabase = spanner
+      .instance(GCP_CONFIG.spannerInstanceId)
+      .database(GCP_CONFIG.spannerDatabaseId);
   }
-  return groups;
+  return cachedDatabase;
 }
 
 /**
- * Parse a single comparison atom.
+ * Pull the WHERE clause out of a generated GQL query.
  *
- * Supported forms:
- *   p.field >= 1500                      numeric / string comparison
- *   p.field = 'United States'
- *   p.field LIKE '%Dallas%'
- *   p.field IN ('COD', 'WOW')            membership against a scalar or array field
- *   'DIABLO4' IN p.franchises_played     membership against an array field
+ * Returns an empty string when the query has no filter, which legitimately
+ * means "the whole population".
  */
-function parseAtom(raw: string): ParsedAtom | null {
-  const atom = raw.trim().replace(/;$/, "");
-  if (!atom) return null;
-
-  // 'VALUE' IN p.array_field
-  let m = atom.match(/^'([^']+)'\s+IN\s+(p\.[a-z_0-9]+)$/i);
-  if (m) {
-    const needle = m[1].toLowerCase();
-    const field = m[2];
-    return {
-      description: `'${m[1]}' in ${field}`,
-      predicate: (p) => {
-        const v = fieldValue(p, field);
-        return Array.isArray(v) && v.some((x) => String(x).toLowerCase() === needle);
-      },
-    };
-  }
-
-  // p.field IN ('A', 'B')
-  m = atom.match(/^(p\.[a-z_0-9]+)\s+IN\s*\(([^)]*)\)$/i);
-  if (m) {
-    const field = m[1];
-    const list = m[2]
-      .split(",")
-      .map((x) => String(coerce(x)).toLowerCase())
-      .filter(Boolean);
-    return {
-      description: `${field} in (${list.join(", ")})`,
-      predicate: (p) => {
-        const v = fieldValue(p, field);
-        if (Array.isArray(v)) return v.some((x) => list.includes(String(x).toLowerCase()));
-        return v !== undefined && list.includes(String(v).toLowerCase());
-      },
-    };
-  }
-
-  // p.field LIKE '%value%'
-  m = atom.match(/^(p\.[a-z_0-9]+)\s+LIKE\s+'([^']*)'$/i);
-  if (m) {
-    const field = m[1];
-    const pattern = m[2].toLowerCase();
-    const bare = pattern.replace(/%/g, "");
-    const startsOpen = pattern.startsWith("%");
-    const endsOpen = pattern.endsWith("%");
-    return {
-      description: `${field} like '${m[2]}'`,
-      predicate: (p) => {
-        const v = fieldValue(p, field);
-        if (v === undefined || v === null) return false;
-        const s = String(v).toLowerCase();
-        if (startsOpen && endsOpen) return s.includes(bare);
-        if (endsOpen) return s.startsWith(bare);
-        if (startsOpen) return s.endsWith(bare);
-        return s === bare;
-      },
-    };
-  }
-
-  // p.field <op> value
-  m = atom.match(/^(p\.[a-z_0-9]+)\s*(>=|<=|!=|<>|=|>|<)\s*(.+)$/i);
-  if (m) {
-    const field = m[1];
-    const op = m[2];
-    const value = coerce(m[3]);
-    return {
-      description: `${field} ${op} ${typeof value === "string" ? `'${value}'` : value}`,
-      predicate: (p) => compare(op, fieldValue(p, field), value),
-    };
-  }
-
-  return null;
-}
-
-/** Split a clause on a boolean operator, respecting parentheses and string literals. */
-function splitTopLevel(clause: string, op: "AND" | "OR"): string[] {
-  const parts: string[] = [];
-  let depth = 0;
-  let inString = false;
-  let buf = "";
-  const token = op.toLowerCase();
-  for (let i = 0; i < clause.length; i++) {
-    const ch = clause[i];
-    if (ch === "'") inString = !inString;
-    if (!inString) {
-      if (ch === "(") depth++;
-      else if (ch === ")") depth--;
-      if (depth === 0) {
-        const ahead = clause.slice(i, i + token.length).toLowerCase();
-        const before = i === 0 ? " " : clause[i - 1];
-        const after = clause[i + token.length] || " ";
-        if (ahead === token && /\s/.test(before) && /\s/.test(after)) {
-          parts.push(buf);
-          buf = "";
-          i += token.length - 1;
-          continue;
-        }
-      }
-    }
-    buf += ch;
-  }
-  parts.push(buf);
-  return parts.map((p) => p.trim()).filter(Boolean);
-}
-
-/** Recursively build a predicate from a boolean expression. */
-function buildPredicate(clause: string, applied: string[]): Predicate | null {
-  const trimmed = clause.trim().replace(/;$/, "");
-  if (!trimmed) return null;
-
-  // Unwrap a fully-enclosing paren group.
-  const groups = findBalancedGroups(trimmed);
-  if (groups.length === 1 && groups[0].start === 0 && groups[0].end === trimmed.length - 1) {
-    return buildPredicate(groups[0].body, applied);
-  }
-
-  const orParts = splitTopLevel(trimmed, "OR");
-  if (orParts.length > 1) {
-    const preds = orParts.map((p) => buildPredicate(p, applied)).filter(Boolean) as Predicate[];
-    if (!preds.length) return null;
-    return (p) => preds.some((fn) => fn(p));
-  }
-
-  const andParts = splitTopLevel(trimmed, "AND");
-  if (andParts.length > 1) {
-    const preds = andParts.map((p) => buildPredicate(p, applied)).filter(Boolean) as Predicate[];
-    if (!preds.length) return null;
-    return (p) => preds.every((fn) => fn(p));
-  }
-
-  const atom = parseAtom(trimmed);
-  if (atom) {
-    applied.push(atom.description);
-    return atom.predicate;
-  }
-
-  // Unrecognised atom: ignore it rather than silently narrowing the audience.
-  console.warn(`[Graph Engine] Unparsed predicate, ignoring: "${trimmed}"`);
-  return null;
+export function extractWhereClause(gql: string): string {
+  if (!gql) return "";
+  const match = gql.match(
+    /\bWHERE\b([\s\S]*?)(?:\bRETURN\b|\bORDER\s+BY\b|\bLIMIT\b|\bNEXT\b|$)/i
+  );
+  return match ? match[1].trim().replace(/;$/, "").trim() : "";
 }
 
 /**
- * Evaluate a GQL string against the local master player table.
+ * Repair the two constructs the model reliably gets wrong.
  *
- * This is a genuine (if small) predicate evaluator: it parses the WHERE clause
- * into a boolean tree and applies it field-by-field. It deliberately does NOT
- * substring-match the query text, which previously caused `lifetime_spend_usd`
- * to match a bare `"us"` country token and silently constrain every cohort to
- * the United States, and caused churn predicates to be dropped entirely.
+ * 1. Array membership. Models emit `'COD' IN p.franchises_played`, which is
+ *    Cypher-flavoured and invalid in GoogleSQL; it needs UNNEST.
+ * 2. Double-quoted string literals, which GoogleSQL accepts in most contexts
+ *    but which we normalise for consistency.
  */
-export function evaluateGqlLocally(gql: string) {
-  const players = loadLocalMasterPlayers();
-  const applied: string[] = [];
+export function normalizeWhereClause(where: string): string {
+  if (!where) return "";
+  let out = where;
 
-  const whereMatch = gql.match(/\bWHERE\b([\s\S]*?)(?:\bRETURN\b|\bORDER\s+BY\b|\bLIMIT\b|$)/i);
-  const whereClause = whereMatch ? whereMatch[1].trim() : "";
+  // 'X' IN p.array_field  ->  'X' IN UNNEST(p.array_field)
+  out = out.replace(
+    /('(?:[^']*)'|"(?:[^"]*)")\s+IN\s+(p\.[a-zA-Z_0-9]+)(?!\s*\()/gi,
+    (_m, literal, field) => `${literal} IN UNNEST(${field})`
+  );
 
-  const predicate = whereClause ? buildPredicate(whereClause, applied) : null;
-  let filtered = predicate ? players.filter(predicate) : players.slice();
-
-  const totalMatched = filtered.length;
-
-  const orderMatch = gql.match(/\bORDER\s+BY\s+(p\.[a-z_0-9]+)\s*(ASC|DESC)?/i);
-  if (orderMatch) {
-    const field = orderMatch[1];
-    const dir = (orderMatch[2] || "ASC").toUpperCase() === "DESC" ? -1 : 1;
-    filtered = [...filtered].sort((a, b) => {
-      const av = fieldValue(a, field);
-      const bv = fieldValue(b, field);
-      if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
-      return String(av ?? "").localeCompare(String(bv ?? "")) * dir;
-    });
-  }
-
-  const limitMatch = gql.match(/\bLIMIT\s+(\d+)/i);
-  const limit = limitMatch ? parseInt(limitMatch[1], 10) : 250;
-
-  return { filtered, totalMatched, limit, applied };
+  return out.trim();
 }
 
-export function computeAggregates(players: any[]): CohortAggregates {
-  const n = Math.max(1, players.length);
-  let spend = 0;
-  let churn = 0;
-  let tilt = 0;
-  let highChurn = 0;
-  const archetypeHistogram: Record<string, number> = {};
-  const countryHistogram: Record<string, number> = {};
-  const franchiseHistogram: Record<string, number> = {};
+function buildWhereFragment(where: string): string {
+  return where ? `WHERE ${where}\n` : "";
+}
 
-  for (const p of players) {
-    spend += Number(p.lifetime_spend_usd || 0);
-    churn += Number(p.churn_risk_score || 0);
-    tilt += Number(p.tilt_sensitivity || 0);
-    if (Number(p.churn_risk_score || 0) >= 0.7) highChurn++;
-    if (p.primary_archetype) archetypeHistogram[p.primary_archetype] = (archetypeHistogram[p.primary_archetype] || 0) + 1;
-    if (p.country) countryHistogram[p.country] = (countryHistogram[p.country] || 0) + 1;
-    if (p.primary_franchise) franchiseHistogram[p.primary_franchise] = (franchiseHistogram[p.primary_franchise] || 0) + 1;
+function toNumber(v: any): number {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === "number") return v;
+  if (typeof v === "object" && typeof v.value !== "undefined") return Number(v.value);
+  return Number(v);
+}
+
+function toNullableNumber(v: any): number | null {
+  if (v === null || v === undefined) return null;
+  return toNumber(v);
+}
+
+function parseJsonColumn(v: any, fallback: any) {
+  if (v === null || v === undefined) return fallback;
+  if (typeof v === "string") {
+    try {
+      return JSON.parse(v);
+    } catch {
+      return fallback;
+    }
   }
+  return v;
+}
 
-  const dominantArchetype =
-    Object.entries(archetypeHistogram).sort((a, b) => b[1] - a[1])[0]?.[0] || "UNCLASSIFIED";
-
+function mapPlayerRow(raw: any): PlayerRow {
   return {
-    avgSpendUsd: Math.round((spend / n) * 100) / 100,
-    avgChurnRisk: Number((churn / n).toFixed(3)),
-    avgTilt: Number((tilt / n).toFixed(3)),
-    highChurnCount: highChurn,
+    player_id: raw.player_id,
+    display_name: raw.display_name,
+    gamer_tag: raw.gamer_tag,
+    primary_franchise: raw.primary_franchise,
+    franchises_played: raw.franchises_played || [],
+    primary_archetype: raw.primary_archetype,
+    lifetime_spend_usd: toNumber(raw.lifetime_spend_usd),
+    churn_risk_score: toNumber(raw.churn_risk_score),
+    tilt_sensitivity: toNumber(raw.tilt_sensitivity),
+    recent_loss_streak: toNumber(raw.recent_loss_streak),
+    age: toNullableNumber(raw.age),
+    gender: raw.gender ?? null,
+    account_tenure_days: toNullableNumber(raw.account_tenure_days),
+    currency_balance: toNullableNumber(raw.currency_balance),
+    country: raw.country ?? null,
+    country_code: raw.country_code ?? null,
+    country_flag: raw.country_flag ?? null,
+    dma_market: raw.dma_market ?? null,
+    lat: toNullableNumber(raw.lat),
+    lng: toNullableNumber(raw.lng),
+    followed_creators: raw.followed_creators || [],
+    primary_creator_influence: raw.primary_creator_influence ?? null,
+    game_telemetry: parseJsonColumn(raw.game_telemetry, {}),
+    purchased_items: parseJsonColumn(raw.purchased_items, []),
+  };
+}
+
+async function runGql(database: Database, sql: string): Promise<any[]> {
+  const [rows] = await database.run({ sql });
+  return rows.map((r: any) => r.toJSON());
+}
+
+/**
+ * Execute a cohort query against the live graph.
+ *
+ * @param generatedGql  Full GQL from the translator. Only its WHERE clause is used.
+ * @param renderLimit   How many player rows to return for rendering.
+ */
+export async function runSpannerGraphQuery(
+  generatedGql: string,
+  renderLimit = 56
+): Promise<GraphQueryResult> {
+  const started = Date.now();
+  const database = getDatabase();
+
+  const where = normalizeWhereClause(extractWhereClause(generatedGql));
+  const whereFragment = buildWhereFragment(where);
+
+  const rowsSql =
+    `GRAPH ${GRAPH}\n` +
+    `MATCH (p:Player)\n` +
+    whereFragment +
+    `RETURN ${PLAYER_PROJECTION}\n` +
+    `ORDER BY p.lifetime_spend_usd DESC\n` +
+    `LIMIT ${Math.max(1, Math.floor(renderLimit))}`;
+
+  // A genuine population count, not the size of the page above.
+  const statsSql =
+    `GRAPH ${GRAPH}\n` +
+    `MATCH (p:Player)\n` +
+    whereFragment +
+    `RETURN COUNT(*) AS total,\n` +
+    `       AVG(p.lifetime_spend_usd) AS avg_spend,\n` +
+    `       AVG(p.churn_risk_score) AS avg_churn,\n` +
+    `       AVG(p.tilt_sensitivity) AS avg_tilt,\n` +
+    `       COUNTIF(p.churn_risk_score >= 0.7) AS high_churn`;
+
+  const archetypeSql =
+    `GRAPH ${GRAPH}\nMATCH (p:Player)\n` +
+    whereFragment +
+    `RETURN p.primary_archetype AS k, COUNT(*) AS n\nGROUP BY k\nORDER BY n DESC`;
+
+  const countrySql =
+    `GRAPH ${GRAPH}\nMATCH (p:Player)\n` +
+    whereFragment +
+    `RETURN p.country AS k, COUNT(*) AS n\nGROUP BY k\nORDER BY n DESC`;
+
+  const franchiseSql =
+    `GRAPH ${GRAPH}\nMATCH (p:Player)\n` +
+    whereFragment +
+    `RETURN p.primary_franchise AS k, COUNT(*) AS n\nGROUP BY k\nORDER BY n DESC`;
+
+  let results: any[][];
+  try {
+    results = await Promise.all([
+      runGql(database, rowsSql),
+      runGql(database, statsSql),
+      runGql(database, archetypeSql),
+      runGql(database, countrySql),
+      runGql(database, franchiseSql),
+    ]);
+  } catch (e: any) {
+    // Loud, specific, and carrying the SQL so the failure is diagnosable.
+    throw new SpannerUnavailableError(
+      `Spanner graph query failed: ${e?.message || e}. WHERE clause was: ${
+        where || "(none)"
+      }`,
+      e
+    );
+  }
+
+  const [rawRows, statsRows, archRows, countryRows, franchiseRows] = results;
+
+  const stats = statsRows[0] || {};
+  const histogram = (rows: any[]) =>
+    rows.reduce<Record<string, number>>((acc, r) => {
+      if (r.k !== null && r.k !== undefined) acc[r.k] = toNumber(r.n);
+      return acc;
+    }, {});
+
+  const archetypeHistogram = histogram(archRows);
+  const dominantArchetype =
+    Object.entries(archetypeHistogram).sort((a, b) => b[1] - a[1])[0]?.[0] || "UNKNOWN";
+
+  const aggregates: CohortAggregates = {
+    totalMatched: toNumber(stats.total),
+    avgSpend: toNumber(stats.avg_spend),
+    avgChurn: toNumber(stats.avg_churn),
+    avgTilt: toNumber(stats.avg_tilt),
+    highChurnCount: toNumber(stats.high_churn),
     archetypeHistogram,
-    countryHistogram,
-    franchiseHistogram,
+    countryHistogram: histogram(countryRows),
+    franchiseHistogram: histogram(franchiseRows),
     dominantArchetype,
   };
-}
 
-function normalizeLocalRow(p: any) {
   return {
-    player_id: p.player_id,
-    display_name: p.display_name,
-    gamer_tag: p.gamer_tag || p.display_name,
-    primary_franchise: p.primary_franchise,
-    franchises_played: p.franchises_played || [p.primary_franchise],
-    primary_archetype: p.primary_archetype,
-    lifetime_spend_usd: p.lifetime_spend_usd,
-    churn_risk_score: p.churn_risk_score,
-    tilt_sensitivity: p.tilt_sensitivity,
-    recent_loss_streak: p.recent_loss_streak || 0,
-    age: p.age,
-    gender: p.gender,
-    account_tenure_days: p.account_tenure_days,
-    currency_balance: p.currency_balance,
-    country: p.country,
-    country_code: p.country_code || "US",
-    country_flag: p.country_flag || "🇺🇸",
-    dma_market: p.dma_market,
-    lat: p.lat,
-    lng: p.lng,
-    followed_creators: p.followed_creators || [p.primary_creator_influence].filter(Boolean),
-    primary_creator_influence: p.primary_creator_influence,
-    game_telemetry: p.game_telemetry || {},
-    purchased_items: p.purchased_items || [],
+    rows: rawRows.map(mapPlayerRow),
+    totalMatched: aggregates.totalMatched,
+    aggregates,
+    isLive: true,
+    source: `spanner://${GCP_CONFIG.spannerInstanceId}/${GCP_CONFIG.spannerDatabaseId}`,
+    executionTimeMs: Date.now() - started,
+    whereClause: where,
+    gqlExecuted: rowsSql,
   };
 }
 
-export async function runSpannerGraphQuery(
-  gqlQuery: string,
-  params: Record<string, any> = {},
-  sourceMode: "live_spanner" | "local" = "local"
-): Promise<GraphQueryResult> {
-  const startTime = Date.now();
-  let cleanedGql = gqlQuery.trim();
-
-  if (!cleanedGql.startsWith("GRAPH ")) {
-    cleanedGql = `GRAPH ABKPlayerGraph\n${cleanedGql}`;
+/** Arbitrary read-only GQL, for panels that need their own shape. */
+export async function runRawGql(sql: string): Promise<any[]> {
+  try {
+    return await runGql(getDatabase(), sql);
+  } catch (e: any) {
+    throw new SpannerUnavailableError(`Spanner query failed: ${e?.message || e}`, e);
   }
+}
 
-  // Ensure node table reference matches Spanner DDL (Players table)
-  const spannerGql = cleanedGql.replace(/MATCH\s*\(\s*p:Player\s*\)/gi, "MATCH (p:Players)");
-
-  console.log(`[Spanner Engine Mode]: ${sourceMode.toUpperCase()}`);
-
-  if (sourceMode === "live_spanner") {
-    try {
-      console.log(`[Cloud Spanner Live GQL Executing]:\n${spannerGql}`);
-      const database = getSpannerDatabase();
-      const [rows] = await database.run({ sql: spannerGql, params });
-
-      if (rows && rows.length > 0) {
-        const executionTimeMs = Date.now() - startTime;
-        console.log(`[Cloud Spanner Result]: ${rows.length} rows in ${executionTimeMs}ms`);
-
-        const mappedRows = rows.map((r: any) => {
-          let telemetry: any = {};
-          let purchasedItems: any[] = [];
-          try {
-            if (r.telemetry_json) {
-              telemetry = typeof r.telemetry_json === "string" ? JSON.parse(r.telemetry_json) : r.telemetry_json;
-            }
-          } catch (e) {}
-          try {
-            if (r.purchased_items_json) {
-              purchasedItems =
-                typeof r.purchased_items_json === "string"
-                  ? JSON.parse(r.purchased_items_json)
-                  : r.purchased_items_json;
-            }
-          } catch (e) {}
-
-          return {
-            player_id: r.player_id || r.p?.player_id,
-            display_name: r.display_name || r.p?.display_name,
-            gamer_tag: r.gamer_tag || r.p?.gamer_tag || r.display_name,
-            primary_franchise: r.primary_franchise || r.p?.primary_franchise,
-            franchises_played: r.franchises_played || [r.primary_franchise || r.p?.primary_franchise],
-            primary_archetype: r.primary_archetype || r.p?.primary_archetype,
-            lifetime_spend_usd: Number(r.lifetime_spend_usd || r.p?.lifetime_spend_usd || 0),
-            churn_risk_score: Number(r.churn_risk_score || r.p?.churn_risk_score || 0),
-            tilt_sensitivity: Number(r.tilt_sensitivity || r.p?.tilt_sensitivity || 0),
-            recent_loss_streak: Number(r.recent_loss_streak || r.p?.recent_loss_streak || 0),
-            age: r.age ?? r.p?.age,
-            gender: r.gender ?? r.p?.gender,
-            account_tenure_days: r.account_tenure_days ?? r.p?.account_tenure_days,
-            currency_balance: r.currency_balance ?? r.p?.currency_balance,
-            country: r.country || r.p?.country || "United States",
-            country_code: r.country_code || r.p?.country_code || "US",
-            country_flag: r.country_flag || r.p?.country_flag || "🇺🇸",
-            dma_market: r.dma_market || r.p?.dma_market || "Los Angeles Metro",
-            lat: Number(r.lat || r.p?.lat || 34.0522),
-            lng: Number(r.lng || r.p?.lng || -118.2437),
-            game_telemetry: telemetry,
-            purchased_items: purchasedItems,
-            followed_creators: r.followed_creators || telemetry?.followed_creators || [],
-            primary_creator_influence: r.primary_creator_influence || telemetry?.primary_creator_influence,
-          };
-        });
-
-        return {
-          rows: mappedRows,
-          // Live Spanner returns the LIMITed page; without a COUNT(*) companion
-          // query the honest answer is the page size, not an extrapolation.
-          totalMatched: mappedRows.length,
-          aggregates: computeAggregates(mappedRows),
-          isLive: true,
-          source: `Google Cloud Spanner Enterprise (${GCP_CONFIG.spannerDatabaseId})`,
-          executionTimeMs,
-          appliedPredicates: [],
-        };
-      }
-    } catch (error: any) {
-      console.warn("[Cloud Spanner Notice - Falling back to local graph engine]:", error?.message || error);
-    }
+/** Connectivity probe used by the health endpoint and the UI status pill. */
+export async function checkSpannerHealth(): Promise<{
+  ok: boolean;
+  database: string;
+  playerCount?: number;
+  latencyMs: number;
+  error?: string;
+}> {
+  const started = Date.now();
+  const database = `${GCP_CONFIG.spannerInstanceId}/${GCP_CONFIG.spannerDatabaseId}`;
+  try {
+    const rows = await runGql(
+      getDatabase(),
+      `GRAPH ${GRAPH} MATCH (p:Player) RETURN COUNT(*) AS total`
+    );
+    return {
+      ok: true,
+      database,
+      playerCount: toNumber(rows[0]?.total),
+      latencyMs: Date.now() - started,
+    };
+  } catch (e: any) {
+    return {
+      ok: false,
+      database,
+      latencyMs: Date.now() - started,
+      error: e?.message || String(e),
+    };
   }
-
-  const { filtered, totalMatched, limit, applied } = evaluateGqlLocally(cleanedGql);
-  const rows = filtered.slice(0, limit).map(normalizeLocalRow);
-
-  return {
-    rows,
-    totalMatched,
-    aggregates: computeAggregates(filtered),
-    isLive: false,
-    source: "Local Graph Engine (predicate-evaluated over 5,000 master players)",
-    executionTimeMs: Date.now() - startTime,
-    appliedPredicates: applied,
-  };
 }

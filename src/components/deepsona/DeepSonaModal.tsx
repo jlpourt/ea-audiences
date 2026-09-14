@@ -69,7 +69,7 @@ function generateDynamicQuote(
     } else if (isWOW) {
       return `20-year WoW veteran with ${formattedSpend} lifetime account value. The 12-Month Subscription bundle with 4 exclusive mounts and collector pets is an automatic renewal.`;
     } else if (isDiablo) {
-      return `Sanctuary Whale with ${formattedSpend} invested. The Vessel of Hatred Ultimate Edition with wings, town portal animations, and platinum is mandatory for my collection.`;
+      return `Sanctuary Whale with ${formattedSpend} invested. The Lord of Hatred Ultimate Edition with wings, town portal animations, and platinum is mandatory for my collection.`;
     } else if (isCandy) {
       return `Lifetime spend of ${formattedSpend} on boosters and extra moves. When I'm in the top 1% weekly leaderboard, I stock up on Gold Bars and Color Bombs.`;
     } else {
@@ -311,7 +311,7 @@ export default function DeepSonaModal({
 
         const division =
           slotIdx === 0
-            ? `${franchiseName} • ${isCOD ? "BO6 Iridescent (Rank 1)" : isWOW ? "Mythic+ Title (3,200 IO)" : isDiablo ? "The Pit Tier 100" : isCandy ? "Level 5,000+ Master" : "Grandmaster 1"}`
+            ? `${franchiseName} • ${isCOD ? "BO7 Iridescent (Rank 1)" : isWOW ? "Mythic+ Title (3,200 IO)" : isDiablo ? "The Pit Tier 100" : isCandy ? "Level 5,000+ Master" : "Grandmaster 1"}`
             : slotIdx === 1
             ? `${franchiseName} • ${isCOD ? "BlackCell Vault Whale" : isWOW ? "20-Year Collector ($4k+)" : isDiablo ? "Sanctuary Ultimate Collector" : isCandy ? "VIP Booster Whale" : "Mythic Prism Collector"}`
             : slotIdx === 2
@@ -345,7 +345,7 @@ export default function DeepSonaModal({
           name: "Marcus 'Ghost' Vance",
           gamerTag: "Ghost_Resurgence_94",
           archetype: "COMPETITIVE_GRINDER",
-          division: "Call of Duty • BO6 Iridescent (Rank 1)",
+          division: "Call of Duty • BO7 Iridescent (Rank 1)",
           matchesPlayed: 1450,
           spendLtv: 480.0,
           tiltLevel: 88,
@@ -403,7 +403,7 @@ export default function DeepSonaModal({
     else if (game === "WOW" || q.includes("wow") || q.includes("warcraft") || q.includes("raid") || q.includes("mythic")) {
       return [
         {
-          id: "Mythic_Raider_Ansurak",
+          id: "Mythic_Raider_Midnight",
           name: "Theron 'Void' Sunstrider",
           gamerTag: "Void_Raider_Ansurak",
           archetype: "AZERITE_COLLECTOR",
@@ -490,7 +490,7 @@ export default function DeepSonaModal({
           wtp: 59.99,
           fsmState: "PURCHASED",
           recentLossStreak: 0,
-          quote: "Vessel of Hatred Ultimate Edition with wings, town portal animations, and 3,000 Platinum was an immediate pre-order.",
+          quote: "Lord of Hatred Ultimate Edition with wings, town portal animations, and 3,000 Platinum was an immediate pre-order.",
         },
         {
           id: "Horde_4Stack_Leader",
@@ -676,7 +676,7 @@ export default function DeepSonaModal({
       setCreativeTitle("World of Warcraft 6-Month Subscription Bundle & Mount Voucher ($14.99 - $77.94)");
       setProposedSpend(190000);
     } else if (selectedGame === "DIABLO4") {
-      setCreativeTitle("Diablo IV: Vessel of Hatred Deluxe & Infernal Relic Cache ($19.99 - $59.99)");
+      setCreativeTitle("Diablo IV: Lord of Hatred Deluxe & Infernal Relic Cache ($19.99 - $59.99)");
       setProposedSpend(160000);
     } else if (selectedGame === "OVERWATCH2") {
       setCreativeTitle("Overwatch 2 Mythic Skin Prism Bundle & 2,200 Coins ($9.99 - $39.99)");

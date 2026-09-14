@@ -5,8 +5,8 @@
  * colour. Every archetype listed here is present in `data/master_players.json`;
  * nothing here is aspirational. Previously these facts were duplicated across
  * the graph API, the graph controls, the geo map and the DeepSona prompts,
- * which is how EA-era archetypes (ULTIMATE_TEAM_WHALE, HEIRLOOM_WHALE) and a
- * zero-population archetype (MYTHIC_RAIDER) survived the reskin.
+ * which is how off-catalog archetypes and a
+ * zero-population archetype survived earlier cleanups.
  */
 
 export const ARCHETYPES = [

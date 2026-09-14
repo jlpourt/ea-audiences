@@ -12,7 +12,7 @@ interface IdentityTreeProps {
 export default function IdentityTree({ identities = [], masterId }: IdentityTreeProps) {
   // Keyed to the platforms that actually appear in data/platform_identities.json:
   // BATTLE_NET (all players), STEAM, XBOX_LIVE, PLAYSTATION_NETWORK, KING_MOBILE_ID.
-  // The previous map branched on "EA Origin" and left Battle.net unstyled.
+  // The previous map left Battle.net unstyled.
   const PLATFORM_BADGES: Record<string, { bg: string; label: string }> = {
     BATTLE_NET: {
       bg: "bg-sky-950/60 text-sky-400 border-sky-500/30",

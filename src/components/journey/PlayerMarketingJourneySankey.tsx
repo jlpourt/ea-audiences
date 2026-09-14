@@ -130,7 +130,7 @@ export default function PlayerMarketingJourneySankey({
         modeSub = "Role Queue 5v5";
       } else if (player.archetype === "COMPETITIVE_GRINDER" || (player.hours || 0) > 400) {
         modeId = "mode_bo6";
-        modeName = "BO6 Ranked Play";
+        modeName = "BO7 Ranked Play";
         modeSub = "Competitive CDL";
       }
 

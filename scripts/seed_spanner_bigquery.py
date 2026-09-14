@@ -14,8 +14,8 @@ logger = logging.getLogger("seed_spanner_bigquery")
 
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "jamie-bq-test")
 INSTANCE_ID = os.getenv("SPANNER_INSTANCE_ID", "bravoverse-spanner")
-DATABASE_ID = os.getenv("SPANNER_DATABASE_ID", "ea_graph_db")
-BQ_DATASET = os.getenv("BQ_DATASET_ID", "ea_marketing_intelligence")
+DATABASE_ID = os.getenv("SPANNER_DATABASE_ID", "abk_graph_db")
+BQ_DATASET = os.getenv("BQ_DATASET_ID", "abk_marketing_intelligence")
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "../data")
 
