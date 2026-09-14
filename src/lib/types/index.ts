@@ -2,22 +2,11 @@ export type NodeType = "PLAYER" | "IDENTITY" | "GAME" | "CLAN" | "OFFER" | "CREA
 
 export type GameFranchise = "ALL" | "COD" | "WOW" | "DIABLO4" | "OVERWATCH2" | "CANDYCRUSH";
 
-export type Archetype =
-  | "COMPETITIVE_GRINDER"
-  | "ULTIMATE_TEAM_WHALE"
-  | "CASUAL_SOCIALIZER"
-  | "LORE_SEEKER"
-  | "RANKED_SWEAT"
-  | "HEIRLOOM_WHALE"
-  | "CASUAL_WARRIOR"
-  | "BLACKCELL_WHALE"
-  | "MYTHIC_RAIDER"
-  | "SANCTUARY_COLLECTOR"
-  | "BOOSTER_WHALE"
-  | "MUT_WHALE"
-  | "CONQUEST_LEADER"
-  | "SIMS_COLLECTOR"
-  | "BUILDER_CREATOR";
+// Archetype identity lives in one place: src/lib/archetypes.ts. Imported for
+// local use and re-exported so existing `import { Archetype } from "@/lib/types"`
+// call sites keep working.
+import type { ArchetypeId } from "@/lib/archetypes";
+export type Archetype = ArchetypeId;
 
 export type ContextualViewType =
   | "audience-cohorts"
@@ -173,10 +162,22 @@ export interface DeepSonaReaction {
 export interface CohortContext {
   query: string;
   franchise?: string;
+  /** True number of players satisfying the query predicates. */
   matchedCount: number;
+  /** How many player nodes are actually drawn on the canvas. */
+  renderedCount?: number;
+  /** True when renderedCount < matchedCount. */
+  isSampled?: boolean;
+  /** Mirrors matchedCount. Retained for backwards compatibility. */
   estimatedTotal: number;
   dominantArchetype: string;
   avgSpend: number;
+  avgChurn?: number;
+  avgTilt?: number;
+  highChurnCount?: number;
+  /** Whether the cohort came from live Spanner or the local engine. */
+  isLive?: boolean;
+  source?: string;
   suggestedCampaign?: string;
 }
 

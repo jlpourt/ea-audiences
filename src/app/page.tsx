@@ -13,7 +13,8 @@ import GeminiLandingStage from "@/components/landing/GeminiLandingStage";
 import PlayerMarketingJourneySankey from "@/components/journey/PlayerMarketingJourneySankey";
 import SpannerDataSourceToggle, { SpannerDataSource } from "@/components/common/SpannerDataSourceToggle";
 import { GraphData, GraphNode, ContextualViewType, GameFranchise, DeepSonaResult, CampaignBrief } from "@/lib/types";
-import { Radio, Users, Sparkles, ArrowLeft, Database, Search, Loader2 } from "lucide-react";
+import { archetypeLabel } from "@/lib/archetypes";
+import { Radio, Users, Sparkles, ArrowLeft, Database, Search, Loader2, X } from "lucide-react";
 
 export default function CommandCenterPage() {
   const [isLandingView, setIsLandingView] = useState<boolean>(true);
@@ -26,6 +27,8 @@ export default function CommandCenterPage() {
   const [isSegmentedView, setIsSegmentedView] = useState<boolean>(false);
   const [cohortContext, setCohortContext] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  // Collapsing the inspector hides the drawer WITHOUT destroying the cohort.
+  const [isInspectorCollapsed, setIsInspectorCollapsed] = useState<boolean>(false);
   const [isNlLoading, setIsNlLoading] = useState<boolean>(false);
 
   // DeepSona Preloading & Loading states
@@ -66,6 +69,7 @@ export default function CommandCenterPage() {
   }, [fetchGraphView]);
 
   const handleNodeClick = (node: GraphNode) => {
+    setIsInspectorCollapsed(false);
     setSelectedNode(node);
   };
 
@@ -77,15 +81,23 @@ export default function CommandCenterPage() {
     queryPrompt?: string
   ) => {
     setIsSegmentedView(true);
+    setIsInspectorCollapsed(false);
     setGraphData(newData);
     if (metrics) {
       setCohortContext({
         query: queryPrompt || "Segmented Cohort",
         franchise: selectedGame,
         matchedCount: metrics.matched_count || 0,
-        estimatedTotal: metrics.estimated_total || 0,
+        renderedCount: metrics.rendered_count || 0,
+        isSampled: !!metrics.is_sampled,
+        // True population satisfying the query predicates — not an extrapolation.
+        estimatedTotal: metrics.matched_count || 0,
         dominantArchetype: metrics.dominant_archetype || "COMPETITIVE_GRINDER",
-        avgSpend: metrics.avg_spend_usd || 850,
+        avgSpend: metrics.avg_spend_usd || 0,
+        avgChurn: metrics.avg_churn_risk || 0,
+        highChurnCount: metrics.high_churn_count || 0,
+        isLive: !!metrics.is_live,
+        source: metrics.spanner_source || "",
       });
     }
   };
@@ -149,28 +161,50 @@ export default function CommandCenterPage() {
         ? "Overwatch 2"
         : "Candy Crush Saga";
 
-    let targetTitle = "Contextual Marketing & Retention Intervention";
-    let spend = 120000;
-    if (cohortContext?.query) {
-      targetTitle = `${cohortContext.query} — Real-Time Intervention`;
-    } else if (target) {
-      targetTitle = `${target.name} • ${target.archetype || "Player"} Direct Contextual Offer`;
-    } else if (selectedGame === "COD") {
-      targetTitle = "Call of Duty: Warzone BlackCell Battle Pass & 1,100 CP Starter ($9.99 - $29.99)";
-      spend = 220000;
-    } else if (selectedGame === "WOW") {
-      targetTitle = "World of Warcraft 6-Month Subscription Bundle & Mount Voucher ($14.99 - $77.94)";
-      spend = 190000;
-    } else if (selectedGame === "DIABLO4") {
-      targetTitle = "Diablo IV: Vessel of Hatred Deluxe & Infernal Relic Cache ($19.99 - $59.99)";
-      spend = 160000;
-    } else if (selectedGame === "OVERWATCH2") {
-      targetTitle = "Overwatch 2 Mythic Skin Prism Bundle & 2,200 Coins ($9.99 - $39.99)";
-      spend = 140000;
-    } else {
-      targetTitle = "Candy Crush Saga Infinite Lives & 50 Gold Bars Bundle ($4.99 - $19.99)";
-      spend = 110000;
-    }
+    // The OFFER under test and the AUDIENCE it is shown to are different
+    // things. Previously the cohort's search text was passed as the creative
+    // title, so the synthetic panel was asked to react to a product whose name
+    // was the audience definition. The offer is now always a real SKU.
+    const franchiseForOffer =
+      selectedGame !== "ALL"
+        ? selectedGame
+        : cohortContext?.franchise && cohortContext.franchise !== "ALL"
+        ? cohortContext.franchise
+        : "COD";
+
+    const OFFER_UNDER_TEST: Record<string, { title: string; spend: number }> = {
+      COD: {
+        title: "Season 1 BlackCell Battle Pass Bundle ($29.99)",
+        spend: 220000,
+      },
+      WOW: {
+        title: "6-Month Recurring Subscription + Ethereal Mount ($77.94)",
+        spend: 190000,
+      },
+      DIABLO4: {
+        title: "Accelerated Seasonal Battle Pass + 20 Tier Skips ($24.99)",
+        spend: 160000,
+      },
+      OVERWATCH2: {
+        title: "Mythic Prism 80-Pack — Mythic Weapon / Skin ($39.99)",
+        spend: 140000,
+      },
+      CANDYCRUSH: {
+        title: "Mega Party Booster Super Pack, x20 Each ($49.99)",
+        spend: 110000,
+      },
+    };
+
+    const offer = OFFER_UNDER_TEST[franchiseForOffer] || OFFER_UNDER_TEST.COD;
+    const targetTitle = offer.title;
+    const spend = offer.spend;
+
+    // Who the offer is being tested against, kept separate from what it is.
+    const audienceDescription = cohortContext?.query
+      ? cohortContext.query
+      : target
+      ? `${target.name} • ${archetypeLabel(target.archetype)}`
+      : `All ${activeFranchise} players`;
 
     setPreloadedCreativeTitle(targetTitle);
     setPreloadedFranchise(activeFranchise);
@@ -207,9 +241,11 @@ export default function CommandCenterPage() {
           creative_title: targetTitle,
           proposed_spend: spend,
           target_roas: 2.45,
+          audience_description: audienceDescription,
           cohort_context: {
             ...cohortContext,
             franchise: selectedGame,
+            audienceDescription,
           },
           sampled_players: sampledPlayers,
         }),
@@ -384,18 +420,22 @@ export default function CommandCenterPage() {
       <div className="pointer-events-auto mt-12">
         <GraphControls
           currentView={currentView}
-          onViewChange={(v) => {
-            setIsSegmentedView(false);
-            setCurrentView(v);
-          }}
+          // Changing VIEW must preserve the active cohort. Previously this reset
+          // isSegmentedView, which re-ran fetchGraphView and silently replaced the
+          // marketer's segment with the generic macro graph.
+          onViewChange={(v) => setCurrentView(v)}
           selectedGame={selectedGame}
+          // Changing FRANCHISE or ARCHETYPE contradicts the cohort definition,
+          // so the segment is intentionally released here.
           onGameChange={(g) => {
             setIsSegmentedView(false);
+            setCohortContext(null);
             setSelectedGame(g);
           }}
           archetypeFilter={archetypeFilter}
           onArchetypeChange={(a) => {
             setIsSegmentedView(false);
+            setCohortContext(null);
             setArchetypeFilter(a);
           }}
           is3D={is3D}
@@ -408,7 +448,12 @@ export default function CommandCenterPage() {
       {/* Main Interactive Stage */}
       <div className="w-full h-full">
         {currentView === "geo-map" ? (
-          <GeoAudienceMap />
+          <GeoAudienceMap
+            graphData={graphData}
+            cohortContext={cohortContext}
+            onSelectPlayer={(p: GraphNode) => setSelectedNode(p)}
+            onLaunchFocusGroup={() => handleLaunchDeepSona()}
+          />
         ) : currentView === "marketing-journey" ? (
           <PlayerMarketingJourneySankey
             graphData={graphData}
@@ -447,24 +492,61 @@ export default function CommandCenterPage() {
       )}
 
       {/* Right Drawer: Selected Entity Inspector or Active Cohort Overview */}
-      {(selectedNode || isSegmentedView || cohortContext) && (
+      {(selectedNode || isSegmentedView || cohortContext) && !isInspectorCollapsed && (
         <EntityInspector
           node={selectedNode}
           cohortContext={cohortContext}
           graphData={graphData}
           onSelectNode={(n) => setSelectedNode(n)}
+          // Closing the drawer must NOT destroy the cohort. Previously this
+          // cleared cohortContext, erasing the marketer's search just because
+          // they wanted an unobstructed view of the canvas.
           onClose={() => {
             if (selectedNode) {
               setSelectedNode(null);
             } else {
-              setIsSegmentedView(false);
-              setCohortContext(null);
+              setIsInspectorCollapsed(true);
             }
           }}
           onLaunchDeepSona={handleLaunchDeepSona}
           onEmitA2A={handleEmitA2A}
           isDeepSonaLoading={isDeepSonaLoading}
         />
+      )}
+
+      {/* Collapsed-cohort chip: keeps the active segment visible and restorable. */}
+      {cohortContext && isInspectorCollapsed && (
+        <div className="absolute top-20 right-6 z-30 pointer-events-auto animate-spring-in">
+          <div className="flex items-center gap-2 pl-3 pr-2 py-2 rounded-2xl bg-black/70 backdrop-blur-2xl border border-white/10 shadow-2xl">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+            <div className="min-w-0">
+              <div className="text-[11px] font-semibold text-white truncate max-w-[220px]">
+                {cohortContext.query}
+              </div>
+              <div className="text-[10px] text-gray-400 font-mono">
+                {(cohortContext.matchedCount || 0).toLocaleString()} players
+              </div>
+            </div>
+            <button
+              onClick={() => setIsInspectorCollapsed(false)}
+              className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[10px] font-medium transition-all active:scale-[0.97]"
+            >
+              Open
+            </button>
+            <button
+              onClick={() => {
+                setIsInspectorCollapsed(false);
+                setIsSegmentedView(false);
+                setCohortContext(null);
+                setSelectedNode(null);
+              }}
+              title="Clear cohort"
+              className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-all active:scale-[0.97]"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
       )}
 
       {/* DeepSona Multi-Agent Synthetic Testing Modal */}

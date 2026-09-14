@@ -41,10 +41,10 @@ interface DiscordMessage {
 }
 
 const STARTER_PROMPTS = [
-  "Would you buy a $4.99 Loss-Shield reset pack after losing 3 matches?",
-  "Is $49.99 a fair price for guaranteed walkout packs & 4,800 FC Points?",
-  "How does defeat-streak tilt affect your willingness to buy packs?",
-  "Should we include a 4-player Rush 5v5 squad double XP token?",
+  "Would you buy a $4.99 recovery starter after losing 3 matches in a row?",
+  "Is $29.99 a fair price for a BlackCell battle pass that returns its own CP?",
+  "How does a defeat streak change your willingness to spend that night?",
+  "Should we bundle 20 tier skips instead of discounting the pass?",
 ];
 
 export default function CommunityDebateSimulator({

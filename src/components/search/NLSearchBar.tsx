@@ -125,7 +125,18 @@ export default function NLSearchBar({
               <div className="text-xs font-semibold text-white flex items-center gap-2">
                 <span>Cohort Isolated:</span>
                 <span className="text-emerald-400 font-mono">
-                  {metrics?.matched_count || 0} Nodes • {metrics?.estimated_total?.toLocaleString() || 0} Addressable Players
+                  {(metrics?.matched_count || 0).toLocaleString()} players matched
+                  {metrics?.is_sampled ? ` • showing ${metrics?.rendered_count || 0}` : ""}
+                </span>
+                <span
+                  className={`px-1.5 py-0.5 rounded-md text-[9px] font-medium border ${
+                    metrics?.is_live
+                      ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+                      : "bg-white/5 text-gray-400 border-white/10"
+                  }`}
+                  title={metrics?.spanner_source || ""}
+                >
+                  {metrics?.is_live ? "LIVE SPANNER" : "LOCAL ENGINE"}
                 </span>
               </div>
               <p className="text-[11px] text-gray-400 line-clamp-1 mt-0.5">

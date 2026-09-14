@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { PersonaProfile } from "./FUTPersonaCard";
+import { PersonaProfile } from "./SyntheticPersonaCard";
 import { CohortContext } from "@/lib/types";
 
 interface PersonaInterrogationProps {

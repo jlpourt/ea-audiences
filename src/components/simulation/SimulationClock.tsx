@@ -78,7 +78,7 @@ export default function SimulationClock({ onTriggerFired }: SimulationClockProps
             onClick={togglePlay}
             className={`p-2 rounded-lg text-white font-bold transition-all ${
               isPlaying
-                ? "bg-ea-red shadow-neon-red"
+                ? "bg-alert-red shadow-neon-red"
                 : "bg-ea-orange shadow-neon-orange hover:bg-ea-orange/80"
             }`}
           >
@@ -131,10 +131,10 @@ export default function SimulationClock({ onTriggerFired }: SimulationClockProps
 
       {/* Trigger Live Notification Ticker */}
       {recentTriggers.length > 0 && (
-        <div className="w-80 bg-surface/95 backdrop-blur-md p-3 rounded-xl border border-ea-red/40 shadow-neon-red animate-bounce-short">
-          <div className="flex items-center justify-between text-xs font-bold text-ea-red mb-1">
+        <div className="w-80 bg-surface/95 backdrop-blur-md p-3 rounded-xl border border-alert-red/40 shadow-neon-red animate-bounce-short">
+          <div className="flex items-center justify-between text-xs font-bold text-alert-red mb-1">
             <span className="flex items-center gap-1">
-              <Zap className="w-3.5 h-3.5 text-ea-red animate-pulse" />
+              <Zap className="w-3.5 h-3.5 text-alert-red animate-pulse" />
               SITUATIONAL TRIGGER ACTIVE
             </span>
             <span className="text-[10px] text-gray-400 font-mono">Loss Streak: {recentTriggers[0].loss_streak}</span>
@@ -142,7 +142,7 @@ export default function SimulationClock({ onTriggerFired }: SimulationClockProps
           <div className="text-xs text-white font-medium">{recentTriggers[0].player_name}</div>
           <div className="text-[11px] text-gray-300 mt-1 flex items-center justify-between">
             <span className="text-cyber-cyan">{recentTriggers[0].offer_title}</span>
-            <span className="bg-ea-red/20 text-ea-red px-1.5 py-0.5 rounded text-[10px] font-bold">
+            <span className="bg-alert-red/20 text-alert-red px-1.5 py-0.5 rounded text-[10px] font-bold">
               -{recentTriggers[0].discount_percent}% OFF
             </span>
           </div>

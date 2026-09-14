@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateVertexContent } from "@/lib/gcp/vertex-client";
+import { generateVertexContent, parseModelJson } from "@/lib/gcp/vertex-client";
 import { GCP_CONFIG } from "@/lib/config";
 import { DeepSonaResult, DeepSonaReaction, CohortContext } from "@/lib/types";
 
@@ -73,7 +73,7 @@ Output STRICT JSON matching:
       "sentiment_score": 0.82
     },
     {
-      "archetype": "ULTIMATE_TEAM_WHALE",
+      "archetype": "BLACKCELL_WHALE",
       "gamer_tag": "${sampledPlayers[1]?.name || "Player_2"}",
       "willingness_to_pay_usd": 49.99,
       "churn_risk_score": 0.08,
@@ -111,9 +111,8 @@ Output STRICT JSON matching:
 }
 `;
       const generatedText = await generateVertexContent(prompt, true);
-      const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = parseModelJson<any>(generatedText);
+      if (parsed) {
         reactions = parsed.reactions || [];
         consensusSummary = parsed.consensus_summary || "";
         conversionLift = Number(parsed.predicted_conversion_lift || 28.5);
@@ -142,7 +141,7 @@ Output STRICT JSON matching:
       if (isWoW) {
         reactions = [
           {
-            archetype: "MYTHIC_RAIDER",
+            archetype: "AZERITE_COLLECTOR",
             gamer_tag: p1Name,
             willingness_to_pay_usd: 14.99,
             churn_risk_score: 0.15,

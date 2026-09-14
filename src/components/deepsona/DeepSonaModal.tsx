@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { X, ArrowRight, Sparkles, Send, Check, Users, MessageSquare, Target, SlidersHorizontal, Loader2 } from "lucide-react";
 import { DeepSonaResult, GraphNode, GraphData, CohortContext, GameFranchise } from "@/lib/types";
 import LiftScoreGauge from "./LiftScoreGauge";
-import FUTPersonaCard, { PersonaProfile } from "./FUTPersonaCard";
+import SyntheticPersonaCard, { PersonaProfile } from "./SyntheticPersonaCard";
 import CommunityDebateSimulator from "./CommunityDebateSimulator";
 import ConversionScoringMatrix from "./ConversionScoringMatrix";
 import SensitivitySimulator from "./SensitivitySimulator";
@@ -248,7 +248,7 @@ export default function DeepSonaModal({
         if (isWOW) {
           pArch =
             slotIdx === 0
-              ? "MYTHIC_RAIDER"
+              ? "AZERITE_COLLECTOR"
               : slotIdx === 1
               ? "BLACKCELL_WHALE"
               : slotIdx === 2
@@ -282,10 +282,6 @@ export default function DeepSonaModal({
               ? "CASUAL_SOCIALIZER"
               : "CASUAL_WARRIOR";
         }
-
-        const cardTier: PersonaProfile["cardTier"] =
-          slotIdx === 1 ? "ICON" : slotIdx === 0 ? "GOLD_RARE" : slotIdx === 2 ? "HERO" : "MANAGER";
-        const ovrRating = slotIdx === 1 ? 98 : slotIdx === 0 ? 94 : slotIdx === 2 ? 89 : 85;
 
         const wtp =
           liveReaction?.willingness_to_pay_usd !== undefined
@@ -327,8 +323,6 @@ export default function DeepSonaModal({
           name: node.name,
           gamerTag: node.name,
           archetype: pArch,
-          cardTier,
-          ovrRating,
           division,
           matchesPlayed: Math.floor(200 + spend * 1.5),
           spendLtv: spend,
@@ -351,8 +345,6 @@ export default function DeepSonaModal({
           name: "Marcus 'Ghost' Vance",
           gamerTag: "Ghost_Resurgence_94",
           archetype: "COMPETITIVE_GRINDER",
-          cardTier: "GOLD_RARE",
-          ovrRating: 94,
           division: "Call of Duty • BO6 Iridescent (Rank 1)",
           matchesPlayed: 1450,
           spendLtv: 480.0,
@@ -367,8 +359,6 @@ export default function DeepSonaModal({
           name: "Alexander 'Vault' Price",
           gamerTag: "BlackCell_Whale_01",
           archetype: "BLACKCELL_WHALE",
-          cardTier: "ICON",
-          ovrRating: 98,
           division: "Call of Duty • BlackCell Vault Collector ($3.5k+)",
           matchesPlayed: 2100,
           spendLtv: 3800.0,
@@ -383,8 +373,6 @@ export default function DeepSonaModal({
           name: "Liam 'Squad' Miller",
           gamerTag: "Resurgence_Captain_10",
           archetype: "CASUAL_SOCIALIZER",
-          cardTier: "HERO",
-          ovrRating: 91,
           division: "Call of Duty • Resurgence Quad Captain",
           matchesPlayed: 620,
           spendLtv: 140.0,
@@ -399,8 +387,6 @@ export default function DeepSonaModal({
           name: "David 'Bravo' Chen",
           gamerTag: "Campaign_Purist_Echo",
           archetype: "LORE_SEEKER",
-          cardTier: "MANAGER",
-          ovrRating: 86,
           division: "Call of Duty • Campaign & Solo Purist",
           matchesPlayed: 340,
           spendLtv: 70.0,
@@ -420,9 +406,7 @@ export default function DeepSonaModal({
           id: "Mythic_Raider_Ansurak",
           name: "Theron 'Void' Sunstrider",
           gamerTag: "Void_Raider_Ansurak",
-          archetype: "MYTHIC_RAIDER",
-          cardTier: "GOLD_RARE",
-          ovrRating: 94,
+          archetype: "AZERITE_COLLECTOR",
           division: "World of Warcraft • Mythic+ Title (3,200 IO)",
           matchesPlayed: 1800,
           spendLtv: 620.0,
@@ -437,8 +421,6 @@ export default function DeepSonaModal({
           name: "Thorvald 'Aman' Proudmoore",
           gamerTag: "Aman_Collector_Whale",
           archetype: "BLACKCELL_WHALE",
-          cardTier: "ICON",
-          ovrRating: 99,
           division: "World of Warcraft • 20-Year Collector ($4k+)",
           matchesPlayed: 5200,
           spendLtv: 4500.0,
@@ -453,8 +435,6 @@ export default function DeepSonaModal({
           name: "Victoria 'Valk' Sterling",
           gamerTag: "Elysium_Guild_Lead",
           archetype: "CASUAL_SOCIALIZER",
-          cardTier: "HERO",
-          ovrRating: 92,
           division: "World of Warcraft • Mythic Raid Guild Master",
           matchesPlayed: 2400,
           spendLtv: 340.0,
@@ -469,8 +449,6 @@ export default function DeepSonaModal({
           name: "Sean 'Lore' Walker",
           gamerTag: "Azeroth_Lore_Explorer",
           archetype: "LORE_SEEKER",
-          cardTier: "MANAGER",
-          ovrRating: 88,
           division: "World of Warcraft • Lore & Quest Purist",
           matchesPlayed: 890,
           spendLtv: 180.0,
@@ -491,8 +469,6 @@ export default function DeepSonaModal({
           name: "Kaelen 'Bane' Cross",
           gamerTag: "Pit_Master_Bane",
           archetype: "SANCTUARY_COLLECTOR",
-          cardTier: "GOLD_RARE",
-          ovrRating: 94,
           division: "Diablo IV • The Pit Tier 100 Grinder",
           matchesPlayed: 1200,
           spendLtv: 380.0,
@@ -507,8 +483,6 @@ export default function DeepSonaModal({
           name: "Lilith 'Inarius' Thorne",
           gamerTag: "Sanctuary_Whale_Prime",
           archetype: "BLACKCELL_WHALE",
-          cardTier: "ICON",
-          ovrRating: 98,
           division: "Diablo IV • Sanctuary Deluxe Collector",
           matchesPlayed: 1950,
           spendLtv: 2800.0,
@@ -523,8 +497,6 @@ export default function DeepSonaModal({
           name: "Darius 'Hammer' Stone",
           gamerTag: "Infernal_Horde_Stack",
           archetype: "CASUAL_SOCIALIZER",
-          cardTier: "HERO",
-          ovrRating: 90,
           division: "Diablo IV • Torment IV 4-Stack Lead",
           matchesPlayed: 650,
           spendLtv: 160.0,
@@ -539,8 +511,6 @@ export default function DeepSonaModal({
           name: "Elena 'Rogue' Frost",
           gamerTag: "Solo_Seasonal_Purist",
           archetype: "LORE_SEEKER",
-          cardTier: "MANAGER",
-          ovrRating: 87,
           division: "Diablo IV • Solo Seasonal Purist",
           matchesPlayed: 480,
           spendLtv: 70.0,
@@ -561,8 +531,6 @@ export default function DeepSonaModal({
           name: "Maya 'Blink' Lin",
           gamerTag: "Tracer_Top500_Pulse",
           archetype: "COMPETITIVE_GRINDER",
-          cardTier: "GOLD_RARE",
-          ovrRating: 95,
           division: "Overwatch 2 • Top 500 Grandmaster",
           matchesPlayed: 2100,
           spendLtv: 520.0,
@@ -577,8 +545,6 @@ export default function DeepSonaModal({
           name: "Austin 'Reinhardt' Miller",
           gamerTag: "Mythic_Prism_King",
           archetype: "BLACKCELL_WHALE",
-          cardTier: "ICON",
-          ovrRating: 98,
           division: "Overwatch 2 • Mythic Prism Collector",
           matchesPlayed: 1750,
           spendLtv: 2400.0,
@@ -593,8 +559,6 @@ export default function DeepSonaModal({
           name: "Chloe 'Mercy' Sterling",
           gamerTag: "RoleQueue_5Stack_Lead",
           archetype: "CASUAL_SOCIALIZER",
-          cardTier: "HERO",
-          ovrRating: 91,
           division: "Overwatch 2 • Role Queue 5-Stack Lead",
           matchesPlayed: 780,
           spendLtv: 120.0,
@@ -609,8 +573,6 @@ export default function DeepSonaModal({
           name: "Liam 'Boop' S.",
           gamerTag: "Arcade_Casual_Lucio",
           archetype: "CASUAL_WARRIOR",
-          cardTier: "GOLD_RARE",
-          ovrRating: 85,
           division: "Overwatch 2 • Mystery Heroes Casual",
           matchesPlayed: 380,
           spendLtv: 30.0,
@@ -631,8 +593,6 @@ export default function DeepSonaModal({
           name: "Brenda 'Subway' K.",
           gamerTag: "Subway_Crush_99",
           archetype: "BOOSTER_WHALE",
-          cardTier: "GOLD_RARE",
-          ovrRating: 92,
           division: "Candy Crush • Level 500+ Commuter",
           matchesPlayed: 3100,
           spendLtv: 450.0,
@@ -647,8 +607,6 @@ export default function DeepSonaModal({
           name: "Eleanor 'Sugar' Vance",
           gamerTag: "Candy_VIP_Whale_01",
           archetype: "BLACKCELL_WHALE",
-          cardTier: "ICON",
-          ovrRating: 97,
           division: "Candy Crush • VIP Hall of Fame",
           matchesPlayed: 4500,
           spendLtv: 1850.0,
@@ -663,8 +621,6 @@ export default function DeepSonaModal({
           name: "Jessica 'Candy' W.",
           gamerTag: "Daily_Streak_Social",
           archetype: "CASUAL_SOCIALIZER",
-          cardTier: "HERO",
-          ovrRating: 89,
           division: "Candy Crush • 365-Day Daily Streak",
           matchesPlayed: 1400,
           spendLtv: 85.0,
@@ -679,8 +635,6 @@ export default function DeepSonaModal({
           name: "Marcus 'Transit' B.",
           gamerTag: "Subway_Casual_Gamer",
           archetype: "COMPETITIVE_GRINDER",
-          cardTier: "GOLD_RARE",
-          ovrRating: 84,
           division: "Candy Crush • Casual Subway Commuter",
           matchesPlayed: 520,
           spendLtv: 15.0,
@@ -945,7 +899,7 @@ export default function DeepSonaModal({
 
                 <div className="grid grid-cols-2 gap-2.5">
                   {groundedPersonas.map((persona) => (
-                    <FUTPersonaCard
+                    <SyntheticPersonaCard
                       key={persona.id}
                       persona={persona}
                       isSelected={selectedPersona?.id === persona.id}
@@ -993,7 +947,7 @@ export default function DeepSonaModal({
                           {[
                             "Would you buy this for $4.99?",
                             "How does defeat tilt affect your spend?",
-                            "Is $49.99 fair for guaranteed walkouts?",
+                            "Is $29.99 fair for a premium battle pass?",
                           ].map((chip, idx) => (
                             <button
                               key={idx}

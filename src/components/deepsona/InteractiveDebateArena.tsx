@@ -24,9 +24,9 @@ interface InteractiveDebateArenaProps {
 
 const PRESET_QUESTIONS = [
   "What if we lower the price to $2.99?",
-  "Would you prefer 10-Game Loan R9 Icon or 500 FC Points?",
-  "How does Weekend League loss tilt affect your willingness to buy?",
-  "Should we include a 4-player Rush 5v5 Squad Evolution token?",
+  "Would you rather have 2,400 CoD Points or 20 battle pass tier skips?",
+  "How does a ranked loss streak affect your willingness to buy?",
+  "Should we bundle a squad-wide double XP token?",
 ];
 
 export default function InteractiveDebateArena({
@@ -94,7 +94,7 @@ export default function InteractiveDebateArena({
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAskQuestion()}
-              placeholder="Ask the synthetic gamer personas a question (e.g. 'What if we offer 500 FC Points?')..."
+              placeholder="Ask the synthetic player personas a question (e.g. 'What if we offer 2,400 CoD Points?')..."
               className="w-full bg-transparent text-white placeholder-gray-500 focus:outline-none text-xs font-medium"
             />
           </div>

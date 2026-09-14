@@ -4,7 +4,8 @@ import React, { useState, useMemo } from "react";
 import { geoNaturalEarth1, geoPath, geoGraticule } from "d3-geo";
 import { feature } from "topojson-client";
 import worldData from "world-atlas/countries-110m.json";
-import { CohortContext } from "@/lib/types";
+import { CohortContext, GraphData, GraphNode } from "@/lib/types";
+import { archetypeLabel, isWhaleArchetype } from "@/lib/archetypes";
 import { Globe, Users, Zap, ArrowRight } from "lucide-react";
 
 interface GeoRegion {
@@ -157,7 +158,7 @@ const REGIONS: GeoRegion[] = [
     coordinates: [46.6753, 24.7136],
     addressablePlayers: 175000,
     avgSpendUsd: 890,
-    dominantArchetype: "ULTIMATE_TEAM_WHALE",
+    dominantArchetype: "AZERITE_COLLECTOR",
     whaleCount: 4100,
     serverPingMs: 19,
     activeLossStreakPlayers: 210,
@@ -180,28 +181,170 @@ const REGIONS: GeoRegion[] = [
 ];
 
 interface GeoAudienceMapProps {
+  graphData?: GraphData | null;
   cohortContext?: CohortContext | null;
+  onSelectPlayer?: (player: GraphNode) => void;
   onSelectRegion?: (region: GeoRegion) => void;
   onLaunchFocusGroup?: () => void;
 }
 
+/** Spend at or above this is treated as whale behaviour (top ~2% of the base). */
+const WHALE_SPEND_FLOOR = 1000;
+
+/**
+ * The loss-streak recovery SKU for each franchise, taken from
+ * `data/marketing_offers.json`. Recommending a Call of Duty BlackCell pass to a
+ * Candy Crush cohort is the kind of detail a marketer notices immediately.
+ */
+const RECOVERY_OFFER_BY_FRANCHISE: Record<string, string> = {
+  COD: "$4.99 Gulag Loss-Streak Recovery Starter",
+  WOW: "$14.99 1-Month Game Time re-entry",
+  DIABLO4: "$4.99 The Pit Loss-Protection Elixir Starter",
+  OVERWATCH2: "$4.99 Competitive Starter Pack + 500 Coins",
+  CANDYCRUSH: "$2.99 Sticky Level Rescue Bundle",
+  ALL: "$4.99 situational recovery starter (per title)",
+};
+
+/** Approximate round-trip latency to the nearest GCP edge, by DMA. */
+const GCP_EDGE_BY_DMA: Record<string, { region: string; pingMs: number }> = {
+  "New York DMA": { region: "us-east4 (N. Virginia)", pingMs: 9 },
+  "Los Angeles DMA": { region: "us-west2 (Los Angeles)", pingMs: 11 },
+  "Dallas / Fort Worth DMA": { region: "us-south1 (Dallas)", pingMs: 14 },
+  "Chicago DMA": { region: "us-central1 (Iowa)", pingMs: 12 },
+  "London Metro": { region: "europe-west2 (London)", pingMs: 7 },
+  Manchester: { region: "europe-west2 (London)", pingMs: 12 },
+  "Paris Île-de-France": { region: "europe-west9 (Paris)", pingMs: 8 },
+  "Berlin & DACH": { region: "europe-west3 (Frankfurt)", pingMs: 10 },
+  Madrid: { region: "europe-southwest1 (Madrid)", pingMs: 8 },
+  "Riyadh & GCC": { region: "me-central2 (Dammam)", pingMs: 16 },
+  Tokyo: { region: "asia-northeast1 (Tokyo)", pingMs: 10 },
+  "São Paulo": { region: "southamerica-east1 (São Paulo)", pingMs: 18 },
+};
+
+/**
+ * Aggregate the player nodes currently in the graph into geographic markets.
+ *
+ * Everything returned here is measured from the cohort actually on screen.
+ * When the graph is a sample of a larger match set, per-region counts are
+ * scaled to the full cohort and flagged via `isProjected` so the UI can say so
+ * rather than quietly presenting an extrapolation as a headcount.
+ */
+function deriveRegions(
+  graphData: GraphData | null | undefined,
+  cohortContext: CohortContext | null | undefined
+): { regions: GeoRegion[]; isLive: boolean; sampleSize: number; isProjected: boolean; scale: number } {
+  const players = (graphData?.nodes || []).filter(
+    (n) => n.type === "PLAYER" && typeof n.lat === "number" && typeof n.lng === "number"
+  );
+
+  if (players.length === 0) {
+    return { regions: REGIONS, isLive: false, sampleSize: 0, isProjected: false, scale: 1 };
+  }
+
+  const rendered = cohortContext?.renderedCount || players.length;
+  const matched = cohortContext?.matchedCount || rendered;
+  const isProjected = !!cohortContext?.isSampled && matched > rendered && rendered > 0;
+  const scale = isProjected ? matched / rendered : 1;
+
+  const buckets = new Map<string, GraphNode[]>();
+  for (const p of players) {
+    const key = p.dma_market || p.country || "Unattributed";
+    const list = buckets.get(key);
+    if (list) list.push(p);
+    else buckets.set(key, [p]);
+  }
+
+  const regions: GeoRegion[] = Array.from(buckets.entries()).map(([name, group]) => {
+    const spends = group.map((p) => p.spend || 0);
+    const totalSpend = spends.reduce((s, v) => s + v, 0);
+
+    // Modal archetype within the market.
+    const archCounts = new Map<string, number>();
+    for (const p of group) {
+      const a = p.archetype || "UNKNOWN";
+      archCounts.set(a, (archCounts.get(a) || 0) + 1);
+    }
+    const dominantArchetype =
+      Array.from(archCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "UNKNOWN";
+
+    const edge = GCP_EDGE_BY_DMA[name];
+
+    return {
+      id: `geo-${name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
+      name,
+      // Short code for the map pin: initials of the market name.
+      code: name
+        .split(/[\s/&]+/)
+        .filter(Boolean)
+        .slice(0, 3)
+        .map((w) => w[0].toUpperCase())
+        .join(""),
+      country: group[0].country || "—",
+      coordinates: [
+        group.reduce((s, p) => s + (p.lng || 0), 0) / group.length,
+        group.reduce((s, p) => s + (p.lat || 0), 0) / group.length,
+      ] as [number, number],
+      addressablePlayers: Math.round(group.length * scale),
+      avgSpendUsd: Math.round(totalSpend / group.length),
+      dominantArchetype,
+      whaleCount: Math.round(
+        group.filter((p) => isWhaleArchetype(p.archetype) || (p.spend || 0) >= WHALE_SPEND_FLOOR).length * scale
+      ),
+      serverPingMs: edge?.pingMs ?? 15,
+      activeLossStreakPlayers: Math.round(group.filter((p) => (p.loss_streak || 0) >= 3).length * scale),
+      gcpRegion: edge?.region ?? "multi-region",
+    };
+  });
+
+  regions.sort((a, b) => b.addressablePlayers - a.addressablePlayers);
+
+  return { regions, isLive: true, sampleSize: players.length, isProjected, scale };
+}
+
 export default function GeoAudienceMap({
+  graphData,
   cohortContext,
+  onSelectPlayer,
   onSelectRegion,
   onLaunchFocusGroup,
 }: GeoAudienceMapProps) {
-  const [selectedRegion, setSelectedRegion] = useState<GeoRegion>(REGIONS[0]);
+  const { regions, isLive, sampleSize, isProjected } = useMemo(
+    () => deriveRegions(graphData, cohortContext),
+    [graphData, cohortContext]
+  );
+
+  const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [hoveredRegion, setHoveredRegion] = useState<GeoRegion | null>(null);
 
-  const isWhaleCohort = cohortContext?.dominantArchetype === "ULTIMATE_TEAM_WHALE";
-  const isGrinderCohort = cohortContext?.dominantArchetype === "COMPETITIVE_GRINDER";
+  // Selection follows the data: if the cohort changes and the previously
+  // selected market is no longer represented, fall back to the largest one.
+  const selectedRegion =
+    regions.find((r) => r.id === selectedRegionId) || regions[0] || REGIONS[0];
+
+  const isWhaleCohort = isWhaleArchetype(cohortContext?.dominantArchetype);
+  const isGrinderCohort =
+    cohortContext?.dominantArchetype === "COMPETITIVE_GRINDER" ||
+    cohortContext?.dominantArchetype === "RANKED_SWEAT";
+
+  // Highest-LTV players actually present in the selected market.
+  const topPlayersInRegion = useMemo(() => {
+    if (!isLive) return [] as GraphNode[];
+    return (graphData?.nodes || [])
+      .filter(
+        (n) =>
+          n.type === "PLAYER" &&
+          (n.dma_market || n.country || "Unattributed") === selectedRegion.name
+      )
+      .sort((a, b) => (b.spend || 0) - (a.spend || 0))
+      .slice(0, 5);
+  }, [graphData, selectedRegion.name, isLive]);
 
   // SVG Width & Height for accurate projection
   const width = 960;
   const height = 480;
 
   // D3 Natural Earth Geographic Projection & Path Generator
-  const { countriesPaths, graticulesPath, projectedPoints } = useMemo(() => {
+  const { countriesPaths, graticulesPath, projectedPoints, backboneArcs } = useMemo(() => {
     const projection = geoNaturalEarth1()
       .scale(155)
       .translate([width / 2, height / 2 + 10]);
@@ -219,22 +362,32 @@ export default function GeoAudienceMap({
     const graticule = geoGraticule();
     const graticules = pathGenerator(graticule()) || "";
 
-    // Project DMA points
-    const points = REGIONS.map((r) => {
+    // Project market points
+    const points = regions.map((r) => {
       const [px, py] = projection(r.coordinates) || [0, 0];
-      return {
-        ...r,
-        px,
-        py,
-      };
+      return { ...r, px, py };
     });
+
+    // Backbone arcs are derived from the projected positions of the largest
+    // markets. They were previously five hardcoded SVG paths that pointed at
+    // fixed pixel coordinates and drifted the moment the data changed.
+    const hubs = points.slice(0, 6);
+    const arcs: string[] = [];
+    for (let i = 0; i < hubs.length - 1; i++) {
+      const a = hubs[i];
+      const b = hubs[i + 1];
+      const mx = (a.px + b.px) / 2;
+      const my = (a.py + b.py) / 2 - Math.abs(b.px - a.px) * 0.18;
+      arcs.push(`M ${a.px},${a.py} Q ${mx},${my} ${b.px},${b.py}`);
+    }
 
     return {
       countriesPaths: countryPathsList,
       graticulesPath: graticules,
       projectedPoints: points,
+      backboneArcs: arcs,
     };
-  }, []);
+  }, [regions]);
 
   return (
     <div className="relative w-full h-full bg-[#080A0E] overflow-hidden flex font-sans select-none">
@@ -280,29 +433,22 @@ export default function GeoAudienceMap({
               ))}
             </g>
 
-            {/* Connecting Fiber Arcs from GCP Central Edges */}
+            {/* Backbone arcs between the largest markets in the current cohort */}
             <g stroke="rgba(52, 211, 153, 0.3)" strokeWidth="1" strokeDasharray="3,3" fill="none">
-              {/* NYC to London */}
-              <path d="M 314,135 Q 400,90 480,105" />
-              {/* LAX to NYC */}
-              <path d="M 198,154 Q 256,120 314,135" />
-              {/* London to Riyadh */}
-              <path d="M 480,105 Q 560,140 635,188" />
-              {/* NYC to Sao Paulo */}
-              <path d="M 314,135 Q 360,250 405,335" />
-              {/* Riyadh to Tokyo */}
-              <path d="M 635,188 Q 720,160 799,149" />
+              {backboneArcs.map((d, i) => (
+                <path key={i} d={d} />
+              ))}
             </g>
           </svg>
 
-          {/* 2. Interactive DMA Hotspot Nodes Positioned Exactly at Projected Coordinates */}
+          {/* 2. Interactive market hotspots positioned at projected coordinates */}
           {projectedPoints.map((r) => {
             const isSelected = selectedRegion.id === r.id;
             const isHovered = hoveredRegion?.id === r.id;
             const isHighlighted = isWhaleCohort
-              ? r.dominantArchetype === "ULTIMATE_TEAM_WHALE"
+              ? isWhaleArchetype(r.dominantArchetype)
               : isGrinderCohort
-              ? r.dominantArchetype === "COMPETITIVE_GRINDER"
+              ? r.dominantArchetype === "COMPETITIVE_GRINDER" || r.dominantArchetype === "RANKED_SWEAT"
               : true;
 
             const size = isSelected ? 22 : isHighlighted ? 17 : 13;
@@ -310,16 +456,20 @@ export default function GeoAudienceMap({
             const topPct = (r.py / height) * 100;
 
             return (
-              <div
+              <button
                 key={r.id}
+                type="button"
+                aria-label={`${r.name} — ${r.addressablePlayers.toLocaleString()} players`}
                 onClick={() => {
-                  setSelectedRegion(r);
+                  setSelectedRegionId(r.id);
                   onSelectRegion?.(r);
                 }}
                 onMouseEnter={() => setHoveredRegion(r)}
                 onMouseLeave={() => setHoveredRegion(null)}
+                onFocus={() => setHoveredRegion(r)}
+                onBlur={() => setHoveredRegion(null)}
                 style={{ left: `${leftPct}%`, top: `${topPct}%` }}
-                className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer group z-20"
+                className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer group z-20 transition-transform active:scale-[0.94] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-full"
               >
                 {/* Outer Pulse Rings for Active Cohort Hubs */}
                 {isHighlighted && (
@@ -361,8 +511,12 @@ export default function GeoAudienceMap({
                   <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 px-3 py-1.5 rounded-xl bg-black/90 backdrop-blur-2xl border border-white/20 text-white text-[11px] font-medium whitespace-nowrap pointer-events-none shadow-2xl animate-spring-in z-30">
                     <div className="flex items-center gap-1.5">
                       <span className="font-semibold">{r.name}</span>
+                      {/* Formatted to real magnitude — dividing by 1,000 used to
+                          render every genuine market count as "0K". */}
                       <span className="text-emerald-400 font-mono">
-                        {(r.addressablePlayers / 1000).toFixed(0)}K
+                        {r.addressablePlayers >= 1000
+                          ? `${(r.addressablePlayers / 1000).toFixed(1)}K`
+                          : r.addressablePlayers.toLocaleString()}
                       </span>
                     </div>
                     <div className="text-[10px] text-gray-400 font-mono mt-0.5">
@@ -370,88 +524,144 @@ export default function GeoAudienceMap({
                     </div>
                   </div>
                 )}
-              </div>
+              </button>
             );
           })}
         </div>
       </div>
 
       {/* 3. Right Region Telemetry Drawer (Apple-style Clean Card) */}
-      <div className="w-96 border-l border-white/10 bg-[#0E1015]/95 backdrop-blur-2xl p-6 flex flex-col justify-between z-30 space-y-4">
+      <div className="w-96 border-l border-white/10 bg-[#0E1015]/95 backdrop-blur-2xl p-6 flex flex-col justify-between z-30 space-y-4 overflow-y-auto">
         {/* Drawer Header */}
         <div>
           <div className="flex items-center justify-between border-b border-white/10 pb-3.5">
-            <div>
-              <span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider block">
-                Regional DMA Intelligence
+            <div className="min-w-0">
+              {/* Provenance badge: a placeholder map must never read as live. */}
+              <span
+                className={`text-[10px] font-semibold uppercase tracking-wider block ${
+                  isLive ? "text-emerald-400" : "text-amber-400"
+                }`}
+              >
+                {isLive ? "Live Cohort Geography" : "Sample Geography — run a query"}
               </span>
-              <h3 className="text-base font-semibold text-white mt-0.5 tracking-tight">
+              <h3 className="text-base font-semibold text-white mt-0.5 tracking-tight truncate">
                 {selectedRegion.name}
               </h3>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs text-gray-400 mt-0.5 truncate">
                 {selectedRegion.country} • {selectedRegion.gcpRegion}
               </p>
             </div>
-            <div className="w-8 h-8 rounded-2xl bg-white/10 flex items-center justify-center text-white">
+            <div className="w-8 h-8 rounded-2xl bg-white/10 flex items-center justify-center text-white shrink-0">
               <Globe className="w-4 h-4" />
             </div>
           </div>
 
+          {isLive && (
+            <p className="text-[10px] text-gray-500 mt-2.5 leading-relaxed">
+              Aggregated from {sampleSize.toLocaleString()} player nodes across{" "}
+              {regions.length} market{regions.length === 1 ? "" : "s"}.
+              {isProjected && (
+                <>
+                  {" "}
+                  Counts are scaled to the full cohort of{" "}
+                  {(cohortContext?.matchedCount || 0).toLocaleString()} and are
+                  estimates.
+                </>
+              )}
+            </p>
+          )}
+
           {/* Regional Metrics Grid */}
           <div className="grid grid-cols-2 gap-2.5 mt-4 text-xs">
             <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-              <span className="text-[10px] text-gray-500 uppercase block">Addressable Cohort</span>
+              <span className="text-[10px] text-gray-500 uppercase block">
+                {isProjected ? "Est. Market Size" : "Players in Market"}
+              </span>
               <span className="text-base font-semibold text-white font-mono mt-0.5 block">
                 {selectedRegion.addressablePlayers.toLocaleString()}
               </span>
-              <span className="text-[10px] text-gray-500 block mt-0.5">active ABK players</span>
+              <span className="text-[10px] text-gray-500 block mt-0.5">
+                {isProjected ? "projected from sample" : "matched by this query"}
+              </span>
             </div>
 
             <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-              <span className="text-[10px] text-gray-500 uppercase block">Whale Population</span>
+              <span className="text-[10px] text-gray-500 uppercase block">High-Value Spenders</span>
               <span className="text-base font-semibold text-amber-300 font-mono mt-0.5 block">
                 {selectedRegion.whaleCount.toLocaleString()}
               </span>
-              <span className="text-[10px] text-gray-500 block mt-0.5">&gt;$3,500 LTV spenders</span>
+              {/* Caption matches the threshold the code actually applies. */}
+              <span className="text-[10px] text-gray-500 block mt-0.5">
+                &ge;${WHALE_SPEND_FLOOR.toLocaleString()} LTV or collector archetype
+              </span>
             </div>
 
             <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
               <span className="text-[10px] text-gray-500 uppercase block">Avg Market Spend</span>
               <span className="text-base font-semibold text-emerald-400 font-mono mt-0.5 block">
-                ${selectedRegion.avgSpendUsd}
+                ${selectedRegion.avgSpendUsd.toLocaleString()}
               </span>
-              <span className="text-[10px] text-gray-500 block mt-0.5">per active account</span>
+              <span className="text-[10px] text-gray-500 block mt-0.5">lifetime, per account</span>
             </div>
 
             <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-              <span className="text-[10px] text-gray-500 uppercase block">Battle.net Match Ping</span>
-              <span className="text-base font-semibold text-cyan-400 font-mono mt-0.5 block">
-                {selectedRegion.serverPingMs} ms
+              <span className="text-[10px] text-gray-500 uppercase block">Dominant Archetype</span>
+              <span className="text-xs font-semibold text-cyan-400 mt-1 block leading-tight">
+                {archetypeLabel(selectedRegion.dominantArchetype)}
               </span>
-              <span className="text-[10px] text-gray-500 block mt-0.5">GCP low-latency edge</span>
+              <span className="text-[10px] text-gray-500 block mt-0.5">
+                {selectedRegion.gcpRegion.split(" ")[0]} • {selectedRegion.serverPingMs}ms edge
+              </span>
             </div>
           </div>
 
           {/* Situational Trigger Alert */}
-          <div className="mt-4 p-3.5 rounded-2xl bg-black/40 border border-white/5 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-white">
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
-              <span>Live Situational Trigger in DMA</span>
+          {selectedRegion.activeLossStreakPlayers > 0 && (
+            <div className="mt-4 p-3.5 rounded-2xl bg-black/40 border border-white/5 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-white">
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <span>Situational Trigger in Market</span>
+              </div>
+              <p className="text-[11px] text-gray-300 leading-relaxed font-normal">
+                <strong>{selectedRegion.activeLossStreakPlayers.toLocaleString()} players</strong> in{" "}
+                {selectedRegion.name} are on a 3+ loss streak.
+              </p>
+              <div className="text-[10px] text-emerald-400 font-medium pt-1">
+                ✓ Recommended: {RECOVERY_OFFER_BY_FRANCHISE[cohortContext?.franchise || "COD"] ||
+                  RECOVERY_OFFER_BY_FRANCHISE.COD}
+              </div>
             </div>
-            <p className="text-[11px] text-gray-300 leading-relaxed font-normal">
-              <strong>{selectedRegion.activeLossStreakPlayers} players</strong> in {selectedRegion.name} are currently on a 3+ loss streak in competitive queues.
-            </p>
-            <div className="text-[10px] text-emerald-400 font-medium pt-1">
-              ✓ Recommended: Deliver $9.99 BlackCell Pass & Loss Shield
+          )}
+
+          {/* Top players in this market — the map is now a way into the cohort,
+              not a dead end. */}
+          {isLive && topPlayersInRegion.length > 0 && (
+            <div className="mt-4 space-y-1.5">
+              <span className="text-[10px] text-gray-500 uppercase tracking-wider block">
+                Highest LTV in {selectedRegion.code}
+              </span>
+              {topPlayersInRegion.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => onSelectPlayer?.(p)}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.07] text-left transition-all active:scale-[0.98]"
+                >
+                  <span className="text-[11px] text-white truncate">{p.name}</span>
+                  <span className="text-[11px] text-amber-300 font-mono shrink-0">
+                    ${(p.spend || 0).toLocaleString()}
+                  </span>
+                </button>
+              ))}
             </div>
-          </div>
+          )}
         </div>
 
         {/* Footer CTA */}
         <div className="space-y-2 pt-3 border-t border-white/10">
           <button
             onClick={onLaunchFocusGroup}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white text-black hover:bg-gray-200 text-xs font-semibold shadow-lg transition-all"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white text-black hover:bg-gray-200 text-xs font-semibold shadow-lg transition-all active:scale-[0.98]"
           >
             <Users className="w-4 h-4 text-black" />
             <span>Simulate Focus Group for {selectedRegion.code}</span>

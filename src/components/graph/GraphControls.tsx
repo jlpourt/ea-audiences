@@ -25,47 +25,63 @@ const GAME_OPTIONS: { id: GameFranchise; label: string; icon: string }[] = [
   { id: "CANDYCRUSH", label: "Candy Crush Saga", icon: "🍬" },
 ];
 
+// Every value below is an archetype that actually has players in that franchise
+// (verified against data/master_players.json). Monetising archetypes are
+// franchise-specific: COD=BLACKCELL_WHALE, WOW=AZERITE_COLLECTOR,
+// DIABLO4=SANCTUARY_COLLECTOR, OVERWATCH2=MYTHIC_COLLECTOR, CANDYCRUSH=BOOSTER_WHALE.
 const COHORT_FILTERS_BY_GAME: Record<GameFranchise, { value: string; label: string }[]> = {
   ALL: [
     { value: "ALL", label: "All Players (Macro Galaxy)" },
-    { value: "BLACKCELL_WHALE", label: "Cross-Title Whales ($3,500+ spend)" },
-    { value: "COMPETITIVE_GRINDER", label: "Competitive Sweat Grinders" },
-    { value: "CASUAL_SOCIALIZER", label: "Social Squad Warriors" },
-    { value: "LORE_SEEKER", label: "Campaign & Franchise Purists" },
+    { value: "COMPETITIVE_GRINDER", label: "Competitive Grinders" },
+    { value: "RANKED_SWEAT", label: "Ranked Sweats" },
+    { value: "CASUAL_SOCIALIZER", label: "Casual Socializers" },
+    { value: "CASUAL_WARRIOR", label: "Casual Warriors" },
+    { value: "LORE_SEEKER", label: "Lore & Campaign Purists" },
   ],
   COD: [
     { value: "ALL", label: "All Call of Duty Cohorts" },
-    { value: "COMPETITIVE_GRINDER", label: "Warzone Resurgence Sweats" },
     { value: "BLACKCELL_WHALE", label: "BlackCell Pass Whales" },
+    { value: "COMPETITIVE_GRINDER", label: "Warzone Resurgence Grinders" },
+    { value: "RANKED_SWEAT", label: "Ranked Play Sweats" },
     { value: "CASUAL_SOCIALIZER", label: "Co-op & Social Squads" },
+    { value: "CASUAL_WARRIOR", label: "Casual Multiplayer Warriors" },
     { value: "LORE_SEEKER", label: "Campaign Purists" },
   ],
   WOW: [
     { value: "ALL", label: "All World of Warcraft Cohorts" },
-    { value: "MYTHIC_RAIDER", label: "Mythic+ & Guild Raiders" },
-    { value: "BLACKCELL_WHALE", label: "Mount & Pet Whales ($1k+)" },
+    { value: "AZERITE_COLLECTOR", label: "Mount & Pet Collectors" },
+    { value: "COMPETITIVE_GRINDER", label: "Mythic+ Key Grinders" },
+    { value: "RANKED_SWEAT", label: "Arena & RBG Sweats" },
     { value: "CASUAL_SOCIALIZER", label: "Casual Guild Socializers" },
+    { value: "CASUAL_WARRIOR", label: "Casual Questing Warriors" },
     { value: "LORE_SEEKER", label: "Lore & Quest Purists" },
   ],
   DIABLO4: [
     { value: "ALL", label: "All Diablo IV Cohorts" },
-    { value: "SANCTUARY_COLLECTOR", label: "The Pit & Infernal Grinders" },
-    { value: "BLACKCELL_WHALE", label: "Sanctuary Deluxe Whales" },
+    { value: "SANCTUARY_COLLECTOR", label: "Sanctuary Cosmetic Collectors" },
+    { value: "COMPETITIVE_GRINDER", label: "The Pit & Infernal Grinders" },
+    { value: "RANKED_SWEAT", label: "Leaderboard Sweats" },
     { value: "CASUAL_SOCIALIZER", label: "World Boss & Legion Stacks" },
+    { value: "CASUAL_WARRIOR", label: "Seasonal Casual Warriors" },
     { value: "LORE_SEEKER", label: "Campaign & Sanctuary Purists" },
   ],
   OVERWATCH2: [
     { value: "ALL", label: "All Overwatch 2 Cohorts" },
+    { value: "MYTHIC_COLLECTOR", label: "Mythic Skin Prism Collectors" },
     { value: "COMPETITIVE_GRINDER", label: "Competitive Grandmasters" },
-    { value: "BLACKCELL_WHALE", label: "Mythic Skin Prism Whales" },
-    { value: "CASUAL_SOCIALIZER", label: "5v5 Role Queue Stacks" },
+    { value: "RANKED_SWEAT", label: "Role Queue Sweats" },
+    { value: "CASUAL_SOCIALIZER", label: "5v5 Social Stacks" },
     { value: "CASUAL_WARRIOR", label: "Stadium & Arcade Stompers" },
+    { value: "LORE_SEEKER", label: "Hero Lore Followers" },
   ],
   CANDYCRUSH: [
     { value: "ALL", label: "All Candy Crush Cohorts" },
-    { value: "BOOSTER_WHALE", label: "Booster Whales ($1,200+)" },
-    { value: "CASUAL_SOCIALIZER", label: "Casual Commuters (Daily)" },
+    { value: "BOOSTER_WHALE", label: "Booster & Lives Whales" },
     { value: "COMPETITIVE_GRINDER", label: "Level 1,000+ Grinders" },
+    { value: "RANKED_SWEAT", label: "Leaderboard Sweats" },
+    { value: "CASUAL_SOCIALIZER", label: "Casual Commuters (Daily)" },
+    { value: "CASUAL_WARRIOR", label: "Casual Session Warriors" },
+    { value: "LORE_SEEKER", label: "Episode Story Followers" },
   ],
 };
 

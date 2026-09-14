@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { GraphNode, GraphData } from "@/lib/types";
+import { GraphNode, GraphData, CohortContext } from "@/lib/types";
 import PlaystyleRadar from "./PlaystyleRadar";
 import {
   X,
@@ -32,16 +32,9 @@ import {
 
 interface EntityInspectorProps {
   node: GraphNode | null;
-  cohortContext?: {
-    query?: string;
-    franchise?: string;
-    matchedCount?: number;
-    estimatedTotal?: number;
-    dominantArchetype?: string;
-    avgSpend?: number;
-    avgChurn?: number;
-    avgTilt?: number;
-  } | null;
+  /** Shared shape — see CohortContext in @/lib/types. Partial because the
+   *  inspector can render before a cohort query has run. */
+  cohortContext?: Partial<CohortContext> | null;
   graphData?: GraphData;
   onSelectNode?: (node: GraphNode | null) => void;
   onClose: () => void;
@@ -135,9 +128,12 @@ export default function EntityInspector({
 
     return {
       count: playerNodes.length,
-      estimatedTotal: cohortContext?.estimatedTotal || playerNodes.length * 12,
-      avgSpend: totalSpend / playerNodes.length,
-      avgChurn: totalChurn / playerNodes.length,
+      // True cohort size when a query supplied it; otherwise just what is drawn.
+      // Never extrapolate from the rendered node count.
+      estimatedTotal: cohortContext?.estimatedTotal || playerNodes.length,
+      isSampled: cohortContext?.isSampled ?? false,
+      avgSpend: cohortContext?.avgSpend ?? totalSpend / playerNodes.length,
+      avgChurn: cohortContext?.avgChurn ?? totalChurn / playerNodes.length,
       avgTilt: totalTilt / playerNodes.length,
       avgLossStreak: totalLossStreak / playerNodes.length,
       dominantArchetype: dominantArch,
@@ -239,7 +235,9 @@ export default function EntityInspector({
             </div>
             <div className="text-[11px] text-gray-400 font-mono mt-0.5 truncate">
               {isCohortView
-                ? `${cohortStats.count} Sampled • ${cohortStats.estimatedTotal.toLocaleString()} Addressable in Spanner`
+                ? cohortStats.isSampled
+                  ? `${cohortStats.estimatedTotal.toLocaleString()} players matched • showing ${cohortStats.count}`
+                  : `${cohortStats.estimatedTotal.toLocaleString()} players matched`
                 : `${node?.franchise ? `${node.franchise} • ` : ""}${node?.id}`}
             </div>
           </div>
@@ -267,10 +265,10 @@ export default function EntityInspector({
             <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
               <span className="text-[10px] text-gray-500 block uppercase font-medium">Avg Lifetime Spend</span>
               <span className="font-semibold text-amber-300 text-xs font-mono block mt-0.5">
-                $${cohortStats.avgSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {`$${cohortStats.avgSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               </span>
               <span className="text-[9px] text-gray-400 block mt-0.5">
-                Est. Cohort LTV: $${(cohortStats.avgSpend * cohortStats.estimatedTotal).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                {`Cohort LTV: $${(cohortStats.avgSpend * cohortStats.estimatedTotal).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
               </span>
             </div>
           </div>

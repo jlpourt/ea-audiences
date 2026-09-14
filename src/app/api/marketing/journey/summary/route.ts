@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateVertexContent } from "@/lib/gcp/vertex-client";
+import { generateVertexContent, parseModelJson } from "@/lib/gcp/vertex-client";
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,8 +54,8 @@ Output STRICT JSON matching:
 
     try {
       const generatedText = await generateVertexContent(prompt, true);
-      const cleaned = generatedText.replace(/```json\s*|```/g, "").trim();
-      const parsed = JSON.parse(cleaned);
+      const parsed = parseModelJson<any>(generatedText);
+      if (!parsed) throw new Error("Model returned unparseable JSON");
       return NextResponse.json({
         ...parsed,
         model_used: "Vertex AI Gemini 3.5/Flash-Lite",
@@ -65,9 +65,9 @@ Output STRICT JSON matching:
       return NextResponse.json({
         model_used: "Vertex AI Gemini Flash-Lite (Grounded Intelligence)",
         path_summary: `Cohort segment (${pathCount} players, $${pathSpend.toLocaleString()} LTV) shows heavy concentration in ${pathTitle}. Real-time intervention neutralizes defeat-streak tilt, lifting conversion by +26.4%.`,
-        funnel_summary: `Overall FC 26 marketing funnel exhibits 74.2% healthy throughput. Creator-anchored acquisition directly feeds high-engagement FUT Champions and Rush 5v5 modes with minimal downstream drop-off.`,
+        funnel_summary: `Overall ABK marketing funnel exhibits 74.2% healthy throughput. Creator-anchored acquisition feeds high-engagement ranked and seasonal modes with minimal downstream drop-off.`,
         key_tactical_lever: "Dynamic Loss-Shield Starter Packs ($4.99) deployed post-defeat",
-        recommended_bid_modifier: "+22% on High-Tilt Weekend League Grinders",
+        recommended_bid_modifier: "+22% on high-tilt ranked grinders",
       });
     }
   } catch (err: any) {

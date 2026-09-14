@@ -244,6 +244,14 @@ for franchise, items in FRANCHISE_CATALOGS.items():
 
 FRANCHISE_KEYS = ["COD", "WOW", "DIABLO4", "OVERWATCH2", "CANDYCRUSH"]
 
+FRANCHISE_TO_GAME_ID = {
+    "COD": "game-cod",
+    "WOW": "game-wow",
+    "DIABLO4": "game-diablo",
+    "OVERWATCH2": "game-ow2",
+    "CANDYCRUSH": "game-candy"
+}
+
 # 5,000 Master Players
 for i in range(1, 5001):
     pid = f"abk-usr-{i:05d}"
@@ -298,11 +306,11 @@ for i in range(1, 5001):
         if primary_franchise == "COD":
             archetype = "BLACKCELL_WHALE"
         elif primary_franchise == "WOW":
-            archetype = "ULTIMATE_TEAM_WHALE"  # Mount & Token Whale
+            archetype = "AZERITE_COLLECTOR"  # Mount & Token Whale
         elif primary_franchise == "DIABLO4":
             archetype = "SANCTUARY_COLLECTOR"
         elif primary_franchise == "OVERWATCH2":
-            archetype = "HEIRLOOM_WHALE"
+            archetype = "MYTHIC_COLLECTOR"
         else:
             archetype = "BOOSTER_WHALE"
     elif spend_tier_roll < 0.35:
@@ -414,6 +422,41 @@ for i in range(1, 5001):
         "Spain": "ES", "Brazil": "BR", "Japan": "JP", "Saudi Arabia": "SA"
     }
 
+    # Demographics and Lifecycle
+    if primary_franchise == "CANDYCRUSH":
+        age = int(random.gauss(41, 12))
+        gender_roll = random.random()
+        gender = 'female' if gender_roll < 0.65 else 'male' if gender_roll < 0.95 else random.choice(['nonbinary', 'undisclosed'])
+        account_tenure_days = random.randint(100, 4000)
+        currency_balance = int(random.expovariate(1 / (1000 if "WHALE" in archetype else 100)))
+    elif primary_franchise == "COD":
+        age = int(random.gauss(24, 5))
+        gender_roll = random.random()
+        gender = 'male' if gender_roll < 0.80 else 'female' if gender_roll < 0.95 else random.choice(['nonbinary', 'undisclosed'])
+        account_tenure_days = random.randint(10, 2000)
+        currency_balance = int(random.expovariate(1 / (2000 if "WHALE" in archetype else 200)))
+    elif primary_franchise == "WOW":
+        age = int(random.gauss(32, 7))
+        gender_roll = random.random()
+        gender = 'male' if gender_roll < 0.70 else 'female' if gender_roll < 0.95 else random.choice(['nonbinary', 'undisclosed'])
+        account_tenure_days = random.randint(300, 6000)
+        currency_balance = int(random.expovariate(1 / (5000 if "COLLECTOR" in archetype else 500)))
+    elif primary_franchise == "OVERWATCH2":
+        age = int(random.gauss(24, 6))
+        gender_roll = random.random()
+        gender = 'male' if gender_roll < 0.65 else 'female' if gender_roll < 0.95 else random.choice(['nonbinary', 'undisclosed'])
+        account_tenure_days = random.randint(10, 1500)
+        currency_balance = int(random.expovariate(1 / (1500 if "COLLECTOR" in archetype else 150)))
+    else: # DIABLO4
+        age = int(random.gauss(34, 8))
+        gender_roll = random.random()
+        gender = 'male' if gender_roll < 0.75 else 'female' if gender_roll < 0.95 else random.choice(['nonbinary', 'undisclosed'])
+        account_tenure_days = random.randint(30, 800)
+        currency_balance = int(random.expovariate(1 / (3000 if "COLLECTOR" in archetype else 300)))
+        
+    age = max(13, min(65, age))
+    account_tenure_days += int(lifetime_spend * 0.5)
+
     player_record = {
         "player_id": pid,
         "display_name": display_name,
@@ -422,6 +465,10 @@ for i in range(1, 5001):
         "primary_franchise": primary_franchise,
         "franchises_played": cross_titles,
         "primary_archetype": archetype,
+        "age": age,
+        "gender": gender,
+        "account_tenure_days": account_tenure_days,
+        "currency_balance": currency_balance,
         "lifetime_spend_usd": lifetime_spend,
         "churn_risk_score": churn_risk,
         "tilt_sensitivity": tilt_sensitivity,
@@ -485,7 +532,7 @@ for i in range(1, 5001):
 
     # 2. Played Game Edges
     for g_key in cross_titles:
-        g_id = f"game-{g_key.lower().replace('4', '').replace('2', '')}"
+        g_id = FRANCHISE_TO_GAME_ID[g_key]
         played_game_edges.append({
             "player_id": pid,
             "game_id": g_id,
@@ -509,7 +556,7 @@ for i in range(1, 5001):
         telemetry_match_events.append({
             "event_id": f"evt-{i:06d}",
             "player_id": pid,
-            "game_id": f"game-{primary_franchise.lower()}",
+            "game_id": FRANCHISE_TO_GAME_ID[primary_franchise],
             "event_type": "GULAG_DEFEAT_LOSS_STREAK" if primary_franchise == "COD" else "RAID_WIPE_STREAK" if primary_franchise == "WOW" else "PIT_DEATH_SLUMP" if primary_franchise == "DIABLO4" else "OUT_OF_MOVES_STUCK",
             "consecutive_losses": loss_streak,
             "tilt_index": tilt_sensitivity,
@@ -560,20 +607,6 @@ with open("data/telemetry_match_events.json", "w") as f:
     json.dump(telemetry_match_events, f, indent=2)
 print(f"-> telemetry_match_events.json: {len(telemetry_match_events)} records")
 
-# Also write identity graph projection
-identity_graph = []
-for p in master_players[:500]:
-    identity_graph.append({
-        "master_player_id": p["player_id"],
-        "display_name": p["display_name"],
-        "primary_franchise": p["primary_franchise"],
-        "lifetime_spend": p["lifetime_spend_usd"],
-        "linked_identities_count": len([e for e in has_identity_edges if e["player_id"] == p["player_id"]]),
-        "primary_creator": p["primary_creator_influence"],
-        "market": p["dma_market"]
-    })
-with open("data/fct_player_identity_graph.json", "w") as f:
-    json.dump(identity_graph, f, indent=2)
-print(f"-> fct_player_identity_graph.json: {len(identity_graph)} records")
+
 
 print("ABK Dataset Synthesis Complete!")

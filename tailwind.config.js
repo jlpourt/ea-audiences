@@ -13,7 +13,7 @@ module.exports = {
         surface: "#0D131D",
         "surface-raised": "#141D2B",
         "surface-border": "#1E2C42",
-        "ea-red": "#FF4757",
+        "alert-red": "#FF4757",
         "ea-orange": "#FF7A00",
         "cyber-cyan": "#00F0FF",
         "neon-green": "#00FF88",

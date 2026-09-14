@@ -8,8 +8,6 @@ export interface PersonaProfile {
   name: string;
   gamerTag: string;
   archetype: string;
-  cardTier: "ICON" | "TOTY" | "GOLD_RARE" | "HERO" | "MANAGER";
-  ovrRating: number;
   division: string;
   matchesPlayed: number;
   spendLtv: number;
@@ -21,19 +19,19 @@ export interface PersonaProfile {
   reactionEmoji?: string;
 }
 
-interface FUTPersonaCardProps {
+interface SyntheticPersonaCardProps {
   persona: PersonaProfile;
   isSelected?: boolean;
   onSelect?: () => void;
   onInterrogate?: () => void;
 }
 
-export default function FUTPersonaCard({
+export default function SyntheticPersonaCard({
   persona,
   isSelected,
   onSelect,
   onInterrogate,
-}: FUTPersonaCardProps) {
+}: SyntheticPersonaCardProps) {
   return (
     <div
       onClick={onSelect}
@@ -53,8 +51,11 @@ export default function FUTPersonaCard({
             <span className="text-[11px] text-gray-400 block mt-0.5">{persona.division}</span>
           </div>
 
-          <div className="text-right">
-            <span className="text-sm font-bold text-white font-mono">{persona.ovrRating}</span>
+          {/* Was a bare FIFA-style OVR rating, which means nothing for an ABK
+              player. Tilt is the signal this panel actually reasons about. */}
+          <div className="text-right shrink-0">
+            <span className="text-[10px] text-gray-500 uppercase block">Tilt</span>
+            <span className="text-sm font-bold text-white font-mono">{persona.tiltLevel}%</span>
           </div>
         </div>
 

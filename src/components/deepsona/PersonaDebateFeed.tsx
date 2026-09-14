@@ -12,25 +12,25 @@ export default function PersonaDebateFeed({ reactions }: PersonaDebateFeedProps)
     switch (archetype) {
       case "COMPETITIVE_GRINDER":
         return {
-          name: "Mbappe_Elite_99 (FUT Champions Sweat)",
+          name: "Ranked_Grind_Alt (Competitive Grinder)",
           avatar: "⚔️",
-          color: "text-ea-red border-ea-red/30 bg-ea-red/10",
+          color: "text-alert-red border-alert-red/30 bg-alert-red/10",
         };
       case "LORE_SEEKER":
         return {
-          name: "Pep_Tactics_XI (Career Mode Purist)",
+          name: "Lore_Archivist (Campaign & Story Purist)",
           avatar: "📋",
           color: "text-cyber-cyan border-cyber-cyan/30 bg-cyber-cyan/10",
         };
       case "CASUAL_SOCIALIZER":
         return {
-          name: "Friday_Rush_Squad (Pro Clubs & 5v5 Warrior)",
+          name: "Friday_Night_Stack (Social Squad Player)",
           avatar: "⚽",
           color: "text-neon-green border-neon-green/30 bg-neon-green/10",
         };
-      case "ULTIMATE_TEAM_WHALE":
+      case "BLACKCELL_WHALE":
         return {
-          name: "Icon_Collector_Prime (Ultimate Team Whale)",
+          name: "Vault_Collector_01 (BlackCell Pass Whale)",
           avatar: "💎",
           color: "text-hud-gold border-hud-gold/30 bg-hud-gold/10",
         };
@@ -73,7 +73,7 @@ export default function PersonaDebateFeed({ reactions }: PersonaDebateFeedProps)
 
             <div className="flex items-center justify-between text-[10px] text-gray-400 pt-1">
               <span>Churn Risk Score: <strong className="text-ea-orange">{(r.churn_risk_score * 100).toFixed(0)}%</strong></span>
-              <span>Sentiment Score: <strong className={r.sentiment_score > 0 ? "text-neon-green" : "text-ea-red"}>{(r.sentiment_score * 100).toFixed(0)}</strong></span>
+              <span>Sentiment Score: <strong className={r.sentiment_score > 0 ? "text-neon-green" : "text-alert-red"}>{(r.sentiment_score * 100).toFixed(0)}</strong></span>
             </div>
           </div>
         );

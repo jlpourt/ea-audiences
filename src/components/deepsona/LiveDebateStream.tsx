@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Send, RotateCcw, MessageSquare, Loader2, Sparkles } from "lucide-react";
 import { CohortContext } from "@/lib/types";
+import { archetypeLabel } from "@/lib/archetypes";
 
 interface LiveDebateStreamProps {
   cohortContext?: CohortContext | null;
@@ -12,10 +13,10 @@ interface LiveDebateStreamProps {
 }
 
 const STARTER_QUESTIONS = [
-  "Would you buy a $4.99 Loss Shield reload pack if you just lost 3 games in a row?",
-  "Is $49.99 a fair price for guaranteed walkout packs & 4,800 FC Points?",
-  "How does defeat-streak tilt affect your willingness to buy packs?",
-  "Should we include a 4-player Rush 5v5 squad double XP token?",
+  "Would you buy a $4.99 recovery starter after losing 3 matches in a row?",
+  "Is $29.99 a fair price for a BlackCell battle pass that returns its own CP?",
+  "How does a defeat streak change your willingness to spend that night?",
+  "Should we bundle 20 tier skips instead of discounting the pass?",
 ];
 
 export default function LiveDebateStream({
@@ -65,14 +66,7 @@ export default function LiveDebateStream({
         const newItems = turns.map((t: any, idx: number) => ({
           id: `feed-new-${Date.now()}-${idx}`,
           sender: t.persona_id,
-          role:
-            t.archetype === "ULTIMATE_TEAM_WHALE"
-              ? "FUT Whale"
-              : t.archetype === "COMPETITIVE_GRINDER"
-              ? "Competitive Grinder"
-              : t.archetype === "CASUAL_SOCIALIZER"
-              ? "Pro Clubs / Rush"
-              : "Career Purist",
+          role: archetypeLabel(t.archetype),
           text: t.message,
           wtp: t.wtp,
           fsm: t.fsm_state,

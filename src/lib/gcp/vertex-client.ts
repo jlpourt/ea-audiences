@@ -59,3 +59,45 @@ export async function generateVertexContent(prompt: string, isJson: boolean = tr
 
   throw new Error("Vertex AI Gemini model endpoint failed to generate content.");
 }
+
+/**
+ * Parse JSON out of a model response.
+ *
+ * Even with `responseMimeType: "application/json"` set, models intermittently
+ * wrap output in a ```json fence or prepend a sentence. Calling `JSON.parse`
+ * directly on the raw text throws in those cases, which used to push callers
+ * into their hardcoded fallback content without any visible error — the demo
+ * would look like it was working while showing canned data.
+ *
+ * Returns `null` rather than throwing so callers can decide what to do.
+ */
+export function parseModelJson<T = any>(raw: string): T | null {
+  if (!raw) return null;
+
+  let text = raw.trim();
+
+  // Strip a leading ```json / ``` fence and its closing counterpart.
+  const fenced = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (fenced) text = fenced[1].trim();
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    // Fall back to the outermost balanced object or array in the response.
+    const firstObj = text.indexOf("{");
+    const firstArr = text.indexOf("[");
+    const start =
+      firstObj === -1 ? firstArr : firstArr === -1 ? firstObj : Math.min(firstObj, firstArr);
+    if (start === -1) return null;
+
+    const closer = text[start] === "{" ? "}" : "]";
+    const end = text.lastIndexOf(closer);
+    if (end <= start) return null;
+
+    try {
+      return JSON.parse(text.slice(start, end + 1)) as T;
+    } catch {
+      return null;
+    }
+  }
+}

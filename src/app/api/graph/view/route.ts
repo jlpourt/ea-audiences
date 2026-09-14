@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { GraphData, GraphNode, GraphLink } from "@/lib/types";
+import { archetypeColor } from "@/lib/archetypes";
 
 function loadJson(filename: string) {
   const filepath = path.join(process.cwd(), "data", filename);
@@ -211,17 +212,9 @@ export async function GET(request: NextRequest) {
     // 4. Player Nodes Generation
     for (let idx = 0; idx < sample.length; idx++) {
       const p = sample[idx];
-      let nodeColor = "#00FF88";
-
-      if (p.primary_archetype === "COMPETITIVE_GRINDER" || p.primary_archetype === "RANKED_SWEAT") {
-        nodeColor = "#FF4757"; // Sweat / Tilt Red
-      } else if (p.primary_archetype === "ULTIMATE_TEAM_WHALE" || p.primary_archetype === "BLACKCELL_WHALE" || p.primary_archetype === "SANCTUARY_COLLECTOR" || p.primary_archetype === "BOOSTER_WHALE" || p.primary_archetype === "HEIRLOOM_WHALE" || p.primary_archetype === "MUT_WHALE" || p.primary_archetype === "SIMS_COLLECTOR") {
-        nodeColor = "#FFB800"; // Whale Gold
-      } else if (p.primary_archetype === "LORE_SEEKER" || p.primary_archetype === "BUILDER_CREATOR") {
-        nodeColor = "#00F0FF"; // Cyan
-      } else if (p.primary_archetype === "MYTHIC_RAIDER") {
-        nodeColor = "#38BDF8"; // Raider Sky Blue
-      }
+      // Colour comes from the canonical registry so a new or renamed archetype
+      // can never silently fall through to the default green again.
+      const nodeColor = archetypeColor(p.primary_archetype);
 
       const size = p.lifetime_spend_usd >= 3000 ? 14 : p.lifetime_spend_usd >= 500 ? 9 : 6;
 

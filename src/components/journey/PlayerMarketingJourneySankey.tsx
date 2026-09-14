@@ -112,7 +112,7 @@ export default function PlayerMarketingJourneySankey({
       let modeId = "mode_warzone";
       let modeName = "Warzone Resurgence";
       let modeSub = "Squads BR";
-      if (player.franchise === "WOW" || player.archetype === "MYTHIC_RAIDER") {
+      if (player.franchise === "WOW" || player.archetype === "AZERITE_COLLECTOR") {
         modeId = "mode_wow";
         modeName = "Mythic+ Dungeons";
         modeSub = "20-Player Raids";

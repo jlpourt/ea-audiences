@@ -27,11 +27,11 @@ You dislike pay-to-win shortcuts but love exclusive cosmetic transmog mounts, co
 You love unlimited lives passes for weekend play, color bomb combos, and social friend gifting events.
 You are extremely sensitive to unpassable RNG difficulty walls and buy extra moves only when a win streak is on the line.`,
   },
-  ULTIMATE_TEAM_WHALE: {
+  BLACKCELL_WHALE: {
     name: "Sanctuary_HighRoller (BlackCell & Diablo Whale)",
     handle: "Vault_BattleNet_VIP",
     avatar: "💎",
-    archetype: "ULTIMATE_TEAM_WHALE",
+    archetype: "BLACKCELL_WHALE",
     systemPrompt: `You have high disposable income and spend $3,000+ annually across the Battle.net ecosystem (BlackCell Battle Passes, Diablo IV Platinum Treasury, and WoW Token services).
 You want prestige, masterworked gear cosmetics, animated operator executions, and early access to expansion content. You evaluate whether high-tier currency bundles deliver true status.`,
   },

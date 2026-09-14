@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
-import { generateVertexContent } from "@/lib/gcp/vertex-client";
+import { generateVertexContent, parseModelJson } from "@/lib/gcp/vertex-client";
 import { runSpannerGraphQuery } from "@/lib/gcp/spanner-client";
 import { NL_TO_GQL_SYSTEM_PROMPT } from "@/lib/prompts/nl_to_gql";
 import { GraphNode, GraphLink, GameFranchise } from "@/lib/types";
@@ -31,6 +31,12 @@ export async function POST(request: NextRequest) {
     let matchedCreatorIds: string[] = [];
 
     const lowerQ = query.toLowerCase();
+
+    // Escape hatch: a caller may supply an exact GQL string to execute verbatim,
+    // bypassing NL translation. Used for reproducible queries and for testing
+    // the engine independently of model variance.
+    const explicitGql: string | null = typeof body.gql === "string" && body.gql.trim() ? body.gql.trim() : null;
+
     const spendMatch = query.match(/\$?([0-9,]+)\+?\s*spend/i) || query.match(/spend.*?\$?([0-9,]+)/i);
     const spendVal = spendMatch ? parseFloat(spendMatch[1].replace(/,/g, "")) : null;
 
@@ -49,9 +55,12 @@ export async function POST(request: NextRequest) {
       matchedCreatorIds = ["creator-scump", "creator-timthetatman", "creator-asmongold", "creator-wudijo"];
     }
 
-    // Detect franchises in query
+    // Detect franchises in the query. `franchiseExplicit` records whether the
+    // user (or the franchise selector) actually scoped the request — an
+    // unscoped query must span all five franchises, not a default pair.
+    let franchiseExplicit = true;
     if (lowerQ.includes("cod") && (lowerQ.includes("wow") || lowerQ.includes("diablo"))) {
-      targetFranchises = ["COD", "DIABLO4"];
+      targetFranchises = lowerQ.includes("wow") ? ["COD", "WOW"] : ["COD", "DIABLO4"];
     } else if (lowerQ.includes("cod") || lowerQ.includes("warzone") || lowerQ.includes("ops")) {
       targetFranchises = ["COD"];
     } else if (lowerQ.includes("wow") || lowerQ.includes("warcraft")) {
@@ -60,16 +69,19 @@ export async function POST(request: NextRequest) {
       targetFranchises = ["DIABLO4"];
     } else if (lowerQ.includes("overwatch") || lowerQ.includes("ow2")) {
       targetFranchises = ["OVERWATCH2"];
-    } else if (lowerQ.includes("candy") || lowerQ.includes("crush") || lowerQ.includes("king")) {
+    } else if (lowerQ.includes("candy") || lowerQ.includes("crush")) {
       targetFranchises = ["CANDYCRUSH"];
     } else if (selectedGame !== "ALL") {
       targetFranchises = [selectedGame];
     } else {
-      targetFranchises = ["COD", "DIABLO4"]; // Default cross-franchise pair
+      targetFranchises = ["COD", "WOW", "DIABLO4", "OVERWATCH2", "CANDYCRUSH"];
+      franchiseExplicit = false;
     }
 
     // 1. Live Vertex AI Gemini NL-to-GQL Translation
+    // Skipped entirely when the caller supplied an exact query.
     try {
+      if (explicitGql) throw new Error("explicit GQL supplied; skipping translation");
       const prompt = `
 ${NL_TO_GQL_SYSTEM_PROMPT}
 
@@ -86,7 +98,8 @@ Output strict JSON:
 }
 `;
       const generatedText = await generateVertexContent(prompt, true);
-      const parsed = JSON.parse(generatedText.trim());
+      const parsed = parseModelJson(generatedText);
+      if (!parsed) throw new Error("Model returned unparseable JSON");
       generatedGql = parsed.gql_query || "";
       naturalLanguageSummary = parsed.explanation || "";
       targetArchetype = parsed.dominant_archetype || "";
@@ -97,53 +110,151 @@ Output strict JSON:
       console.warn("[Vertex AI NL-to-GQL] Using deterministic semantic GQL builder:", aiErr);
     }
 
-    // 2. Deterministic Semantic Fallback
-    if (!generatedGql || !generatedGql.includes("GRAPH ABKPlayerGraph")) {
-      // Check for geographic tokens
-      let geoFilter = "";
-      if (lowerQ.includes("dallas")) geoFilter = "p.dma_market LIKE '%Dallas%'";
-      else if (lowerQ.includes("new york") || lowerQ.includes("nyc")) geoFilter = "p.dma_market LIKE '%New York%'";
-      else if (lowerQ.includes("los angeles") || lowerQ.includes("lax")) geoFilter = "p.dma_market LIKE '%Los Angeles%'";
-      else if (lowerQ.includes("chicago")) geoFilter = "p.dma_market LIKE '%Chicago%'";
-      else if (lowerQ.includes("london")) geoFilter = "p.dma_market LIKE '%London%'";
-      else if (lowerQ.includes("manchester")) geoFilter = "p.dma_market LIKE '%Manchester%'";
-      else if (lowerQ.includes("paris")) geoFilter = "p.dma_market LIKE '%Paris%'";
-      else if (lowerQ.includes("madrid")) geoFilter = "p.dma_market LIKE '%Madrid%'";
-      else if (lowerQ.includes("berlin") || lowerQ.includes("germany")) geoFilter = "(p.dma_market LIKE '%Berlin%' OR p.country = 'Germany')";
-      else if (lowerQ.includes("são paulo") || lowerQ.includes("sao paulo") || lowerQ.includes("brazil")) geoFilter = "(p.dma_market LIKE '%Paulo%' OR p.country = 'Brazil')";
-      else if (lowerQ.includes("tokyo") || lowerQ.includes("japan")) geoFilter = "(p.dma_market LIKE '%Tokyo%' OR p.country = 'Japan')";
-      else if (lowerQ.includes("riyadh") || lowerQ.includes("saudi")) geoFilter = "(p.dma_market LIKE '%Riyadh%' OR p.country = 'Saudi Arabia')";
-      else if (lowerQ.includes("uk") || lowerQ.includes("united kingdom")) geoFilter = "p.country = 'United Kingdom'";
-      else if (lowerQ.includes("us") || lowerQ.includes("united states") || lowerQ.includes("usa")) geoFilter = "p.country = 'United States'";
+    // An explicitly supplied query is executed verbatim: no guard, no rewriting.
+    if (explicitGql) {
+      generatedGql = explicitGql;
+    }
 
-      const geoClause = geoFilter ? `AND ${geoFilter}` : "";
+    // The franchise selector is authoritative. The model intermittently drops
+    // the scope even when the prompt demands it, which silently widens the
+    // cohort beyond the title the marketer is actually looking at.
+    if (!explicitGql && generatedGql && selectedGame !== "ALL") {
+      // Inspect ONLY the WHERE clause: the RETURN list always mentions
+      // `franchises_played`, so testing the whole query never matches.
+      const whereOnly = (generatedGql.match(/\bWHERE\b([\s\S]*?)(?:\bRETURN\b|\bORDER\s+BY\b|\bLIMIT\b|$)/i) || [, ""])[1];
+      const alreadyScoped = /primary_franchise|franchises_played/i.test(whereOnly);
 
-      if (targetFranchises.length === 2 && targetFranchises.includes("COD") && (targetFranchises.includes("DIABLO4") || targetFranchises.includes("WOW"))) {
-        const minSpendFilter = spendVal || 3500;
-        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)\nWHERE (p.primary_franchise IN ('COD', 'DIABLO4', 'WOW') OR 'DIABLO4' IN p.franchises_played)\nAND p.lifetime_spend_usd >= ${minSpendFilter} ${geoClause}\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
-        targetArchetype = "BLACKCELL_WHALE";
-      } else if (lowerQ.includes("clan") || lowerQ.includes("guild") || lowerQ.includes("squad")) {
-        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)\nWHERE p.primary_archetype = 'CASUAL_SOCIALIZER' ${geoClause}\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.country, p.dma_market\nLIMIT 120;`;
-        targetArchetype = "CASUAL_SOCIALIZER";
-      } else if (spendVal !== null) {
-        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)\nWHERE p.lifetime_spend_usd >= ${spendVal} ${geoClause}\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
-        targetArchetype = "BLACKCELL_WHALE";
-      } else if (geoFilter) {
-        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)\nWHERE ${geoFilter}\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.country, p.dma_market\nLIMIT 150;`;
-        targetArchetype = "CASUAL_SOCIALIZER";
-      } else {
-        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)\nWHERE (p.tilt_sensitivity >= 0.65 OR p.recent_loss_streak >= 2)\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.country, p.dma_market\nLIMIT 110;`;
-        targetArchetype = "COMPETITIVE_GRINDER";
+      if (!alreadyScoped) {
+        const guard = `(p.primary_franchise = '${selectedGame}' OR '${selectedGame}' IN p.franchises_played)`;
+        if (/\bWHERE\b/i.test(generatedGql)) {
+          generatedGql = generatedGql.replace(/\bWHERE\b/i, `WHERE ${guard} AND `);
+        } else {
+          generatedGql = generatedGql.replace(/\bRETURN\b/i, `WHERE ${guard}\nRETURN`);
+        }
+        console.log(`[NL-to-GQL] Injected franchise guard for ${selectedGame}`);
       }
+    }
+
+    // Normalise franchise scoping semantics. A marketer asking for "WoW players"
+    // means everyone who plays WoW, not only those whose *primary* title it is —
+    // otherwise cross-title Battle.net players are silently excluded from the
+    // very cohorts the cross-title story depends on.
+    if (!explicitGql && generatedGql) {
+      generatedGql = generatedGql.replace(
+        /\bp\.primary_franchise\s*=\s*'([A-Z0-9_]+)'/gi,
+        (match, franchise) => {
+          const scoped = `'${franchise}' IN p.franchises_played`;
+          // Skip if this equality is already paired with a membership test.
+          return generatedGql.includes(scoped)
+            ? match
+            : `(p.primary_franchise = '${franchise}' OR ${scoped})`;
+        }
+      );
+    }
+
+    // 2. Deterministic Semantic Fallback.
+    // Predicates are composed ADDITIVELY so that "at-risk whales in Germany"
+    // yields churn AND spend AND geography, rather than whichever branch
+    // happened to be checked first.
+    // An explicitly supplied GQL is never overridden — the whole point of the
+    // escape hatch is verbatim execution. Previously the prefix check below
+    // silently replaced it with the fallback whenever the caller omitted the
+    // "GRAPH ABKPlayerGraph" header.
+    if (!explicitGql && (!generatedGql || !generatedGql.includes("GRAPH ABKPlayerGraph"))) {
+      const clauses: string[] = [];
+
+      const geoTokens: [string[], string][] = [
+        [["dallas"], "p.dma_market LIKE '%Dallas%'"],
+        [["new york", "nyc"], "p.dma_market LIKE '%New York%'"],
+        [["los angeles", "la metro"], "p.dma_market LIKE '%Los Angeles%'"],
+        [["chicago"], "p.dma_market LIKE '%Chicago%'"],
+        [["london"], "p.dma_market LIKE '%London%'"],
+        [["manchester"], "p.dma_market LIKE '%Manchester%'"],
+        [["paris"], "p.dma_market LIKE '%Paris%'"],
+        [["madrid"], "p.dma_market LIKE '%Madrid%'"],
+        [["berlin", "germany", "dach"], "p.country = 'Germany'"],
+        [["são paulo", "sao paulo", "brazil"], "p.country = 'Brazil'"],
+        [["tokyo", "japan"], "p.country = 'Japan'"],
+        [["riyadh", "saudi", "gcc"], "p.country = 'Saudi Arabia'"],
+        [["united kingdom", "britain"], "p.country = 'United Kingdom'"],
+        [["united states", "usa"], "p.country = 'United States'"],
+      ];
+      // Whole-word match only. A bare "us" must never match, or every query
+      // containing `lifetime_spend_usd` silently becomes United States only.
+      for (const [tokens, clause] of geoTokens) {
+        if (tokens.some((t) => new RegExp(`\\b${t}\\b`, "i").test(lowerQ))) {
+          clauses.push(clause);
+          break;
+        }
+      }
+
+      // Franchise scope — only constrain when the user actually asked for it.
+      if (franchiseExplicit && targetFranchises.length === 1) {
+        clauses.push(`(p.primary_franchise = '${targetFranchises[0]}' OR '${targetFranchises[0]}' IN p.franchises_played)`);
+      } else if (franchiseExplicit && targetFranchises.length > 1) {
+        const inList = targetFranchises.map((f) => `'${f}'`).join(", ");
+        clauses.push(`p.primary_franchise IN (${inList})`);
+      }
+
+      // Churn / retention intent
+      const wantsChurn = /churn|at.?risk|lapsing|lapsed|retention|leaving|quit|drop.?off/i.test(lowerQ);
+      if (wantsChurn) clauses.push("p.churn_risk_score >= 0.70");
+
+      // Spend intent
+      const wantsWhales = /whale|high.?spend|big spender|high.?ltv|top spender/i.test(lowerQ);
+      if (spendVal !== null) {
+        clauses.push(`p.lifetime_spend_usd >= ${spendVal}`);
+      } else if (wantsWhales) {
+        clauses.push("p.lifetime_spend_usd >= 1000");
+      }
+
+      // Tilt / loss-streak intent
+      if (/tilt|loss streak|losing|gulag|wipe|defeat|frustrat/i.test(lowerQ)) {
+        clauses.push("(p.tilt_sensitivity >= 0.60 OR p.recent_loss_streak >= 2)");
+      }
+
+      // Social intent
+      if (/clan|guild|squad|social|friends/i.test(lowerQ)) {
+        clauses.push("p.primary_archetype = 'CASUAL_SOCIALIZER'");
+      }
+
+      // Dormant currency intent
+      if (/unspent|dormant|balance|points sitting|gold bars/i.test(lowerQ)) {
+        clauses.push("p.currency_balance >= 1000");
+      }
+
+      // If the request expressed no filter at all, fall back to the demo's
+      // canonical situational-friction cohort rather than returning everyone.
+      if (clauses.length === 0) {
+        clauses.push("(p.tilt_sensitivity >= 0.65 OR p.recent_loss_streak >= 2)");
+      }
+
+      targetArchetype = wantsWhales
+        ? "BLACKCELL_WHALE"
+        : /clan|guild|squad|social/i.test(lowerQ)
+        ? "CASUAL_SOCIALIZER"
+        : "COMPETITIVE_GRINDER";
+
+      const orderBy = spendVal !== null || wantsWhales ? "\nORDER BY p.lifetime_spend_usd DESC" : "";
+      generatedGql =
+        `GRAPH ABKPlayerGraph\nMATCH (p:Player)\nWHERE ${clauses.join("\n  AND ")}\n` +
+        `RETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, ` +
+        `p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, ` +
+        `p.account_tenure_days, p.currency_balance, p.country, p.dma_market${orderBy}\nLIMIT 400;`;
     }
 
     const dataSource = (body.dataSource || "local") as "live_spanner" | "local";
 
-    // 3. Execute Spanner Graph Query
-    let rows = await runSpannerGraphQuery(generatedGql, {}, dataSource);
-    if (!rows || rows.length === 0) {
-      rows = await runSpannerGraphQuery(generatedGql, {}, "local");
+    // 3. Execute Spanner Graph Query.
+    // The engine returns the LIMIT page in `rows` and the true population size
+    // in `totalMatched`. These are deliberately distinct: `rows` drives what we
+    // render, `totalMatched` is what a marketer reads as reachable audience.
+    let queryResult = await runSpannerGraphQuery(generatedGql, {}, dataSource);
+    if (!queryResult.rows.length && dataSource === "live_spanner") {
+      queryResult = await runSpannerGraphQuery(generatedGql, {}, "local");
     }
+    const rows = queryResult.rows;
+    const totalMatched = queryResult.totalMatched;
 
     const nodes: GraphNode[] = [];
     const links: GraphLink[] = [];
@@ -208,7 +319,7 @@ Output strict JSON:
         });
       });
     } else {
-      // Single Title View (FC26 or other EA title)
+      // Single-title view (one ABK franchise selected)
       const activeFranchise = targetFranchises[0] || "COD";
 
       if (activeFranchise === "COD") {
@@ -379,6 +490,10 @@ Output strict JSON:
     let totalChurn = 0;
     const archetypeCounts: Record<string, number> = {};
 
+    // Cap on how many player nodes we draw. This is a *rendering* limit only and
+    // must never be reported as the size of the audience.
+    const RENDER_NODE_CAP = 56;
+
     let sampleRows = rows;
     if (matchedCreatorIds.length > 0) {
       const creatorMatched = rows.filter((r: any) => {
@@ -387,12 +502,12 @@ Output strict JSON:
         return followed.some((c: string) => matchedCreatorIds.includes(c));
       });
       if (creatorMatched.length > 0) {
-        sampleRows = creatorMatched.slice(0, 56);
+        sampleRows = creatorMatched.slice(0, RENDER_NODE_CAP);
       } else {
-        sampleRows = rows.slice(0, 56);
+        sampleRows = rows.slice(0, RENDER_NODE_CAP);
       }
     } else {
-      sampleRows = rows.slice(0, 56);
+      sampleRows = rows.slice(0, RENDER_NODE_CAP);
     }
 
     for (let idx = 0; idx < sampleRows.length; idx++) {
@@ -416,7 +531,7 @@ Output strict JSON:
       const isTilt = tilt > 0.60;
       const isWhale = arch.includes("WHALE") || spend >= 1000;
       const isSocial = arch === "CASUAL_SOCIALIZER";
-      const isLore = arch === "LORE_SEEKER" || arch === "BUILDER_CREATOR";
+      const isLore = arch === "LORE_SEEKER";
 
       const nodeColor = isTilt
         ? "#FF4757"
@@ -538,37 +653,53 @@ Output strict JSON:
       }
     }
 
-    const matchedCount = nodes.filter((n) => n.type === "PLAYER").length;
-    const dominantArchetype =
-      Object.entries(archetypeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || targetArchetype || "ULTIMATE_TEAM_WHALE";
+    const renderedCount = nodes.filter((n) => n.type === "PLAYER").length;
+    const agg = queryResult.aggregates;
+    const dominantArchetype = agg.dominantArchetype || targetArchetype || "COMPETITIVE_GRINDER";
 
-    const multiplier = 12.0; // ~1,800 High-LTV Addressable Whales
-    const estimatedTotal = Math.round(matchedCount * multiplier);
-    const avgSpend = Math.round(totalSpend / Math.max(1, matchedCount));
-    const avgChurn = Number((totalChurn / Math.max(1, matchedCount)).toFixed(2));
+    // Audience size is the true count of players satisfying the predicates.
+    // It is NOT derived from how many nodes we happened to draw.
+    const avgSpend = Math.round(agg.avgSpendUsd);
+    const avgChurn = Number(agg.avgChurnRisk.toFixed(2));
+    const isSampled = renderedCount < totalMatched;
 
     const franchiseNames = targetFranchises.join(" & ");
+    const provenance = queryResult.isLive ? "live Google Cloud Spanner" : "the local graph engine";
 
     return NextResponse.json({
       query,
       generated_gql: generatedGql,
-      spanner_source: dataSource === "live_spanner" ? "Google Cloud Spanner Enterprise (Live)" : "Local Grounded Engine (0ms Demo)",
-      is_live_spanner: dataSource === "live_spanner",
+      spanner_source: queryResult.source,
+      is_live_spanner: queryResult.isLive,
+      execution_time_ms: queryResult.executionTimeMs,
+      applied_predicates: queryResult.appliedPredicates,
       natural_language_summary:
-        matchedCount === 0
-          ? `Executed ${dataSource === "live_spanner" ? "live Cloud Spanner" : "Spanner Graph"} GQL query across ${franchiseNames}. Found 0 matching players.`
-          : `Executed ${dataSource === "live_spanner" ? "live Google Cloud Spanner Enterprise" : "Spanner"} Graph GQL query across ${franchiseNames}: ${matchedCount} nodes isolated with live cross-game migration bridges. Scaled to BigQuery Data Boost: ~${estimatedTotal.toLocaleString()} addressable players with avg spend $${avgSpend.toLocaleString()}.`,
-      matched_count: matchedCount,
-      estimated_total_audience: estimatedTotal,
+        totalMatched === 0
+          ? `Executed against ${provenance} across ${franchiseNames}. No players matched these predicates — try relaxing a threshold.`
+          : `Executed against ${provenance} across ${franchiseNames}. ${totalMatched.toLocaleString()} players match${
+              isSampled ? `, rendering a ${renderedCount}-node sample` : ""
+            }. Average lifetime spend $${avgSpend.toLocaleString()}, average churn risk ${(avgChurn * 100).toFixed(
+              0
+            )}%, with ${agg.highChurnCount.toLocaleString()} players above the 70% churn threshold.`,
+      matched_count: totalMatched,
+      rendered_count: renderedCount,
+      is_sampled: isSampled,
       nodes,
       links,
       aggregate_metrics: {
-        matched_count: matchedCount,
-        estimated_total: estimatedTotal,
+        matched_count: totalMatched,
+        rendered_count: renderedCount,
+        is_sampled: isSampled,
         avg_spend_usd: avgSpend,
         avg_churn_risk: avgChurn,
+        avg_tilt: agg.avgTilt,
+        high_churn_count: agg.highChurnCount,
         dominant_archetype: dominantArchetype,
-        spanner_source: dataSource === "live_spanner" ? "Google Cloud Spanner (Live Enterprise)" : "Local Grounded Engine",
+        archetype_histogram: agg.archetypeHistogram,
+        country_histogram: agg.countryHistogram,
+        franchise_histogram: agg.franchiseHistogram,
+        spanner_source: queryResult.source,
+        is_live: queryResult.isLive,
       },
     });
   } catch (error: any) {

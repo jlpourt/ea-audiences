@@ -10,14 +10,41 @@ interface IdentityTreeProps {
 }
 
 export default function IdentityTree({ identities = [], masterId }: IdentityTreeProps) {
-  const getPlatformBadge = (platform: string) => {
-    if (platform.includes("EA")) return { bg: "bg-red-950/60 text-ea-red border-ea-red/30", label: "EA Origin" };
-    if (platform.includes("PLAY")) return { bg: "bg-blue-950/60 text-blue-400 border-blue-500/30", label: "PSN" };
-    if (platform.includes("XBOX")) return { bg: "bg-green-950/60 text-green-400 border-green-500/30", label: "Xbox Live" };
-    if (platform.includes("STEAM")) return { bg: "bg-slate-800 text-slate-300 border-slate-600", label: "Steam" };
-    if (platform.includes("TWITCH")) return { bg: "bg-purple-950/60 text-purple-400 border-purple-500/30", label: "Twitch" };
-    return { bg: "bg-surface-raised text-gray-300 border-surface-border", label: platform };
+  // Keyed to the platforms that actually appear in data/platform_identities.json:
+  // BATTLE_NET (all players), STEAM, XBOX_LIVE, PLAYSTATION_NETWORK, KING_MOBILE_ID.
+  // The previous map branched on "EA Origin" and left Battle.net unstyled.
+  const PLATFORM_BADGES: Record<string, { bg: string; label: string }> = {
+    BATTLE_NET: {
+      bg: "bg-sky-950/60 text-sky-400 border-sky-500/30",
+      label: "Battle.net",
+    },
+    KING_MOBILE_ID: {
+      bg: "bg-pink-950/60 text-pink-400 border-pink-500/30",
+      label: "King Mobile ID",
+    },
+    PLAYSTATION_NETWORK: {
+      bg: "bg-blue-950/60 text-blue-400 border-blue-500/30",
+      label: "PlayStation Network",
+    },
+    XBOX_LIVE: {
+      bg: "bg-green-950/60 text-green-400 border-green-500/30",
+      label: "Xbox Live",
+    },
+    STEAM: {
+      bg: "bg-slate-800 text-slate-300 border-slate-600",
+      label: "Steam",
+    },
+    TWITCH: {
+      bg: "bg-purple-950/60 text-purple-400 border-purple-500/30",
+      label: "Twitch",
+    },
   };
+
+  const getPlatformBadge = (platform: string) =>
+    PLATFORM_BADGES[platform] || {
+      bg: "bg-surface-raised text-gray-300 border-surface-border",
+      label: platform.replace(/_/g, " "),
+    };
 
   return (
     <div className="space-y-2 font-mono text-xs">

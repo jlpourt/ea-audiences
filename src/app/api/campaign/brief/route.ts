@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateVertexContent } from "@/lib/gcp/vertex-client";
+import { generateVertexContent, parseModelJson } from "@/lib/gcp/vertex-client";
 import { GCP_CONFIG } from "@/lib/config";
 import { CAMPAIGN_BRIEF_PROMPT } from "@/lib/prompts/brief_generator";
 import { CampaignBrief } from "@/lib/types";
@@ -49,7 +49,8 @@ Generate the structured Campaign Brief in strict JSON format:
 }
 `;
       const generatedText = await generateVertexContent(prompt, true);
-      const parsed = JSON.parse(generatedText.trim());
+      const parsed = parseModelJson(generatedText);
+      if (!parsed) throw new Error("Model returned unparseable JSON");
 
       brief = {
         brief_id: parsed.brief_id || `brief-abk-${Date.now()}`,

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { CohortContext } from "@/lib/types";
+import { isWhaleArchetype } from "@/lib/archetypes";
 
 interface SensitivitySimulatorProps {
   cohortContext?: CohortContext | null;
@@ -20,7 +21,7 @@ export default function SensitivitySimulator({
   const [discount, setDiscount] = useState(25);
 
   const audienceSize = cohortContext?.estimatedTotal || 4200;
-  const isWhaleCohort = cohortContext?.dominantArchetype === "ULTIMATE_TEAM_WHALE";
+  const isWhaleCohort = isWhaleArchetype(cohortContext?.dominantArchetype);
 
   const elasticityFactor = isWhaleCohort
     ? Math.max(0.6, 1.2 - (price / 80))

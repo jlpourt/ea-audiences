@@ -14,6 +14,17 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
+  /* Selection is intentionally NOT disabled globally. A marketer needs to copy
+     cohort counts, player IDs and generated brief copy out of this tool.
+     Selection is suppressed per-element on chrome (nav, controls, canvas)
+     via Tailwind's `select-none`. */
+}
+
+/* Interactive chrome should not accumulate stray text selection while dragging. */
+button,
+[role="button"],
+nav,
+label {
   user-select: none;
 }
 
@@ -168,9 +179,29 @@ button:active, [role="button"]:active, .apple-pressable:active {
   will-change: transform, opacity;
 }
 
+/* Reduced motion must cover EVERY animation, not just the ambient auras.
+   `.animate-spring-in` is the most frequently triggered motion in the app and
+   was previously exempt. Content still appears — only the movement is removed. */
 @media (prefers-reduced-motion: reduce) {
-  .animate-aura-1, .animate-aura-2, .animate-aura-pulse {
+  .animate-aura-1,
+  .animate-aura-2,
+  .animate-aura-pulse {
     animation: none !important;
+  }
+
+  .animate-spring-in {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

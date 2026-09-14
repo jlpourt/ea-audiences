@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateVertexContent } from "@/lib/gcp/vertex-client";
+import { generateVertexContent, parseModelJson } from "@/lib/gcp/vertex-client";
 
 export async function POST(request: NextRequest) {
   try {
@@ -85,7 +85,7 @@ Marketer Question / Thread Topic:
 
 Generate 4 authentic Reddit comments with realistic nested replies, flairs, and upvotes specifically evaluating "${userPrompt}" at $${dynamicPrice.toFixed(2)}:
 1. Analytical Breakdown (mathematical ROI analysis of the price $${dynamicPrice.toFixed(2)})
-2. Competitive Grinder (reaction from someone pushing for Weekend League / Ranked)
+2. Competitive Grinder (reaction from someone pushing ranked / seasonal progression)
 3. F2P Purist Critic (unpopular opinion / critique of live-service monetization)
 4. Casual Social Player (squad utility / Rush 5v5 / trios co-op value)
 
@@ -161,7 +161,7 @@ Output strict JSON:
     },
     {
       "persona_id": "${p2Name}",
-      "archetype": "ULTIMATE_TEAM_WHALE",
+      "archetype": "BLACKCELL_WHALE",
       "avatar": "💎",
       "name": "${p2Name} (${p2Role})",
       "message": "Specific reaction to '${userPrompt}' at $${dynamicPrice.toFixed(2)}...",
@@ -196,8 +196,8 @@ Output strict JSON:
       }
 
       const generatedText = await generateVertexContent(systemPrompt, true);
-      const cleaned = generatedText.replace(/\`\`\`json\s*|\`\`\`/g, "").trim();
-      const parsed = JSON.parse(cleaned);
+      const parsed = parseModelJson<any>(generatedText);
+      if (!parsed) throw new Error("Model returned unparseable JSON");
       parsed.model_used = `Vertex AI Gemini 3.5 Flash-Lite`;
       return NextResponse.json(parsed);
     } catch (e: any) {
@@ -211,14 +211,14 @@ Output strict JSON:
             archetype: "COMPETITIVE_GRINDER",
             avatar: "⚔️",
             name: `${p1Name} (${p1Role})`,
-            message: `Regarding "${userPrompt}": At $${dynamicPrice.toFixed(2)}, as long as the loss-shield protects my Weekend League rank and loan items, I'm buying it mid-tilt.`,
+            message: `Regarding "${userPrompt}": At $${dynamicPrice.toFixed(2)}, as long as it protects my ranked progress, I'm buying it mid-tilt.`,
             wtp: dynamicPrice,
             fsm_state: "PURCHASED",
             sentiment_delta: "+10%",
           },
           {
             persona_id: p2Name,
-            archetype: "ULTIMATE_TEAM_WHALE",
+            archetype: "BLACKCELL_WHALE",
             avatar: "💎",
             name: `${p2Name} (${p2Role})`,
             message: `At $${dynamicPrice.toFixed(2)}, that's an easy add-on, but add a 12,000 Points Vault option alongside it.`,
