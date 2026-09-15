@@ -189,6 +189,41 @@ export interface DeepSonaReaction {
   sentiment_score: number;
 }
 
+export interface DynamicCohortFinding {
+  id: string;
+  category: "churn_contagion" | "whale_spillover" | "creator_halo" | "dormant_currency" | "demotion_slump" | "cross_title" | "defeat_slump" | string;
+  tabLabel: string;
+  shortLabel: string;
+  badge: string;
+  iconType: "shield" | "sparkles" | "trending" | "users" | "zap" | "crosshair" | "creator" | "cross_title" | "currency" | "slump" | string;
+  iconColor: string;
+  bgAccent: string;
+  pillColor: string;
+  metricPill: string;
+  title: string;
+  summary: string;
+  base: string;
+  metrics: {
+    cohortSize: number;
+    avgSpend: number;
+    avgChurn: number;
+    liftMetric?: string;
+    highRiskCount?: number;
+    secondaryMetric?: string;
+  };
+  caveats: string[];
+  actionLabel: string;
+  queryToRun: string;
+  franchise: GameFranchise;
+  prompts: {
+    title: string;
+    query: string;
+    franchise: GameFranchise;
+    tag: string;
+    highlight: string;
+  }[];
+}
+
 export interface CohortContext {
   query: string;
   franchise?: string;
@@ -211,6 +246,7 @@ export interface CohortContext {
   suggestedCampaign?: string;
   isMultiHop?: boolean;
   multiHopMetadata?: MultiHopPathInfo;
+  dynamicFinding?: DynamicCohortFinding;
 }
 
 export interface DeepSonaResult {

@@ -23,8 +23,9 @@ import {
   ExternalLink,
   X,
   AlertTriangle,
+  Coins,
 } from "lucide-react";
-import { GameFranchise } from "@/lib/types";
+import { GameFranchise, DynamicCohortFinding } from "@/lib/types";
 import SpannerStatusPill from "@/components/common/SpannerStatusPill";
 
 interface GeminiLandingStageProps {
@@ -81,60 +82,54 @@ const AURA_THEMES: Record<GameFranchise, { primary: string; secondary: string; p
   },
 };
 
-interface MasterFunctionPillar {
-  id: "audiences" | "creative" | "measurement" | "advertising" | "insights";
-  label: string;
-  shortLabel: string;
-  badge: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  iconColor: string;
-  bgAccent: string;
-  coreFinding: {
-    title: string;
-    metricPill: string;
-    pillColor: string;
-    base: string;
-    summary: string;
-    caveats: string[];
-    actionLabel: string;
-    queryToRun: string;
-    franchise: GameFranchise;
-  };
-  prompts: {
-    title: string;
-    query: string;
-    franchise: GameFranchise;
-    tag: string;
-    highlight: string;
-  }[];
-}
+const getFindingIcon = (iconType: string) => {
+  switch (iconType) {
+    case "shield":
+      return Shield;
+    case "creator":
+      return Sparkles;
+    case "cross_title":
+      return Layers;
+    case "currency":
+      return Coins;
+    case "slump":
+      return Flame;
+    default:
+      return Users;
+  }
+};
 
-const MASTER_PILLARS: MasterFunctionPillar[] = [
+const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
   {
-    id: "audiences",
-    label: "01. Audiences & Graph",
-    shortLabel: "Audiences",
-    badge: "Spanner Property Graph",
-    description: "Query 5,000+ players & cross-franchise identities via Spanner GQL",
-    icon: Users,
-    iconColor: "text-cyan-400",
-    bgAccent: "bg-cyan-500/10",
-    coreFinding: {
-      title: "Gulag Defeat & Loss Streaks Surge 14-Day Churn",
-      metricPill: "74.6% Churn Risk",
-      pillColor: "bg-rose-500/15 text-rose-300 border-rose-500/30",
-      base: "5,000 Master Players • Spanner Property Graph (Live)",
-      summary: "Warzone Resurgence players on 3+ consecutive Gulag eliminations exhibit a 7.8x surge in 14-day churn risk. 71% of drop-offs happen within 90 minutes without an in-game recovery bridge.",
-      caveats: [
-        "Telemetry window: 90-day real-time Spanner property graph session streams (Warzone & Black Ops 7 Ranked).",
-        "Lapse velocity: Churn probability doubles after Gulag defeat #3 compared to defeat #2.",
-        "Monetization elasticity: Willingness-to-pay for $9.99 BlackCell starter bundles peaks within 15 minutes of session end.",
-      ],
-      actionLabel: "Load High-Tilt Cohort in Spanner Graph",
-      queryToRun: "Warzone Resurgence players with 3+ Gulag losses & high tilt in Los Angeles",
-      franchise: "COD",
+    id: "squad_contagion",
+    category: "churn_contagion",
+    tabLabel: "01. Squad Churn Contagion",
+    shortLabel: "Squad Churn",
+    badge: "Spanner 3-Hop GQL",
+    iconType: "shield",
+    iconColor: "text-rose-400",
+    bgAccent: "bg-rose-500/10",
+    pillColor: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+    metricPill: "64.5% Churn Risk",
+    title: "107 Tilted Players Triggering Squad Churn Contagion",
+    summary: "Spanner 3-Hop traversal isolated 107 active COD players on 3+ loss streaks whose clanmates in FaZe, OpTic, or TaskForce have migrated to Diablo IV. Average churn risk is 64.5% (1.47x baseline lift).",
+    base: "107 Multi-Hop Players • Live Spanner Property Graph",
+    metrics: {
+      cohortSize: 107,
+      avgSpend: 356,
+      avgChurn: 0.645,
+      liftMetric: "1.47x Churn Lift",
+      highRiskCount: 159,
+      secondaryMetric: "$38,092 Cohort Exposure",
     },
+    caveats: [
+      "Multi-Hop Graph Topology: Computed via `(p:Player)-[:MEMBER_OF_CLAN]->(cl:Clan)<-[:MEMBER_OF_CLAN]-(mate)-[:PLAYS_GAME]->(g)` in Spanner.",
+      "Lapse Velocity: Clan members whose squadmates migrate to Diablo IV or WoW exhibit 2.3x faster session abandonment.",
+      "Remediation Window: In-game squad rejoin incentives and double XP tokens must deploy within 60 minutes.",
+    ],
+    actionLabel: "Load Squad Contagion in Spanner Graph",
+    queryToRun: "Warzone players on 3+ Gulag loss streaks whose COD clanmates migrated to Diablo IV",
+    franchise: "COD",
     prompts: [
       {
         title: "Squad Churn Contagion (3-Hop)",
@@ -144,6 +139,53 @@ const MASTER_PILLARS: MasterFunctionPillar[] = [
         highlight: "Clan -> D4",
       },
       {
+        title: "Los Angeles Squad Loss Clusters",
+        query: "Warzone Resurgence players with 3+ Gulag losses & high tilt in Los Angeles",
+        franchise: "COD",
+        tag: "DMA Filter",
+        highlight: "LA Market",
+      },
+      {
+        title: "Diablo IV Pit Demotion Grinders",
+        query: "Diablo IV Pit tier 80+ players with 3+ boss wipe streaks and high churn risk",
+        franchise: "DIABLO4",
+        tag: "Diablo IV",
+        highlight: "Pit Wipes",
+      },
+    ],
+  },
+  {
+    id: "creator_halo",
+    category: "creator_halo",
+    tabLabel: "02. Creator Halo & Shield",
+    shortLabel: "Creator Halo",
+    badge: "Spanner 2-Hop Halo",
+    iconType: "creator",
+    iconColor: "text-amber-400",
+    bgAccent: "bg-amber-500/10",
+    pillColor: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    metricPill: "235 Whales at Risk",
+    title: "235 High-Value Whales Following Scump, Swagg & TimTheTatman",
+    summary: "Spanner 2-Hop graph traversal isolated 235 whale spenders (average spend $2,450) who follow top creators and are currently exhibiting high tilt or churn signals.",
+    base: "235 Creator-Linked Whales • Live Spanner Property Graph",
+    metrics: {
+      cohortSize: 235,
+      avgSpend: 2450,
+      avgChurn: 0.32,
+      liftMetric: "$575,750 Portfolio Value",
+      highRiskCount: 68,
+      secondaryMetric: "78.4% Creator Affinity",
+    },
+    caveats: [
+      "Creator Graph Traversal: `(p:Player)-[:FOLLOWS_CREATOR]->(c:Creator)` edge analysis mapped against creator live streaming schedules.",
+      "Shield Multiplier: Creator-endorsed weapon blueprints and custom loadouts reduce churn propensity by 38.2%.",
+      "Content Decay: Creator sentiment shift creates an immediate 48-hour trailing retention drop among viewers.",
+    ],
+    actionLabel: "Explore Creator Whale Shield in Graph",
+    queryToRun: "Whale players ($500+ spend) at risk of churn following Scump or FaZe Swagg",
+    franchise: "COD",
+    prompts: [
+      {
         title: "Creator Halo & Churn Shield (2-Hop)",
         query: "Whale players ($500+ spend) at risk of churn following Scump or FaZe Swagg",
         franchise: "COD",
@@ -151,203 +193,180 @@ const MASTER_PILLARS: MasterFunctionPillar[] = [
         highlight: "Scump & FaZe",
       },
       {
+        title: "Creator-Endorsed Weapon Blueprint",
+        query: "Generate personalized weapon blueprint bundle for fans of FaZe Swagg and Scump",
+        franchise: "COD",
+        tag: "Creative",
+        highlight: "Blueprint Bundle",
+      },
+      {
+        title: "Overwatch Contenders Stream Viewers",
+        query: "High-value Overwatch 2 players following competitive creators with high coin balance",
+        franchise: "OVERWATCH2",
+        tag: "Overwatch 2",
+        highlight: "Stream Whales",
+      },
+    ],
+  },
+  {
+    id: "cross_title_identity",
+    category: "cross_title",
+    tabLabel: "03. Cross-Title Identity",
+    shortLabel: "Cross-Title",
+    badge: "Battle.net 3-Hop Bridge",
+    iconType: "cross_title",
+    iconColor: "text-purple-400",
+    bgAccent: "bg-purple-500/10",
+    pillColor: "bg-purple-500/15 text-purple-300 border-purple-500/30",
+    metricPill: "$2,450 Avg LTV",
+    title: "119 Multi-Franchise Whales Bridging COD & WoW: Midnight",
+    summary: "119 high-tier players identified via Battle.net account graph edges who actively split playtime between Call of Duty and World of Warcraft: Midnight, with an average LTV of $2,450.",
+    base: "119 Unified Identities • Battle.net Identity Graph",
+    metrics: {
+      cohortSize: 119,
+      avgSpend: 2450,
+      avgChurn: 0.32,
+      liftMetric: "6.4x Cross-Title Spend",
+      highRiskCount: 22,
+      secondaryMetric: "$291,550 Combined Spend",
+    },
+    caveats: [
+      "Identity Unification: Multi-title bridge mapped across `(p)-[:PLAYS_GAME]->(COD)` and `(p)-[:PLAYS_GAME]->(WOW)` via unified BattleTag.",
+      "Seasonal Migration: Cross-title spend surges 3.4x during Call of Duty mid-season lull when WoW major patches launch.",
+      "Cross-Reward Elasticity: Cross-title cosmetics (e.g. Azeroth weapon camos / COD pet vanity) increase 6-month retention by 34%.",
+    ],
+    actionLabel: "Inspect Cross-Franchise Identity Graph",
+    queryToRun: "Battle.net accounts linked across Call of Duty and World of Warcraft: Midnight",
+    franchise: "ALL",
+    prompts: [
+      {
         title: "Cross-Franchise Identity (3-Hop)",
         query: "Battle.net accounts linked across Call of Duty and World of Warcraft: Midnight",
         franchise: "ALL",
         tag: "Spanner 3-Hop",
         highlight: "COD + WoW",
       },
-    ],
-  },
-  {
-    id: "creative",
-    label: "02. Creative Insights",
-    shortLabel: "Creative",
-    badge: "Google Veo & Imagen 3",
-    description: "Generate personalized 4K operator cards and 5-second cinematic Veo killcams",
-    icon: Sparkles,
-    iconColor: "text-amber-400",
-    bgAccent: "bg-amber-500/10",
-    coreFinding: {
-      title: "Custom Weapon Blueprints Drive Video Engagement",
-      metricPill: "+43.8% CTR Lift",
-      pillColor: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-      base: "Google Veo & Imagen 3 Multi-Modal Pipeline",
-      summary: "Personalized 5-second Google Veo cinematic killcam replay videos featuring the player's favorite weapon camo and BattleTag drove a +43.8% CTR over generic static Battle.net banners.",
-      caveats: [
-        "Asset Generation: Vertex AI Gemini 2.5 Pro selects BattleTag + weapon blueprint telemetry from Spanner.",
-        "Render Latency: Google Veo video generation completes in sub-8 seconds for Battle.net companion app delivery.",
-        "Fatigue Rate: Dynamic weapon showcase video creative retains effectiveness 3.4x longer than static key art.",
-      ],
-      actionLabel: "Inspect AI Video Hooks for Warzone",
-      queryToRun: "Extract 5 high-tilt Call of Duty players for personalized Veo killcam generation",
-      franchise: "COD",
-    },
-    prompts: [
       {
-        title: "Personalized Veo Killcam Video",
-        query: "Extract 5 high-tilt Call of Duty players for personalized Veo killcam generation",
-        franchise: "COD",
-        tag: "Google Veo",
-        highlight: "5s Video Hook",
+        title: "Cross-Title Whales ($3,500+ Spend)",
+        query: "Cross-title Whales with spend over $3,500 across Call of Duty and World of Warcraft",
+        franchise: "ALL",
+        tag: "Whale Graph",
+        highlight: "$3,500+ Spend",
       },
       {
-        title: "4K Imagen Master Operator Posters",
-        query: "Generate 4K Imagen operator posters with player BattleTags and Mastery Camo",
-        franchise: "COD",
-        tag: "Imagen 3",
-        highlight: "4K Render",
-      },
-      {
-        title: "Diablo IV Infernal Relic Ad Variants",
-        query: "Generate personalized dark fantasy recovery copy hooks for Pit tier 80+ grinders",
-        franchise: "DIABLO4",
-        tag: "Creative Studio",
-        highlight: "Copy Generator",
+        title: "WoW Mythic Raid Fatigue Officers",
+        query: "Mythic raid guild officers experiencing wipe fatigue and 30-day subscription expiration",
+        franchise: "WOW",
+        tag: "WoW Midnight",
+        highlight: "Mythic Fatigue",
       },
     ],
   },
   {
-    id: "measurement",
-    label: "03. Measurement & Lift",
-    shortLabel: "Measurement",
-    badge: "DeepSona 6-Agent Simulator",
-    description: "Pre-test campaigns against simulated player personas before spend",
-    icon: TrendingUp,
+    id: "dormant_currency",
+    category: "dormant_currency",
+    tabLabel: "04. Dormant Currency Vaults",
+    shortLabel: "Dormant Vaults",
+    badge: "1,000+ Unspent",
+    iconType: "currency",
     iconColor: "text-emerald-400",
     bgAccent: "bg-emerald-500/10",
-    coreFinding: {
-      title: "BlackCell Battle Pass Recovery Shields Prevent Churn",
-      metricPill: "+31.2% Net Revenue Lift",
-      pillColor: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-      base: "DeepSona 6-Agent Multi-Agent Simulation Engine",
-      summary: "Multi-agent debate across 1,000 synthetic player personas predicts a +31.2% conversion lift and 36.8% churn reduction when offering a $9.99 BlackCell starter bundle immediately post-defeat streak.",
-      caveats: [
-        "Simulation Fidelity: Grounded in real Spanner historical purchase behaviors and loss sensitivity.",
-        "Price Elasticity: Conversion drops 42% when priced above $14.99; bundling CP coins doubles conversion elasticity.",
-        "Cohort Consensus: 87% synthetic agent consensus achieved across Warzone Sweats, WoW Guild Masters, and Casual Whales.",
-      ],
-      actionLabel: "Launch DeepSona Focus Group Simulation",
-      queryToRun: "Simulate +31.2% sales lift for $9.99 BlackCell post-defeat starter bundle in DeepSona",
-      franchise: "COD",
+    pillColor: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    metricPill: "1,650 Avg Unspent",
+    title: "412 Players Holding 1,000+ Unspent Premium Currency",
+    summary: "412 active players currently hold 1,000+ unspent premium currency (average 1,650 balance), presenting an immediate conversion opportunity for targeted BlackCell and Mythic shop vault offers.",
+    base: "412 Currency Holders • Live Spanner Telemetry",
+    metrics: {
+      cohortSize: 412,
+      avgSpend: 820,
+      avgChurn: 0.58,
+      liftMetric: "1,650 Avg Unspent",
+      highRiskCount: 172,
+      secondaryMetric: "$337,840 Total Balance",
     },
+    caveats: [
+      "Wallet Telemetry: Live ledger balance tracking for CoD Points, Platinum, WoW Tokens, and Gold Bars.",
+      "Conversion Elasticity: Players with 1,000+ dormant coins convert at 3.8x higher rate when offered a 20% bundle discount.",
+      "Burn Velocity: Unspent currency older than 45 days correlates with a 58% churn risk acceleration.",
+    ],
+    actionLabel: "Query High Currency Vault Holders",
+    queryToRun: "High-value players holding over 1,000 unspent premium currency with high churn risk",
+    franchise: "COD",
     prompts: [
       {
-        title: "BlackCell Shield +31.2% Lift",
+        title: "Dormant Currency Whales (1,000+ Coins)",
+        query: "High-value players holding over 1,000 unspent premium currency with high churn risk",
+        franchise: "COD",
+        tag: "Currency Vault",
+        highlight: "1,000+ Balance",
+      },
+      {
+        title: "Candy Crush Level 500+ Booster Depletion",
+        query: "Casual Commuters stuck on level 500+ with booster depletion and high purchase propensity",
+        franchise: "CANDYCRUSH",
+        tag: "Candy Crush",
+        highlight: "Gold Bars",
+      },
+      {
+        title: "Diablo IV Platinum Hoarders",
+        query: "Diablo IV players with 1,500+ unspent Platinum during Infernal Hordes season",
+        franchise: "DIABLO4",
+        tag: "Platinum",
+        highlight: "Infernal Vault",
+      },
+    ],
+  },
+  {
+    id: "defeat_slump",
+    category: "defeat_slump",
+    tabLabel: "05. Defeat & Tilt Slumps",
+    shortLabel: "Loss Slumps",
+    badge: "Loss Streak >= 3",
+    iconType: "slump",
+    iconColor: "text-pink-400",
+    bgAccent: "bg-pink-500/10",
+    pillColor: "bg-pink-500/15 text-pink-300 border-rose-500/30",
+    metricPill: "394 Slump Players",
+    title: "Gulag Defeat & Loss Streaks Surge 14-Day Churn",
+    summary: "394 players on 3+ consecutive loss streaks exhibit a 64.5% churn risk (1.47x baseline lift). 71% of session drop-offs occur within 90 minutes without a recovery offer.",
+    base: "394 Active Slump Players • Live Spanner Property Graph",
+    metrics: {
+      cohortSize: 394,
+      avgSpend: 356,
+      avgChurn: 0.645,
+      liftMetric: "1.47x Churn Lift",
+      highRiskCount: 159,
+      secondaryMetric: "$140,264 Revenue at Risk",
+    },
+    caveats: [
+      "Telemetry Window: Real-time Spanner property graph session streams (Warzone, Black Ops 7 Ranked & Diablo Pit).",
+      "Lapse Velocity: Churn probability doubles after defeat #3 compared to defeat #2.",
+      "Monetization Elasticity: Willingness-to-pay for $9.99 BlackCell recovery bundles peaks within 15 minutes of session end.",
+    ],
+    actionLabel: "Load High-Tilt Cohort in Spanner Graph",
+    queryToRun: "Warzone Resurgence players with 3+ Gulag losses & high tilt in Los Angeles",
+    franchise: "COD",
+    prompts: [
+      {
+        title: "Loss Streak Churn Surge",
+        query: "Warzone Resurgence players with 3+ Gulag losses & high tilt in Los Angeles",
+        franchise: "COD",
+        tag: "Warzone Tilt",
+        highlight: "3+ Losses",
+      },
+      {
+        title: "DeepSona +31.2% Recovery Simulation",
         query: "Simulate +31.2% sales lift for $9.99 BlackCell post-defeat starter bundle in DeepSona",
         franchise: "COD",
         tag: "DeepSona",
         highlight: "+31.2% Lift",
       },
       {
-        title: "WoW 6-Month Sub Retention",
-        query: "Simulate 6-month subscription retention when Mount voucher incentives are active",
-        franchise: "WOW",
-        tag: "Attribution",
-        highlight: "+38.4% Ret.",
-      },
-      {
-        title: "Candy Crush Booster WTP Curve",
-        query: "Simulate purchase conversion rates for Gold Bars at $1.99 vs $4.99 price points",
-        franchise: "CANDYCRUSH",
-        tag: "DeepSona",
-        highlight: "WTP Curve",
-      },
-    ],
-  },
-  {
-    id: "advertising",
-    label: "04. ABK Media Network",
-    shortLabel: "Advertising",
-    badge: "Battle.net & In-Game Triggers",
-    description: "Trigger Battle.net launcher takeovers and companion push in real time",
-    icon: Radio,
-    iconColor: "text-pink-400",
-    bgAccent: "bg-pink-500/10",
-    coreFinding: {
-      title: "Battle.net Launcher Desktop Window Opportunity",
-      metricPill: "4.1x Open Surge",
-      pillColor: "bg-pink-500/15 text-pink-300 border-pink-500/30",
-      base: "LiveOps Situational Event Bus & Battle.net Launcher Telemetry",
-      summary: "Warzone and WoW players open the Battle.net client within 10 minutes of session completion. Dynamic hero launcher takeovers delivered here capture 4.1x higher conversion than in-game popups.",
-      caveats: [
-        "Trigger Pipeline: Sub-50ms JSON-RPC event notification from game client to Battle.net launcher ad gateway.",
-        "Social Multiplier: Clan officers who purchase BlackCell passes trigger 2.4x follow-on purchases within their clan.",
-        "Ad Fatigue Guard: Strict 1-offer per 72-hour cap prevents user perception of aggressive monetization.",
-      ],
-      actionLabel: "Deploy Battle.net Launcher Hero Takeover",
-      queryToRun: "Deploy targeted Battle.net hero takeover for Friday night Warzone resurgence grinders",
-      franchise: "COD",
-    },
-    prompts: [
-      {
-        title: "Battle.net Launcher Hero Takeover",
+        title: "Battle.net Launcher Takeover",
         query: "Deploy targeted Battle.net hero takeover for Friday night Warzone resurgence grinders",
         franchise: "COD",
         tag: "Battle.net Ad",
-        highlight: "Desktop Takeover",
-      },
-      {
-        title: "Gulag Elimination Trigger",
-        query: "Schedule dynamic in-game offer triggers upon 3rd consecutive Gulag elimination",
-        franchise: "COD",
-        tag: "LiveOps",
-        highlight: "Auto-Trigger",
-      },
-      {
-        title: "Overwatch Mythic Skin Prism Bidding",
-        query: "Optimize programmatic ad bids and reward token drops during Overwatch 2 Contenders",
-        franchise: "OVERWATCH2",
-        tag: "Ad Server",
-        highlight: "Bidding",
-      },
-    ],
-  },
-  {
-    id: "insights",
-    label: "05. Player Insights",
-    shortLabel: "Insights",
-    badge: "Cross-Game Telemetry",
-    description: "Diagnose churn drop-offs, platform migration, and rage-quit trends",
-    icon: Crosshair,
-    iconColor: "text-purple-400",
-    bgAccent: "bg-purple-500/10",
-    coreFinding: {
-      title: "Battle.net Cross-Title Whale Spillover",
-      metricPill: "$4,250 Avg LTV",
-      pillColor: "bg-purple-500/15 text-purple-300 border-purple-500/30",
-      base: "Cross-Franchise Identity Graph (5 Core Titles)",
-      summary: "14.8% of high-spend Call of Duty players actively migrate to World of Warcraft and Diablo IV during seasonal content lulls, spending an additional $1,400+ on seasonal vaults when cross-promoted.",
-      caveats: [
-        "Identity Resolution: 7,788 linked platform identities unified via Battle.net Account ID graph edges.",
-        "Migration Timing: Diablo IV playtime surges 58% during Call of Duty mid-season balance patch gaps.",
-        "Cross-Reward Strategy: Cross-game cosmetic loyalty rewards (e.g., Mounts & Weapon Camos) boost retention across all titles by 26%.",
-      ],
-      actionLabel: "Explore Cross-Franchise Whale Graph",
-      queryToRun: "Cross-title Whales with spend over $3,500 across Call of Duty and World of Warcraft",
-      franchise: "ALL",
-    },
-    prompts: [
-      {
-        title: "Diablo Pit Demotion Rage-Quits",
-        query: "Diablo IV Pit tier 80+ players with 3+ boss wipe streaks and high churn risk",
-        franchise: "DIABLO4",
-        tag: "Diablo IV",
-        highlight: "Pit Wipes",
-      },
-      {
-        title: "Candy Crush Level 500+ Whales",
-        query: "Casual Commuters stuck on level 500+ with booster depletion and high purchase propensity",
-        franchise: "CANDYCRUSH",
-        tag: "Candy Crush",
-        highlight: "Level 500+",
-      },
-      {
-        title: "WoW Mythic Raid Fatigue",
-        query: "Mythic raid guild officers experiencing wipe fatigue and 30-day subscription expiration",
-        franchise: "WOW",
-        tag: "World of Warcraft",
-        highlight: "Mythic Fatigue",
+        highlight: "Desktop Hero",
       },
     ],
   },
@@ -365,52 +384,35 @@ export default function GeminiLandingStage({
 }: GeminiLandingStageProps) {
   const [query, setQuery] = useState("");
   const [selectedFranchise, setSelectedFranchise] = useState<GameFranchise>("ALL");
-  const [activePillarId, setActivePillarId] = useState<"audiences" | "creative" | "measurement" | "advertising" | "insights">("audiences");
+  const [dynamicFindings, setDynamicFindings] = useState<DynamicCohortFinding[]>(DEFAULT_DYNAMIC_FINDINGS);
+  const [activeFindingId, setActiveFindingId] = useState<string>("squad_contagion");
   const [activeLoadingQuery, setActiveLoadingQuery] = useState<string | null>(null);
   const [isBriefModalOpen, setIsBriefModalOpen] = useState<boolean>(false);
-  const [liveFinding, setLiveFinding] = useState<any | null>(null);
 
   const activeAura = AURA_THEMES[selectedFranchise] || AURA_THEMES.ALL;
 
-  // The Audiences core finding is computed from Spanner rather than asserted.
-  // The card's action button loads the very cohort the headline describes, so
-  // a hardcoded figure would be contradicted the moment anyone clicked it.
+  // The cohort findings are computed from live Spanner.
+  // When the marketer switches franchise, we fetch live cohort metrics.
   const findingFranchise = selectedFranchise === "ALL" ? "COD" : selectedFranchise;
   useEffect(() => {
     let cancelled = false;
-    setLiveFinding(null);
     fetch(`/api/insights/core-finding?franchise=${findingFranchise}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (!cancelled && d && !d.error) setLiveFinding(d);
+        if (!cancelled && d && Array.isArray(d.findings) && d.findings.length > 0) {
+          setDynamicFindings(d.findings);
+        }
       })
       .catch(() => {
-        // Leave `liveFinding` null; the card falls back to static copy and
-        // labels itself as such rather than showing stale numbers as live.
+        // Fall back to default findings if network is unreachable
       });
     return () => {
       cancelled = true;
     };
   }, [findingFranchise]);
 
-  const basePillar = MASTER_PILLARS.find((p) => p.id === activePillarId) || MASTER_PILLARS[0];
-  const currentPillar =
-    basePillar.id === "audiences" && liveFinding
-      ? {
-          ...basePillar,
-          coreFinding: {
-            ...basePillar.coreFinding,
-            title: String(liveFinding.title),
-            metricPill: String(liveFinding.metric_pill),
-            base: String(liveFinding.base),
-            summary: String(liveFinding.summary),
-            caveats: (liveFinding.caveats || []) as string[],
-            actionLabel: String(liveFinding.action_label),
-            queryToRun: String(liveFinding.query_to_run),
-            franchise: liveFinding.franchise as GameFranchise,
-          },
-        }
-      : basePillar;
+  const currentFinding =
+    dynamicFindings.find((f) => f.id === activeFindingId) || dynamicFindings[0] || DEFAULT_DYNAMIC_FINDINGS[0];
 
   const handleRunSearch = (customQ?: string, customFranchise?: GameFranchise) => {
     if (isLoading) return;
@@ -626,32 +628,32 @@ export default function GeminiLandingStage({
           </div>
         </div>
 
-        {/* 4. Gemini Enterprise Master Control Panel (Sleek Segmented Pillar Explorer) */}
+        {/* 4. Gemini Enterprise Master Control Panel (Dynamic Cohort Explorer) */}
         <div className="w-full space-y-2.5">
-          {/* 5-Pillar Segmented Tabs */}
-          <div className="flex items-center justify-between bg-black/40 p-1 rounded-2xl border border-white/10 backdrop-blur-xl">
-            {MASTER_PILLARS.map((pillar) => {
-              const isSelected = activePillarId === pillar.id;
-              const IconComponent = pillar.icon;
+          {/* Dynamic Cohort Segmented Tabs */}
+          <div className="flex items-center justify-between bg-black/40 p-1 rounded-2xl border border-white/10 backdrop-blur-xl gap-1">
+            {dynamicFindings.map((finding) => {
+              const isSelected = activeFindingId === finding.id;
+              const IconComponent = getFindingIcon(finding.iconType);
               return (
                 <button
-                  key={pillar.id}
-                  onClick={() => setActivePillarId(pillar.id)}
+                  key={finding.id}
+                  onClick={() => setActiveFindingId(finding.id)}
                   className={`flex-1 flex items-center justify-center gap-2 py-2 px-2.5 rounded-xl text-xs font-medium transition-all ${
                     isSelected
                       ? "bg-white/15 text-white font-semibold shadow-sm border border-white/10"
                       : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5"
                   }`}
                 >
-                  <IconComponent className={`w-3.5 h-3.5 ${isSelected ? pillar.iconColor : "text-zinc-500"}`} />
-                  <span className="hidden sm:inline">{pillar.label}</span>
-                  <span className="sm:hidden">{pillar.shortLabel}</span>
+                  <IconComponent className={`w-3.5 h-3.5 ${isSelected ? finding.iconColor : "text-zinc-500"}`} />
+                  <span className="hidden sm:inline">{finding.tabLabel}</span>
+                  <span className="sm:hidden">{finding.shortLabel}</span>
                 </button>
               );
             })}
           </div>
 
-          {/* 🌟 The Core Finding Executive Callout Card */}
+          {/* 🌟 The Dynamic Core Finding Executive Callout Card */}
           <button
             type="button"
             onClick={() => setIsBriefModalOpen(true)}
@@ -664,7 +666,7 @@ export default function GeminiLandingStage({
                   The Core Finding
                 </span>
                 <span className="text-[10px] text-zinc-500 font-mono hidden sm:inline">
-                  • {currentPillar.coreFinding.base}
+                  • {currentFinding.base}
                 </span>
               </div>
               <div className="flex items-center gap-1 text-[11px] text-cyan-400 group-hover:text-cyan-300 font-medium transition-colors">
@@ -675,21 +677,21 @@ export default function GeminiLandingStage({
 
             <div className="flex flex-wrap items-center gap-2.5">
               <div className="text-sm sm:text-[15px] font-semibold text-white tracking-tight flex items-center gap-1.5">
-                <span>📣 {currentPillar.coreFinding.title}</span>
+                <span>📣 {currentFinding.title}</span>
               </div>
-              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${currentPillar.coreFinding.pillColor}`}>
-                {currentPillar.coreFinding.metricPill}
+              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${currentFinding.pillColor}`}>
+                {currentFinding.metricPill}
               </span>
             </div>
 
             <p className="text-xs text-zinc-300 leading-relaxed line-clamp-2">
-              {currentPillar.coreFinding.summary}
+              {currentFinding.summary}
             </p>
           </button>
 
           {/* 3 Spacious Prompt Cards in a clean 1x3 grid */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {currentPillar.prompts.map((p, pIdx) => {
+            {currentFinding.prompts.map((p, pIdx) => {
               const isThisCardLoading = isLoading && activeLoadingQuery === p.query;
               return (
                 <div
@@ -749,7 +751,7 @@ export default function GeminiLandingStage({
         </div>
       </footer>
 
-      {/* 🌟 6. Opportunity Brief Executive Detail Modal (Faithful to Reference Image) */}
+      {/* 🌟 6. Opportunity Brief Executive Detail Modal (Dynamic & Faithful to Reference Image) */}
       {isBriefModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in pointer-events-auto"
@@ -762,15 +764,17 @@ export default function GeminiLandingStage({
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 pb-3.5">
               <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-xl ${currentPillar.bgAccent} border border-white/10 flex items-center justify-center`}>
-                  <currentPillar.icon className={`w-4 h-4 ${currentPillar.iconColor}`} />
+                <div className={`w-8 h-8 rounded-xl ${currentFinding.bgAccent} border border-white/10 flex items-center justify-center`}>
+                  {React.createElement(getFindingIcon(currentFinding.iconType), {
+                    className: `w-4 h-4 ${currentFinding.iconColor}`,
+                  })}
                 </div>
                 <div>
                   <h2 className="text-base font-semibold text-white tracking-tight">
-                    Opportunity Brief — {currentPillar.label}
+                    Opportunity Brief — {currentFinding.tabLabel}
                   </h2>
                   <p className="text-xs text-zinc-400 font-mono">
-                    {currentPillar.coreFinding.base}
+                    {currentFinding.base}
                   </p>
                 </div>
               </div>
@@ -784,20 +788,43 @@ export default function GeminiLandingStage({
 
             {/* The Core Finding Box in Modal */}
             <div className="p-4 rounded-2xl bg-black/50 border border-white/10 space-y-2">
-              <div className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider font-mono">
-                The Core Finding
+              <div className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider font-mono flex items-center justify-between">
+                <span>The Core Finding</span>
+                <span className="text-zinc-500 font-mono">{currentFinding.badge}</span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold text-white">
-                  📣 {currentPillar.coreFinding.title}
+                  📣 {currentFinding.title}
                 </span>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${currentPillar.coreFinding.pillColor}`}>
-                  {currentPillar.coreFinding.metricPill}
+                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${currentFinding.pillColor}`}>
+                  {currentFinding.metricPill}
                 </span>
               </div>
               <p className="text-xs text-zinc-300 leading-relaxed">
-                {currentPillar.coreFinding.summary}
+                {currentFinding.summary}
               </p>
+
+              {/* Live Metrics Grid */}
+              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/5">
+                <div className="bg-white/[0.03] p-2 rounded-xl border border-white/5">
+                  <div className="text-[10px] text-zinc-400">Cohort Size</div>
+                  <div className="text-xs font-bold text-white font-mono mt-0.5">
+                    {currentFinding.metrics.cohortSize.toLocaleString()} Players
+                  </div>
+                </div>
+                <div className="bg-white/[0.03] p-2 rounded-xl border border-white/5">
+                  <div className="text-[10px] text-zinc-400">Average LTV</div>
+                  <div className="text-xs font-bold text-emerald-400 font-mono mt-0.5">
+                    ${currentFinding.metrics.avgSpend.toLocaleString()}
+                  </div>
+                </div>
+                <div className="bg-white/[0.03] p-2 rounded-xl border border-white/5">
+                  <div className="text-[10px] text-zinc-400">Churn Risk</div>
+                  <div className="text-xs font-bold text-rose-400 font-mono mt-0.5">
+                    {(currentFinding.metrics.avgChurn * 100).toFixed(1)}%
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Read this first — Data Caveats & Grounding */}
@@ -806,7 +833,7 @@ export default function GeminiLandingStage({
                 Read this first — data caveats that shape every number below:
               </h3>
               <ul className="space-y-2 text-xs text-zinc-400">
-                {currentPillar.coreFinding.caveats.map((c, cIdx) => (
+                {currentFinding.caveats.map((c, cIdx) => (
                   <li key={cIdx} className="flex items-start gap-2">
                     <span className="text-cyan-400 font-bold">•</span>
                     <span className="leading-relaxed">{c}</span>
@@ -830,12 +857,12 @@ export default function GeminiLandingStage({
                 <button
                   onClick={() => {
                     setIsBriefModalOpen(false);
-                    handleRunSearch(currentPillar.coreFinding.queryToRun, currentPillar.coreFinding.franchise);
+                    handleRunSearch(currentFinding.queryToRun, currentFinding.franchise);
                   }}
                   disabled={isLoading}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-semibold transition-all shadow-lg active:scale-95 disabled:opacity-50"
                 >
-                  <span>{currentPillar.coreFinding.actionLabel}</span>
+                  <span>{currentFinding.actionLabel}</span>
                   <ArrowRight className="w-3.5 h-3.5 text-black" />
                 </button>
               </div>
