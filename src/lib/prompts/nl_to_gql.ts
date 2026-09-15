@@ -6,7 +6,27 @@ Schema Definition:
 - Node Tables:
   - MasterPlayer (LABEL Player) PROPERTIES: player_id, display_name, primary_franchise, franchises_played, lifetime_spend_usd, primary_archetype, churn_risk_score, tilt_sensitivity, recent_loss_streak, age, gender, account_tenure_days, currency_balance, country, dma_market, lat, lng, game_telemetry
   - Game (LABEL Game) PROPERTIES: game_id, franchise, title, genre
+  - Clan (LABEL Clan) PROPERTIES: clan_id, name, franchise, region, tier, member_count
+  - Creator (LABEL Creator) PROPERTIES: creator_id, handle, name, platform, franchise, followers
+  - Identity (LABEL Identity) PROPERTIES: identity_id, platform, platform_handle, confidence_score
   - MarketingOffer (LABEL Offer) PROPERTIES: offer_id, target_franchise, offer_title, price_usd, discount_percent, trigger_condition
+
+- Edge Tables (Relationships):
+  - (p:Player)-[:MEMBER_OF_CLAN]->(cl:Clan)
+  - (p:Player)-[:FOLLOWS_CREATOR]->(c:Creator)
+  - (p:Player)-[:HAS_IDENTITY]->(id:Identity)
+  - (p:Player)-[:PLAYS_GAME]->(g:Game)
+
+Multi-Hop Property Graph Traversal Patterns:
+1. Squad Churn Contagion (3-Hop):
+   MATCH (p:Player)-[:MEMBER_OF_CLAN]->(cl:Clan)<-[:MEMBER_OF_CLAN]-(mate:Player)-[:PLAYS_GAME]->(g:Game)
+   WHERE p.player_id != mate.player_id AND ...
+2. Creator Influence & Halo (2-Hop):
+   MATCH (p:Player)-[:FOLLOWS_CREATOR]->(c:Creator)
+   WHERE ...
+3. Cross-Franchise Battle.net Identity Bridge (3-Hop):
+   MATCH (p:Player)-[:HAS_IDENTITY]->(id:Identity), (p)-[:PLAYS_GAME]->(g1:Game), (p)-[:PLAYS_GAME]->(g2:Game)
+   WHERE g1.franchise = 'COD' AND g2.franchise = 'WOW' AND ...
 
 Field Semantics:
 - churn_risk_score: 0.0-1.0. >= 0.70 is "at risk" / "likely to churn" / "lapsing".

@@ -56,6 +56,26 @@ export interface CohortAggregates {
   dominantArchetype: string;
 }
 
+export interface MultiHopBridgeRow {
+  player_id: string;
+  clan_id?: string;
+  clan_name?: string;
+  clan_tier?: string;
+  mate_id?: string;
+  mate_tag?: string;
+  mate_franchise?: string;
+  creator_id?: string;
+  creator_handle?: string;
+  creator_name?: string;
+  creator_platform?: string;
+  identity_id?: string;
+  identity_platform?: string;
+  identity_handle?: string;
+  target_game_id?: string;
+  target_game_title?: string;
+  target_game_franchise?: string;
+}
+
 export interface GraphQueryResult {
   rows: PlayerRow[];
   totalMatched: number;
@@ -65,6 +85,9 @@ export interface GraphQueryResult {
   executionTimeMs: number;
   whereClause: string;
   gqlExecuted: string;
+  isMultiHop?: boolean;
+  matchPattern?: string;
+  bridgeRows?: MultiHopBridgeRow[];
 }
 
 export class SpannerUnavailableError extends Error {
@@ -119,6 +142,19 @@ function getDatabase(): Database {
 }
 
 /**
+ * Extract the MATCH pattern from a GQL query. Defaults to `(p:Player)` if missing.
+ */
+export function extractMatchClause(gql: string): string {
+  if (!gql) return "(p:Player)";
+  const match = gql.match(
+    /\bMATCH\b([\s\S]*?)(?:\bWHERE\b|\bRETURN\b|\bORDER\s+BY\b|\bLIMIT\b|\bNEXT\b|$)/i
+  );
+  if (!match) return "(p:Player)";
+  const clause = match[1].trim();
+  return clause || "(p:Player)";
+}
+
+/**
  * Pull the WHERE clause out of a generated GQL query.
  *
  * Returns an empty string when the query has no filter, which legitimately
@@ -144,9 +180,9 @@ export function normalizeWhereClause(where: string): string {
   if (!where) return "";
   let out = where;
 
-  // 'X' IN p.array_field  ->  'X' IN UNNEST(p.array_field)
+  // 'X' IN alias.array_field  ->  'X' IN UNNEST(alias.array_field)
   out = out.replace(
-    /('(?:[^']*)'|"(?:[^"]*)")\s+IN\s+(p\.[a-zA-Z_0-9]+)(?!\s*\()/gi,
+    /('(?:[^']*)'|"(?:[^"]*)")\s+IN\s+([a-zA-Z_0-9]+\.[a-zA-Z_0-9]+)(?!\s*\()/gi,
     (_m, literal, field) => `${literal} IN UNNEST(${field})`
   );
 
@@ -228,42 +264,94 @@ export async function runSpannerGraphQuery(
   const started = Date.now();
   const database = getDatabase();
 
+  const matchClause = extractMatchClause(generatedGql);
+  const isMultiHop =
+    matchClause !== "(p:Player)" &&
+    (matchClause.includes("-") ||
+      matchClause.includes(",") ||
+      matchClause.includes("Clan") ||
+      matchClause.includes("Creator") ||
+      matchClause.includes("Identity") ||
+      matchClause.includes("Game"));
+
   const where = normalizeWhereClause(extractWhereClause(generatedGql));
   const whereFragment = buildWhereFragment(where);
 
   const rowsSql =
     `GRAPH ${GRAPH}\n` +
-    `MATCH (p:Player)\n` +
+    `MATCH ${matchClause}\n` +
     whereFragment +
     `RETURN ${PLAYER_PROJECTION}\n` +
     `ORDER BY p.lifetime_spend_usd DESC\n` +
-    `LIMIT ${Math.max(1, Math.floor(renderLimit))}`;
+    `LIMIT ${Math.max(1, Math.floor(renderLimit * (isMultiHop ? 3 : 1)))}`;
 
-  // A genuine population count, not the size of the page above.
+  // A genuine population count across distinct players
   const statsSql =
     `GRAPH ${GRAPH}\n` +
-    `MATCH (p:Player)\n` +
+    `MATCH ${matchClause}\n` +
     whereFragment +
-    `RETURN COUNT(*) AS total,\n` +
+    `RETURN COUNT(DISTINCT p.player_id) AS total,\n` +
     `       AVG(p.lifetime_spend_usd) AS avg_spend,\n` +
     `       AVG(p.churn_risk_score) AS avg_churn,\n` +
     `       AVG(p.tilt_sensitivity) AS avg_tilt,\n` +
-    `       COUNTIF(p.churn_risk_score >= 0.7) AS high_churn`;
+    `       COUNT(DISTINCT IF(p.churn_risk_score >= 0.7, p.player_id, NULL)) AS high_churn`;
 
   const archetypeSql =
-    `GRAPH ${GRAPH}\nMATCH (p:Player)\n` +
+    `GRAPH ${GRAPH}\nMATCH ${matchClause}\n` +
     whereFragment +
-    `RETURN p.primary_archetype AS k, COUNT(*) AS n\nGROUP BY k\nORDER BY n DESC`;
+    `RETURN p.primary_archetype AS k, COUNT(DISTINCT p.player_id) AS n\nGROUP BY k\nORDER BY n DESC`;
 
   const countrySql =
-    `GRAPH ${GRAPH}\nMATCH (p:Player)\n` +
+    `GRAPH ${GRAPH}\nMATCH ${matchClause}\n` +
     whereFragment +
-    `RETURN p.country AS k, COUNT(*) AS n\nGROUP BY k\nORDER BY n DESC`;
+    `RETURN p.country AS k, COUNT(DISTINCT p.player_id) AS n\nGROUP BY k\nORDER BY n DESC`;
 
   const franchiseSql =
-    `GRAPH ${GRAPH}\nMATCH (p:Player)\n` +
+    `GRAPH ${GRAPH}\nMATCH ${matchClause}\n` +
     whereFragment +
-    `RETURN p.primary_franchise AS k, COUNT(*) AS n\nGROUP BY k\nORDER BY n DESC`;
+    `RETURN p.primary_franchise AS k, COUNT(DISTINCT p.player_id) AS n\nGROUP BY k\nORDER BY n DESC`;
+
+  // Multi-hop bridge query promise
+  let bridgePromise: Promise<any[]> = Promise.resolve([]);
+  if (isMultiHop) {
+    if (matchClause.includes("Clan")) {
+      const hasMate = matchClause.includes("mate");
+      const hasGame = matchClause.includes("Game") || matchClause.includes("g:");
+      const bridgeSql =
+        `GRAPH ${GRAPH}\n` +
+        `MATCH ${matchClause}\n` +
+        whereFragment +
+        `RETURN DISTINCT p.player_id,\n` +
+        `       cl.clan_id, cl.name AS clan_name, cl.tier AS clan_tier,\n` +
+        (hasMate
+          ? `       mate.player_id AS mate_id, mate.gamer_tag AS mate_tag, mate.primary_franchise AS mate_franchise,\n`
+          : "") +
+        (hasGame
+          ? `       g.game_id AS target_game_id, g.title AS target_game_title, g.franchise AS target_game_franchise\n`
+          : `cl.franchise AS target_game_franchise\n`) +
+        `LIMIT 120`;
+      bridgePromise = runGql(database, bridgeSql).catch(() => []);
+    } else if (matchClause.includes("Creator")) {
+      const bridgeSql =
+        `GRAPH ${GRAPH}\n` +
+        `MATCH ${matchClause}\n` +
+        whereFragment +
+        `RETURN DISTINCT p.player_id,\n` +
+        `       c.creator_id, c.handle AS creator_handle, c.platform AS creator_platform, c.name AS creator_name,\n` +
+        `       c.franchise AS target_game_franchise\n` +
+        `LIMIT 120`;
+      bridgePromise = runGql(database, bridgeSql).catch(() => []);
+    } else if (matchClause.includes("Identity")) {
+      const bridgeSql =
+        `GRAPH ${GRAPH}\n` +
+        `MATCH ${matchClause}\n` +
+        whereFragment +
+        `RETURN DISTINCT p.player_id,\n` +
+        `       id.identity_id, id.platform AS identity_platform, id.platform_handle AS identity_handle\n` +
+        `LIMIT 120`;
+      bridgePromise = runGql(database, bridgeSql).catch(() => []);
+    }
+  }
 
   let results: any[][];
   try {
@@ -273,18 +361,19 @@ export async function runSpannerGraphQuery(
       runGql(database, archetypeSql),
       runGql(database, countrySql),
       runGql(database, franchiseSql),
+      bridgePromise,
     ]);
   } catch (e: any) {
     // Loud, specific, and carrying the SQL so the failure is diagnosable.
     throw new SpannerUnavailableError(
-      `Spanner graph query failed: ${e?.message || e}. WHERE clause was: ${
+      `Spanner graph query failed: ${e?.message || e}. MATCH was: ${matchClause}. WHERE clause was: ${
         where || "(none)"
       }`,
       e
     );
   }
 
-  const [rawRows, statsRows, archRows, countryRows, franchiseRows] = results;
+  const [rawRows, statsRows, archRows, countryRows, franchiseRows, bridgeRows] = results;
 
   const stats = statsRows[0] || {};
   const histogram = (rows: any[]) =>
@@ -309,8 +398,19 @@ export async function runSpannerGraphQuery(
     dominantArchetype,
   };
 
+  // Deduplicate rows by player_id (since multi-hop path matching can yield duplicate player references)
+  const seenPlayerIds = new Set<string>();
+  const distinctRows: PlayerRow[] = [];
+  for (const raw of rawRows) {
+    if (raw.player_id && !seenPlayerIds.has(raw.player_id)) {
+      seenPlayerIds.add(raw.player_id);
+      distinctRows.push(mapPlayerRow(raw));
+      if (distinctRows.length >= renderLimit) break;
+    }
+  }
+
   return {
-    rows: rawRows.map(mapPlayerRow),
+    rows: distinctRows,
     totalMatched: aggregates.totalMatched,
     aggregates,
     isLive: true,
@@ -318,6 +418,9 @@ export async function runSpannerGraphQuery(
     executionTimeMs: Date.now() - started,
     whereClause: where,
     gqlExecuted: rowsSql,
+    isMultiHop,
+    matchPattern: matchClause,
+    bridgeRows: bridgeRows || [],
   };
 }
 

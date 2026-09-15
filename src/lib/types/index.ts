@@ -1,4 +1,4 @@
-export type NodeType = "PLAYER" | "IDENTITY" | "GAME" | "CLAN" | "OFFER" | "CREATOR";
+export type NodeType = "PLAYER" | "IDENTITY" | "GAME" | "CLAN" | "OFFER" | "CREATOR" | "SQUADMATE";
 
 export type GameFranchise = "ALL" | "COD" | "WOW" | "DIABLO4" | "OVERWATCH2" | "CANDYCRUSH";
 
@@ -15,6 +15,15 @@ export type ContextualViewType =
   | "single-identity"
   | "cross-franchise"
   | "social-clans";
+
+export interface MultiHopPathInfo {
+  hops: number;
+  patternLabel: string;
+  summary: string;
+  steps: string[];
+  targetEntity?: string;
+  bridgeNodes?: string[];
+}
 
 export interface GraphNode {
   id: string;
@@ -65,6 +74,9 @@ export interface GraphNode {
   dma_market?: string;
   lat?: number;
   lng?: number;
+  multiHopPath?: MultiHopPathInfo;
+  isMultiHopBridge?: boolean;
+  hopStep?: number;
   x?: number;
   y?: number;
   z?: number;
@@ -79,6 +91,9 @@ export interface GraphLink {
   label?: string;
   value?: number;
   isTriggerStream?: boolean;
+  isMultiHopBridge?: boolean;
+  hopStep?: number;
+  hopLabel?: string;
   color?: string;
   curvature?: number;
 }
@@ -194,6 +209,8 @@ export interface CohortContext {
   isLive?: boolean;
   source?: string;
   suggestedCampaign?: string;
+  isMultiHop?: boolean;
+  multiHopMetadata?: MultiHopPathInfo;
 }
 
 export interface DeepSonaResult {

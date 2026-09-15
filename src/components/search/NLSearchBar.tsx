@@ -16,16 +16,16 @@ interface NLSearchBarProps {
 
 const SAMPLE_PROMPTS_BY_GAME: Record<GameFranchise, string[]> = {
   ALL: [
+    "Warzone players on 3+ loss streaks whose COD clanmates migrated to Diablo IV",
+    "High-LTV whales at risk of churn following Scump or FaZe Swagg",
+    "Battle.net accounts linked across Call of Duty and World of Warcraft: Midnight",
     "Cross-title whales with spend over $3,500 across Call of Duty and WoW",
-    "Players with 3+ loss streaks and tilt sensitivity above 0.6",
-    "Battle.net players active in both Warzone and WoW Midnight",
-    "Lapsed high-LTV accounts with churn risk over 0.70",
   ],
   COD: [
+    "Warzone players on 3+ Gulag loss streaks whose COD clanmates migrated to Diablo IV",
+    "Whale players ($500+ spend) at risk of churn following Scump or FaZe Swagg",
     "Warzone players with 3+ Gulag losses and high tilt in Los Angeles",
     "BlackCell whales who bought the Black Ops 7 pass ($1,500+ spend)",
-    "Black Ops 7 Ranked Play players on last-gen consoles before sunset",
-    "Scump and FaZe_Swagg followers playing Warzone",
   ],
   WOW: [
     "Midnight Season 2 raiders with 3+ wipe streaks",

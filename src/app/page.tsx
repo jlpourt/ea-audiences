@@ -100,6 +100,8 @@ export default function CommandCenterPage() {
         highChurnCount: metrics.high_churn_count || 0,
         isLive: !!metrics.is_live,
         source: metrics.spanner_source || "",
+        isMultiHop: !!metrics.is_multi_hop,
+        multiHopMetadata: metrics.multi_hop_metadata,
       });
     }
   };
@@ -487,6 +489,7 @@ export default function CommandCenterPage() {
             is3D={is3D}
             selectedNode={selectedNode}
             onNodeClick={handleNodeClick}
+            cohortContext={cohortContext}
           />
         )}
       </div>

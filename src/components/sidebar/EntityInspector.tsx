@@ -165,6 +165,9 @@ export default function EntityInspector({
   const isGame = node?.type === "GAME";
   const isPlayer = node?.type === "PLAYER";
   const isCreator = node?.type === "CREATOR";
+  const isClan = node?.type === "CLAN";
+  const isSquadmate = node?.type === "SQUADMATE";
+  const isIdentity = node?.type === "IDENTITY";
   const offerData = (node as any)?.offer_data;
   const gameMeta = (node as any)?.game_telemetry;
   const creatorData = (node as any)?.creator_data;
@@ -256,6 +259,34 @@ export default function EntityInspector({
       {/* 3. COHORT INTELLIGENCE VIEW (When no single node is clicked) */}
       {isCohortView && (
         <div className="space-y-3.5">
+          {/* Multi-Hop Traversal Relationship Proof */}
+          {cohortContext?.isMultiHop && cohortContext?.multiHopMetadata && (
+            <div className="p-3.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                  Spanner Graph Relationship Proof
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-mono font-semibold">
+                  {cohortContext.multiHopMetadata.hops} Hops
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-white overflow-x-auto pb-1 scrollbar-none">
+                {cohortContext.multiHopMetadata.steps.map((s: string, idx: number) => (
+                  <React.Fragment key={idx}>
+                    {idx > 0 && <span className="text-cyan-400 font-bold shrink-0">➔</span>}
+                    <span className="px-2 py-1 rounded-lg bg-black/40 border border-white/10 text-[10px] font-mono text-gray-200 shrink-0">
+                      {s}
+                    </span>
+                  </React.Fragment>
+                ))}
+              </div>
+              <p className="text-[11px] text-gray-300 leading-relaxed italic border-t border-cyan-500/20 pt-1.5">
+                &ldquo;{cohortContext.multiHopMetadata.summary}&rdquo;
+              </p>
+            </div>
+          )}
+
           {/* Top KPI Cards (Cohort Averages) */}
           <div className="grid grid-cols-2 gap-2.5">
             <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
@@ -557,9 +588,95 @@ export default function EntityInspector({
             </div>
           )}
 
+          {/* C2. Content for Clan Nodes */}
+          {isClan && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                  <span className="text-[10px] text-emerald-300 block uppercase font-medium">Clan Tier</span>
+                  <span className="font-semibold text-emerald-400 text-xs block mt-0.5">
+                    {node.rank_tier || "PRO_ESPORTS"}
+                  </span>
+                </div>
+                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
+                  <span className="text-[10px] text-gray-500 block uppercase">Franchise</span>
+                  <span className="font-semibold text-white text-xs block mt-0.5">
+                    {node.franchise || "Call of Duty"}
+                  </span>
+                </div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 space-y-1.5 text-xs text-gray-300">
+                <div className="flex items-center gap-1.5 text-emerald-400 font-semibold text-[11px]">
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Spanner Graph Squad Entity</span>
+                </div>
+                <p className="text-[11px] text-gray-300 leading-relaxed">
+                  Competitive squad bridge connecting at-risk Warzone players with clanmates who play across Activision Blizzard titles.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* C3. Content for Squadmate Nodes */}
+          {isSquadmate && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/20">
+                  <span className="text-[10px] text-cyan-300 block uppercase font-medium">Status</span>
+                  <span className="font-semibold text-cyan-300 text-xs block mt-0.5">
+                    Active Squadmate
+                  </span>
+                </div>
+                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
+                  <span className="text-[10px] text-gray-500 block uppercase">Migration Target</span>
+                  <span className="font-semibold text-rose-400 text-xs block mt-0.5">
+                    Diablo IV: Lord of Hatred
+                  </span>
+                </div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 space-y-1.5 text-xs text-gray-300">
+                <div className="flex items-center gap-1.5 text-cyan-400 font-semibold text-[11px]">
+                  <Flame className="w-3.5 h-3.5" />
+                  <span>Squad Churn Contagion Node</span>
+                </div>
+                <p className="text-[11px] text-gray-300 leading-relaxed">
+                  This clanmate migrated to Diablo IV after finishing their seasonal battle pass, creating social pull that draws teammates away from Warzone.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* D. Content for Player Nodes */}
           {isPlayer && (
             <>
+              {/* Spanner Multi-Hop Graph Path Proof */}
+              {node.multiHopPath && (
+                <div className="p-3.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                      Spanner Graph Path Proof ({node.multiHopPath.hops} Hops)
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-mono font-semibold">
+                      {node.multiHopPath.patternLabel}
+                    </span>
+                  </div>
+                  <div className="space-y-1.5 pt-1">
+                    {node.multiHopPath.steps.map((step, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-[11px]">
+                        <span className="w-4 h-4 rounded-full bg-cyan-500/20 text-cyan-300 text-[9px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                          {idx + 1}
+                        </span>
+                        <span className="text-gray-200">{step}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-cyan-300/80 border-t border-cyan-500/20 pt-1.5 leading-tight italic">
+                    &ldquo;{node.multiHopPath.summary}&rdquo;
+                  </p>
+                </div>
+              )}
+
               {/* Top Metrics */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
