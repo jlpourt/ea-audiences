@@ -58,13 +58,12 @@ Look across ${subreddits.join(", ")}.
 
 A marketing team is evaluating an offer titled "${args.offerTitle}" at $${args.price.toFixed(
       2
-    )}, and specifically wants to understand: "${args.topic}".
+    )}, and specifically wants to understand community sentiment on: ${args.topic}. (If no threads discuss this exact phrasing, report on player reactions to related concepts like pay-to-win mechanics, respawn tokens, battle pass progression, or pricing).
 
-Report only what you actually found in the search results. For each distinct
+Report what you find in Reddit discussions. For each distinct
 theme of player sentiment, name the subreddit it came from and summarise the
 player position in their own framing. Include positive and neutral sentiment
-where it exists, not only complaints. If you could not find discussion of
-something, say so explicitly rather than guessing.`
+where it exists, not only complaints.`
   );
 
   return {

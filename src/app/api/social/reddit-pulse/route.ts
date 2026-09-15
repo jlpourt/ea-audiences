@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     const label = FRANCHISE_LABEL[franchise] || franchise;
 
     const focus = topic
-      ? `Focus specifically on: "${topic}".`
+      ? `Focus on player sentiment, discussions, and reactions related to: ${topic}. (If no threads discuss this exact phrase, report on adjacent community sentiment around related mechanics such as pay-to-win, battle pass progression, or pricing).`
       : "Focus on monetization, pricing, and value-for-money sentiment.";
 
     const offerContext =
@@ -90,10 +90,9 @@ Look across ${subreddits.join(", ")}.
 ${focus}
 ${offerContext}
 
-Report what you actually found in the search results. For each distinct theme of
+Report what you find in Reddit discussions. For each distinct theme of
 player sentiment, state which subreddit it came from and summarise the player
-position in their own framing. Do not speculate beyond the sources. If you could
-not find discussion of something, say so explicitly rather than guessing.`;
+position in their own framing. If players react strongly against pay-to-win mechanics or loss-streak monetization, document their specific objections.`;
 
     const grounded = await generateGroundedContent(retrievalPrompt);
 

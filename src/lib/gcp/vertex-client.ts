@@ -34,7 +34,7 @@ export function getGenerativeModel(
 export async function generateVertexContent(prompt: string, isJson: boolean = true): Promise<string> {
   const vertex = getVertexAI();
   const candidateModels = Array.from(
-    new Set([GCP_CONFIG.vertexModel, "gemini-3.5-flash-lite", "gemini-2.5-flash-lite", "gemini-2.5-flash"])
+    new Set([GCP_CONFIG.vertexModel, "gemini-2.5-flash", "gemini-2.5-flash-lite"])
   );
 
   for (const modelName of candidateModels) {
@@ -93,7 +93,7 @@ export interface GroundedResult {
 export async function generateGroundedContent(prompt: string): Promise<GroundedResult> {
   const vertex = getVertexAI();
   const candidateModels = Array.from(
-    new Set([GCP_CONFIG.vertexGroundedModel, "gemini-2.5-flash", "gemini-2.0-flash"])
+    new Set([GCP_CONFIG.vertexGroundedModel, "gemini-2.5-flash"])
   );
 
   let lastError: unknown = null;
