@@ -652,9 +652,10 @@ export default function GeminiLandingStage({
           </div>
 
           {/* 🌟 The Core Finding Executive Callout Card */}
-          <div
+          <button
+            type="button"
             onClick={() => setIsBriefModalOpen(true)}
-            className="w-full p-3.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-white/20 backdrop-blur-2xl transition-all space-y-1.5 cursor-pointer shadow-lg group"
+            className="w-full text-left p-3.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-white/20 backdrop-blur-2xl transition-all space-y-1.5 cursor-pointer shadow-lg group active:scale-[0.99] focus:outline-none focus:ring-1 focus:ring-cyan-400/50"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -684,7 +685,7 @@ export default function GeminiLandingStage({
             <p className="text-xs text-zinc-300 leading-relaxed line-clamp-2">
               {currentPillar.coreFinding.summary}
             </p>
-          </div>
+          </button>
 
           {/* 3 Spacious Prompt Cards in a clean 1x3 grid */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">

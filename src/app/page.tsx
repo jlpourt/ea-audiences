@@ -317,6 +317,8 @@ export default function CommandCenterPage() {
           creative_title: result.creative_title,
           predicted_conversion_lift: result.predicted_conversion_lift,
           audience_size: cohortContext?.estimatedTotal || 245000,
+          strategic_pivot: (result as any).strategic_pivot,
+          grounded_community_insight: (result as any).grounded_community_insight,
         }),
       });
       if (res.ok) {

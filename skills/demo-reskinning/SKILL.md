@@ -186,8 +186,8 @@ BRAND_TAXONOMIES = {
         "studios": ["Infinity Ward", "Treyarch", "Blizzard Team 1", "King London"],
         "titles": [
             {"id": "cod_warzone", "name": "Call of Duty: Warzone", "genre": "Battle Royale / FPS"},
-            {"id": "wow_retail", "name": "World of Warcraft: The War Within", "genre": "MMORPG"},
-            {"id": "diablo_4", "name": "Diablo IV: Vessel of Hatred", "genre": "Action RPG"},
+            {"id": "wow_retail", "name": "World of Warcraft: Midnight", "genre": "MMORPG"},
+            {"id": "diablo_4", "name": "Diablo IV: Lord of Hatred", "genre": "Action RPG"},
             {"id": "overwatch_2", "name": "Overwatch 2", "genre": "Hero Shooter"},
             {"id": "candy_crush", "name": "Candy Crush Saga", "genre": "Match-3 Mobile"},
         ],

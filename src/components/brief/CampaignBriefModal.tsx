@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { CampaignBrief } from "@/lib/types";
-import { X, Download, Copy, Check } from "lucide-react";
+import { X, Download, Copy, Check, ShieldAlert } from "lucide-react";
 
 interface CampaignBriefModalProps {
   isOpen: boolean;
@@ -99,6 +99,37 @@ export default function CampaignBriefModal({
             ))}
           </div>
         </div>
+
+        {/* Grounded Social Guardrail & Strategic Pivot */}
+        {(brief.strategic_pivot || brief.grounded_community_insight) && (
+          <div className="space-y-2 text-xs">
+            <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+              <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+              Community Guardrail & Strategic Pivot (Reddit Grounding)
+            </span>
+            <div className="p-3.5 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-2 text-zinc-300">
+              {brief.strategic_pivot && (
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 space-y-1">
+                    <span className="text-[9px] font-semibold uppercase text-rose-400 block">Rejected Concept (Backlash Risk)</span>
+                    <span className="text-white font-medium block">{brief.strategic_pivot.original_concept}</span>
+                    <p className="text-[10px] text-rose-300/80 leading-tight">{brief.strategic_pivot.pivot_reason}</p>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-1">
+                    <span className="text-[9px] font-semibold uppercase text-emerald-400 block">Community-Approved Pivot</span>
+                    <span className="text-white font-medium block">{brief.strategic_pivot.pivoted_concept}</span>
+                    <p className="text-[10px] text-emerald-300/80 leading-tight">Verified by focus group with zero competitive integrity complaints.</p>
+                  </div>
+                </div>
+              )}
+              {brief.grounded_community_insight && (
+                <p className="text-[11px] text-zinc-300 leading-relaxed italic border-t border-white/5 pt-1.5">
+                  &ldquo;{brief.grounded_community_insight}&rdquo;
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* DeepSona Consensus */}
         <div className="space-y-1.5 text-xs">

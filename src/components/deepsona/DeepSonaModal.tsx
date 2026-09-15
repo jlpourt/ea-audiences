@@ -137,6 +137,14 @@ export default function DeepSonaModal({
     Array<{ id: string; sender: string; role: string; text: string; wtp: number; fsm: string }>
   >([]);
 
+  // Strategic Pivot & Grounding State passed to Brief Generation
+  const [strategicPivot, setStrategicPivot] = useState<{
+    original_concept: string;
+    pivot_reason: string;
+    pivoted_concept: string;
+  } | null>(null);
+  const [groundedInsight, setGroundedInsight] = useState<string | null>(null);
+
   // Dynamically Grounded Personas Based on the Selected Game and Cohort (Driven by Active Graph Group)
   const groundedPersonas: PersonaProfile[] = useMemo(() => {
     const game = (targetNode?.franchise || cohortContext?.franchise || selectedGame || "ALL") as GameFranchise;
@@ -1012,6 +1020,11 @@ export default function DeepSonaModal({
               selectedGame={selectedGame}
               creativeTitle={creativeTitle}
               cohortContext={cohortContext}
+              onApplyStrategicPivot={(pivotedTitle, pivot, insight) => {
+                setCreativeTitle(pivotedTitle);
+                setStrategicPivot(pivot);
+                setGroundedInsight(insight);
+              }}
             />
           )}
 
@@ -1045,7 +1058,15 @@ export default function DeepSonaModal({
           </div>
 
           <button
-            onClick={() => result && onGenerateBrief(result)}
+            onClick={() => {
+              if (!result) return;
+              onGenerateBrief({
+                ...result,
+                creative_title: creativeTitle,
+                strategic_pivot: strategicPivot,
+                grounded_community_insight: groundedInsight,
+              } as any);
+            }}
             disabled={isGeneratingBrief || !result}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shadow-lg active:scale-95 ${
               isGeneratingBrief

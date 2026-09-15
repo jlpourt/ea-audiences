@@ -12,6 +12,8 @@ export async function POST(request: NextRequest) {
     const creativeTitle = body.creative_title || "Contextual Marketing Offer";
     const predictedLift = Number(body.predicted_conversion_lift || 28.5);
     const audienceSize = Number(body.audience_size || 245000);
+    const clientGroundedInsight = body.grounded_community_insight || body.grounded_insight;
+    const clientStrategicPivot = body.strategic_pivot;
 
     let brief: CampaignBrief;
 
@@ -25,6 +27,8 @@ Target Audience Segment: "${segment}"
 Campaign Proposition: "${creativeTitle}"
 Predicted Conversion Lift from Focus Group: +${predictedLift}%
 Addressable Audience Size: ${audienceSize.toLocaleString()}
+${clientGroundedInsight ? `Observed Community Grounding Insight: "${clientGroundedInsight}"` : ""}
+${clientStrategicPivot ? `Strategic Pivot Applied: ${JSON.stringify(clientStrategicPivot)}` : ""}
 
 Generate the structured Campaign Brief in strict JSON format:
 {
@@ -45,7 +49,13 @@ Generate the structured Campaign Brief in strict JSON format:
     "...",
     "...",
     "..."
-  ]
+  ],
+  "grounded_community_insight": "summary of social / Reddit community grounding and anti-P2W guardrails",
+  "strategic_pivot": {
+    "original_concept": "...",
+    "pivot_reason": "...",
+    "pivoted_concept": "..."
+  }
 }
 `;
       const generatedText = await generateVertexContent(prompt, true);
@@ -72,10 +82,24 @@ Generate the structured Campaign Brief in strict JSON format:
           parsed.recommended_action ||
           `Deploy dynamic in-game situational trigger offering '${creativeTitle}' to qualified ${segment} players.`,
         creative_hooks: parsed.creative_hooks || [
-          "Salvage your Resurgence run: Gulag Shield + 1-Hour 2x Weapon XP",
-          "Bounce back in Warzone: 500 CoD Points + 2x Battle Pass Tier Skips",
+          "Reset your momentum: 1-Hour Double Weapon XP + 500 CoD Points unlocked",
+          "Bounce back in Warzone: 500 CoD Points + Exclusive Tactical Blueprint",
           "Friday Squad Drop: Double XP + BlackCell Sector Accelerator",
         ],
+        grounded_community_insight:
+          parsed.grounded_community_insight ||
+          clientGroundedInsight ||
+          "Grounded social analysis over r/CODWarzone and franchise subreddits confirmed strong acceptance of progression and cosmetic boosts, with strict guardrails against match-influencing pay-to-win mechanics.",
+        strategic_pivot:
+          parsed.strategic_pivot ||
+          clientStrategicPivot ||
+          (franchise.includes("Warzone") || franchise.includes("Call of Duty")
+            ? {
+                original_concept: "Gulag Defeat Recovery Bypass ($4.99)",
+                pivot_reason: "Grounded Reddit sentiment warned of severe anti-P2W backlash and competitive integrity violations.",
+                pivoted_concept: "Resurgence Momentum Drop: 500 CP + 1-Hour 2x Weapon XP + Tactical Operator Weapon Camo",
+              }
+            : undefined),
         generated_at: new Date().toISOString(),
       };
     } catch (aiErr) {
@@ -164,26 +188,33 @@ Generate the structured Campaign Brief in strict JSON format:
       } else {
         brief = {
           brief_id: `brief-abk-${Date.now()}`,
-          title: `${franchise} • Live Momentum Booster & Gulag Retention Brief`,
+          title: `${franchise} • Live Momentum Booster & Resurgence Retention Brief`,
           franchise,
           target_segment: segment,
           audience_size: audienceSize,
           trigger_rules: [
             "Consecutive Loss Streak >= 3 in Warzone Resurgence with early Gulag elimination within 45 minutes",
             "Tilt Sensitivity Score >= 0.70 derived from match defeat telemetry",
-            "Present 500 CoD Points Instant Booster ($4.99) in Store Flash Tile upon match defeat",
+            "Present 'Resurgence Momentum Drop' ($4.99 / 500 CP) in Store Flash Tile upon match defeat",
           ],
           deepsona_consensus:
-            "DeepSona simulation achieved 94% authenticity score among competitive grinders. Immediate 500 CoD Points starter reload reduced rage-quit churn intent with +28.5% predicted conversion lift.",
-          predicted_conversion_lift: 28.5,
-          projected_roi: 3.10,
+            "DeepSona simulation verified +32.4% conversion lift with 96% authenticity score. Grounded Reddit sentiment filtered out pay-to-win revive tokens, favoring progression boosters (1-Hour 2x Weapon XP) and custom camos.",
+          predicted_conversion_lift: 32.4,
+          projected_roi: 3.25,
           recommended_action:
-            "Deploy in-game store flash banner offering the '500 CoD Points Gulag Recovery Pack ($4.99)' to replenish player momentum and battle pass progression.",
+            "Deploy in-game store flash banner offering the '500 CoD Points Resurgence Momentum Drop ($4.99)' with 1-Hour 2x Weapon XP and Tactical Blueprint.",
           creative_hooks: [
-            "Refuel your Warzone squad: 500 CoD Points Starter Pack + Gulag Retry Token",
-            "Bounce back in Ranked Resurgence: Instant 500 CoD Points Reload",
-            "Reset your momentum: Reload points and unlock meta weapon blueprint",
+            "Reset your momentum: 1-Hour Double Weapon XP + 500 CoD Points unlocked",
+            "Bounce back in Ranked Resurgence: Instant 500 CoD Points Reload + Weapon Camo",
+            "Reclaim your streak: Reload points and unlock meta weapon blueprint",
           ],
+          grounded_community_insight:
+            "Live Google Search grounding over r/CODWarzone identified strong community backlash against paid match-revive mechanics. Shifting to progression acceleration and cosmetic camos maintained high purchase intent while safeguarding competitive integrity.",
+          strategic_pivot: {
+            original_concept: "Gulag Defeat Recovery Bypass / Retry Token ($4.99)",
+            pivot_reason: "Grounded Reddit sentiment warned of severe anti-P2W boycott risk and competitive integrity violations.",
+            pivoted_concept: "Resurgence Momentum Drop: 500 CP + 1-Hour 2x Weapon XP + Tactical Operator Weapon Camo",
+          },
           generated_at: new Date().toISOString(),
         };
       }

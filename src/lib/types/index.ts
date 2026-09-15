@@ -224,6 +224,12 @@ export interface CampaignBrief {
   projected_roi: number;
   recommended_action: string;
   creative_hooks: string[];
+  grounded_community_insight?: string;
+  strategic_pivot?: {
+    original_concept: string;
+    pivot_reason: string;
+    pivoted_concept: string;
+  };
   generated_at: string;
 }
 
