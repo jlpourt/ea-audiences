@@ -11,65 +11,67 @@
 
 export const ARCHETYPES = [
   "BLACKCELL_WHALE",
-  "AZERITE_COLLECTOR",
-  "SANCTUARY_COLLECTOR",
-  "MYTHIC_COLLECTOR",
-  "BOOSTER_WHALE",
-  "COMPETITIVE_GRINDER",
-  "RANKED_SWEAT",
-  "CASUAL_SOCIALIZER",
-  "CASUAL_WARRIOR",
-  "LORE_SEEKER",
+  "VERDANSK_OG",
+  "CDL_RANKED_SWEAT",
+  "CAMO_COMPLETIONIST",
+  "ROUND_BASED_ZOMBIES_SLAYER",
+  "SEARCH_AND_DESTROY_SPECIALIST",
+  "CASUAL_WARZONE_WARRIOR",
+  "MOBILE_TOUCHPAD_PRODIGY",
+  "DMZ_EXTRACTION_SURVIVOR",
+  "GULAG_TILT_RISK",
 ] as const;
 
 export type ArchetypeId = (typeof ARCHETYPES)[number];
 
-/** High-LTV monetising archetypes. One per franchise, by design. */
+/** High-LTV monetising archetypes. */
 export const WHALE_ARCHETYPES: ArchetypeId[] = [
   "BLACKCELL_WHALE",
-  "AZERITE_COLLECTOR",
-  "SANCTUARY_COLLECTOR",
-  "MYTHIC_COLLECTOR",
-  "BOOSTER_WHALE",
+  "CAMO_COMPLETIONIST",
+  "MOBILE_TOUCHPAD_PRODIGY",
 ];
 
-/** The monetising archetype that belongs to each franchise. */
+/** The primary monetising or signature archetype for each mode. */
 export const WHALE_BY_FRANCHISE: Record<string, ArchetypeId> = {
+  ALL: "BLACKCELL_WHALE",
   COD: "BLACKCELL_WHALE",
-  WOW: "AZERITE_COLLECTOR",
-  DIABLO4: "SANCTUARY_COLLECTOR",
-  OVERWATCH2: "MYTHIC_COLLECTOR",
-  CANDYCRUSH: "BOOSTER_WHALE",
+  WARZONE: "BLACKCELL_WHALE",
+  BLACK_OPS: "BLACKCELL_WHALE",
+  MODERN_WARFARE: "BLACKCELL_WHALE",
+  CDL_RANKED: "CDL_RANKED_SWEAT",
+  COD_MOBILE: "MOBILE_TOUCHPAD_PRODIGY",
 };
 
 export const ARCHETYPE_LABELS: Record<ArchetypeId, string> = {
   BLACKCELL_WHALE: "BlackCell Pass Whale",
-  AZERITE_COLLECTOR: "Mount & Pet Collector",
-  SANCTUARY_COLLECTOR: "Sanctuary Cosmetic Collector",
-  MYTHIC_COLLECTOR: "Mythic Skin Collector",
-  BOOSTER_WHALE: "Booster & Lives Whale",
-  COMPETITIVE_GRINDER: "Competitive Grinder",
-  RANKED_SWEAT: "Ranked Sweat",
-  CASUAL_SOCIALIZER: "Casual Socializer",
-  CASUAL_WARRIOR: "Casual Warrior",
-  LORE_SEEKER: "Lore Seeker",
+  VERDANSK_OG: "Verdansk OG Veteran",
+  CDL_RANKED_SWEAT: "CDL Ranked Sweat",
+  CAMO_COMPLETIONIST: "Mastery Camo Grinder",
+  ROUND_BASED_ZOMBIES_SLAYER: "Zombies Easter Egg Slayer",
+  SEARCH_AND_DESTROY_SPECIALIST: "S&D Clutch Specialist",
+  CASUAL_WARZONE_WARRIOR: "Casual Weekend Squad",
+  MOBILE_TOUCHPAD_PRODIGY: "CoD Mobile Touchpad Prodigy",
+  DMZ_EXTRACTION_SURVIVOR: "DMZ Extraction Survivor",
+  GULAG_TILT_RISK: "Gulag Tilt & Loss Risk",
 };
 
 export const ARCHETYPE_COLORS: Record<ArchetypeId, string> = {
   // Monetisers — gold family
   BLACKCELL_WHALE: "#FFB800",
-  AZERITE_COLLECTOR: "#F0A500",
-  SANCTUARY_COLLECTOR: "#E08700",
-  MYTHIC_COLLECTOR: "#FFCE45",
-  BOOSTER_WHALE: "#FF9F1C",
-  // Competitive — red family
-  COMPETITIVE_GRINDER: "#FF4757",
-  RANKED_SWEAT: "#FF6B7A",
-  // Casual — green family
-  CASUAL_SOCIALIZER: "#00FF88",
-  CASUAL_WARRIOR: "#34D399",
-  // Narrative — cyan
-  LORE_SEEKER: "#00F0FF",
+  VERDANSK_OG: "#F59E0B",
+  // Competitive / Ranked — red / crimson family
+  CDL_RANKED_SWEAT: "#FF4757",
+  GULAG_TILT_RISK: "#EF4444",
+  // Specialists — purple / indigo
+  CAMO_COMPLETIONIST: "#A855F7",
+  SEARCH_AND_DESTROY_SPECIALIST: "#3B82F6",
+  // Co-Op Zombies — emerald green
+  ROUND_BASED_ZOMBIES_SLAYER: "#10B981",
+  // Casual & Extraction — mint / amber
+  CASUAL_WARZONE_WARRIOR: "#34D399",
+  DMZ_EXTRACTION_SURVIVOR: "#EAB308",
+  // Mobile — cyan
+  MOBILE_TOUCHPAD_PRODIGY: "#06B6D4",
 };
 
 const FALLBACK_COLOR = "#7C8799";

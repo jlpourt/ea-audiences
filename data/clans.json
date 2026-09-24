@@ -1,74 +1,74 @@
 [
   {
     "clan_id": "clan-optic",
-    "name": "OpTic Nation",
-    "franchise": "COD",
+    "name": "OpTic Gaming (Green Wall)",
+    "franchise": "CDL_RANKED",
     "region": "us-dfw",
-    "member_count": 8420,
-    "tier": "PRO_ESPORTS"
+    "member_count": 14500,
+    "tier": "PRO_CHAMPIONS"
   },
   {
     "clan_id": "clan-faze",
     "name": "FaZe Clan",
-    "franchise": "COD",
+    "franchise": "WARZONE",
     "region": "us-lax",
-    "member_count": 9250,
+    "member_count": 16200,
+    "tier": "PRO_CHAMPIONS"
+  },
+  {
+    "clan_id": "clan-thieves",
+    "name": "100 Thieves (LA Thieves)",
+    "franchise": "CDL_RANKED",
+    "region": "us-lax",
+    "member_count": 9800,
     "tier": "PRO_ESPORTS"
   },
   {
-    "clan_id": "clan-taskforce",
-    "name": "Task Force 141 Milsim",
-    "franchise": "COD",
-    "region": "uk-lon",
-    "member_count": 3120,
-    "tier": "COMMUNITY_WARRIORS"
+    "clan_id": "clan-falcons",
+    "name": "Team Falcons (WSOW Champions)",
+    "franchise": "WARZONE",
+    "region": "sa-ruh",
+    "member_count": 7200,
+    "tier": "WORLD_SERIES_CHAMPS"
   },
   {
-    "clan_id": "clan-echo",
-    "name": "Echo Esports",
-    "franchise": "WOW",
-    "region": "de-ber",
-    "member_count": 1450,
-    "tier": "WORLD_FIRST_MYTHIC"
-  },
-  {
-    "clan_id": "clan-liquid",
-    "name": "Team Liquid Guild",
-    "franchise": "WOW",
+    "clan_id": "clan-subliners",
+    "name": "New York Subliners",
+    "franchise": "CDL_RANKED",
     "region": "us-nyc",
-    "member_count": 1820,
-    "tier": "WORLD_FIRST_MYTHIC"
+    "member_count": 8100,
+    "tier": "PRO_ESPORTS"
   },
   {
-    "clan_id": "clan-method",
-    "name": "Method Gaming",
-    "franchise": "WOW",
+    "clan_id": "clan-ultra",
+    "name": "Toronto Ultra",
+    "franchise": "CDL_RANKED",
+    "region": "us-nyc",
+    "member_count": 6400,
+    "tier": "PRO_ESPORTS"
+  },
+  {
+    "clan_id": "clan-taskforce141",
+    "name": "Task Force 141 Milsim",
+    "franchise": "MODERN_WARFARE",
     "region": "uk-lon",
-    "member_count": 2100,
-    "tier": "HALL_OF_FAME"
+    "member_count": 5200,
+    "tier": "COMMUNITY_MILSIM"
   },
   {
-    "clan_id": "clan-sanctuary",
-    "name": "Infernal Lords of Sanctuary",
-    "franchise": "DIABLO4",
+    "clan_id": "clan-rebirth-demons",
+    "name": "Rebirth Island Demons",
+    "franchise": "WARZONE",
     "region": "us-chi",
-    "member_count": 4200,
-    "tier": "HARDCORE_COVEN"
+    "member_count": 11400,
+    "tier": "RESURGENCE_ELITE"
   },
   {
-    "clan_id": "clan-dallasfuel",
-    "name": "Dallas Fuel Supporters",
-    "franchise": "OVERWATCH2",
-    "region": "us-dfw",
-    "member_count": 3600,
-    "tier": "OWL_SUPPORTERS"
-  },
-  {
-    "clan_id": "clan-kingcrushers",
-    "name": "King Royal Crushers Club",
-    "franchise": "CANDYCRUSH",
-    "region": "uk-lon",
-    "member_count": 12800,
-    "tier": "GLOBAL_CASUAL"
+    "clan_id": "clan-terminal-snipers",
+    "name": "Intervention Snipers Club",
+    "franchise": "MODERN_WARFARE",
+    "region": "de-ber",
+    "member_count": 4800,
+    "tier": "LEGACY_SNIPERS"
   }
 ]

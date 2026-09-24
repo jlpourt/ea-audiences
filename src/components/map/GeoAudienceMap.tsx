@@ -192,17 +192,17 @@ interface GeoAudienceMapProps {
 const WHALE_SPEND_FLOOR = 1000;
 
 /**
- * The loss-streak recovery SKU for each franchise, taken from
- * `data/marketing_offers.json`. Recommending a Call of Duty BlackCell pass to a
- * Candy Crush cohort is the kind of detail a marketer notices immediately.
+ * The loss-streak recovery SKU for each Call of Duty mode, taken from
+ * `data/marketing_offers.json`.
  */
 const RECOVERY_OFFER_BY_FRANCHISE: Record<string, string> = {
-  COD: "$4.99 Gulag Loss-Streak Recovery Starter",
-  WOW: "$14.99 1-Month Game Time re-entry",
-  DIABLO4: "$4.99 The Pit Loss-Protection Elixir Starter",
-  OVERWATCH2: "$4.99 Competitive Starter Pack + 500 Coins",
-  CANDYCRUSH: "$2.99 Sticky Level Rescue Bundle",
-  ALL: "$4.99 situational recovery starter (per title)",
+  ALL: "$4.99 Gulag Loss-Streak Recovery Care Package",
+  COD: "$4.99 Gulag Loss-Streak Recovery Care Package",
+  WARZONE: "$4.99 Gulag Loss-Streak Recovery Care Package",
+  BLACK_OPS: "$9.99 Zombies GobbleGum Ultra Mega Pack",
+  MODERN_WARFARE: "$19.99 Search & Destroy Clutch Pro Bundle",
+  CDL_RANKED: "$4.99 Ranked Play Demotion Recovery Pack",
+  COD_MOBILE: "$2.99 Mobile Starter Claw Pack",
 };
 
 /** Approximate round-trip latency to the nearest GCP edge, by DMA. */

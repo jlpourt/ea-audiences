@@ -36,11 +36,10 @@ function generateDynamicQuote(
   }
 
   const rawFranchise = (node.franchise || activeGame || "COD").toUpperCase();
-  const isCOD = rawFranchise.includes("COD") || rawFranchise.includes("CALL OF DUTY") || rawFranchise.includes("WARZONE");
-  const isWOW = rawFranchise.includes("WOW") || rawFranchise.includes("WARCRAFT");
-  const isDiablo = rawFranchise.includes("DIABLO");
-  const isCandy = rawFranchise.includes("CANDY");
-  const isOW = rawFranchise.includes("OVERWATCH") || rawFranchise.includes("OW");
+  const isWarzone = rawFranchise.includes("WARZONE");
+  const isBlackOps = rawFranchise.includes("BLACK_OPS") || rawFranchise.includes("BO6") || rawFranchise.includes("ZOMBIES");
+  const isCDL = rawFranchise.includes("CDL") || rawFranchise.includes("RANKED");
+  const isMobile = rawFranchise.includes("MOBILE");
 
   const spend = node.spend !== undefined && node.spend > 0 ? node.spend : slotIndex === 1 ? 4200 : slotIndex === 0 ? 450 : slotIndex === 2 ? 140 : 40;
   const lossStreak = node.loss_streak !== undefined && node.loss_streak > 0 ? node.loss_streak : slotIndex === 0 ? 3 : 1;
@@ -49,60 +48,52 @@ function generateDynamicQuote(
 
   // Slot 0: Frustrated Competitive Sweats (Loss Streak / Defeat Trigger)
   if (slotIndex === 0) {
-    if (isCOD) {
-      return `After getting eliminated in the Gulag ${lossStreak} matches in a row (tilt at ${tilt}%), grabbing the $9.99 BlackCell starter reload on the defeat screen gets me right back into Resurgence.`;
-    } else if (isWOW) {
-      return `Wiping on Mythic Queen Ansurak ${lossStreak} pulls in a row (${tilt}% tilt). A 30-day token or mount voucher softens the burn so our guild can regroup.`;
-    } else if (isDiablo) {
-      return `Got one-shot by the Pit tier 85 boss (${lossStreak} wipe slump, ${tilt}% tilt). A $19.99 Infernal Relic Cache with masterworking mats gives the stat push needed to clear.`;
-    } else if (isCandy) {
-      return `Failed level 540 with 1 jelly remaining 3 times in a row. A $1.99 50 Gold Bars booster pack lets me clear the level and keep my streak.`;
+    if (isBlackOps) {
+      return `Wiped on Round 35 after a Mangler swarm (${lossStreak} wipe slump, ${tilt}% tilt). Grabbing the $9.99 GobbleGum & Wonder Weapon Pack resets team morale for the Easter Egg run.`;
+    } else if (isCDL) {
+      return `Suffered ${lossStreak} straight demotion losses in Hardpoint (${tilt}% tilt). Grabbing the $4.99 Ranked Play Demotion Recovery Pack protects my SR and gets my squad back locked in.`;
+    } else if (isMobile) {
+      return `Dropped ${lossStreak} straight ranked S&D matches in legendary tier (${tilt}% tilt). The $2.99 Mobile Starter Claw pack gives 300 CP and weapon XP to reset momentum.`;
     } else {
-      return `Suffered ${lossStreak} straight rank demotion losses in competitive role queue (${tilt}% tilt). A Mythic Prisms reload keeps morale high.`;
+      return `After getting eliminated in the Gulag ${lossStreak} matches in a row (tilt at ${tilt}%), grabbing the $4.99 Gulag Loss-Streak Recovery Care Package on the defeat screen gets me right back into Resurgence.`;
     }
   }
 
   // Slot 1: High-LTV Whales & Collection Event Hunters (Big Spenders)
   if (slotIndex === 1) {
-    if (isCOD) {
-      return `I've invested ${formattedSpend} into Call of Duty. Every seasonal launch I buy the $29.99 BlackCell Vault bundle with 20 tier skips and animated operator camos instantly.`;
-    } else if (isWOW) {
-      return `20-year WoW veteran with ${formattedSpend} lifetime account value. The 12-Month Subscription bundle with 4 exclusive mounts and collector pets is an automatic renewal.`;
-    } else if (isDiablo) {
-      return `Sanctuary Whale with ${formattedSpend} invested. The Lord of Hatred Ultimate Edition with wings, town portal animations, and platinum is mandatory for my collection.`;
-    } else if (isCandy) {
-      return `Lifetime spend of ${formattedSpend} on boosters and extra moves. When I'm in the top 1% weekly leaderboard, I stock up on Gold Bars and Color Bombs.`;
+    if (isBlackOps) {
+      return `Lifetime spend of ${formattedSpend} across Treyarch titles. The $99.99 Black Ops 7 Vault Edition upgrade with Mastercraft weapon blueprints and GobbleGums is an automatic day-one purchase.`;
+    } else if (isCDL) {
+      return `Invested ${formattedSpend} in CDL team bundles and pro operator camos. Every Major I pick up the OpTic and FaZe team supporter packs and animated weapon camos immediately.`;
+    } else if (isMobile) {
+      return `Mobile whale with ${formattedSpend} invested. The Mythic Grau 5.56 draw and legendary operator skins are instant completions for my vault collection.`;
     } else {
-      return `Invested ${formattedSpend} on Overwatch cosmetics. Whenever a new Mythic Skin releases, I unlock all 4 color variants and custom voice lines immediately.`;
+      return `I've invested ${formattedSpend} into Call of Duty. Every seasonal launch I buy the $29.99 BlackCell Vault bundle with 20 tier skips and animated mastercraft blueprints instantly.`;
     }
   }
 
   // Slot 2: Squad Co-op / Socializers (Team Play & Group Passes)
   if (slotIndex === 2) {
-    if (isCOD) {
-      return `Our 4-stack drops into Warzone Resurgence every Friday night. Clan XP boosts and weapon blueprint bundles are things our whole squad buys together.`;
-    } else if (isWOW) {
-      return `Guild officer for a 20-player Mythic raiding roster. Guild vault cauldrons and feast vouchers under $15 save our officers hundreds of hours of prep.`;
-    } else if (isDiablo) {
-      return `We run 4-player Torment IV Infernal Hordes together every weekend. Infernal Compass keys provide massive group loot efficiency under $10.`;
-    } else if (isCandy) {
-      return `I trade lives daily with my social team. Group milestone booster packs keep our team at the top of the leaderboard.`;
+    if (isBlackOps) {
+      return `We run 4-player Terminus Island Zombies every weekend. Squad GobbleGum caches and shared weapon XP boosts provide massive group survival efficiency.`;
+    } else if (isCDL) {
+      return `Our 4-stack queues CDL Ranked every night. Shared clan weapon blueprints and callout packs keep our squad synchronized in Crimson and Iridescent.`;
+    } else if (isMobile) {
+      return `I play 5-stack multiplayer with my clan daily. Group clan war milestone rewards and battle pass gift cards keep our team on top of the leaderboard.`;
     } else {
-      return `Our 5-stack queues Competitive every weekend. Team battle pass XP boost passes give great squad progression under $10.`;
+      return `Our 4-stack drops into Warzone Resurgence every Friday night. Clan 2x Weapon XP passes and blueprint bundles are things our whole squad buys together.`;
     }
   }
 
   // Slot 3: Value Optimizers & Casual Story Purists (Price-Conscious / Franchise Purist)
-  if (isCOD) {
-    return `I usually stick to free Warzone, but a $9.99 starter pack with an operator skin and CP coins is fair value that avoids store clutter.`;
-  } else if (isWOW) {
-    return `Casual subscriber who plays for the lore and expansion campaign. 6-Month subscription bundles with bonus mounts provide great long-term value.`;
-  } else if (isDiablo) {
-    return `Solo seasonal campaign grinder. Cosmetic battle passes under $10 give solid dark fantasy visual upgrades without pay-to-win.`;
-  } else if (isCandy) {
-    return `Casual commuter playing on the subway. 99¢ booster reloads for sticky levels keep the game fun without overspending.`;
+  if (isBlackOps) {
+    return `Solo round-based Zombies and campaign grinder. As long as Easter egg quests are accessible and GobbleGums don't create pay-to-win barriers, I support the seasonal liveops.`;
+  } else if (isCDL) {
+    return `Competitive purist who watches CDL Majors on YouTube and grinds ranked. Clean team weapon camos under $10 are solid value without gaudy reactive effects.`;
+  } else if (isMobile) {
+    return `Casual mobile player on lunch breaks. The 80 CP starter crates and seasonal milestone rewards give great visual identity for pocket change.`;
   } else {
-    return `Casual arcade player with limited gaming time. Starter skin packs under $10 give clean visual identity without pressure.`;
+    return `I usually stick to free Warzone and MP camo grinding, but a $9.99 starter pack with an operator skin and 1,100 CP coins is fair value that avoids store clutter.`;
   }
 }
 
@@ -123,7 +114,7 @@ export default function DeepSonaModal({
   const [creativeTitle, setCreativeTitle] = useState(
     initialCreativeTitle || "Contextual Marketing & Retention Intervention"
   );
-  const [franchise, setFranchise] = useState(initialFranchise || "Activision Blizzard King");
+  const [franchise, setFranchise] = useState(initialFranchise || "Activision | Call of Duty");
   const [proposedSpend, setProposedSpend] = useState(120000);
   const [targetRoas, setTargetRoas] = useState(2.45);
   const [isLoading, setIsLoading] = useState(false);
@@ -238,11 +229,11 @@ export default function DeepSonaModal({
             : 0;
 
         const nodeFranchise = (node.franchise || game || "COD").toUpperCase();
-        const isCOD = nodeFranchise.includes("COD") || nodeFranchise.includes("CALL OF DUTY") || nodeFranchise.includes("WARZONE");
-        const isWOW = nodeFranchise.includes("WOW") || nodeFranchise.includes("WARCRAFT");
-        const isDiablo = nodeFranchise.includes("DIABLO");
-        const isCandy = nodeFranchise.includes("CANDY");
-        const isOW = nodeFranchise.includes("OVERWATCH") || nodeFranchise.includes("OW");
+        const isWarzone = nodeFranchise.includes("WARZONE");
+        const isBlackOps = nodeFranchise.includes("BLACK_OPS") || nodeFranchise.includes("BO6") || nodeFranchise.includes("ZOMBIES");
+        const isCDL = nodeFranchise.includes("CDL") || nodeFranchise.includes("RANKED");
+        const isMobile = nodeFranchise.includes("MOBILE");
+        const isMW3 = nodeFranchise.includes("MODERN_WARFARE") || nodeFranchise.includes("MW3");
 
         let pArch =
           slotIdx === 0
@@ -253,42 +244,51 @@ export default function DeepSonaModal({
             ? "CASUAL_SOCIALIZER"
             : "LORE_SEEKER";
 
-        if (isWOW) {
+        if (isBlackOps) {
           pArch =
             slotIdx === 0
-              ? "AZERITE_COLLECTOR"
+              ? "ROUND_BASED_ZOMBIES_SLAYER"
               : slotIdx === 1
               ? "BLACKCELL_WHALE"
               : slotIdx === 2
               ? "CASUAL_SOCIALIZER"
-              : "LORE_SEEKER";
-        } else if (isDiablo) {
+              : "CAMO_COMPLETIONIST";
+        } else if (isCDL) {
           pArch =
             slotIdx === 0
-              ? "SANCTUARY_COLLECTOR"
-              : slotIdx === 1
-              ? "BLACKCELL_WHALE"
-              : slotIdx === 2
-              ? "CASUAL_SOCIALIZER"
-              : "LORE_SEEKER";
-        } else if (isCandy) {
-          pArch =
-            slotIdx === 0
-              ? "BOOSTER_WHALE"
+              ? "CDL_RANKED_SWEAT"
               : slotIdx === 1
               ? "BLACKCELL_WHALE"
               : slotIdx === 2
               ? "CASUAL_SOCIALIZER"
               : "COMPETITIVE_GRINDER";
-        } else if (isOW) {
+        } else if (isMobile) {
           pArch =
             slotIdx === 0
-              ? "COMPETITIVE_GRINDER"
+              ? "MOBILE_TOUCHPAD_PRODIGY"
               : slotIdx === 1
               ? "BLACKCELL_WHALE"
               : slotIdx === 2
               ? "CASUAL_SOCIALIZER"
               : "CASUAL_WARRIOR";
+        } else if (isMW3) {
+          pArch =
+            slotIdx === 0
+              ? "SEARCH_AND_DESTROY_SPECIALIST"
+              : slotIdx === 1
+              ? "BLACKCELL_WHALE"
+              : slotIdx === 2
+              ? "CASUAL_SOCIALIZER"
+              : "CAMO_COMPLETIONIST";
+        } else {
+          pArch =
+            slotIdx === 0
+              ? "GULAG_TILT_RISK"
+              : slotIdx === 1
+              ? "BLACKCELL_WHALE"
+              : slotIdx === 2
+              ? "CASUAL_SOCIALIZER"
+              : "VERDANSK_OG";
         }
 
         const wtp =
@@ -307,24 +307,24 @@ export default function DeepSonaModal({
         const fsmState =
           liveReaction?.final_fsm_state || (wtp > 0 ? "PURCHASED" : "ENGAGED_FREE");
 
-        const franchiseName = isCOD
-          ? "Call of Duty: Warzone"
-          : isWOW
-          ? "World of Warcraft"
-          : isDiablo
-          ? "Diablo IV"
-          : isCandy
-          ? "Candy Crush Saga"
-          : "Overwatch 2";
+        const franchiseName = isBlackOps
+          ? "Call of Duty: Black Ops 7 & Zombies"
+          : isCDL
+          ? "Call of Duty: CDL Ranked Play"
+          : isMobile
+          ? "Call of Duty: Mobile"
+          : isMW3
+          ? "Call of Duty: Modern Warfare III"
+          : "Call of Duty: Warzone & Resurgence";
 
         const division =
           slotIdx === 0
-            ? `${franchiseName} • ${isCOD ? "BO7 Iridescent (Rank 1)" : isWOW ? "Mythic+ Title (3,200 IO)" : isDiablo ? "The Pit Tier 100" : isCandy ? "Level 5,000+ Master" : "Grandmaster 1"}`
+            ? `${franchiseName} • ${isBlackOps ? "Round 40+ Zombies Slayer" : isCDL ? "CDL Iridescent (Rank 1)" : isMobile ? "Legendary 10,000+ Grinder" : isMW3 ? "S&D Clutch Specialist" : "Rebirth Demon (Top 250)"}`
             : slotIdx === 1
-            ? `${franchiseName} • ${isCOD ? "BlackCell Vault Whale" : isWOW ? "20-Year Collector ($4k+)" : isDiablo ? "Sanctuary Ultimate Collector" : isCandy ? "VIP Booster Whale" : "Mythic Prism Collector"}`
+            ? `${franchiseName} • ${isBlackOps ? "Dark Matter Camo Whale" : isCDL ? "OpTic/FaZe Pro Supporter" : isMobile ? "Mythic Weapon Collector" : isMW3 ? "Interstellar Vault Collector" : "BlackCell Vault Whale ($3.5k+)"}`
             : slotIdx === 2
-            ? `${franchiseName} • ${isCOD ? "Resurgence Quad Captain" : isWOW ? "Mythic Raid Guild Master" : isDiablo ? "Infernal Horde 4-Stack" : isCandy ? "Daily Commuter Social" : "Role Queue 5-Stack Lead"}`
-            : `${franchiseName} • ${isCOD ? "Campaign Purist" : isWOW ? "Casual Lore Explorer" : isDiablo ? "Solo Seasonal Purist" : isCandy ? "Subway Commuter" : "Arcade Casual"}`;
+            ? `${franchiseName} • ${isBlackOps ? "Terminus Island Squad Lead" : isCDL ? "4-Stack Callout Captain" : isMobile ? "Clan War Squad Lead" : isMW3 ? "6v6 Hardcore Party Leader" : "Resurgence Quad Captain"}`
+            : `${franchiseName} • ${isBlackOps ? "Treyarch Lore & Solo Purist" : isCDL ? "Competitive Meta Purist" : isMobile ? "Touchpad Commuter" : isMW3 ? "Camo Grinder" : "Verdansk OG Veteran"}`;
 
         return {
           id: node.id,
@@ -345,29 +345,29 @@ export default function DeepSonaModal({
       return sampled;
     }
 
-    // 2. CALL OF DUTY PERSONAS FALLBACK
-    if (game === "COD" || q.includes("cod") || q.includes("warzone") || q.includes("resurgence") || q.includes("gulag")) {
+    // 2. WARZONE & RESURGENCE PERSONAS FALLBACK
+    if (game === "WARZONE" || game === "COD" || q.includes("cod") || q.includes("warzone") || q.includes("resurgence") || q.includes("gulag")) {
       return [
         {
           id: "COD_WarzoneSweat_94",
           name: "Marcus 'Ghost' Vance",
           gamerTag: "Ghost_Resurgence_94",
-          archetype: "COMPETITIVE_GRINDER",
-          division: "Call of Duty • BO7 Iridescent (Rank 1)",
+          archetype: "GULAG_TILT_RISK",
+          division: "Call of Duty: Warzone • Rebirth Demon (Top 250)",
           matchesPlayed: 1450,
           spendLtv: 480.0,
           tiltLevel: 88,
-          wtp: 9.99,
+          wtp: 4.99,
           fsmState: "PURCHASED",
           recentLossStreak: 3,
-          quote: "After getting eliminated in the Gulag 3 matches in a row, grabbing the $9.99 BlackCell starter reload with 1,100 CP coins gets me right back into Resurgence squads.",
+          quote: "After getting eliminated in the Gulag 3 matches in a row, grabbing the $4.99 Gulag Recovery Care Package gets me right back into Resurgence squads.",
         },
         {
           id: "BlackCell_Whale_01",
           name: "Alexander 'Vault' Price",
           gamerTag: "BlackCell_Whale_01",
           archetype: "BLACKCELL_WHALE",
-          division: "Call of Duty • BlackCell Vault Collector ($3.5k+)",
+          division: "Call of Duty: Warzone • BlackCell Vault Collector ($3.5k+)",
           matchesPlayed: 2100,
           spendLtv: 3800.0,
           tiltLevel: 12,
@@ -381,7 +381,7 @@ export default function DeepSonaModal({
           name: "Liam 'Squad' Miller",
           gamerTag: "Resurgence_Captain_10",
           archetype: "CASUAL_SOCIALIZER",
-          division: "Call of Duty • Resurgence Quad Captain",
+          division: "Call of Duty: Warzone • Resurgence Quad Captain",
           matchesPlayed: 620,
           spendLtv: 140.0,
           tiltLevel: 28,
@@ -391,266 +391,204 @@ export default function DeepSonaModal({
           quote: "Our whole 4-player Resurgence quad logs in Friday night. The Clan 2x Weapon XP Pass was bought by all 4 of us immediately.",
         },
         {
-          id: "Campaign_Purist_Echo",
+          id: "Verdansk_OG_Echo",
           name: "David 'Bravo' Chen",
-          gamerTag: "Campaign_Purist_Echo",
-          archetype: "LORE_SEEKER",
-          division: "Call of Duty • Campaign & Solo Purist",
-          matchesPlayed: 340,
-          spendLtv: 70.0,
-          tiltLevel: 10,
-          wtp: 0.0,
-          fsmState: "ENGAGED_FREE",
-          recentLossStreak: 0,
-          quote: "As long as weapons stay balanced and narrative modes don't get paywalled, I support the seasonal liveops.",
-        },
-      ];
-    }
-
-    // 3. WORLD OF WARCRAFT PERSONAS FALLBACK
-    else if (game === "WOW" || q.includes("wow") || q.includes("warcraft") || q.includes("raid") || q.includes("mythic")) {
-      return [
-        {
-          id: "Mythic_Raider_Midnight",
-          name: "Theron 'Void' Sunstrider",
-          gamerTag: "Void_Raider_Ansurak",
-          archetype: "AZERITE_COLLECTOR",
-          division: "World of Warcraft • Mythic+ Title (3,200 IO)",
-          matchesPlayed: 1800,
-          spendLtv: 620.0,
-          tiltLevel: 85,
-          wtp: 14.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 3,
-          quote: "Wiping on Mythic raid bosses 3 times in a row tests team morale. A 30-day token or feast pack softens the grind for our guild.",
-        },
-        {
-          id: "WoW_20Year_Whale",
-          name: "Thorvald 'Aman' Proudmoore",
-          gamerTag: "Aman_Collector_Whale",
-          archetype: "BLACKCELL_WHALE",
-          division: "World of Warcraft • 20-Year Collector ($4k+)",
-          matchesPlayed: 5200,
-          spendLtv: 4500.0,
-          tiltLevel: 8,
-          wtp: 77.94,
-          fsmState: "PURCHASED",
-          recentLossStreak: 0,
-          quote: "12-Month Subscription bundle with 4 exclusive mounts and collector pets is an automatic renewal for my 20-year account.",
-        },
-        {
-          id: "Guild_Master_Elysium",
-          name: "Victoria 'Valk' Sterling",
-          gamerTag: "Elysium_Guild_Lead",
-          archetype: "CASUAL_SOCIALIZER",
-          division: "World of Warcraft • Mythic Raid Guild Master",
-          matchesPlayed: 2400,
-          spendLtv: 340.0,
-          tiltLevel: 25,
-          wtp: 14.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 1,
-          quote: "Guild cauldron vouchers and group repair discounts save our officers hundreds of hours of gold farming every tier.",
-        },
-        {
-          id: "Azeroth_Lore_Explorer",
-          name: "Sean 'Lore' Walker",
-          gamerTag: "Azeroth_Lore_Explorer",
-          archetype: "LORE_SEEKER",
-          division: "World of Warcraft • Lore & Quest Purist",
-          matchesPlayed: 890,
-          spendLtv: 180.0,
-          tiltLevel: 10,
-          wtp: 14.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 0,
-          quote: "I play through every expansion campaign for the world storytelling. The 6-Month sub with bonus mount is solid value.",
-        },
-      ];
-    }
-
-    // 4. DIABLO IV PERSONAS FALLBACK
-    else if (game === "DIABLO4" || q.includes("diablo") || q.includes("pit") || q.includes("sanctuary")) {
-      return [
-        {
-          id: "Pit_Grinder_Tier90",
-          name: "Kaelen 'Bane' Cross",
-          gamerTag: "Pit_Master_Bane",
-          archetype: "SANCTUARY_COLLECTOR",
-          division: "Diablo IV • The Pit Tier 100 Grinder",
-          matchesPlayed: 1200,
-          spendLtv: 380.0,
-          tiltLevel: 84,
-          wtp: 19.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 3,
-          quote: "Got one-shot by the Pit tier 85 boss 3 runs in a row. An Infernal Relic Cache with masterworking obducite gives the stat push to clear.",
-        },
-        {
-          id: "Sanctuary_Whale_Deluxe",
-          name: "Lilith 'Inarius' Thorne",
-          gamerTag: "Sanctuary_Whale_Prime",
-          archetype: "BLACKCELL_WHALE",
-          division: "Diablo IV • Sanctuary Deluxe Collector",
-          matchesPlayed: 1950,
-          spendLtv: 2800.0,
-          tiltLevel: 15,
-          wtp: 59.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 0,
-          quote: "Lord of Hatred Ultimate Edition with wings, town portal animations, and 3,000 Platinum was an immediate pre-order.",
-        },
-        {
-          id: "Horde_4Stack_Leader",
-          name: "Darius 'Hammer' Stone",
-          gamerTag: "Infernal_Horde_Stack",
-          archetype: "CASUAL_SOCIALIZER",
-          division: "Diablo IV • Torment IV 4-Stack Lead",
-          matchesPlayed: 650,
-          spendLtv: 160.0,
-          tiltLevel: 20,
-          wtp: 9.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 1,
-          quote: "Our 4-player party runs Torment Hordes every Friday. Infernal Compass keys and party loot boosts give huge group efficiency.",
-        },
-        {
-          id: "Solo_Seasonal_Purist",
-          name: "Elena 'Rogue' Frost",
-          gamerTag: "Solo_Seasonal_Purist",
-          archetype: "LORE_SEEKER",
-          division: "Diablo IV • Solo Seasonal Purist",
-          matchesPlayed: 480,
-          spendLtv: 70.0,
-          tiltLevel: 10,
-          wtp: 0.0,
-          fsmState: "ENGAGED_FREE",
-          recentLossStreak: 0,
-          quote: "As long as the battle pass remains cosmetic-only and season mechanics are free, I enjoy clearing the seasonal journey.",
-        },
-      ];
-    }
-
-    // 5. OVERWATCH 2 PERSONAS FALLBACK
-    else if (game === "OVERWATCH2" || q.includes("overwatch") || q.includes("ow2")) {
-      return [
-        {
-          id: "OW2_Top500_Tracer",
-          name: "Maya 'Blink' Lin",
-          gamerTag: "Tracer_Top500_Pulse",
-          archetype: "COMPETITIVE_GRINDER",
-          division: "Overwatch 2 • Top 500 Grandmaster",
-          matchesPlayed: 2100,
-          spendLtv: 520.0,
-          tiltLevel: 86,
-          wtp: 9.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 3,
-          quote: "After 3 straight rank demotion losses in competitive role queue, a Mythic Prisms reload keeps morale high.",
-        },
-        {
-          id: "Mythic_Prism_Whale",
-          name: "Austin 'Reinhardt' Miller",
-          gamerTag: "Mythic_Prism_King",
-          archetype: "BLACKCELL_WHALE",
-          division: "Overwatch 2 • Mythic Prism Collector",
-          matchesPlayed: 1750,
-          spendLtv: 2400.0,
-          tiltLevel: 14,
-          wtp: 39.99,
-          fsmState: "PURCHASED",
-          recentLossStreak: 0,
-          quote: "Whenever a new Mythic Skin drops, I unlock all 4 weapon visual variants and sound effects immediately.",
-        },
-        {
-          id: "RoleQueue_5Stack_Lead",
-          name: "Chloe 'Mercy' Sterling",
-          gamerTag: "RoleQueue_5Stack_Lead",
-          archetype: "CASUAL_SOCIALIZER",
-          division: "Overwatch 2 • Role Queue 5-Stack Lead",
-          matchesPlayed: 780,
+          gamerTag: "Verdansk_OG_Echo",
+          archetype: "VERDANSK_OG",
+          division: "Call of Duty: Warzone • Verdansk 2020 Veteran",
+          matchesPlayed: 1840,
           spendLtv: 120.0,
+          tiltLevel: 10,
+          wtp: 0.0,
+          fsmState: "ENGAGED_FREE",
+          recentLossStreak: 0,
+          quote: "Playing since Verdansk day one in March 2020. As long as movement stays fluid and there's no pay-to-win weapon blueprint stats, I support the game.",
+        },
+      ];
+    }
+
+    // 3. BLACK OPS 6 & ZOMBIES PERSONAS FALLBACK
+    else if (game === "BLACK_OPS" || q.includes("black ops") || q.includes("bo6") || q.includes("zombies") || q.includes("terminus")) {
+      return [
+        {
+          id: "Terminus_Slayer_115",
+          name: "Edward 'Mangler' Richter",
+          gamerTag: "Terminus_Slayer_115",
+          archetype: "ROUND_BASED_ZOMBIES_SLAYER",
+          division: "Call of Duty: Black Ops 7 • Round 40+ Zombies Slayer",
+          matchesPlayed: 1240,
+          spendLtv: 320.0,
+          tiltLevel: 82,
+          wtp: 9.99,
+          fsmState: "PURCHASED",
+          recentLossStreak: 3,
+          quote: "Wiped on Round 38 after a Mangler swarm 3 runs in a row. The $9.99 GobbleGum Ultra Mega Pack gives our crew the Perkaholic and Cache Back boosts needed for the Easter Egg.",
+        },
+        {
+          id: "DarkMatter_Whale_BO7",
+          name: "Samantha 'Aether' Maxis",
+          gamerTag: "DarkMatter_Whale_BO7",
+          archetype: "BLACKCELL_WHALE",
+          division: "Call of Duty: Black Ops 7 • Dark Matter Camo Whale ($2.8k+)",
+          matchesPlayed: 1980,
+          spendLtv: 2850.0,
+          tiltLevel: 15,
+          wtp: 99.99,
+          fsmState: "PURCHASED",
+          recentLossStreak: 0,
+          quote: "Black Ops 7 Vault Edition upgrade with Mastercraft weapon blueprints, GobbleGums, and Woods Operator pack was an instant pre-order.",
+        },
+        {
+          id: "Treyarch_Squad_Lead",
+          name: "Marcus 'Mason' Woods",
+          gamerTag: "Treyarch_Squad_Lead",
+          archetype: "CASUAL_SOCIALIZER",
+          division: "Call of Duty: Black Ops 7 • Terminus Island Squad Lead",
+          matchesPlayed: 750,
+          spendLtv: 160.0,
           tiltLevel: 22,
           wtp: 9.99,
           fsmState: "PURCHASED",
           recentLossStreak: 1,
-          quote: "Our 5-stack hops on every weekend. The Premium Battle Pass with 20 tier skips gives our whole squad great unlocks.",
+          quote: "Our 4-player co-op squad runs round-based Zombies every Friday. Shared GobbleGum caches keep our team surviving past Round 50.",
         },
         {
-          id: "Arcade_Casual_Lucio",
-          name: "Liam 'Boop' S.",
-          gamerTag: "Arcade_Casual_Lucio",
-          archetype: "CASUAL_WARRIOR",
-          division: "Overwatch 2 • Mystery Heroes Casual",
-          matchesPlayed: 380,
-          spendLtv: 30.0,
-          tiltLevel: 15,
-          wtp: 4.99,
-          fsmState: "PURCHASED",
+          id: "Camo_Completionist_BO7",
+          name: "Alex 'DarkMatter' Miller",
+          gamerTag: "Camo_Completionist_BO7",
+          archetype: "CAMO_COMPLETIONIST",
+          division: "Call of Duty: Black Ops 7 • Dark Matter Grinder",
+          matchesPlayed: 920,
+          spendLtv: 40.0,
+          tiltLevel: 10,
+          wtp: 0.0,
+          fsmState: "ENGAGED_FREE",
           recentLossStreak: 0,
-          quote: "1,000 Coins starter pack with a featured legendary hero skin is great value for casual players.",
+          quote: "Grinding Dark Matter across all 33 launch weapons. As long as mastery camo challenges remain skill-based and not buyable, the liveops loop is great.",
         },
       ];
     }
 
-    // 6. DEFAULT / CANDY CRUSH & ALL ABK PERSONAS FALLBACK
-    else {
+    // 4. CDL RANKED COMPETITORS FALLBACK
+    else if (game === "CDL_RANKED" || q.includes("cdl") || q.includes("ranked") || q.includes("optic") || q.includes("faze")) {
       return [
         {
-          id: "Candy_Commuter_Slump",
-          name: "Brenda 'Subway' K.",
-          gamerTag: "Subway_Crush_99",
-          archetype: "BOOSTER_WHALE",
-          division: "Candy Crush • Level 500+ Commuter",
-          matchesPlayed: 3100,
-          spendLtv: 450.0,
-          tiltLevel: 82,
-          wtp: 1.99,
+          id: "Iridescent_Sweat_CDL",
+          name: "Tyler 'Shotz' Murphy",
+          gamerTag: "Iridescent_Sweat_CDL",
+          archetype: "CDL_RANKED_SWEAT",
+          division: "Call of Duty: CDL Ranked • Iridescent Rank 1",
+          matchesPlayed: 2150,
+          spendLtv: 520.0,
+          tiltLevel: 86,
+          wtp: 4.99,
           fsmState: "PURCHASED",
           recentLossStreak: 3,
-          quote: "Failed level 540 with 1 jelly remaining 3 times in a row. A $1.99 50 Gold Bars booster pack lets me clear the level and keep my streak.",
+          quote: "Suffered 3 straight demotion losses in Hardpoint (tilt at 86%). The $4.99 Ranked Play Demotion Recovery Pack protects my SR and resets squad focus.",
         },
         {
-          id: "Candy_VIP_Whale",
-          name: "Eleanor 'Sugar' Vance",
-          gamerTag: "Candy_VIP_Whale_01",
+          id: "OpTic_GreenWall_Whale",
+          name: "Hector 'Wall' Rodriguez",
+          gamerTag: "OpTic_GreenWall_Whale",
           archetype: "BLACKCELL_WHALE",
-          division: "Candy Crush • VIP Hall of Fame",
-          matchesPlayed: 4500,
-          spendLtv: 1850.0,
-          tiltLevel: 10,
+          division: "Call of Duty: CDL Ranked • OpTic/FaZe Pro Supporter",
+          matchesPlayed: 1850,
+          spendLtv: 2400.0,
+          tiltLevel: 14,
           wtp: 19.99,
           fsmState: "PURCHASED",
           recentLossStreak: 0,
-          quote: "I buy the $19.99 Gold Bar vault every month to maintain my position at the top of the weekly team race.",
+          quote: "Every CDL Major I buy both the OpTic Gaming and FaZe Clan team packs and weapon camos. Creator codes for Scump and ZooMaa are always active on checkout.",
         },
         {
-          id: "Daily_Streak_Social",
-          name: "Jessica 'Candy' W.",
-          gamerTag: "Daily_Streak_Social",
+          id: "Hardpoint_IGL_Lead",
+          name: "Jordan 'Comms' Blake",
+          gamerTag: "Hardpoint_IGL_Lead",
           archetype: "CASUAL_SOCIALIZER",
-          division: "Candy Crush • 365-Day Daily Streak",
-          matchesPlayed: 1400,
-          spendLtv: 85.0,
-          tiltLevel: 20,
-          wtp: 4.99,
+          division: "Call of Duty: CDL Ranked • 4-Stack Callout Captain",
+          matchesPlayed: 890,
+          spendLtv: 130.0,
+          tiltLevel: 24,
+          wtp: 9.99,
           fsmState: "PURCHASED",
           recentLossStreak: 1,
-          quote: "Our social team exchanges extra lives and booster gifts every morning on the train commute.",
+          quote: "Our 4-stack scrims competitive CDL maps 4 nights a week. Pro pack operator uniforms give our squad clean visual uniformity.",
         },
         {
-          id: "Subway_Casual_Gamer",
-          name: "Marcus 'Transit' B.",
-          gamerTag: "Subway_Casual_Gamer",
+          id: "Competitive_Meta_Purist",
+          name: "Chris 'Anchor' Nolan",
+          gamerTag: "Competitive_Meta_Purist",
           archetype: "COMPETITIVE_GRINDER",
-          division: "Candy Crush • Casual Subway Commuter",
-          matchesPlayed: 520,
-          spendLtv: 15.0,
-          tiltLevel: 15,
-          wtp: 0.99,
+          division: "Call of Duty: CDL Ranked • Diamond Anchor",
+          matchesPlayed: 640,
+          spendLtv: 20.0,
+          tiltLevel: 18,
+          wtp: 0.0,
+          fsmState: "ENGAGED_FREE",
+          recentLossStreak: 0,
+          quote: "Strict competitive ruleset player. No cheese weapons, no gaudy anime skins—just pure gunskill, rotation timing, and CDL map knowledge.",
+        },
+      ];
+    }
+
+    // 5. COD MOBILE & MWIII PERSONAS FALLBACK
+    else {
+      return [
+        {
+          id: "Mythic_Grau_Demon",
+          name: "Kenji 'Claw' Sato",
+          gamerTag: "Mythic_Grau_Demon",
+          archetype: "MOBILE_TOUCHPAD_PRODIGY",
+          division: "Call of Duty: Mobile • Legendary 10,000+ Grinder",
+          matchesPlayed: 3200,
+          spendLtv: 850.0,
+          tiltLevel: 75,
+          wtp: 9.99,
+          fsmState: "PURCHASED",
+          recentLossStreak: 3,
+          quote: "Dropped 3 ranked matches in legendary tier. The Mythic Grau 5.56 draw reload gives the weapon inspection and kill effects I love.",
+        },
+        {
+          id: "Mobile_Crate_Whale",
+          name: "Sarah 'Draw' Jenkins",
+          gamerTag: "Mobile_Crate_Whale",
+          archetype: "BLACKCELL_WHALE",
+          division: "Call of Duty: Mobile • Mythic Weapon Collector ($3k+)",
+          matchesPlayed: 4100,
+          spendLtv: 3200.0,
+          tiltLevel: 10,
+          wtp: 49.99,
           fsmState: "PURCHASED",
           recentLossStreak: 0,
-          quote: "99¢ extra moves when I'm one match away from clearing a hard level is a no-brainer.",
+          quote: "Every Mythic lucky draw I spin to completion. Having the animated mythic weapon shroud and custom tracer rounds is mandatory for my loadout.",
+        },
+        {
+          id: "SnD_Clutch_Specialist",
+          name: "Jason 'Defuse' Briggs",
+          gamerTag: "SnD_Clutch_Specialist",
+          archetype: "SEARCH_AND_DESTROY_SPECIALIST",
+          division: "Call of Duty: MWIII • Search & Destroy Specialist",
+          matchesPlayed: 1100,
+          spendLtv: 180.0,
+          tiltLevel: 35,
+          wtp: 19.99,
+          fsmState: "PURCHASED",
+          recentLossStreak: 1,
+          quote: "1v4 clutch specialist in Search & Destroy. The S&D Clutch Pro Bundle with dead silence footsteps and ninja defuse calling card is perfect.",
+        },
+        {
+          id: "Casual_Standoff_Purist",
+          name: "Marcus 'Commute' Rivera",
+          gamerTag: "Casual_Standoff_Purist",
+          archetype: "CASUAL_WARRIOR",
+          division: "Call of Duty: Mobile • Casual Standoff Slayer",
+          matchesPlayed: 480,
+          spendLtv: 10.0,
+          tiltLevel: 12,
+          wtp: 2.99,
+          fsmState: "PURCHASED",
+          recentLossStreak: 0,
+          quote: "Quick 10-minute Team Deathmatch rounds on lunch break. The $2.99 Mobile Starter Claw pack is the perfect bite-sized upgrade.",
         },
       ];
     }
@@ -661,37 +599,39 @@ export default function DeepSonaModal({
   useEffect(() => {
     const activeFranchise =
       selectedGame === "ALL"
-        ? (cohortContext?.franchise && cohortContext.franchise !== "ALL" ? cohortContext.franchise : "Activision Blizzard King")
-        : selectedGame === "COD"
-        ? "Call of Duty: Warzone"
-        : selectedGame === "WOW"
-        ? "World of Warcraft"
-        : selectedGame === "DIABLO4"
-        ? "Diablo IV"
-        : selectedGame === "OVERWATCH2"
-        ? "Overwatch 2"
-        : "Candy Crush Saga";
+        ? (cohortContext?.franchise && cohortContext.franchise !== "ALL" ? cohortContext.franchise : "Call of Duty: Unified HQ")
+        : selectedGame === "WARZONE"
+        ? "Call of Duty: Warzone & Resurgence"
+        : selectedGame === "BLACK_OPS"
+        ? "Call of Duty: Black Ops 7 & Zombies"
+        : selectedGame === "MODERN_WARFARE"
+        ? "Call of Duty: Modern Warfare III"
+        : selectedGame === "CDL_RANKED"
+        ? "Call of Duty: CDL Ranked Play"
+        : selectedGame === "COD_MOBILE"
+        ? "Call of Duty: Mobile"
+        : "Call of Duty: Unified HQ";
     setFranchise(activeFranchise);
 
     if (cohortContext?.query) {
       setCreativeTitle(`${cohortContext.query} — Real-Time Intervention`);
     } else if (targetNode) {
       setCreativeTitle(`${targetNode.name} • ${targetNode.archetype || "Player"} Direct Contextual Offer`);
-    } else if (selectedGame === "COD") {
-      setCreativeTitle("Call of Duty: Warzone BlackCell Battle Pass & 1,100 CP Starter ($9.99 - $29.99)");
-      setProposedSpend(220000);
-    } else if (selectedGame === "WOW") {
-      setCreativeTitle("World of Warcraft 6-Month Subscription Bundle & Mount Voucher ($14.99 - $77.94)");
-      setProposedSpend(190000);
-    } else if (selectedGame === "DIABLO4") {
-      setCreativeTitle("Diablo IV: Lord of Hatred Deluxe & Infernal Relic Cache ($19.99 - $59.99)");
-      setProposedSpend(160000);
-    } else if (selectedGame === "OVERWATCH2") {
-      setCreativeTitle("Overwatch 2 Mythic Skin Prism Bundle & 2,200 Coins ($9.99 - $39.99)");
+    } else if (selectedGame === "BLACK_OPS") {
+      setCreativeTitle("Black Ops 7 Zombies GobbleGum Ultra Mega Pack & 1,100 CP ($9.99 - $29.99)");
+      setProposedSpend(180000);
+    } else if (selectedGame === "CDL_RANKED") {
+      setCreativeTitle("CDL Ranked Play Demotion Recovery Pack & OpTic/FaZe Pro Supporter Bundle ($4.99 - $19.99)");
+      setProposedSpend(150000);
+    } else if (selectedGame === "COD_MOBILE") {
+      setCreativeTitle("Call of Duty: Mobile Mythic Grau 5.56 Draw & 800 CP Starter ($2.99 - $49.99)");
+      setProposedSpend(120000);
+    } else if (selectedGame === "MODERN_WARFARE") {
+      setCreativeTitle("MWIII Search & Destroy Clutch Pro Bundle & 2,400 CP ($19.99 - $39.99)");
       setProposedSpend(140000);
     } else {
-      setCreativeTitle("Candy Crush Saga Infinite Lives & 50 Gold Bars Bundle ($4.99 - $19.99)");
-      setProposedSpend(110000);
+      setCreativeTitle("Call of Duty: Warzone BlackCell Battle Pass & 1,100 CP Starter ($9.99 - $29.99)");
+      setProposedSpend(220000);
     }
   }, [selectedGame, cohortContext, targetNode]);
 

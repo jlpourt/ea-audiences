@@ -107,7 +107,7 @@ Generate the structured Campaign Brief in strict JSON format:
       
       const isWhale = segment.toLowerCase().includes("whale") || creativeTitle.toLowerCase().includes("whale") || creativeTitle.toLowerCase().includes("vault");
       const isRush = segment.toLowerCase().includes("squad") || segment.toLowerCase().includes("clan") || segment.toLowerCase().includes("guild");
-      const isCreatorCohort = segment.toLowerCase().includes("creator") || segment.toLowerCase().includes("streamer") || segment.toLowerCase().includes("scump") || segment.toLowerCase().includes("asmongold") || segment.toLowerCase().includes("timthetatman") || segment.toLowerCase().includes("wudijo") || segment.toLowerCase().includes("swagg");
+      const isCreatorCohort = segment.toLowerCase().includes("creator") || segment.toLowerCase().includes("streamer") || segment.toLowerCase().includes("scump") || segment.toLowerCase().includes("timthetatman") || segment.toLowerCase().includes("swagg") || segment.toLowerCase().includes("biffle") || segment.toLowerCase().includes("jgod");
 
       if (isCreatorCohort) {
         brief = {
@@ -117,7 +117,7 @@ Generate the structured Campaign Brief in strict JSON format:
           target_segment: segment,
           audience_size: audienceSize,
           trigger_rules: [
-            "Player Follows Verified Creator (Scump / TimTheTatman / Asmongold / Wudijo / FaZe Swagg)",
+            "Player Follows Verified Creator (Scump / TimTheTatman / FaZe Swagg / Biffle / JGOD)",
             "Live Stream Drop Event Active during Season Launch Weekend (Friday–Sunday UTC)",
             "Deliver Creator-Curated Weapon Blueprint & Custom Loadout Preset upon Stream Account Link",
           ],
@@ -130,33 +130,33 @@ Generate the structured Campaign Brief in strict JSON format:
           creative_hooks: [
             "Scump CDL Special: Meta MCW Blueprint + 1-Hour Double Weapon XP",
             "TimTheTatman Midnight Drop: Exclusive WZ Operator Bundle live for stream viewers",
-            "Asmongold Transmog Special: 6-Month Sub Bonus Mount + Collector Pet",
-            "Wudijo Hardcore Pit Preset: Masterwork Materials Bundle + Pit Loss Elixir",
+            "FaZe Swagg Rebirth Special: Striker 9 Blueprint + 2-Hour 2x Weapon XP",
+            "Biffle Warzone Meta: Superi 46 Loadout Preset + Animated Calling Card",
           ],
           generated_at: new Date().toISOString(),
         };
       } else if (isWhale) {
         brief = {
           brief_id: `brief-abk-${Date.now()}`,
-          title: `${franchise} • Battle.net High-LTV Vault Campaign Brief`,
+          title: `${franchise} • High-LTV CoD Points Vault Campaign Brief`,
           franchise,
           target_segment: segment,
           audience_size: audienceSize,
           trigger_rules: [
-            "Whale Session Inactivity >= 4 Days with In-Game Balance < 1,000 CoD Points / Platinum",
-            "Lifetime Spend Tier >= $2,500 with Active Battle.net Multi-Title Engagement",
-            "Trigger 13,000 CoD Points ($99.99) or Diablo Platinum Vault Flash in Battle.net Launcher",
+            "Whale Session Inactivity >= 4 Days with In-Game Balance < 1,000 CoD Points",
+            "Lifetime Spend Tier >= $2,500 with Active Call of Duty Multi-Mode Engagement",
+            "Trigger 13,000 CoD Points ($99.99) Vault Flash in CoD Store",
           ],
           deepsona_consensus:
             "DeepSona multi-agent focus group verified +31.2% conversion lift with 96% authenticity score among High-LTV Whales. Personas favored guaranteed exclusive masterwork cosmetics over standard battle pass tiers.",
           predicted_conversion_lift: 31.2,
           projected_roi: 3.45,
           recommended_action:
-            "Deploy exclusive Battle.net launcher flash banner for 'BlackCell Vault Bundle ($99.99 / 13,000 CP)' with 48-hour expiration timer.",
+            "Deploy exclusive in-game store flash banner for 'BlackCell Vault Bundle ($99.99 / 13,000 CP)' with 48-hour expiration timer.",
           creative_hooks: [
             "Upgrade your Arsenal: Guaranteed Animated Mastercraft Weapon Selection live for 48 hours",
             "Lead your squad with BlackCell: 13,000 CoD Points + Uncapped Prestige Weapon Blueprint",
-            "Exclusive Battle.net Founder Vault: 11,500 Platinum + Diablo IV Mount Armor",
+            "Exclusive Activision Founder Vault: 13,000 CP + Celestial Dragon Mastercraft Blueprint",
           ],
           generated_at: new Date().toISOString(),
         };

@@ -17,34 +17,35 @@ export const dynamic = "force-dynamic";
  * it returns 503 so the UI can say so plainly.
  */
 
-/** Real, verified-active subreddits per franchise. */
+/** Real, verified-active subreddits per CoD mode / franchise. */
 const SUBREDDITS_BY_FRANCHISE: Record<string, string[]> = {
   COD: ["r/CallOfDuty", "r/CODWarzone", "r/blackops7", "r/ModernWarfareIII"],
-  WOW: ["r/wow", "r/classicwow", "r/CompetitiveWoW"],
-  DIABLO4: ["r/diablo4", "r/Diablo"],
-  OVERWATCH2: ["r/Overwatch", "r/Competitiveoverwatch", "r/OverwatchUniversity"],
-  CANDYCRUSH: ["r/candycrush"],
+  WARZONE: ["r/CODWarzone", "r/Warzone"],
+  BLACK_OPS: ["r/blackops7", "r/CODZombies"],
+  MODERN_WARFARE: ["r/ModernWarfareIII", "r/ModernWarfareII"],
+  CDL_RANKED: ["r/CoDCompetitive", "r/CallOfDuty"],
+  COD_MOBILE: ["r/CallOfDutyMobile", "r/CODMobile"],
 };
 
 /**
- * Current live content per franchise, as of the catalog refresh. Passed to the
- * model so its search queries target what players are actually playing now
- * rather than a retired season.
+ * Current live content per CoD mode.
  */
 const LIVE_CONTEXT_BY_FRANCHISE: Record<string, string> = {
-  COD: "Call of Duty: Black Ops 7 (released Nov 2025), Warzone, the BlackCell battle pass tier ($29.99), standard battle pass (1,100 CP / $9.99), CoD Points bundles, and the upcoming Modern Warfare 4",
-  WOW: "World of Warcraft: Midnight (2026) and its current season, the $14.99/mo subscription, the WoW Token, paid character boosts and transfers, and Mists of Pandaria Classic",
-  DIABLO4: "Diablo IV, its current season, the Lord of Hatred expansion, the premium battle pass, and platinum cosmetic pricing",
-  OVERWATCH2: "Overwatch 2, its current season, Mythic Prism pricing, the premium battle pass, and collaboration skin bundles",
-  CANDYCRUSH: "Candy Crush Saga, gold bar pricing, booster bundles, the Sugar Track season pass, and level difficulty pacing",
+  COD: "Call of Duty ecosystem, cross-title progression, BlackCell battle pass tier ($29.99), standard battle pass (1,100 CP / $9.99), and CoD Points bundles",
+  WARZONE: "Call of Duty: Warzone & Resurgence, Gulag mechanics, Urzikstan / Rebirth Island, BlackCell ($29.99), and weapon blueprint balancing",
+  BLACK_OPS: "Call of Duty: Black Ops 7, Omnimovement 2.0, Round-Based Zombies, GobbleGums, Dark Matter camo grind, and Vault Edition upgrades",
+  MODERN_WARFARE: "Call of Duty: Modern Warfare III, multiplayer map rotations, aftermarket parts, and carry-forward operator bundles",
+  CDL_RANKED: "Call of Duty League (CDL) Ranked Play, Skill Rating (SR) demotion protection, OpTic / FaZe team bundles, and competitive meta weapons",
+  COD_MOBILE: "Call of Duty: Mobile, Mythic weapon draws, Legendary operator skins, and CP crate pricing",
 };
 
 const FRANCHISE_LABEL: Record<string, string> = {
   COD: "Call of Duty",
-  WOW: "World of Warcraft",
-  DIABLO4: "Diablo IV",
-  OVERWATCH2: "Overwatch 2",
-  CANDYCRUSH: "Candy Crush Saga",
+  WARZONE: "Call of Duty: Warzone",
+  BLACK_OPS: "Call of Duty: Black Ops 7",
+  MODERN_WARFARE: "Call of Duty: Modern Warfare III",
+  CDL_RANKED: "Call of Duty: CDL Ranked",
+  COD_MOBILE: "Call of Duty: Mobile",
 };
 
 export interface RedditTheme {

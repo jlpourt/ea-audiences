@@ -41,44 +41,49 @@ interface GeminiLandingStageProps {
 }
 
 const FRANCHISES: { id: GameFranchise; label: string; dotColor: string }[] = [
-  { id: "ALL", label: "All Titles", dotColor: "#00F0FF" },
-  { id: "COD", label: "Call of Duty", dotColor: "#F59E0B" },
-  { id: "WOW", label: "World of Warcraft", dotColor: "#00F0FF" },
-  { id: "DIABLO4", label: "Diablo IV", dotColor: "#FF334B" },
-  { id: "OVERWATCH2", label: "Overwatch 2", dotColor: "#38BDF8" },
-  { id: "CANDYCRUSH", label: "Candy Crush", dotColor: "#EC4899" },
+  { id: "ALL", label: "All CoD Modes", dotColor: "#F59E0B" },
+  { id: "WARZONE", label: "Warzone & Resurgence", dotColor: "#F59E0B" },
+  { id: "BLACK_OPS", label: "Black Ops 7 & Zombies", dotColor: "#FF5722" },
+  { id: "MODERN_WARFARE", label: "Modern Warfare III", dotColor: "#10B981" },
+  { id: "CDL_RANKED", label: "CDL & Ranked Play", dotColor: "#6366F1" },
+  { id: "COD_MOBILE", label: "CoD Mobile", dotColor: "#06B6D4" },
 ];
 
 const AURA_THEMES: Record<GameFranchise, { primary: string; secondary: string; pulse: string }> = {
   ALL: {
-    primary: "rgba(0, 240, 255, 0.14)",     // Arcane Cyan
-    secondary: "rgba(245, 158, 11, 0.12)",  // Amber Gold
-    pulse: "rgba(236, 72, 153, 0.10)",      // Candy Pink
-  },
-  COD: {
     primary: "rgba(245, 158, 11, 0.18)",    // Tactical Amber / Gold
     secondary: "rgba(16, 185, 129, 0.12)",  // Night-Vision Emerald
     pulse: "rgba(239, 68, 68, 0.10)",       // Warzone Red Alert
   },
-  WOW: {
-    primary: "rgba(0, 240, 255, 0.18)",     // Arcane Cyan / Azeroth Sky
-    secondary: "rgba(168, 85, 247, 0.14)",  // Void Purple
-    pulse: "rgba(234, 179, 8, 0.10)",       // Legendary Gold
+  COD: {
+    primary: "rgba(245, 158, 11, 0.18)",
+    secondary: "rgba(16, 185, 129, 0.12)",
+    pulse: "rgba(239, 68, 68, 0.10)",
   },
-  DIABLO4: {
-    primary: "rgba(255, 51, 75, 0.18)",     // Crimson Blood
-    secondary: "rgba(245, 158, 11, 0.12)",  // Hellfire Amber
-    pulse: "rgba(147, 51, 234, 0.10)",      // Occult Violet
+  WARZONE: {
+    primary: "rgba(245, 158, 11, 0.20)",    // Urzikstan Gold
+    secondary: "rgba(239, 68, 68, 0.14)",   // Gulag Red
+    pulse: "rgba(16, 185, 129, 0.10)",      // Gas Mask Green
   },
-  OVERWATCH2: {
-    primary: "rgba(56, 189, 248, 0.18)",    // Vanguard Sky Blue
-    secondary: "rgba(249, 115, 22, 0.14)",  // Overwatch Orange
-    pulse: "rgba(0, 240, 255, 0.10)",       // Tracer Cyan
+  BLACK_OPS: {
+    primary: "rgba(255, 87, 34, 0.20)",     // Treyarch Orange / Red
+    secondary: "rgba(168, 85, 247, 0.14)",  // Dark Aether Purple
+    pulse: "rgba(245, 158, 11, 0.12)",      // Pack-a-Punch Amber
   },
-  CANDYCRUSH: {
-    primary: "rgba(236, 72, 153, 0.18)",    // King Bubblegum Pink
-    secondary: "rgba(245, 158, 11, 0.14)",  // Gold Bar Amber
-    pulse: "rgba(168, 85, 247, 0.12)",      // Jelly Purple
+  MODERN_WARFARE: {
+    primary: "rgba(16, 185, 129, 0.18)",    // Milsim Tactical Green
+    secondary: "rgba(59, 130, 246, 0.14)",  // Task Force Blue
+    pulse: "rgba(245, 158, 11, 0.10)",      // Interstellar Gold
+  },
+  CDL_RANKED: {
+    primary: "rgba(99, 102, 241, 0.20)",    // CDL Indigo / Purple
+    secondary: "rgba(239, 68, 68, 0.14)",   // Top 250 Crimson
+    pulse: "rgba(0, 240, 255, 0.12)",       // Iridescent Cyan
+  },
+  COD_MOBILE: {
+    primary: "rgba(6, 182, 212, 0.18)",     // Mobile Cyan
+    secondary: "rgba(236, 72, 153, 0.14)",  // Mythic Draw Pink
+    pulse: "rgba(245, 158, 11, 0.10)",      // Legendary Gold
   },
 };
 
@@ -101,56 +106,56 @@ const getFindingIcon = (iconType: string) => {
 
 const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
   {
-    id: "squad_contagion",
-    category: "churn_contagion",
-    tabLabel: "01. Squad Churn Contagion",
-    shortLabel: "Squad Churn",
-    badge: "Spanner 3-Hop GQL",
-    iconType: "shield",
-    iconColor: "text-rose-400",
-    bgAccent: "bg-rose-500/10",
-    pillColor: "bg-rose-500/15 text-rose-300 border-rose-500/30",
-    metricPill: "64.5% Churn Risk",
-    title: "107 Tilted Players Triggering Squad Churn Contagion",
-    summary: "Spanner 3-Hop traversal isolated 107 active COD players on 3+ loss streaks whose clanmates in FaZe, OpTic, or TaskForce have migrated to Diablo IV. Average churn risk is 64.5% (1.47x baseline lift).",
-    base: "107 Multi-Hop Players • Live Spanner Property Graph",
+    id: "bo7_early_churn",
+    category: "bo7_churn",
+    tabLabel: "01. Black Ops 7 Early Churn Risk",
+    shortLabel: "BO7 Churn",
+    badge: "Newest 2026 Title",
+    iconType: "slump",
+    iconColor: "text-orange-400",
+    bgAccent: "bg-orange-500/10",
+    pillColor: "bg-orange-500/15 text-orange-300 border-orange-500/30",
+    metricPill: "66.1% Churn Risk",
+    title: "567 Early Black Ops 7 Players Triggering Churn & SBMM Fatigue",
+    summary: "Live Spanner property graph analysis across Call of Duty: Black Ops 7 (the newest 2026 title) isolated 567 early adopters on 3+ defeat streaks with an average churn risk of 66.1% (1.47x baseline lift). Without day-3 recovery packages, 68% abandon Omnimovement 2.0 playlists within 7 days.",
+    base: "567 Black Ops 7 Players • Live Spanner Property Graph",
     metrics: {
-      cohortSize: 107,
-      avgSpend: 356,
-      avgChurn: 0.645,
+      cohortSize: 567,
+      avgSpend: 388,
+      avgChurn: 0.66,
       liftMetric: "1.47x Churn Lift",
-      highRiskCount: 159,
-      secondaryMetric: "$38,092 Cohort Exposure",
+      highRiskCount: 244,
+      secondaryMetric: "$220,107 Cohort Exposure",
     },
     caveats: [
-      "Multi-Hop Graph Topology: Computed via `(p:Player)-[:MEMBER_OF_CLAN]->(cl:Clan)<-[:MEMBER_OF_CLAN]-(mate)-[:PLAYS_GAME]->(g)` in Spanner.",
-      "Lapse Velocity: Clan members whose squadmates migrate to Diablo IV or WoW exhibit 2.3x faster session abandonment.",
-      "Remediation Window: In-game squad rejoin incentives and double XP tokens must deploy within 60 minutes.",
+      "Newest Title Telemetry: Real-time Spanner property graph edge `(p:Player)-[:PLAYS_GAME]->(g:Game {game_id: 'game-cod-bo7'})`.",
+      "Omnimovement Fatigue: Casual players matching against hyper-movement CDL sweats exhibit 2.4x higher session abandonment.",
+      "Early Intervention: Automated $4.99 BO7 Recovery Bundle drops within 60 minutes mitigate day-7 drop-off by 43.5%.",
     ],
-    actionLabel: "Load Squad Contagion in Spanner Graph",
-    queryToRun: "Warzone players on 3+ Gulag loss streaks whose COD clanmates migrated to Diablo IV",
-    franchise: "COD",
+    actionLabel: "Load Black Ops 7 Churn in Spanner Graph",
+    queryToRun: "Black Ops 7 players on 3+ defeat streaks with high churn risk",
+    franchise: "BLACK_OPS",
     prompts: [
       {
-        title: "Squad Churn Contagion (3-Hop)",
-        query: "Warzone players on 3+ Gulag loss streaks whose COD clanmates migrated to Diablo IV",
-        franchise: "COD",
-        tag: "Spanner 3-Hop",
-        highlight: "Clan -> D4",
+        title: "Black Ops 7 Early Churn Risk",
+        query: "Black Ops 7 players on 3+ defeat streaks with high churn risk",
+        franchise: "BLACK_OPS",
+        tag: "BO7 Flagship",
+        highlight: "567 Players",
       },
       {
-        title: "Los Angeles Squad Loss Clusters",
-        query: "Warzone Resurgence players with 3+ Gulag losses & high tilt in Los Angeles",
-        franchise: "COD",
-        tag: "DMA Filter",
-        highlight: "LA Market",
+        title: "BO7 Omnimovement Tilt Recovery",
+        query: "Black Ops 7 multiplayer players with high tilt sensitivity over 0.70",
+        franchise: "BLACK_OPS",
+        tag: "Omnimovement 2.0",
+        highlight: "Tilt >= 0.70",
       },
       {
-        title: "Diablo IV Pit Demotion Grinders",
-        query: "Diablo IV Pit tier 80+ players with 3+ boss wipe streaks and high churn risk",
-        franchise: "DIABLO4",
-        tag: "Diablo IV",
-        highlight: "Pit Wipes",
+        title: "BO7 Zombies Round Failure Churn",
+        query: "Black Ops 7 Zombies players with 3+ losses and unspent CoD Points",
+        franchise: "BLACK_OPS",
+        tag: "Next-Gen Zombies",
+        highlight: "Zombies Loss",
       },
     ],
   },
@@ -166,7 +171,7 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
     pillColor: "bg-amber-500/15 text-amber-300 border-amber-500/30",
     metricPill: "235 Whales at Risk",
     title: "235 High-Value Whales Following Scump, Swagg & TimTheTatman",
-    summary: "Spanner 2-Hop graph traversal isolated 235 whale spenders (average spend $2,450) who follow top creators and are currently exhibiting high tilt or churn signals.",
+    summary: "Spanner 2-Hop graph traversal isolated 235 whale spenders (average spend $2,450) who follow Scump, FaZe Swagg, or TimTheTatman and are currently exhibiting high tilt or churn signals.",
     base: "235 Creator-Linked Whales • Live Spanner Property Graph",
     metrics: {
       cohortSize: 235,
@@ -183,136 +188,136 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
     ],
     actionLabel: "Explore Creator Whale Shield in Graph",
     queryToRun: "Whale players ($500+ spend) at risk of churn following Scump or FaZe Swagg",
-    franchise: "COD",
+    franchise: "WARZONE",
     prompts: [
       {
         title: "Creator Halo & Churn Shield (2-Hop)",
         query: "Whale players ($500+ spend) at risk of churn following Scump or FaZe Swagg",
-        franchise: "COD",
+        franchise: "WARZONE",
         tag: "Spanner 2-Hop",
         highlight: "Scump & FaZe",
       },
       {
         title: "Creator-Endorsed Weapon Blueprint",
         query: "Generate personalized weapon blueprint bundle for fans of FaZe Swagg and Scump",
-        franchise: "COD",
+        franchise: "WARZONE",
         tag: "Creative",
         highlight: "Blueprint Bundle",
       },
       {
-        title: "Overwatch Contenders Stream Viewers",
-        query: "High-value Overwatch 2 players following competitive creators with high coin balance",
-        franchise: "OVERWATCH2",
-        tag: "Overwatch 2",
-        highlight: "Stream Whales",
+        title: "Veo Personalized Killcam Hooks",
+        query: "Extract 5 high-tilt Call of Duty players for personalized Veo killcam generation",
+        franchise: "WARZONE",
+        tag: "Google Veo",
+        highlight: "5s Video Hook",
       },
     ],
   },
   {
     id: "cross_title_identity",
     category: "cross_title",
-    tabLabel: "03. Cross-Title Identity",
-    shortLabel: "Cross-Title",
-    badge: "Battle.net 3-Hop Bridge",
+    tabLabel: "03. Cross-Mode Unified Identity",
+    shortLabel: "Unified Identity",
+    badge: "Activision Unified ID",
     iconType: "cross_title",
     iconColor: "text-purple-400",
     bgAccent: "bg-purple-500/10",
     pillColor: "bg-purple-500/15 text-purple-300 border-purple-500/30",
     metricPill: "$2,450 Avg LTV",
-    title: "119 Multi-Franchise Whales Bridging COD & WoW: Midnight",
-    summary: "119 high-tier players identified via Battle.net account graph edges who actively split playtime between Call of Duty and World of Warcraft: Midnight, with an average LTV of $2,450.",
-    base: "119 Unified Identities • Battle.net Identity Graph",
+    title: "119 Multi-Mode Whales Bridging Warzone & Black Ops 6",
+    summary: "119 high-tier players identified via Activision ID graph edges who actively split playtime between Call of Duty: Warzone and Black Ops 6 Omnimovement, with an average LTV of $2,450.",
+    base: "119 Unified Identities • Activision ID Graph",
     metrics: {
       cohortSize: 119,
       avgSpend: 2450,
       avgChurn: 0.32,
-      liftMetric: "6.4x Cross-Title Spend",
+      liftMetric: "6.4x Cross-Mode Spend",
       highRiskCount: 22,
       secondaryMetric: "$291,550 Combined Spend",
     },
     caveats: [
-      "Identity Unification: Multi-title bridge mapped across `(p)-[:PLAYS_GAME]->(COD)` and `(p)-[:PLAYS_GAME]->(WOW)` via unified BattleTag.",
-      "Seasonal Migration: Cross-title spend surges 3.4x during Call of Duty mid-season lull when WoW major patches launch.",
-      "Cross-Reward Elasticity: Cross-title cosmetics (e.g. Azeroth weapon camos / COD pet vanity) increase 6-month retention by 34%.",
+      "Identity Unification: Multi-mode bridge mapped across `(p)-[:PLAYS_GAME]->(WARZONE)` and `(p)-[:PLAYS_GAME]->(BLACK_OPS)` via unified Activision ID.",
+      "Seasonal Migration: Cross-mode spend surges 3.4x during Warzone mid-season lull when Black Ops 6 major seasons launch.",
+      "Cross-Reward Elasticity: Unified BlackCell passes and shared weapon blueprints increase 6-month retention by 34%.",
     ],
-    actionLabel: "Inspect Cross-Franchise Identity Graph",
-    queryToRun: "Battle.net accounts linked across Call of Duty and World of Warcraft: Midnight",
+    actionLabel: "Inspect Cross-Mode Identity Graph",
+    queryToRun: "Activision accounts linked across Warzone and Black Ops 6",
     franchise: "ALL",
     prompts: [
       {
-        title: "Cross-Franchise Identity (3-Hop)",
-        query: "Battle.net accounts linked across Call of Duty and World of Warcraft: Midnight",
+        title: "Cross-Mode Identity (3-Hop)",
+        query: "Activision accounts linked across Warzone and Black Ops 6",
         franchise: "ALL",
         tag: "Spanner 3-Hop",
-        highlight: "COD + WoW",
+        highlight: "Warzone + BO6",
       },
       {
-        title: "Cross-Title Whales ($3,500+ Spend)",
-        query: "Cross-title Whales with spend over $3,500 across Call of Duty and World of Warcraft",
+        title: "Cross-Mode Whales ($2,500+ Spend)",
+        query: "Cross-mode whales with spend over $2,500 across Warzone, Black Ops 6, and MWIII",
         franchise: "ALL",
         tag: "Whale Graph",
-        highlight: "$3,500+ Spend",
+        highlight: "$2,500+ Spend",
       },
       {
-        title: "WoW Mythic Raid Fatigue Officers",
-        query: "Mythic raid guild officers experiencing wipe fatigue and 30-day subscription expiration",
-        franchise: "WOW",
-        tag: "WoW Midnight",
-        highlight: "Mythic Fatigue",
+        title: "Zombies High-Round Whales",
+        query: "Black Ops 6 Terminus & Liberty Falls players with 15+ rounds and BlackCell pass",
+        franchise: "BLACK_OPS",
+        tag: "BO6 Zombies",
+        highlight: "Round 15+",
       },
     ],
   },
   {
     id: "dormant_currency",
     category: "dormant_currency",
-    tabLabel: "04. Dormant Currency Vaults",
-    shortLabel: "Dormant Vaults",
-    badge: "1,000+ Unspent",
+    tabLabel: "04. Dormant CoD Points Vaults",
+    shortLabel: "Dormant CP",
+    badge: "1,000+ Unspent CP",
     iconType: "currency",
     iconColor: "text-emerald-400",
     bgAccent: "bg-emerald-500/10",
     pillColor: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-    metricPill: "1,650 Avg Unspent",
-    title: "412 Players Holding 1,000+ Unspent Premium Currency",
-    summary: "412 active players currently hold 1,000+ unspent premium currency (average 1,650 balance), presenting an immediate conversion opportunity for targeted BlackCell and Mythic shop vault offers.",
+    metricPill: "1,650 Avg CP",
+    title: "412 Players Holding 1,000+ Unspent CoD Points",
+    summary: "412 active players currently hold 1,000+ unspent CoD Points (average 1,650 balance), presenting an immediate conversion opportunity for targeted BlackCell and Mastercraft shop vault offers.",
     base: "412 Currency Holders • Live Spanner Telemetry",
     metrics: {
       cohortSize: 412,
       avgSpend: 820,
       avgChurn: 0.58,
-      liftMetric: "1,650 Avg Unspent",
+      liftMetric: "1,650 Avg Unspent CP",
       highRiskCount: 172,
       secondaryMetric: "$337,840 Total Balance",
     },
     caveats: [
-      "Wallet Telemetry: Live ledger balance tracking for CoD Points, Platinum, WoW Tokens, and Gold Bars.",
-      "Conversion Elasticity: Players with 1,000+ dormant coins convert at 3.8x higher rate when offered a 20% bundle discount.",
+      "Wallet Telemetry: Live ledger balance tracking for CoD Points (CP) across Activision accounts & console vaults.",
+      "Conversion Elasticity: Players with 1,000+ dormant points convert at 3.8x higher rate when offered a 20% bundle discount.",
       "Burn Velocity: Unspent currency older than 45 days correlates with a 58% churn risk acceleration.",
     ],
     actionLabel: "Query High Currency Vault Holders",
-    queryToRun: "High-value players holding over 1,000 unspent premium currency with high churn risk",
-    franchise: "COD",
+    queryToRun: "High-value players holding over 1,000 unspent CoD Points with high churn risk",
+    franchise: "WARZONE",
     prompts: [
       {
-        title: "Dormant Currency Whales (1,000+ Coins)",
-        query: "High-value players holding over 1,000 unspent premium currency with high churn risk",
-        franchise: "COD",
+        title: "Dormant CoD Points Whales",
+        query: "High-value players holding over 1,000 unspent CoD Points with high churn risk",
+        franchise: "WARZONE",
         tag: "Currency Vault",
-        highlight: "1,000+ Balance",
+        highlight: "1,000+ CP",
       },
       {
-        title: "Candy Crush Level 500+ Booster Depletion",
-        query: "Casual Commuters stuck on level 500+ with booster depletion and high purchase propensity",
-        franchise: "CANDYCRUSH",
-        tag: "Candy Crush",
-        highlight: "Gold Bars",
+        title: "BlackCell Pass Buyers ($1,500+ Spend)",
+        query: "BlackCell whales who bought the Season 6 pass ($1,500+ spend)",
+        franchise: "WARZONE",
+        tag: "BlackCell",
+        highlight: "$1,500+ Pass",
       },
       {
-        title: "Diablo IV Platinum Hoarders",
-        query: "Diablo IV players with 1,500+ unspent Platinum during Infernal Hordes season",
-        franchise: "DIABLO4",
-        tag: "Platinum",
-        highlight: "Infernal Vault",
+        title: "Mobile Mythic Draw Whales",
+        query: "CoD Mobile players with 2,000+ unspent CP during Mythic Weapon events",
+        franchise: "COD_MOBILE",
+        tag: "CODM Mythic",
+        highlight: "Mythic Draw",
       },
     ],
   },
@@ -328,7 +333,7 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
     pillColor: "bg-pink-500/15 text-pink-300 border-rose-500/30",
     metricPill: "394 Slump Players",
     title: "Gulag Defeat & Loss Streaks Surge 14-Day Churn",
-    summary: "394 players on 3+ consecutive loss streaks exhibit a 64.5% churn risk (1.47x baseline lift). 71% of session drop-offs occur within 90 minutes without a recovery offer.",
+    summary: "394 players on 3+ consecutive loss streaks in Warzone Gulag or CDL Ranked exhibit a 64.5% churn risk (1.47x baseline lift). 71% of session drop-offs occur within 90 minutes without a recovery offer.",
     base: "394 Active Slump Players • Live Spanner Property Graph",
     metrics: {
       cohortSize: 394,
@@ -339,34 +344,34 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
       secondaryMetric: "$140,264 Revenue at Risk",
     },
     caveats: [
-      "Telemetry Window: Real-time Spanner property graph session streams (Warzone, Black Ops 7 Ranked & Diablo Pit).",
+      "Telemetry Window: Real-time Spanner property graph session streams (Warzone, Black Ops 6, CDL Ranked).",
       "Lapse Velocity: Churn probability doubles after defeat #3 compared to defeat #2.",
-      "Monetization Elasticity: Willingness-to-pay for $9.99 BlackCell recovery bundles peaks within 15 minutes of session end.",
+      "Monetization Elasticity: Willingness-to-pay for $4.99 Gulag recovery care packages peaks within 15 minutes of session end.",
     ],
     actionLabel: "Load High-Tilt Cohort in Spanner Graph",
     queryToRun: "Warzone Resurgence players with 3+ Gulag losses & high tilt in Los Angeles",
-    franchise: "COD",
+    franchise: "WARZONE",
     prompts: [
       {
-        title: "Loss Streak Churn Surge",
+        title: "Gulag Loss Streak Churn Surge",
         query: "Warzone Resurgence players with 3+ Gulag losses & high tilt in Los Angeles",
-        franchise: "COD",
+        franchise: "WARZONE",
         tag: "Warzone Tilt",
         highlight: "3+ Losses",
       },
       {
-        title: "DeepSona +31.2% Recovery Simulation",
-        query: "Simulate +31.2% sales lift for $9.99 BlackCell post-defeat starter bundle in DeepSona",
-        franchise: "COD",
-        tag: "DeepSona",
-        highlight: "+31.2% Lift",
+        title: "Demoted CDL Ranked Sweats",
+        query: "CDL Ranked players with 3 or more recent loss streaks in Crimson or Iridescent",
+        franchise: "CDL_RANKED",
+        tag: "Ranked Play",
+        highlight: "Ranked Tilt",
       },
       {
-        title: "Battle.net Launcher Takeover",
-        query: "Deploy targeted Battle.net hero takeover for Friday night Warzone resurgence grinders",
-        franchise: "COD",
-        tag: "Battle.net Ad",
-        highlight: "Desktop Hero",
+        title: "Search & Destroy Loss Streaks",
+        query: "Modern Warfare III Search & Destroy players on 3+ match defeat streaks",
+        franchise: "MODERN_WARFARE",
+        tag: "S&D Defeats",
+        highlight: "3+ Defeats",
       },
     ],
   },
@@ -385,7 +390,7 @@ export default function GeminiLandingStage({
   const [query, setQuery] = useState("");
   const [selectedFranchise, setSelectedFranchise] = useState<GameFranchise>("ALL");
   const [dynamicFindings, setDynamicFindings] = useState<DynamicCohortFinding[]>(DEFAULT_DYNAMIC_FINDINGS);
-  const [activeFindingId, setActiveFindingId] = useState<string>("squad_contagion");
+  const [activeFindingId, setActiveFindingId] = useState<string>("bo7_early_churn");
   const [activeLoadingQuery, setActiveLoadingQuery] = useState<string | null>(null);
   const [isBriefModalOpen, setIsBriefModalOpen] = useState<boolean>(false);
 
@@ -448,16 +453,14 @@ export default function GeminiLandingStage({
       {/* 2. Top Minimalist Translucent Header */}
       <header className="relative z-20 flex items-center justify-between px-8 py-3.5 bg-black/30 backdrop-blur-2xl border-b border-white/5 animate-spring-in">
         <div className="flex items-center gap-3">
-          <div className="flex items-center">
+          <div className="flex items-center gap-2.5">
             <img
-              src="/abk_logo.svg"
-              alt="Activision Blizzard King"
-              className="h-6 sm:h-7 w-auto object-contain brightness-110"
+              src="/Activision.svg"
+              alt="Activision"
+              className="h-5 w-auto object-contain brightness-110 select-none"
             />
-          </div>
-          <div className="flex items-center gap-2">
             <span className="text-gray-600 font-normal">/</span>
-            <span className="text-xs text-gray-300 font-medium tracking-tight">Gemini Enterprise Master Control Panel</span>
+            <span className="text-xs text-gray-300 font-medium tracking-tight">Call of Duty Audience Intelligence Engine</span>
           </div>
         </div>
 
@@ -510,10 +513,10 @@ export default function GeminiLandingStage({
         {/* Hero Title */}
         <div className="space-y-1 text-center">
           <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white leading-tight">
-            Activision Blizzard King Engagement &amp; Marketing Intelligence
+            Call of Duty Audience Intelligence Engine
           </h1>
           <p className="text-xs sm:text-sm text-zinc-400 max-w-lg mx-auto leading-relaxed">
-            Unified multi-agent intelligence across 500M+ players, Spanner Property Graph, and Google Cloud AI.
+            Unified telemetry across Warzone, Black Ops 6, Modern Warfare III, and CDL Ranked powered by Google Cloud Spanner &amp; Vertex AI.
           </p>
         </div>
 
@@ -556,7 +559,7 @@ export default function GeminiLandingStage({
                   handleRunSearch();
                 }
               }}
-              placeholder="Ask anything across ABK's ecosystem (e.g. 'Whales with spend over $3,500 across Call of Duty and WoW' or 'Warzone players with high tilt')..."
+              placeholder="Ask anything across Call of Duty's ecosystem (e.g. 'High-LTV whales with spend over $1,500 across Warzone and Black Ops 6' or 'Warzone players on 3+ Gulag loss streaks')..."
               className="w-full bg-transparent text-sm text-white placeholder-zinc-500 focus:outline-none px-3 pt-1 resize-none font-normal leading-relaxed disabled:opacity-60"
             />
           </div>

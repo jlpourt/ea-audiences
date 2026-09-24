@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Activision Blizzard King | Audience Intelligence Engine",
-  description: "Unified Player Graph, Battle.net Cross-Title Gravity, Situational Triggers, and DeepSona Synthetic Multi-Agent Testing across Call of Duty, World of Warcraft, Diablo IV, Overwatch 2, and Candy Crush Saga.",
+  title: "Activision | Call of Duty Audience Intelligence Engine",
+  description: "Unified Player Graph, Situational Triggers, and DeepSona Synthetic Multi-Agent Testing across Warzone, Black Ops 6, Modern Warfare III, and CDL Ranked powered by Google Cloud Spanner & Vertex AI.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

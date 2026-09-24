@@ -28,19 +28,13 @@ export default function ForceGraphCanvas({
   // Configure custom D3 forces for spread out cluster layout, monetization wells, and zero collision
   useEffect(() => {
     if (fgRef.current && !is3D) {
-      fgRef.current.d3Force("charge")?.strength(-380);
+      fgRef.current.d3Force("charge")?.strength(-110);
       fgRef.current.d3Force("link")?.distance((link: any) => {
-        if (link.label === "MONETIZATION_GRAVITY") return 140;
-        if (link.isTriggerStream) return 160;
-        return 180;
+        if (link.isMultiHopBridge) return 100;
+        if (link.label === "MONETIZATION_GRAVITY" || link.label === "OWNS_SKU") return 110;
+        if (link.isTriggerStream) return 120;
+        return 130;
       });
-      fgRef.current.d3Force(
-        "collide",
-        (window as any).d3?.forceCollide((node: any) => {
-          const isAnchor = node.type === "GAME" || node.type === "OFFER";
-          return isAnchor ? 48 : 12;
-        })
-      );
     }
   }, [data, is3D]);
 
@@ -60,27 +54,25 @@ export default function ForceGraphCanvas({
     return set;
   }, [data.links, selectedNode, hoveredNode]);
 
-  // Directional Particle Streams
+  // Directional Particle Streams (Clean & Selective)
   const getLinkParticles = useCallback(
     (link: any) => {
       const sId = typeof link.source === "object" ? link.source.id : link.source;
       const tId = typeof link.target === "object" ? link.target.id : link.target;
       const isHighlighted = highlightLinks.has(`${sId}->${tId}`);
 
-      if (link.isMultiHopBridge) return isHighlighted ? 6 : 4;
-      if (link.isTriggerStream) return isHighlighted ? 6 : 4;
-      if (link.label === "MONETIZATION_GRAVITY" || link.label === "MAJOR_DLC_PURCHASE") return isHighlighted ? 5 : 3;
-      if (link.label === "CROSS_FRANCHISE_PLAY") return isHighlighted ? 4 : 2;
-      return isHighlighted ? 3 : 0;
+      if (isHighlighted) return 5;
+      if (link.isMultiHopBridge) return 3;
+      if (link.isTriggerStream) return 2;
+      return 0;
     },
     [highlightLinks]
   );
 
   const getLinkParticleSpeed = useCallback((link: any) => {
-    if (link.isMultiHopBridge) return link.hopStep === 1 ? 0.018 : link.hopStep === 2 ? 0.014 : 0.010;
-    if (link.isTriggerStream) return 0.015;
-    if (link.label === "MONETIZATION_GRAVITY" || link.label === "MAJOR_DLC_PURCHASE") return 0.010;
-    if (link.label === "CROSS_FRANCHISE_PLAY") return 0.008;
+    if (link.isMultiHopBridge) return link.hopStep === 1 ? 0.016 : link.hopStep === 2 ? 0.012 : 0.009;
+    if (link.isTriggerStream) return 0.012;
+    if (link.label === "MONETIZATION_GRAVITY" || link.label === "OWNS_SKU") return 0.008;
     return 0.005;
   }, []);
 
@@ -88,11 +80,11 @@ export default function ForceGraphCanvas({
     if (link.isMultiHopBridge) {
       if (link.hopStep === 1) return "#00F59B"; // Emerald (Player -> Clan)
       if (link.hopStep === 2) return "#00D2FF"; // Cyan (Clan -> Squadmate)
-      if (link.hopStep === 3) return "#FF334B"; // Diablo Crimson / Target Game
+      if (link.hopStep === 3) return "#FF5722"; // Black Ops 6 Orange / Target Game
       return "#00F59B";
     }
     if (link.isTriggerStream) return "#FF4757";
-    if (link.label === "MONETIZATION_GRAVITY" || link.label === "MAJOR_DLC_PURCHASE") return "#FFB800";
+    if (link.label === "MONETIZATION_GRAVITY" || link.label === "OWNS_SKU") return "#FFB800";
     if (link.label === "CROSS_FRANCHISE_PLAY") return "#00F0FF";
     return "#00FF88";
   }, []);
@@ -150,12 +142,13 @@ export default function ForceGraphCanvas({
 
       // 2. Node Core Circle & Outer Glow Ring
       if (isAnchor) {
-        // Bright Neon Lime Anchor Hub
+        const isBo7 = node.id === "game-cod-bo7";
+        const anchorColor = isBo7 ? "#FF3D00" : (node.color || "#E6FF00");
         ctx.beginPath();
-        ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
-        ctx.fillStyle = "#E6FF00";
+        ctx.arc(node.x, node.y, isBo7 ? radius * 1.15 : radius, 0, 2 * Math.PI, false);
+        ctx.fillStyle = anchorColor;
         ctx.fill();
-        ctx.lineWidth = 3;
+        ctx.lineWidth = isBo7 ? 3.5 : 3;
         ctx.strokeStyle = "#FFFFFF";
         ctx.stroke();
 
@@ -248,7 +241,7 @@ export default function ForceGraphCanvas({
         }
       }
 
-      // 3. Rounded Pill Label with Neon Border
+      // 3. Rounded Pill Label with Neon Border (Staggered Anti-Collision)
       const showLabel = isAnchor || isOffer || isCreator || isClan || isIdentity || isSquadmate || isSelected || isHovered || globalScale > 1.4;
       if (showLabel) {
         const fontSize = isAnchor
@@ -256,7 +249,7 @@ export default function ForceGraphCanvas({
           : isClan || isCreator
           ? 11 / globalScale
           : isOffer || isIdentity
-          ? 10.5 / globalScale
+          ? 10 / globalScale
           : isSquadmate
           ? 9.5 / globalScale
           : 9 / globalScale;
@@ -265,7 +258,7 @@ export default function ForceGraphCanvas({
         ctx.textBaseline = "middle";
 
         const text = isAnchor
-          ? node.name
+          ? (node.id === "game-cod-bo7" ? `🔥 ${node.name} (Newest)` : node.name)
           : isClan
           ? `🛡️ ${node.name}`
           : isIdentity
@@ -280,7 +273,13 @@ export default function ForceGraphCanvas({
           ? `${node.name} ($${node.spend || 0})`
           : node.name;
 
-        const textY = node.y + radius + (isAnchor ? 14 : isCreator || isClan ? 13 : isOffer || isIdentity ? 12 : 9) / globalScale;
+        // Stagger labels: if node is in upper half, render above to avoid overlapping player clusters
+        const isUpper = node.y < -40;
+        const offsetDist = (isAnchor ? 15 : isCreator || isClan ? 14 : isOffer || isIdentity ? 13 : 9) / globalScale;
+        const textY = isUpper
+          ? node.y - radius - offsetDist
+          : node.y + radius + offsetDist;
+
         const textWidth = ctx.measureText(text).width;
         const padX = 7 / globalScale;
         const padY = 3.5 / globalScale;
@@ -293,13 +292,13 @@ export default function ForceGraphCanvas({
         // Draw Rounded Pill
         ctx.beginPath();
         ctx.roundRect(boxX, boxY, boxW, boxH, pillRadius);
-        ctx.fillStyle = "rgba(6, 9, 15, 0.88)";
+        ctx.fillStyle = "rgba(6, 9, 15, 0.90)";
         ctx.fill();
 
         // Stroke Pill with Neon Accent Border
         ctx.lineWidth = 1.2 / globalScale;
         ctx.strokeStyle = isAnchor
-          ? "#00F0FF"
+          ? (node.id === "game-cod-bo7" ? "#FF3D00" : "#00F0FF")
           : isClan
           ? "#00F59B"
           : isIdentity
@@ -317,7 +316,7 @@ export default function ForceGraphCanvas({
 
         // Label Text
         ctx.fillStyle = isAnchor
-          ? "#00F0FF"
+          ? (node.id === "game-cod-bo7" ? "#FF5722" : "#00F0FF")
           : isClan
           ? "#00F59B"
           : isIdentity
@@ -337,46 +336,69 @@ export default function ForceGraphCanvas({
     [selectedNode, hoveredNode]
   );
 
-  // Custom 2D Link Renderer (Sleek High-Contrast Particle Trails)
+  // Custom 2D Link Renderer (High-Clarity Interactive Constellation Trails)
   const paintLink2D = useCallback(
     (link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+      const sId = typeof link.source === "object" ? link.source.id : link.source;
+      const tId = typeof link.target === "object" ? link.target.id : link.target;
+      const isHighlighted = highlightLinks.has(`${sId}->${tId}`);
+      const hasActiveSelection = Boolean(selectedNode || hoveredNode);
+
       const isMultiHop = link.isMultiHopBridge;
       const isTrigger = link.isTriggerStream;
-      const isMonetization = link.label === "MONETIZATION_GRAVITY" || link.label === "MAJOR_DLC_PURCHASE";
+      const isMonetization = link.label === "MONETIZATION_GRAVITY" || link.label === "MAJOR_DLC_PURCHASE" || link.label === "OWNS_SKU";
       const isCrossGame = link.label === "CROSS_FRANCHISE_PLAY";
 
       ctx.beginPath();
       ctx.moveTo(link.source.x, link.source.y);
       ctx.lineTo(link.target.x, link.target.y);
 
-      if (isMultiHop) {
-        if (link.hopStep === 1) {
-          ctx.strokeStyle = "rgba(0, 245, 155, 0.70)"; // Emerald Hop 1
-          ctx.lineWidth = 2.0;
-        } else if (link.hopStep === 2) {
-          ctx.strokeStyle = "rgba(0, 210, 255, 0.70)"; // Electric Cyan Hop 2
-          ctx.lineWidth = 2.0;
+      // Interactive Spotlight: Dim unrelated links on hover/selection
+      if (hasActiveSelection) {
+        if (isHighlighted) {
+          if (isMultiHop) {
+            ctx.strokeStyle = link.hopStep === 1 ? "rgba(0, 245, 155, 0.95)" : link.hopStep === 2 ? "rgba(0, 210, 255, 0.95)" : "rgba(255, 87, 34, 0.95)";
+            ctx.lineWidth = 2.4;
+          } else if (isTrigger) {
+            ctx.strokeStyle = "rgba(255, 71, 87, 0.95)";
+            ctx.lineWidth = 2.2;
+          } else if (isMonetization) {
+            ctx.strokeStyle = "rgba(255, 184, 0, 0.90)";
+            ctx.lineWidth = 2.0;
+          } else if (isCrossGame) {
+            ctx.strokeStyle = "rgba(0, 240, 255, 0.85)";
+            ctx.lineWidth = 1.8;
+          } else {
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.80)";
+            ctx.lineWidth = 1.5;
+          }
         } else {
-          ctx.strokeStyle = "rgba(255, 51, 75, 0.70)"; // Target Hop 3
-          ctx.lineWidth = 2.0;
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
+          ctx.lineWidth = 0.4;
         }
-      } else if (isTrigger) {
-        ctx.strokeStyle = "rgba(255, 71, 87, 0.75)"; // Neon Coral Trigger
-        ctx.lineWidth = 1.8;
-      } else if (isMonetization) {
-        ctx.strokeStyle = "rgba(255, 184, 0, 0.65)"; // Whale Gold Stream
-        ctx.lineWidth = 1.6;
-      } else if (isCrossGame) {
-        ctx.strokeStyle = "rgba(0, 240, 255, 0.55)"; // Cyan Migration Bridge
-        ctx.lineWidth = 1.3;
       } else {
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.10)";
-        ctx.lineWidth = 0.8;
+        // Natural resting state — elegant, lightweight constellation lines
+        if (isMultiHop) {
+          ctx.strokeStyle = link.hopStep === 1 ? "rgba(0, 245, 155, 0.65)" : link.hopStep === 2 ? "rgba(0, 210, 255, 0.65)" : "rgba(255, 87, 34, 0.65)";
+          ctx.lineWidth = 1.6;
+        } else if (isTrigger) {
+          ctx.strokeStyle = "rgba(255, 71, 87, 0.35)"; // subtle coral pulse
+          ctx.lineWidth = 1.0;
+        } else if (isMonetization) {
+          ctx.strokeStyle = "rgba(255, 184, 0, 0.22)"; // subtle gold
+          ctx.lineWidth = 0.8;
+        } else if (isCrossGame) {
+          ctx.strokeStyle = "rgba(0, 240, 255, 0.18)"; // subtle cyan
+          ctx.lineWidth = 0.7;
+        } else {
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.08)"; // clean translucent
+          ctx.lineWidth = 0.6;
+        }
       }
 
       ctx.stroke();
     },
-    []
+    [highlightLinks, selectedNode, hoveredNode]
   );
 
   return (

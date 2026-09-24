@@ -6,35 +6,36 @@ import {
   type GroundingCitation,
 } from "@/lib/gcp/vertex-client";
 
-/** Verified-active subreddits per franchise. */
+/** Verified-active subreddits per CoD mode / franchise. */
 const SUBREDDITS_BY_FRANCHISE: Record<string, string[]> = {
-  COD: ["r/CallOfDuty", "r/CODWarzone", "r/blackops7"],
-  WOW: ["r/wow", "r/classicwow", "r/CompetitiveWoW"],
-  DIABLO4: ["r/diablo4", "r/Diablo"],
-  OVERWATCH2: ["r/Overwatch", "r/Competitiveoverwatch"],
-  CANDYCRUSH: ["r/candycrush"],
+  COD: ["r/CallOfDuty", "r/CODWarzone", "r/blackops7", "r/ModernWarfareIII"],
+  WARZONE: ["r/CODWarzone", "r/Warzone"],
+  BLACK_OPS: ["r/blackops7", "r/CODZombies"],
+  MODERN_WARFARE: ["r/ModernWarfareIII", "r/ModernWarfareII"],
+  CDL_RANKED: ["r/CoDCompetitive", "r/CallOfDuty"],
+  COD_MOBILE: ["r/CallOfDutyMobile", "r/CODMobile"],
 };
 
 /** Current live content, so search targets what players are playing now. */
 const LIVE_CONTEXT_BY_FRANCHISE: Record<string, string> = {
-  COD: "Call of Duty: Black Ops 7, Warzone, the BlackCell battle pass tier ($29.99), the standard battle pass, and CoD Points pricing",
-  WOW: "World of Warcraft: Midnight, the monthly subscription, the WoW Token, and paid character services",
-  DIABLO4: "Diablo IV, its current season, the Lord of Hatred expansion, and premium battle pass pricing",
-  OVERWATCH2: "Overwatch 2, its current season, Mythic Prism pricing, and collaboration skin bundles",
-  CANDYCRUSH: "Candy Crush Saga, gold bar pricing, booster bundles, and the Sugar Track season pass",
+  COD: "Call of Duty ecosystem, cross-title progression, BlackCell battle pass tier ($29.99), standard battle pass (1,100 CP / $9.99), and CoD Points pricing",
+  WARZONE: "Call of Duty: Warzone & Resurgence, Gulag mechanics, Urzikstan / Rebirth Island, BlackCell ($29.99), and weapon blueprint balancing",
+  BLACK_OPS: "Call of Duty: Black Ops 7, Omnimovement 2.0, Round-Based Zombies, GobbleGums, Dark Matter camo grind, and Vault Edition upgrades",
+  MODERN_WARFARE: "Call of Duty: Modern Warfare III, multiplayer map rotations, aftermarket parts, and carry-forward operator bundles",
+  CDL_RANKED: "Call of Duty League (CDL) Ranked Play, Skill Rating (SR) demotion protection, OpTic / FaZe team bundles, and competitive meta weapons",
+  COD_MOBILE: "Call of Duty: Mobile, Mythic weapon draws, Legendary operator skins, and CP crate pricing",
 };
 
 /**
  * Map a free-text franchise label onto a catalog franchise code.
- * The caller sends display strings like "Call of Duty: Warzone", and searching
- * the wrong subreddits would quietly produce irrelevant grounding.
  */
 function resolveFranchiseCode(raw: string): string {
   const f = (raw || "").toUpperCase();
-  if (f.includes("WARCRAFT") || f.startsWith("WOW")) return "WOW";
-  if (f.includes("DIABLO")) return "DIABLO4";
-  if (f.includes("OVERWATCH")) return "OVERWATCH2";
-  if (f.includes("CANDY")) return "CANDYCRUSH";
+  if (f.includes("WARZONE") || f.includes("RESURGENCE")) return "WARZONE";
+  if (f.includes("BLACK_OPS") || f.includes("BO7") || f.includes("BO6") || f.includes("ZOMBIES")) return "BLACK_OPS";
+  if (f.includes("MODERN_WARFARE") || f.includes("MW3")) return "MODERN_WARFARE";
+  if (f.includes("CDL") || f.includes("RANKED")) return "CDL_RANKED";
+  if (f.includes("MOBILE")) return "COD_MOBILE";
   return "COD";
 }
 

@@ -51,12 +51,13 @@ function extractPlayersForA2A(promptText: string, payload: any) {
 
     const lower = (promptText || "").toLowerCase();
     
-    // 1. Determine franchise
+    // 1. Determine franchise / mode
     let franchise = "COD";
-    if (lower.includes("wow") || lower.includes("warcraft")) franchise = "WOW";
-    else if (lower.includes("diablo")) franchise = "DIABLO4";
-    else if (lower.includes("candy")) franchise = "CANDYCRUSH";
-    else if (lower.includes("overwatch") || lower.includes("ow")) franchise = "OVERWATCH2";
+    if (lower.includes("warzone") || lower.includes("resurgence")) franchise = "WARZONE";
+    else if (lower.includes("black ops") || lower.includes("bo6") || lower.includes("zombies")) franchise = "BLACK_OPS";
+    else if (lower.includes("modern warfare") || lower.includes("mw3")) franchise = "MODERN_WARFARE";
+    else if (lower.includes("cdl") || lower.includes("ranked")) franchise = "CDL_RANKED";
+    else if (lower.includes("mobile")) franchise = "COD_MOBILE";
 
     // 2. Determine count limit (default 5)
     const countMatch = promptText.match(/\b([0-9]+)\b/);
@@ -78,7 +79,7 @@ function extractPlayersForA2A(promptText: string, payload: any) {
     return matched.map((p: any) => {
       const tel = p.game_telemetry || {};
       const loadout = tel.main_loadout || "Kastov 762 / Kar98k";
-      const charClass = tel.character_class || "Frost Death Knight";
+      const charClass = tel.character_class || "Enforcer / Recon Specialist";
       const playstyle = tel.primary_playstyle || "Aggressive Resurgence Sweeper";
       const rewardPref = tel.preferred_reward_type || "BlackCell Season Battle Pass";
       const streak = p.recent_loss_streak || 0;
@@ -87,7 +88,7 @@ function extractPlayersForA2A(promptText: string, payload: any) {
         player_id: p.player_id,
         gamer_tag: p.display_name,
         display_name: p.display_name,
-        primary_email: p.primary_email || `${p.display_name.toLowerCase().replace(/[^a-z0-9]/g, "_")}@battlenet.sample.com`,
+        primary_email: p.primary_email || `${p.display_name.toLowerCase().replace(/[^a-z0-9]/g, "_")}@activision.sample.com`,
         primary_franchise: p.primary_franchise,
         franchises_played: p.franchises_played || [p.primary_franchise],
         

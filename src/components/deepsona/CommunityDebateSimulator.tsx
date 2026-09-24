@@ -75,36 +75,48 @@ interface GroundingCitation {
   domain: string;
 }
 
-const STARTER_PROMPTS_BY_GAME: Record<string, string[]> = {
+const STARTER_PROMPTS_BY_GAME: Record<GameFranchise, string[]> = {
+  ALL: [
+    "Is a $39.99 premium price tag justified for the Black Ops 7 Vault Edition with next-gen cross-progression perks?",
+    "How are long-time Zombies fans reacting to the rumored open-world extraction format replacing classic round-based maps in Black Ops 7?",
+    "Would community camo grinders pay for seasonal Prestige bypass tokens during Black Ops 7 launch week?",
+    "Should legacy Wonder Weapon weapon skins from previous Black Ops titles carry forward as purchasable store cosmetics in Black Ops 7?",
+  ],
   COD: [
+    "Is a $39.99 premium price tag justified for the Black Ops 7 Vault Edition with next-gen cross-progression perks?",
+    "How are long-time Zombies fans reacting to the rumored open-world extraction format replacing classic round-based maps in Black Ops 7?",
+    "Would community camo grinders pay for seasonal Prestige bypass tokens during Black Ops 7 launch week?",
+    "Should legacy Wonder Weapon weapon skins from previous Black Ops titles carry forward as purchasable store cosmetics in Black Ops 7?",
+  ],
+  WARZONE: [
     "How would players react to a $4.99 Gulag Retry Token in Warzone?",
-    "Is the Resurgence Momentum Drop (Double XP + Operator Camo for $4.99) fair value?",
-    "Is $29.99 fair for the Black Ops 7 BlackCell battle pass that refunds its CP?",
-    "Should we bundle 20 tier skips with the new Mastercraft weapon blueprint?",
+    "Is the Rebirth Island Resurgence Squad Recovery Drop ($9.99) fair value?",
+    "Should we offer a 20% discount on 2,400 CP packs after 3 consecutive Gulag losses?",
+    "Would Warzone players boycott paid match-retry mechanics as Pay-to-Win?",
   ],
-  WOW: [
-    "Is $77.94 fair for a 6-month subscription with an exclusive anniversary mount?",
-    "How do Mythic+ raiders view a $20 WoW Token for raid consumables?",
-    "Would lapsed Mists of Pandaria Classic players return for a free 7-day Midnight trial?",
-    "Should character boost packages ($60) include starter Mythic gear?",
+  BLACK_OPS: [
+    "Is a $39.99 premium price tag justified for the Black Ops 7 Vault Edition with next-gen cross-progression perks?",
+    "How are long-time Zombies fans reacting to the rumored open-world extraction format replacing classic round-based maps in Black Ops 7?",
+    "Would community camo grinders pay for seasonal Prestige bypass tokens during Black Ops 7 launch week?",
+    "Should legacy Wonder Weapon weapon skins from previous Black Ops titles carry forward as purchasable store cosmetics in Black Ops 7?",
   ],
-  DIABLO4: [
-    "Is $59.99 fair for the Lord of Hatred expansion with Paladin & Warlock classes?",
-    "How do Pit Tier 80+ grinders react to seasonal battle pass platinum pricing?",
-    "Would players accept a $9.99 Torment IV materials pack during boss slump?",
-    "Should town portal cosmetic animations be sold separately from armor bundles?",
+  MODERN_WARFARE: [
+    "Is $24.99 fair for Mastercraft Tracer Pack blueprints with custom death effects?",
+    "How do Search & Destroy players view stealth operator skins with dark colorways (Roze skin controversy)?",
+    "Would MWIII players pay for Aftermarket conversion kit unlock tokens?",
+    "Should classic MW2 2009 map packs remain free for all players?",
   ],
-  OVERWATCH2: [
-    "Is 80 Mythic Prisms ($39.99) reasonable for fully customizing a Mythic skin?",
-    "How do Competitive players react to free heroes vs paid battle pass cosmetics?",
-    "Would a 5v5 Friday Night Squad pass drive coordinated purchases?",
-    "Is $19.99 fair for music collaboration skin bundles?",
+  CDL_RANKED: [
+    "How do competitive players react to $9.99 CDL team supporter packs (OpTic, FaZe, Thieves)?",
+    "Should CDL Ranked provide loss protection shields when teammates disconnect?",
+    "Would competitive players support paid tournament entry with CP prize pools?",
+    "Is GA (Gentlemen's Agreement) enforcement respected by casual ranked grinders?",
   ],
-  CANDYCRUSH: [
-    "Is 99¢ for 5 Extra Moves fair when failing a 5,000+ level on the last jelly?",
-    "How do daily streak players react to the $4.99 Sugar Track season pass?",
-    "Would gold bar whales spend more if bonus lives were gifted to teammates?",
-    "Is $7.99 for 50 Gold Bars competitive with other match-3 titles?",
+  COD_MOBILE: [
+    "Is $29.99 reasonable for guaranteed Mythic weapon lucky draws in CoD Mobile?",
+    "How do Warzone Mobile players feel about cross-progression with console and PC?",
+    "Would mobile touch players pay for customized 4-finger HUD layout cloud presets?",
+    "Are Battle Pass CP refund loops sustainable for mobile engagement?",
   ],
 };
 
@@ -132,41 +144,43 @@ export default function CommunityDebateSimulator({
   const [pivotApplied, setPivotApplied] = useState<boolean>(false);
 
   const subredditName =
-    selectedGame === "COD"
+    selectedGame === "WARZONE"
       ? "r/CODWarzone"
-      : selectedGame === "WOW"
-      ? "r/wow"
-      : selectedGame === "DIABLO4"
-      ? "r/diablo4"
-      : selectedGame === "OVERWATCH2"
-      ? "r/Overwatch"
-      : selectedGame === "CANDYCRUSH"
-      ? "r/candycrush"
-      : "r/battlenet";
+      : selectedGame === "BLACK_OPS"
+      ? "r/blackops7"
+      : selectedGame === "MODERN_WARFARE"
+      ? "r/ModernWarfareIII"
+      : selectedGame === "CDL_RANKED"
+      ? "r/CoDCompetitive"
+      : selectedGame === "COD_MOBILE"
+      ? "r/CallOfDutyMobile"
+      : "r/CallOfDuty";
 
   const subredditsList =
-    selectedGame === "COD"
-      ? ["r/CODWarzone", "r/CallOfDuty", "r/blackops7", "r/ModernWarfareIII"]
-      : selectedGame === "WOW"
-      ? ["r/wow", "r/classicwow", "r/CompetitiveWoW"]
-      : selectedGame === "DIABLO4"
-      ? ["r/diablo4", "r/Diablo"]
-      : selectedGame === "OVERWATCH2"
-      ? ["r/Overwatch", "r/Competitiveoverwatch"]
-      : ["r/candycrush"];
+    selectedGame === "WARZONE"
+      ? ["r/CODWarzone", "r/CallOfDuty"]
+      : selectedGame === "BLACK_OPS"
+      ? ["r/blackops7", "r/CODZombies"]
+      : selectedGame === "MODERN_WARFARE"
+      ? ["r/ModernWarfareIII", "r/CallOfDuty"]
+      : selectedGame === "CDL_RANKED"
+      ? ["r/CoDCompetitive", "r/CallOfDuty"]
+      : selectedGame === "COD_MOBILE"
+      ? ["r/CallOfDutyMobile", "r/WarzoneMobile"]
+      : ["r/CallOfDuty", "r/CODWarzone", "r/blackops7", "r/CoDCompetitive"];
 
   const discordServerName =
-    selectedGame === "COD"
+    selectedGame === "WARZONE"
       ? "Call of Duty: Warzone Official Discord"
-      : selectedGame === "WOW"
-      ? "Warcraft Mythic Guild Hub"
-      : selectedGame === "DIABLO4"
-      ? "Diablo IV Sanctuary Discord"
-      : selectedGame === "OVERWATCH2"
-      ? "Overwatch 2 Competitive Hub"
-      : selectedGame === "CANDYCRUSH"
-      ? "Candy Crush Community"
-      : "Battle.net Community Hub";
+      : selectedGame === "BLACK_OPS"
+      ? "Treyarch Zombies & Black Ops 7 Hub"
+      : selectedGame === "MODERN_WARFARE"
+      ? "Task Force 141 Tactical Discord"
+      : selectedGame === "CDL_RANKED"
+      ? "The Flank CDL Community Discord"
+      : selectedGame === "COD_MOBILE"
+      ? "Call of Duty: Mobile Global Server"
+      : "Official Call of Duty Community Discord";
 
   // Clean empty initial state
   const [redditComments, setRedditComments] = useState<CommunityComment[]>([]);
@@ -516,7 +530,7 @@ export default function CommunityDebateSimulator({
               <div className="flex items-center gap-2 text-[11px] text-zinc-400">
                 <span className="font-semibold text-[#FF4500]">{subredditName}</span>
                 <span>•</span>
-                <span>Posted by u/ABK_LiveOps_Strategist</span>
+                <span>Posted by u/Activision_LiveOps_Strategist</span>
                 <span>•</span>
                 <span className="text-zinc-500">Live Search Grounded</span>
               </div>

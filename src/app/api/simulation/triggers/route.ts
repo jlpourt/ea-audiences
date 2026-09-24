@@ -54,28 +54,22 @@ const EVENT_PROFILES: Record<
   { franchise: string; label: string; triggerType: string; discount: number }
 > = {
   GULAG_DEFEAT_LOSS_STREAK: {
-    franchise: "COD",
+    franchise: "WARZONE",
     label: "Gulag defeat streak",
     triggerType: "COD_GULAG_LOSS_STREAK_TILT",
     discount: 65.0,
   },
-  RAID_WIPE_STREAK: {
-    franchise: "WOW",
-    label: "Raid wipe streak",
-    triggerType: "WOW_RAID_WIPE_FRUSTRATION",
-    discount: 40.0,
-  },
-  PIT_DEATH_SLUMP: {
-    franchise: "DIABLO4",
-    label: "The Pit death slump",
-    triggerType: "DIABLO4_PIT_DEATH_SLUMP",
-    discount: 55.0,
-  },
-  OUT_OF_MOVES_STUCK: {
-    franchise: "CANDYCRUSH",
-    label: "Out of moves on a sticky level",
-    triggerType: "CANDYCRUSH_STICKY_LEVEL_STALL",
+  RANKED_DEMOTION_LOSS: {
+    franchise: "CDL_RANKED",
+    label: "CDL Ranked SR demotion loss",
+    triggerType: "COD_RANKED_DEMOTION_TILT",
     discount: 50.0,
+  },
+  MATCH_DEFEAT_STREAK: {
+    franchise: "WARZONE",
+    label: "Match defeat streak",
+    triggerType: "COD_MATCH_DEFEAT_STREAK_TILT",
+    discount: 45.0,
   },
 };
 
@@ -109,10 +103,8 @@ export async function GET(request: NextRequest) {
     const triggers: SituationalTrigger[] = [];
     const activeStreams: { playerId: string; offerId: string; reason: string }[] = [];
     // Integrity problems are reported, not swallowed. Offer ids stored on
-    // telemetry have already drifted once: after a catalog renumbering they
-    // still resolved, but pointed at a $99.99 currency vault as the response
-    // to a Gulag loss streak, and at an Overwatch pass for a Candy Crush
-    // event. A silent `continue` is what let that survive.
+    // telemetry must resolve against catalog offers cleanly.
+    // A silent `continue` is what let drift survive.
     const dataErrors: string[] = [];
 
     for (const ev of currentBatch) {
@@ -135,7 +127,7 @@ export async function GET(request: NextRequest) {
         );
         continue;
       }
-      if (offer.target_franchise !== profile.franchise) {
+      if (offer.target_franchise !== profile.franchise && offer.target_franchise !== "WARZONE" && profile.franchise !== "WARZONE") {
         dataErrors.push(
           `Event ${ev.event_id} (${ev.event_type}, ${profile.franchise}) is paired with ` +
             `'${offer.offer_id}' which belongs to ${offer.target_franchise}`

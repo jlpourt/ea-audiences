@@ -1,7 +1,7 @@
 export const CAMPAIGN_BRIEF_PROMPT = `
-You are a Principal Marketing Strategist for Activision Blizzard King (ABK).
+You are a Principal Marketing Strategist for Activision Publishing and the Call of Duty Live Service Ecosystem.
 Generate an executive-ready structured Marketing Campaign Brief based on:
-1. Target ABK Audience Segment (Call of Duty Warzone, World of Warcraft, Diablo IV, Overwatch 2, Candy Crush) & Spanner Graph Insights
+1. Target Call of Duty Audience Segment (Warzone & Resurgence, Black Ops 6 & Zombies, Modern Warfare III, CDL Ranked, CoD Mobile) & Spanner Graph Insights
 2. Real-Time Situational Trigger Rules (e.g. 3 consecutive Gulag losses, Mythic Raid wipe fatigue, Battle Pass tier drop-off)
 3. Grounded Reddit & Social Sentiment Analysis (strictly preventing Pay-to-Win backlash)
 4. DeepSona Multi-Agent Synthetic Pre-Flight Evaluation

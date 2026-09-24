@@ -1,6 +1,13 @@
 export type NodeType = "PLAYER" | "IDENTITY" | "GAME" | "CLAN" | "OFFER" | "CREATOR" | "SQUADMATE";
 
-export type GameFranchise = "ALL" | "COD" | "WOW" | "DIABLO4" | "OVERWATCH2" | "CANDYCRUSH";
+export type GameFranchise =
+  | "ALL"
+  | "COD"
+  | "WARZONE"
+  | "BLACK_OPS"
+  | "MODERN_WARFARE"
+  | "CDL_RANKED"
+  | "COD_MOBILE";
 
 // Archetype identity lives in one place: src/lib/archetypes.ts. Imported for
 // local use and re-exported so existing `import { Archetype } from "@/lib/types"`

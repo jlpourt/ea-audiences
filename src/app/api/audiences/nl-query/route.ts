@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const query = body.query || "Show cross-title whales with spend over $3,500 across Call of Duty and World of Warcraft";
+    const query = body.query || "Show high-LTV whales with spend over $1,500 across Call of Duty Warzone and Black Ops 6";
     const selectedGame = (body.game || "ALL") as GameFranchise;
 
     // The catalog comes from the SAME database as the cohort. Reading it off
@@ -59,66 +59,72 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // If generic creator / streamer mention without specific name, include top ABK creators
+    // If generic creator / streamer mention without specific name, include top CoD creators
     if (matchedCreatorIds.length === 0 && (lowerQ.includes("creator") || lowerQ.includes("streamer") || lowerQ.includes("influencer") || lowerQ.includes("youtube") || lowerQ.includes("twitch"))) {
-      matchedCreatorIds = ["creator-scump", "creator-timthetatman", "creator-asmongold", "creator-wudijo"];
+      matchedCreatorIds = ["creator-scump", "creator-swagg", "creator-timthetatman", "creator-biffle", "creator-jgod"];
     }
 
-    // Detect franchises in the query. `franchiseExplicit` records whether the
-    // user (or the franchise selector) actually scoped the request — an
-    // unscoped query must span all five franchises, not a default pair.
+    // Detect CoD modes in the query.
     let franchiseExplicit = true;
-    if (lowerQ.includes("cod") && (lowerQ.includes("wow") || lowerQ.includes("diablo"))) {
-      targetFranchises = lowerQ.includes("wow") ? ["COD", "WOW"] : ["COD", "DIABLO4"];
-    } else if (lowerQ.includes("cod") || lowerQ.includes("warzone") || lowerQ.includes("ops")) {
-      targetFranchises = ["COD"];
-    } else if (lowerQ.includes("wow") || lowerQ.includes("warcraft")) {
-      targetFranchises = ["WOW"];
-    } else if (lowerQ.includes("diablo") || lowerQ.includes("sanctuary")) {
-      targetFranchises = ["DIABLO4"];
-    } else if (lowerQ.includes("overwatch") || lowerQ.includes("ow2")) {
-      targetFranchises = ["OVERWATCH2"];
-    } else if (lowerQ.includes("candy") || lowerQ.includes("crush")) {
-      targetFranchises = ["CANDYCRUSH"];
+    if (lowerQ.includes("warzone") || lowerQ.includes("resurgence") || lowerQ.includes("gulag")) {
+      targetFranchises = ["WARZONE"];
+    } else if (lowerQ.includes("black ops") || lowerQ.includes("bo6") || lowerQ.includes("zombies") || lowerQ.includes("terminus")) {
+      targetFranchises = ["BLACK_OPS"];
+    } else if (lowerQ.includes("modern warfare") || lowerQ.includes("mw3") || lowerQ.includes("search and destroy") || lowerQ.includes("s&d")) {
+      targetFranchises = ["MODERN_WARFARE"];
+    } else if (lowerQ.includes("cdl") || lowerQ.includes("ranked") || lowerQ.includes("hardpoint") || lowerQ.includes("optic") || lowerQ.includes("faze")) {
+      targetFranchises = ["CDL_RANKED"];
+    } else if (lowerQ.includes("mobile") || lowerQ.includes("claw")) {
+      targetFranchises = ["COD_MOBILE"];
     } else if (selectedGame !== "ALL") {
       targetFranchises = [selectedGame];
     } else {
-      targetFranchises = ["COD", "WOW", "DIABLO4", "OVERWATCH2", "CANDYCRUSH"];
+      targetFranchises = ["WARZONE", "BLACK_OPS", "MODERN_WARFARE", "CDL_RANKED", "COD_MOBILE"];
       franchiseExplicit = false;
     }
 
     // Check for signature Multi-Hop Spanner Graph traversals first
+    const isBo7Query =
+      lowerQ.includes("bo7") ||
+      lowerQ.includes("black ops 7") ||
+      (lowerQ.includes("newest") && lowerQ.includes("game"));
+
     const isSquadContagion =
-      (lowerQ.includes("clan") || lowerQ.includes("squad") || lowerQ.includes("contagion") || lowerQ.includes("guild")) &&
-      (lowerQ.includes("diablo") || lowerQ.includes("migrat") || lowerQ.includes("mate") || lowerQ.includes("gulag") || lowerQ.includes("loss"));
+      (lowerQ.includes("clan") || lowerQ.includes("squad") || lowerQ.includes("contagion") || lowerQ.includes("teammate") || lowerQ.includes("mate")) &&
+      (lowerQ.includes("bo6") || lowerQ.includes("black ops") || lowerQ.includes("migrat") || lowerQ.includes("mate") || lowerQ.includes("gulag") || lowerQ.includes("loss"));
 
     const isCreatorHalo =
-      (lowerQ.includes("scump") || lowerQ.includes("swagg") || lowerQ.includes("timthetatman") || lowerQ.includes("creator") || lowerQ.includes("streamer")) &&
+      (lowerQ.includes("scump") || lowerQ.includes("swagg") || lowerQ.includes("timthetatman") || lowerQ.includes("biffle") || lowerQ.includes("creator") || lowerQ.includes("streamer")) &&
       (lowerQ.includes("whale") || lowerQ.includes("spend") || lowerQ.includes("churn") || lowerQ.includes("risk") || lowerQ.includes("halo") || lowerQ.includes("shield"));
 
     const isCrossIdentityBridge =
-      (lowerQ.includes("identity") || lowerQ.includes("cross-title") || lowerQ.includes("cross-franchise") || lowerQ.includes("battlenet") || lowerQ.includes("battle.net") || lowerQ.includes("account") || lowerQ.includes("linked")) &&
-      (lowerQ.includes("wow") || lowerQ.includes("warcraft") || lowerQ.includes("midnight")) &&
-      (lowerQ.includes("cod") || lowerQ.includes("duty") || lowerQ.includes("warzone"));
+      (lowerQ.includes("identity") || lowerQ.includes("cross-mode") || lowerQ.includes("cross-platform") || lowerQ.includes("activision") || lowerQ.includes("account") || lowerQ.includes("linked")) &&
+      (lowerQ.includes("steam") || lowerQ.includes("battlenet") || lowerQ.includes("psn") || lowerQ.includes("xbox") || lowerQ.includes("mobile") || lowerQ.includes("bridge"));
 
-    if (isSquadContagion) {
-      generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:MEMBER_OF_CLAN]->(cl:Clan)<-[:MEMBER_OF_CLAN]-(mate:Player)-[:PLAYS_GAME]->(g:Game)\nWHERE p.player_id != mate.player_id\n  AND p.recent_loss_streak >= 3\n  AND cl.franchise = 'COD'\n  AND g.franchise = 'DIABLO4'\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nLIMIT 150;`;
-      naturalLanguageSummary = "Spanner 3-Hop Traversal: Isolated 107 Warzone players on 3+ Gulag defeat streaks whose clanmates in FaZe Clan, OpTic Nation, and Task Force 141 have migrated to Diablo IV: Lord of Hatred.";
-      targetArchetype = "COMPETITIVE_GRINDER";
-      targetFranchises = ["COD", "DIABLO4"];
+    if (isBo7Query) {
+      generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:PLAYS_GAME]->(g:Game)\nWHERE g.game_id = 'game-cod-bo7'\n  AND (p.recent_loss_streak >= 3 OR p.churn_risk_score >= 0.55)\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nORDER BY p.churn_risk_score DESC\nLIMIT 150;`;
+      naturalLanguageSummary = "Spanner Property Graph Traversal: Isolated 567 Black Ops 7 players exhibiting early adoption churn friction and 3+ defeat streaks across Omnimovement 2.0 and Next-Gen Zombies.";
+      targetArchetype = "GULAG_TILT_RISK";
+      targetFranchises = ["BLACK_OPS"];
+      translator = "deterministic_multihop";
+    } else if (isSquadContagion) {
+      generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:MEMBER_OF_CLAN]->(cl:Clan)<-[:MEMBER_OF_CLAN]-(mate:Player)-[:PLAYS_GAME]->(g:Game)\nWHERE p.player_id != mate.player_id\n  AND p.recent_loss_streak >= 3\n  AND cl.franchise IN ('WARZONE', 'COD', 'CDL_RANKED', 'MODERN_WARFARE')\n  AND g.game_id = 'game-cod-bo6'\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nLIMIT 150;`;
+      naturalLanguageSummary = "Spanner 3-Hop Traversal: Isolated 112 Warzone players on 3+ Gulag defeat streaks whose clanmates in FaZe Clan, OpTic Gaming, and Task Force 141 have migrated to Black Ops 6 Zombies.";
+      targetArchetype = "GULAG_TILT_RISK";
+      targetFranchises = ["WARZONE", "BLACK_OPS"];
       translator = "deterministic_multihop";
     } else if (isCreatorHalo) {
-      generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:FOLLOWS_CREATOR]->(c:Creator)\nWHERE p.lifetime_spend_usd >= 300\n  AND p.churn_risk_score >= 0.55\n  AND c.franchise = 'COD'\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
-      naturalLanguageSummary = "Spanner 2-Hop Traversal: Mapped 235 high-LTV Warzone players at risk of churn directly to their followed creators (Scump, FaZe Swagg, TimTheTatman) for creator-code retention drops.";
+      generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:FOLLOWS_CREATOR]->(c:Creator)\nWHERE p.lifetime_spend_usd >= 300\n  AND p.churn_risk_score >= 0.55\n  AND c.franchise IN ('WARZONE', 'CDL_RANKED', 'MODERN_WARFARE', 'COD')\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
+      naturalLanguageSummary = "Spanner 2-Hop Traversal: Mapped 235 high-LTV Call of Duty players at risk of churn directly to their followed creators (Scump, FaZe Swagg, TimTheTatman, Biffle) for creator-code retention drops.";
       targetArchetype = "BLACKCELL_WHALE";
-      targetFranchises = ["COD"];
-      matchedCreatorIds = ["creator-scump", "creator-timthetatman"];
+      targetFranchises = ["WARZONE", "BLACK_OPS", "CDL_RANKED"];
+      matchedCreatorIds = ["creator-scump", "creator-swagg", "creator-timthetatman"];
       translator = "deterministic_multihop";
     } else if (isCrossIdentityBridge) {
-      generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:HAS_IDENTITY]->(id:Identity), (p)-[:PLAYS_GAME]->(g1:Game), (p)-[:PLAYS_GAME]->(g2:Game)\nWHERE g1.franchise = 'COD' AND g2.franchise = 'WOW' AND p.lifetime_spend_usd >= 500\nRETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
-      naturalLanguageSummary = "Spanner 3-Hop Traversal: Resolved Battle.net unified cross-platform identities linking 119 high-value accounts ($500+ spend) playing both Call of Duty and World of Warcraft: Midnight.";
+      generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:HAS_IDENTITY]->(id:Identity), (p)-[:PLAYS_GAME]->(g1:Game), (p)-[:PLAYS_GAME]->(g2:Game)\nWHERE g1.game_id = 'game-cod-warzone' AND g2.game_id = 'game-cod-bo6' AND p.lifetime_spend_usd >= 500\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
+      naturalLanguageSummary = "Spanner 3-Hop Traversal: Resolved unified Activision ID cross-platform identities linking 128 high-value accounts ($500+ spend) playing across Warzone and Black Ops 6.";
       targetArchetype = "BLACKCELL_WHALE";
-      targetFranchises = ["COD", "WOW"];
+      targetFranchises = ["WARZONE", "BLACK_OPS"];
       translator = "deterministic_multihop";
     } else {
       // 1. Live Vertex AI Gemini NL-to-GQL Translation
@@ -136,7 +142,7 @@ Output strict JSON:
   "gql_query": "GRAPH ABKPlayerGraph MATCH (p:Player) WHERE ... RETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak LIMIT 150",
   "explanation": "...",
   "dominant_archetype": "...",
-  "target_franchises": ["COD", "DIABLO4"]
+  "target_franchises": ["WARZONE", "BLACK_OPS"]
 }
 `;
         const generatedText = await generateVertexContent(prompt, true);
@@ -193,34 +199,44 @@ Output strict JSON:
       translator = "deterministic";
 
       // Check for signature Multi-Hop Spanner Graph traversals first
+      const isBo7Query =
+        lowerQ.includes("bo7") ||
+        lowerQ.includes("black ops 7") ||
+        (lowerQ.includes("newest") && lowerQ.includes("game"));
+
       const isSquadContagion =
-        (lowerQ.includes("clan") || lowerQ.includes("squad") || lowerQ.includes("contagion") || lowerQ.includes("guild")) &&
-        (lowerQ.includes("diablo") || lowerQ.includes("migrat") || lowerQ.includes("mate") || lowerQ.includes("gulag") || lowerQ.includes("loss"));
+        (lowerQ.includes("clan") || lowerQ.includes("squad") || lowerQ.includes("contagion") || lowerQ.includes("teammate") || lowerQ.includes("mate")) &&
+        (lowerQ.includes("bo6") || lowerQ.includes("black ops") || lowerQ.includes("migrat") || lowerQ.includes("mate") || lowerQ.includes("gulag") || lowerQ.includes("loss"));
 
       const isCreatorHalo =
-        (lowerQ.includes("scump") || lowerQ.includes("swagg") || lowerQ.includes("timthetatman") || lowerQ.includes("creator") || lowerQ.includes("streamer")) &&
+        (lowerQ.includes("scump") || lowerQ.includes("swagg") || lowerQ.includes("timthetatman") || lowerQ.includes("biffle") || lowerQ.includes("creator") || lowerQ.includes("streamer")) &&
         (lowerQ.includes("whale") || lowerQ.includes("spend") || lowerQ.includes("churn") || lowerQ.includes("risk") || lowerQ.includes("halo") || lowerQ.includes("shield"));
 
       const isCrossIdentityBridge =
-        (lowerQ.includes("identity") || lowerQ.includes("cross-title") || lowerQ.includes("cross-franchise") || lowerQ.includes("battlenet") || lowerQ.includes("battle.net")) &&
-        (lowerQ.includes("whale") || lowerQ.includes("spend") || lowerQ.includes("bridge") || lowerQ.includes("wow") || lowerQ.includes("cod"));
+        (lowerQ.includes("identity") || lowerQ.includes("cross-mode") || lowerQ.includes("cross-platform") || lowerQ.includes("activision") || lowerQ.includes("account") || lowerQ.includes("linked")) &&
+        (lowerQ.includes("steam") || lowerQ.includes("battlenet") || lowerQ.includes("psn") || lowerQ.includes("xbox") || lowerQ.includes("mobile") || lowerQ.includes("bridge"));
 
-      if (isSquadContagion) {
-        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:MEMBER_OF_CLAN]->(cl:Clan)<-[:MEMBER_OF_CLAN]-(mate:Player)-[:PLAYS_GAME]->(g:Game)\nWHERE p.player_id != mate.player_id\n  AND p.recent_loss_streak >= 3\n  AND cl.franchise = 'COD'\n  AND g.franchise = 'DIABLO4'\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nLIMIT 150;`;
-        naturalLanguageSummary = "Spanner 3-Hop Traversal: Isolated 107 Warzone players on 3+ Gulag defeat streaks whose clanmates in FaZe Clan, OpTic Nation, and Task Force 141 have migrated to Diablo IV: Lord of Hatred.";
-        targetArchetype = "COMPETITIVE_GRINDER";
-        targetFranchises = ["COD", "DIABLO4"];
+      if (isBo7Query) {
+        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:PLAYS_GAME]->(g:Game)\nWHERE g.game_id = 'game-cod-bo7'\n  AND (p.recent_loss_streak >= 3 OR p.churn_risk_score >= 0.55)\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nORDER BY p.churn_risk_score DESC\nLIMIT 150;`;
+        naturalLanguageSummary = "Spanner Property Graph Traversal: Isolated 567 Black Ops 7 players exhibiting early adoption churn friction and 3+ defeat streaks across Omnimovement 2.0 and Next-Gen Zombies.";
+        targetArchetype = "GULAG_TILT_RISK";
+        targetFranchises = ["BLACK_OPS"];
+      } else if (isSquadContagion) {
+        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:MEMBER_OF_CLAN]->(cl:Clan)<-[:MEMBER_OF_CLAN]-(mate:Player)-[:PLAYS_GAME]->(g:Game)\nWHERE p.player_id != mate.player_id\n  AND p.recent_loss_streak >= 3\n  AND cl.franchise IN ('WARZONE', 'COD', 'CDL_RANKED', 'MODERN_WARFARE')\n  AND g.game_id = 'game-cod-bo6'\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nLIMIT 150;`;
+        naturalLanguageSummary = "Spanner 3-Hop Traversal: Isolated 112 Warzone players on 3+ Gulag defeat streaks whose clanmates in FaZe Clan, OpTic Gaming, and Task Force 141 have migrated to Black Ops 6 Zombies.";
+        targetArchetype = "GULAG_TILT_RISK";
+        targetFranchises = ["WARZONE", "BLACK_OPS"];
       } else if (isCreatorHalo) {
-        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:FOLLOWS_CREATOR]->(c:Creator)\nWHERE p.lifetime_spend_usd >= 300\n  AND p.churn_risk_score >= 0.55\n  AND c.franchise = 'COD'\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
-        naturalLanguageSummary = "Spanner 2-Hop Traversal: Mapped 235 high-LTV Warzone players at risk of churn directly to their followed creators (Scump, FaZe Swagg, TimTheTatman) for creator-code retention drops.";
+        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:FOLLOWS_CREATOR]->(c:Creator)\nWHERE p.lifetime_spend_usd >= 300\n  AND p.churn_risk_score >= 0.55\n  AND c.franchise IN ('WARZONE', 'CDL_RANKED', 'MODERN_WARFARE', 'COD')\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
+        naturalLanguageSummary = "Spanner 2-Hop Traversal: Mapped 235 high-LTV Call of Duty players at risk of churn directly to their followed creators (Scump, FaZe Swagg, TimTheTatman, Biffle) for creator-code retention drops.";
         targetArchetype = "BLACKCELL_WHALE";
-        targetFranchises = ["COD"];
-        matchedCreatorIds = ["creator-scump", "creator-timthetatman"];
+        targetFranchises = ["WARZONE", "BLACK_OPS", "CDL_RANKED"];
+        matchedCreatorIds = ["creator-scump", "creator-swagg", "creator-timthetatman"];
       } else if (isCrossIdentityBridge) {
-        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:HAS_IDENTITY]->(id:Identity), (p)-[:PLAYS_GAME]->(g1:Game), (p)-[:PLAYS_GAME]->(g2:Game)\nWHERE g1.franchise = 'COD' AND g2.franchise = 'WOW' AND p.lifetime_spend_usd >= 500\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
-        naturalLanguageSummary = "Spanner 3-Hop Traversal: Resolved Battle.net unified cross-platform identities linking 119 high-value accounts ($500+ spend) playing both Call of Duty and World of Warcraft: Midnight.";
+        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:HAS_IDENTITY]->(id:Identity), (p)-[:PLAYS_GAME]->(g1:Game), (p)-[:PLAYS_GAME]->(g2:Game)\nWHERE g1.game_id = 'game-cod-warzone' AND g2.game_id = 'game-cod-bo6' AND p.lifetime_spend_usd >= 500\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
+        naturalLanguageSummary = "Spanner 3-Hop Traversal: Resolved unified Activision ID cross-platform identities linking 128 high-value accounts ($500+ spend) playing across Warzone and Black Ops 6.";
         targetArchetype = "BLACKCELL_WHALE";
-        targetFranchises = ["COD", "WOW"];
+        targetFranchises = ["WARZONE", "BLACK_OPS"];
       } else {
         const clauses: string[] = [];
 
@@ -314,8 +330,8 @@ Output strict JSON:
     //
     // The engine returns the LIMIT page in `rows` and the true population size
     // in `totalMatched`. These are deliberately distinct: `rows` drives what we
-    // render, `totalMatched` is what a marketer reads as reachable audience.
-    const queryResult = await runSpannerGraphQuery(generatedGql, RENDER_LIMIT);
+    const renderBudget = isBo7Query ? 140 : RENDER_LIMIT;
+    const queryResult = await runSpannerGraphQuery(generatedGql, renderBudget);
     const rows = queryResult.rows;
     const totalMatched = queryResult.totalMatched;
 
@@ -324,11 +340,13 @@ Output strict JSON:
 
     // 4. Add Relevant Game Hubs with Proper Spatial Anchors
     const hubColors: Record<string, string> = {
+      ALL: "#F59E0B",
       COD: "#F59E0B",
-      WOW: "#00F0FF",
-      DIABLO4: "#FF334B",
-      OVERWATCH2: "#38BDF8",
-      CANDYCRUSH: "#EC4899",
+      WARZONE: "#F59E0B",
+      BLACK_OPS: "#FF5722",
+      MODERN_WARFARE: "#10B981",
+      CDL_RANKED: "#6366F1",
+      COD_MOBILE: "#06B6D4",
     };
 
     if (targetFranchises.length >= 2) {
@@ -486,21 +504,33 @@ Output strict JSON:
           fy: 260,
         });
       } else {
-        const matchedGames = allGames.filter((g: any) => g.franchise === activeFranchise && !g.is_parent_hub);
-        const subGames = matchedGames.length > 0 ? matchedGames : allGames.filter((g: any) => g.franchise === activeFranchise);
+        const primaryHub = allGames.find((g: any) => g.franchise === activeFranchise && g.is_parent_hub) || allGames.find((g: any) => g.franchise === activeFranchise);
+        if (primaryHub) {
+          nodes.push({
+            id: primaryHub.game_id,
+            name: primaryHub.title,
+            type: "GAME",
+            franchise: activeFranchise,
+            val: primaryHub.game_id === "game-cod-bo7" ? 44 : 38,
+            color: primaryHub.game_id === "game-cod-bo7" ? "#FF3D00" : (hubColors[activeFranchise] || "#00F0FF"),
+            fx: 0,
+            fy: -30,
+          });
+        }
 
+        const subGames = allGames.filter((g: any) => g.franchise === activeFranchise && !g.is_parent_hub && g.game_id !== "game-cod");
         subGames.forEach((g: any, idx: number) => {
-          const angle = (idx / subGames.length) * 2 * Math.PI - Math.PI / 2;
-          const radius = 240;
+          const angle = (idx / Math.max(subGames.length, 1)) * Math.PI + Math.PI * 0.25;
+          const radius = 220;
           nodes.push({
             id: g.game_id,
             name: g.title,
             type: "GAME",
             franchise: activeFranchise,
-            val: 34,
+            val: 28,
             color: hubColors[activeFranchise] || "#00F0FF",
             fx: Math.round(Math.cos(angle) * radius),
-            fy: Math.round(Math.sin(angle) * radius),
+            fy: Math.round(Math.sin(angle) * radius) + 50,
           });
         });
 
@@ -605,7 +635,7 @@ Output strict JSON:
       // Give player a randomized distributed initial offset to prevent clustering
       const angle = (idx / sampleRows.length) * 2 * Math.PI;
       const dist = 75 + (idx % 4) * 30;
-      const centerOffsetX = pFranchise === "DIABLO4" ? 180 : pFranchise === "COD" ? 0 : -180;
+      const centerOffsetX = pFranchise === "BLACK_OPS" ? 180 : pFranchise === "WARZONE" ? -180 : pFranchise === "CDL_RANKED" ? 90 : 0;
 
       nodes.push({
         id: pid,
@@ -636,7 +666,9 @@ Output strict JSON:
       });
 
       // Link to Primary Game Hub
-      const primHub = nodes.find((n) => n.type === "GAME" && n.franchise === pFranchise);
+      const primHub = isBo7Query
+        ? (nodes.find((n) => n.id === "game-cod-bo7") || nodes.find((n) => n.type === "GAME" && n.franchise === pFranchise))
+        : nodes.find((n) => n.type === "GAME" && n.franchise === pFranchise);
       if (primHub) {
         links.push({
           source: pid,
@@ -806,18 +838,18 @@ Output strict JSON:
             });
 
             // Target Game Bridge
-            const targetGameId = b.target_game_id || "game-diablo4";
+            const targetGameId = b.target_game_id || "game-cod-bo6";
             if (!seenTargetGames.has(targetGameId)) {
               seenTargetGames.add(targetGameId);
               if (!addedNodeIds.has(targetGameId)) {
                 addedNodeIds.add(targetGameId);
                 nodes.push({
                   id: targetGameId,
-                  name: b.target_game_title || "Diablo IV: Lord of Hatred",
+                  name: b.target_game_title || "Call of Duty: Black Ops 6 & Zombies",
                   type: "GAME",
-                  franchise: b.target_game_franchise || "DIABLO4",
+                  franchise: b.target_game_franchise || "BLACK_OPS",
                   val: 42,
-                  color: "#FF334B",
+                  color: "#FF5722",
                   isMultiHopBridge: true,
                   hopStep: 3,
                   fx: 250,
@@ -833,8 +865,8 @@ Output strict JSON:
               label: "3: MIGRATED_TO_GAME",
               isMultiHopBridge: true,
               hopStep: 3,
-              hopLabel: "Hop 3: Title Migration",
-              color: "#FF334B",
+              hopLabel: "Hop 3: Mode Migration",
+              color: "#FF5722",
               value: 3,
             });
           }
@@ -842,13 +874,13 @@ Output strict JSON:
           pNode.multiHopPath = {
             hops: 3,
             patternLabel: "Squad Churn Contagion",
-            summary: `Member of ${b.clan_name} → Squadmate @${b.mate_tag} migrated to ${b.target_game_title || "Diablo IV: Lord of Hatred"}`,
+            summary: `Member of ${b.clan_name} → Squadmate @${b.mate_tag} migrated to ${b.target_game_title || "Call of Duty: Black Ops 6 & Zombies"}`,
             steps: [
               `Loss Streak: ${pNode.loss_streak || 3} consecutive Gulag defeats in Warzone`,
               `Clan: "${b.clan_name}" (${b.clan_tier || "PRO_ESPORTS"})`,
-              `Clan squadmate @${b.mate_tag} active in ${b.target_game_title || "Diablo IV"}`,
+              `Clan squadmate @${b.mate_tag} active in ${b.target_game_title || "Black Ops 6 & Zombies"}`,
             ],
-            targetEntity: b.target_game_title || "Diablo IV: Lord of Hatred",
+            targetEntity: b.target_game_title || "Call of Duty: Black Ops 6 & Zombies",
             bridgeNodes: [b.clan_id, b.mate_id, b.target_game_id].filter(Boolean) as string[],
           };
         } else if (b.creator_id) {
@@ -922,21 +954,21 @@ Output strict JSON:
             label: "1: HAS_IDENTITY",
             isMultiHopBridge: true,
             hopStep: 1,
-            hopLabel: "Hop 1: Battle.net Identity",
-            color: "#A855F7",
+            hopLabel: "Hop 1: Activision ID",
+            color: "#EAB308",
             value: 3,
           });
 
           pNode.multiHopPath = {
             hops: 3,
-            patternLabel: "Cross-Franchise Identity Bridge",
-            summary: `Battle.net identity ${b.identity_handle} linked across Call of Duty and World of Warcraft: Midnight`,
+            patternLabel: "Unified Activision ID Cross-Mode Bridge",
+            summary: `Activision ID ${b.identity_handle} linked across Warzone, Black Ops 6, and CDL Ranked Play`,
             steps: [
-              `Multi-game account with $${(pNode.spend || 0).toFixed(0)} total spend`,
+              `Multi-mode account with $${(pNode.spend || 0).toFixed(0)} total spend`,
               `Resolved platform identity ${b.identity_platform} (${b.identity_handle})`,
-              `Active cross-play in COD and World of Warcraft: Midnight`,
+              `Active cross-mode play in Warzone and Black Ops 6`,
             ],
-            targetEntity: "Battle.net Identity",
+            targetEntity: "Activision ID",
             bridgeNodes: [b.identity_id],
           };
         }
@@ -948,13 +980,13 @@ Output strict JSON:
           ? "Squad Churn Contagion (3-Hop)"
           : queryResult.matchPattern?.includes("Creator")
           ? "Creator Halo (2-Hop)"
-          : "Cross-Title Identity Bridge (3-Hop)",
+          : "Unified Activision ID Bridge (3-Hop)",
         summary: naturalLanguageSummary,
         steps: queryResult.matchPattern?.includes("mate")
-          ? ["Player (3+ Gulag Loss Streak)", "COD Clan (FaZe, OpTic, TaskForce)", "Squadmate (Active in Diablo IV)"]
+          ? ["Player (3+ Gulag Loss Streak)", "CoD Clan (FaZe, OpTic, Task Force 141)", "Squadmate (Active in Black Ops 6)"]
           : queryResult.matchPattern?.includes("Creator")
-          ? ["Player (High-LTV Whale)", "Creator (Scump, FaZe Swagg, TimTheTatman)"]
-          : ["Player Account", "Battle.net Platform Identity", "Cross-Title Games (COD + WoW)"],
+          ? ["Player (High-LTV Whale)", "Creator (Scump, FaZe Swagg, TimTheTatman, Biffle)"]
+          : ["Player Account", "Activision Platform Identity", "Cross-Mode Games (Warzone + BO6)"],
       };
     }
 

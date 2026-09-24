@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       .join("\n");
 
     const prompt = `
-You are the Chief Growth & Marketing Analytics AI for Activision Blizzard King (ABK) powered by Google Cloud Vertex AI Gemini Flash Lite.
+You are the Chief Growth & Marketing Analytics AI for Activision / Call of Duty powered by Google Cloud Vertex AI Gemini Flash Lite.
 
 AUDIENCE & FUNNEL METRICS:
 - Active Cohort Preset: "${cohortPreset}"
@@ -40,8 +40,8 @@ ${playerSnippets || "None provided"}
 
 TASK:
 Provide two concise, high-impact executive intelligence summaries:
-1. "path_summary": Differentiate what drives this specific player cohort through this journey stage. Explain the behavioral friction, player psychology, and why the marketing intervention converts them. Keep it to 2-3 crisp sentences with real ABK terminology (e.g. 'Warzone Gulag', 'BlackCell Season Pass', 'Mythic+ Raid Wipes', 'The Pit Torment', 'Battle.net cross-title play').
-2. "funnel_summary": Provide a macro executive takeaway on the overall funnel health, highlighting the primary conversion lever and estimated revenue lift for Activision Blizzard King.
+1. "path_summary": Differentiate what drives this specific player cohort through this journey stage. Explain the behavioral friction, player psychology, and why the marketing intervention converts them. Keep it to 2-3 crisp sentences with real Call of Duty terminology (e.g. 'Warzone Gulag', 'BlackCell Season Pass', 'Zombies Round Slump', 'CDL Ranked Demotion', 'Activision ID cross-mode play').
+2. "funnel_summary": Provide a macro executive takeaway on the overall funnel health, highlighting the primary conversion lever and estimated revenue lift for Activision.
 
 Output STRICT JSON matching:
 {
@@ -65,7 +65,7 @@ Output STRICT JSON matching:
       return NextResponse.json({
         model_used: "Vertex AI Gemini Flash-Lite (Grounded Intelligence)",
         path_summary: `Cohort segment (${pathCount} players, $${pathSpend.toLocaleString()} LTV) shows heavy concentration in ${pathTitle}. Real-time intervention neutralizes defeat-streak tilt, lifting conversion by +26.4%.`,
-        funnel_summary: `Overall ABK marketing funnel exhibits 74.2% healthy throughput. Creator-anchored acquisition feeds high-engagement ranked and seasonal modes with minimal downstream drop-off.`,
+        funnel_summary: `Overall Call of Duty marketing funnel exhibits 74.2% healthy throughput. Creator-anchored acquisition feeds high-engagement ranked and seasonal modes with minimal downstream drop-off.`,
         key_tactical_lever: "Dynamic Loss-Shield Starter Packs ($4.99) deployed post-defeat",
         recommended_bid_modifier: "+22% on high-tilt ranked grinders",
       });

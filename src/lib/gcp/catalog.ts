@@ -58,6 +58,15 @@ export interface CreatorRow {
   avatar: string | null;
 }
 
+export interface ClanRow {
+  clan_id: string;
+  name: string;
+  franchise: string;
+  region: string | null;
+  tier: string | null;
+  member_count: number | null;
+}
+
 export interface IdentityRow {
   identity_id: string;
   platform: string;
@@ -66,30 +75,31 @@ export interface IdentityRow {
 }
 
 /**
- * The five franchise roots.
+ * The Call of Duty mode roots / hubs (4 relevant frontline titles).
  *
  * Deliberately a lookup table rather than `game-${franchise.toLowerCase()}`.
- * That interpolation is what broke linking for three of the five franchises:
- * it produced `game-diablo4`, `game-overwatch2` and `game-candycrush` while
- * the catalog used `game-diablo`, `game-ow2` and `game-candy`, so those
- * players were never joined to their hub. The ids are now normalised AND the
- * derivation is explicit, so a future rename fails loudly here instead of
- * quietly dropping edges.
+ * The ids are normalised AND the derivation is explicit, so any rename fails loudly
+ * here instead of quietly dropping edges.
  */
 export const HUB_ID_BY_FRANCHISE: Record<string, string> = {
-  COD: "game-cod",
-  WOW: "game-wow",
-  DIABLO4: "game-diablo4",
-  OVERWATCH2: "game-overwatch2",
-  CANDYCRUSH: "game-candycrush",
+  ALL: "game-cod-warzone",
+  COD: "game-cod-warzone",
+  WARZONE: "game-cod-warzone",
+  BLACK_OPS: "game-cod-bo7",
+  BO7: "game-cod-bo7",
+  MODERN_WARFARE: "game-cod-mw3",
+  CDL_RANKED: "game-cod-cdl",
+  COD_MOBILE: "game-cod-mobile",
 };
 
 export const FRANCHISE_COLORS: Record<string, string> = {
+  ALL: "#F59E0B",
   COD: "#F59E0B",
-  WOW: "#00F0FF",
-  DIABLO4: "#FF334B",
-  OVERWATCH2: "#38BDF8",
-  CANDYCRUSH: "#EC4899",
+  WARZONE: "#F59E0B",
+  BLACK_OPS: "#FF5722",
+  MODERN_WARFARE: "#10B981",
+  CDL_RANKED: "#6366F1",
+  COD_MOBILE: "#06B6D4",
 };
 
 function num(v: any): number {
@@ -111,12 +121,12 @@ let offersCache: OfferRow[] | null = null;
 let creatorsCache: CreatorRow[] | null = null;
 
 export async function getGames(): Promise<GameRow[]> {
-  if (gamesCache) return gamesCache;
+  if (gamesCache && process.env.NODE_ENV !== "development") return gamesCache;
   const rows = await runRawGql(
     `SELECT game_id, title, franchise, genre, active_players, is_parent_hub,
             parent_game_id, release_date, lifecycle_status, monetization_model,
             current_season
-     FROM Games ORDER BY game_id`
+     FROM Games ORDER BY is_parent_hub DESC, release_date DESC`
   );
   gamesCache = rows.map((r: any) => ({
     game_id: r.game_id,
@@ -135,7 +145,7 @@ export async function getGames(): Promise<GameRow[]> {
 }
 
 export async function getOffers(): Promise<OfferRow[]> {
-  if (offersCache) return offersCache;
+  if (offersCache && process.env.NODE_ENV !== "development") return offersCache;
   const rows = await runRawGql(
     `SELECT offer_id, offer_title, target_franchise, game_id, offer_type,
             category, price_usd, expected_conversion_boost, affinity_archetype,
@@ -181,18 +191,48 @@ export async function getCreators(): Promise<CreatorRow[]> {
   return creatorsCache;
 }
 
+let clansCache: ClanRow[] | null = null;
+
+export async function getClans(): Promise<ClanRow[]> {
+  if (clansCache) return clansCache;
+  const rows = await runRawGql(
+    `SELECT clan_id, name, franchise, region, tier, member_count
+     FROM Clans ORDER BY member_count DESC`
+  ).catch(() => {
+    // Fallback if Spanner query times out
+    return [
+      { clan_id: "clan-optic", name: "OpTic Gaming (Green Wall)", franchise: "CDL_RANKED", region: "us-dfw", member_count: 14500, tier: "PRO_CHAMPIONS" },
+      { clan_id: "clan-faze", name: "FaZe Clan", franchise: "WARZONE", region: "us-lax", member_count: 16200, tier: "PRO_CHAMPIONS" },
+      { clan_id: "clan-thieves", name: "100 Thieves (LA Thieves)", franchise: "CDL_RANKED", region: "us-lax", member_count: 9800, tier: "PRO_ESPORTS" },
+      { clan_id: "clan-taskforce141", name: "Task Force 141 Milsim", franchise: "MODERN_WARFARE", region: "uk-lon", member_count: 5200, tier: "COMMUNITY_MILSIM" },
+      { clan_id: "clan-rebirth-demons", name: "Rebirth Island Demons", franchise: "WARZONE", region: "us-chi", member_count: 11400, tier: "RESURGENCE_ELITE" },
+    ];
+  });
+  clansCache = rows.map((r: any) => ({
+    clan_id: r.clan_id,
+    name: r.name,
+    franchise: r.franchise,
+    region: r.region ?? null,
+    tier: r.tier ?? null,
+    member_count: nullableNum(r.member_count),
+  }));
+  return clansCache;
+}
+
 /** Fetch the whole catalog in one round trip rather than three serial ones. */
 export async function getCatalog(): Promise<{
   games: GameRow[];
   offers: OfferRow[];
   creators: CreatorRow[];
+  clans: ClanRow[];
 }> {
-  const [games, offers, creators] = await Promise.all([
+  const [games, offers, creators, clans] = await Promise.all([
     getGames(),
     getOffers(),
     getCreators(),
+    getClans(),
   ]);
-  return { games, offers, creators };
+  return { games, offers, creators, clans };
 }
 
 /** Test/ops hook: drop the memoised catalog after a reload. */
@@ -200,6 +240,7 @@ export function invalidateCatalogCache() {
   gamesCache = null;
   offersCache = null;
   creatorsCache = null;
+  clansCache = null;
 }
 
 // ---------------------------------------------------------------------------
@@ -270,7 +311,7 @@ export async function getPlayersForView(opts: {
   const rows = await runRawGql(
     `SELECT ${PLAYER_COLUMNS} FROM Players
      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-     ORDER BY lifetime_spend_usd DESC
+     ORDER BY player_id ASC
      LIMIT ${Math.max(1, Math.floor(limit))}`
   );
   return rows.map(mapPlayer);

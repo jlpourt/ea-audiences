@@ -108,15 +108,23 @@ async function main() {
   const hubs = gamesData.filter((g) => g.is_parent_hub);
   const REQUIRED_HUBS = [
     "game-cod",
-    "game-wow",
-    "game-diablo4",
-    "game-overwatch2",
-    "game-candycrush",
+    "game-cod-warzone",
+    "game-cod-bo6",
+    "game-cod-mw3",
+    "game-cod-cdl",
+    "game-cod-mobile",
   ];
   const CANONICAL_ARCHETYPES = new Set([
-    "CASUAL_SOCIALIZER", "LORE_SEEKER", "CASUAL_WARRIOR", "COMPETITIVE_GRINDER",
-    "RANKED_SWEAT", "BLACKCELL_WHALE", "AZERITE_COLLECTOR",
-    "SANCTUARY_COLLECTOR", "BOOSTER_WHALE", "MYTHIC_COLLECTOR",
+    "BLACKCELL_WHALE",
+    "VERDANSK_OG",
+    "CDL_RANKED_SWEAT",
+    "CAMO_COMPLETIONIST",
+    "ROUND_BASED_ZOMBIES_SLAYER",
+    "SEARCH_AND_DESTROY_SPECIALIST",
+    "CASUAL_WARZONE_WARRIOR",
+    "MOBILE_TOUCHPAD_PRODIGY",
+    "DMZ_EXTRACTION_SURVIVOR",
+    "GULAG_TILT_RISK",
   ]);
 
   const problems = [];

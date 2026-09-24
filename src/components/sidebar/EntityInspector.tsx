@@ -611,7 +611,7 @@ export default function EntityInspector({
                   <span>Spanner Graph Squad Entity</span>
                 </div>
                 <p className="text-[11px] text-gray-300 leading-relaxed">
-                  Competitive squad bridge connecting at-risk Warzone players with clanmates who play across Activision Blizzard titles.
+                  Competitive squad bridge connecting at-risk Warzone players with clanmates who play across Call of Duty titles.
                 </p>
               </div>
             </div>
@@ -629,8 +629,8 @@ export default function EntityInspector({
                 </div>
                 <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
                   <span className="text-[10px] text-gray-500 block uppercase">Migration Target</span>
-                  <span className="font-semibold text-rose-400 text-xs block mt-0.5">
-                    Diablo IV: Lord of Hatred
+                  <span className="font-semibold text-orange-400 text-xs block mt-0.5">
+                    Call of Duty: Black Ops 6 & Zombies
                   </span>
                 </div>
               </div>
@@ -640,7 +640,7 @@ export default function EntityInspector({
                   <span>Squad Churn Contagion Node</span>
                 </div>
                 <p className="text-[11px] text-gray-300 leading-relaxed">
-                  This clanmate migrated to Diablo IV after finishing their seasonal battle pass, creating social pull that draws teammates away from Warzone.
+                  This clanmate migrated to Black Ops 6 Zombies after finishing their Warzone battle pass, creating social pull that draws teammates away from Resurgence.
                 </p>
               </div>
             </div>

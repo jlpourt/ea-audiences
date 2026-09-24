@@ -97,89 +97,81 @@ export default function PlayerMarketingJourneySankey({
       if (player.followed_creators && player.followed_creators.length > 0) {
         acqId = "acq_creator";
         acqName = "Creator Streams";
-        acqSub = "Scump / TimTheTatman";
+        acqSub = "Scump / Swagg / Tim";
       } else if ((player.spend || 0) >= 200 || (player.hours || 0) >= 300) {
         acqId = "acq_preorder";
         acqName = "Vault Pre-Order";
-        acqSub = "Battle.net / Retail";
-      } else if ((player.spend || 0) < 30 || (player.franchise === "CANDYCRUSH")) {
-        acqId = "acq_bnet";
-        acqName = "Battle.net & Mobile";
-        acqSub = "Cross-Play Gravity";
+        acqSub = "Store / Console";
+      } else {
+        acqId = "acq_organic";
+        acqName = "Activision ID Cross-Play";
+        acqSub = "Squad Referral";
       }
 
       // Stage 1: Core Mode
       let modeId = "mode_warzone";
-      let modeName = "Warzone Resurgence";
-      let modeSub = "Squads BR";
-      if (player.franchise === "WOW" || player.archetype === "AZERITE_COLLECTOR") {
-        modeId = "mode_wow";
-        modeName = "Mythic+ Dungeons";
-        modeSub = "20-Player Raids";
-      } else if (player.franchise === "DIABLO4" || player.archetype === "SANCTUARY_COLLECTOR") {
-        modeId = "mode_pit";
-        modeName = "The Pit & Hordes";
-        modeSub = "Tier 80+ Grinds";
-      } else if (player.franchise === "CANDYCRUSH" || player.archetype === "BOOSTER_WHALE") {
-        modeId = "mode_candy";
-        modeName = "Candy Crush Saga";
-        modeSub = "Commuter Match-3";
-      } else if (player.franchise === "OVERWATCH2") {
-        modeId = "mode_ow2";
-        modeName = "Overwatch 2 Ranked";
-        modeSub = "Role Queue 5v5";
-      } else if (player.archetype === "COMPETITIVE_GRINDER" || (player.hours || 0) > 400) {
-        modeId = "mode_bo6";
-        modeName = "BO7 Ranked Play";
-        modeSub = "Competitive CDL";
+      let modeName = "Warzone & Resurgence";
+      let modeSub = "Rebirth & Urzikstan";
+      if (player.franchise === "BLACK_OPS" || player.archetype === "ROUND_BASED_ZOMBIES_SLAYER") {
+        modeId = "mode_bo6_zombies";
+        modeName = "Black Ops 6 Zombies";
+        modeSub = "Terminus & Liberty Falls";
+      } else if (player.franchise === "CDL_RANKED" || player.archetype === "CDL_RANKED_SWEAT") {
+        modeId = "mode_cdl";
+        modeName = "CDL Ranked Play";
+        modeSub = "Competitive 4v4";
+      } else if (player.franchise === "MODERN_WARFARE" || player.archetype === "SEARCH_AND_DESTROY_SPECIALIST") {
+        modeId = "mode_mw3";
+        modeName = "Modern Warfare III";
+        modeSub = "Search & Destroy / S&D";
+      } else if (player.franchise === "COD_MOBILE" || player.archetype === "MOBILE_TOUCHPAD_PRODIGY") {
+        modeId = "mode_mobile";
+        modeName = "CoD Mobile & WZM";
+        modeSub = "Touch Claw Grinders";
       }
 
       // Stage 2: Friction Trigger
       let fricId = "fric_organic";
       let fricName = "Smooth Flow";
-      let fricSub = "Low Friction";
-      if ((player.loss_streak || 0) >= 2 || (player.tilt || 0) >= 0.65) {
+      let fricSub = "High Momentum";
+      if ((player.loss_streak || 0) >= 2 || (player.tilt || 0) >= 0.65 || player.archetype === "GULAG_TILT_RISK") {
         fricId = "fric_gulag";
-        fricName = "Gulag / Wipe Tilt";
-        fricSub = "Elimination Slump";
+        fricName = "Gulag Defeat Streak";
+        fricSub = "3+ Elimination Slump";
+      } else if (player.archetype === "CDL_RANKED_SWEAT") {
+        fricId = "fric_rank";
+        fricName = "Rank Demotion Slump";
+        fricSub = "Crimson / Iridescent Drop";
       } else if ((player.spend || 0) >= 600 || player.archetype === "BLACKCELL_WHALE") {
         fricId = "fric_bp_cap";
         fricName = "Battle Pass Fatigue";
-        fricSub = "Progression Wall";
-      } else if (player.franchise === "CANDYCRUSH" || (player.game_telemetry?.current_level || 0) > 500) {
-        fricId = "fric_booster";
-        fricName = "Booster Depletion";
-        fricSub = "Level 500+ Wall";
-      } else if (player.archetype === "COMPETITIVE_GRINDER") {
-        fricId = "fric_rank";
-        fricName = "Rank Demotion";
-        fricSub = "Skill Barrier";
+        fricSub = "Sector Grind Wall";
       }
 
       // Stage 3: Marketing Offer
       let offId = "off_free";
-      let offName = "Free Seasonal Cache";
-      let offSub = "$0 Milestone";
+      let offName = "Free Double XP Cache";
+      let offSub = "$0 Momentum Drop";
       if (fricId === "fric_gulag") {
+        offId = "off_recovery";
+        offName = "Gulag Care Package";
+        offSub = "$4.99 / 500 CP Bundle";
+      } else if (player.archetype === "BLACKCELL_WHALE" || (player.spend || 0) >= 800) {
         offId = "off_blackcell";
-        offName = "BlackCell Bundle";
-        offSub = "$9.99 CP Coins";
-      } else if (player.franchise === "WOW") {
-        offId = "off_wow_sub";
-        offName = "6-Month Sub & Mount";
-        offSub = "$77.94 Bundle";
-      } else if (player.franchise === "DIABLO4") {
-        offId = "off_relic";
-        offName = "Infernal Relic Pack";
-        offSub = "$19.99 Platinum";
-      } else if (player.franchise === "CANDYCRUSH") {
-        offId = "off_goldbars";
-        offName = "50 Gold Bars Starter";
-        offSub = "$4.99 Reload";
-      } else if ((player.spend || 0) >= 1000) {
-        offId = "off_vault_vault";
-        offName = "Battle.net Vault Pack";
-        offSub = "$49.99 Collector";
+        offName = "BlackCell Season Pass";
+        offSub = "$29.99 Vault Drop";
+      } else if (player.franchise === "BLACK_OPS") {
+        offId = "off_bo6_vault";
+        offName = "BO6 Vault Upgrade";
+        offSub = "$29.99 Edition";
+      } else if (player.franchise === "CDL_RANKED") {
+        offId = "off_cdl_pack";
+        offName = "CDL Supporter Pack";
+        offSub = "$9.99 OpTic / FaZe";
+      } else if ((player.spend || 0) >= 400) {
+        offId = "off_mastercraft";
+        offName = "Mastercraft Blueprint";
+        offSub = "$24.99 Celestial Dragon";
       }
 
       // Stage 4: Lifecycle Outcome
@@ -399,7 +391,7 @@ export default function PlayerMarketingJourneySankey({
             <span className="text-sm font-semibold tracking-tight text-white flex items-center gap-2">
               <span>Player Marketing Journeys</span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 font-mono font-medium">
-                ABK Cross-Title Funnel
+                Call of Duty Unified Funnel
               </span>
             </span>
           </div>
@@ -409,10 +401,10 @@ export default function PlayerMarketingJourneySankey({
           {/* Preset Cohort Filter Pills */}
           <div className="flex items-center gap-1.5 bg-white/[0.04] p-1 rounded-xl border border-white/10">
             {[
-              { id: "ALL", label: "All ABK Players" },
-              { id: "WHALES", label: "💎 Battle.net Whales ($1k+)" },
-              { id: "TILT_SLUMP", label: "⚡ Gulag / Wipe Tilt" },
-              { id: "RUSH_SOCIAL", label: "🎯 Squads & Mythic Guilds" },
+              { id: "ALL", label: "All CoD Players" },
+              { id: "WHALES", label: "💎 BlackCell Whales ($1k+)" },
+              { id: "TILT_SLUMP", label: "⚡ Gulag / Demotion Tilt" },
+              { id: "RUSH_SOCIAL", label: "🎯 Squads & CDL Clans" },
             ].map((preset) => (
               <button
                 key={preset.id}
@@ -455,7 +447,7 @@ export default function PlayerMarketingJourneySankey({
           </div>
 
           <button
-            onClick={() => onLaunchDeepSona && onLaunchDeepSona(undefined, "ABK Battle.net Cross-Title Funnel Simulation")}
+            onClick={() => onLaunchDeepSona && onLaunchDeepSona(undefined, "Call of Duty Unified Funnel Simulation")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-black hover:bg-gray-200 text-xs font-semibold shadow-lg transition-all"
           >
             <Users className="w-3.5 h-3.5 text-black" />

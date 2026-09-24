@@ -16,40 +16,46 @@ interface NLSearchBarProps {
 
 const SAMPLE_PROMPTS_BY_GAME: Record<GameFranchise, string[]> = {
   ALL: [
-    "Warzone players on 3+ loss streaks whose COD clanmates migrated to Diablo IV",
+    "Warzone players on 3+ Gulag loss streaks whose COD clanmates migrated to Black Ops 6",
     "High-LTV whales at risk of churn following Scump or FaZe Swagg",
-    "Battle.net accounts linked across Call of Duty and World of Warcraft: Midnight",
-    "Cross-title whales with spend over $3,500 across Call of Duty and WoW",
+    "Activision accounts linked across Warzone and Black Ops 6",
+    "Cross-mode whales with spend over $2,500 across Warzone, Black Ops 6, and MWIII",
   ],
   COD: [
-    "Warzone players on 3+ Gulag loss streaks whose COD clanmates migrated to Diablo IV",
+    "Warzone players on 3+ Gulag loss streaks whose COD clanmates migrated to Black Ops 6",
     "Whale players ($500+ spend) at risk of churn following Scump or FaZe Swagg",
-    "Warzone players with 3+ Gulag losses and high tilt in Los Angeles",
-    "BlackCell whales who bought the Black Ops 7 pass ($1,500+ spend)",
+    "Warzone Resurgence players with 3+ Gulag losses & high tilt in Los Angeles",
+    "BlackCell whales who bought the Season 6 pass ($1,500+ spend)",
   ],
-  WOW: [
-    "Midnight Season 2 raiders with 3+ wipe streaks",
-    "Collectors with 10+ years tenure and 5+ expansions owned",
-    "Players holding WoW Tokens with sub lapsing in 30 days",
-    "Mists of Pandaria Classic players who never bought Midnight",
+  WARZONE: [
+    "Warzone players on 3+ Gulag loss streaks with tilt over 0.70 in Los Angeles",
+    "Whale players ($500+ spend) following TimTheTatman, Biffle, or FaZe Swagg",
+    "Rebirth Island Resurgence veterans with 2.0+ K/D and unspent CoD Points",
+    "DMZ extraction players with 3-plate stealth vests and high tenure",
   ],
-  DIABLO4: [
-    "Pit grinders with death slumps and churn risk over 0.65",
-    "Sanctuary collectors with $800+ spend on cosmetics",
-    "Season 13 players who skipped the Lord of Hatred expansion",
-    "Vessel of Hatred owners who have not returned this season",
+  BLACK_OPS: [
+    "Black Ops 6 Terminus & Liberty Falls players with 15+ rounds and BlackCell pass",
+    "Omnimovement grinders with Dark Matter camo unlocked and high SPM",
+    "Zombies players who purchased GobbleGum Ultra Mega Packs",
+    "Black Ops 6 Vault Edition owners with active battle pass progression",
   ],
-  OVERWATCH2: [
-    "Competitive players with 3+ demotion losses this season",
-    "Mythic Prism whales with spend over $600",
-    "Season 4 Heroes of Busan players with low match frequency",
-    "Free-to-play accounts that never converted to a battle pass",
+  MODERN_WARFARE: [
+    "Modern Warfare III Search & Destroy players on 3+ match defeat streaks",
+    "Interstellar mastery camo grinders in Hardcore Shipment 24/7",
+    "Mastercraft blueprint collectors with spend over $800 in MWIII",
+    "Task Force 141 milsim clan members in London Metro",
   ],
-  CANDYCRUSH: [
-    "Players stuck out of moves on level 5,000+ with no boosters",
-    "Gold bar whales with spend over $1,200",
-    "Daily players on 4+ sessions with lapsing Sugar Track progress",
-    "Lapsed commuters with high elasticity for extra-moves offers",
+  CDL_RANKED: [
+    "CDL Ranked players on 3+ consecutive demotion losses in Crimson or Iridescent",
+    "Competitive 4v4 Hardpoint & S&D grinders supporting OpTic Texas or FaZe",
+    "Top 250 aspirants with 1,500+ hours in CDL competitive playlists",
+    "Ranked players experiencing severe SR loss and tilt sensitivity > 0.75",
+  ],
+  COD_MOBILE: [
+    "CoD Mobile players with 2,000+ unspent CP during Mythic Weapon events",
+    "Warzone Mobile Verdansk players on iPad Pro with Backbone controllers",
+    "CODM Legendary ranked players who purchase Mythic lucky draws",
+    "Touchpad claw players with 3+ win streaks in Mobile Battle Royale",
   ],
 };
 

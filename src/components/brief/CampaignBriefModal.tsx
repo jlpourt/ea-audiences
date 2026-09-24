@@ -29,7 +29,7 @@ export default function CampaignBriefModal({
     const element = document.createElement("a");
     const file = new Blob([JSON.stringify(brief, null, 2)], { type: "application/json" });
     element.href = URL.createObjectURL(file);
-    element.download = `ABK_Campaign_Brief_${brief.franchise.replace(/\s+/g, "_")}.json`;
+    element.download = `CoD_Campaign_Brief_${brief.franchise.replace(/\s+/g, "_")}.json`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);

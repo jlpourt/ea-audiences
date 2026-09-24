@@ -167,16 +167,18 @@ export default function CommandCenterPage() {
 
     const activeFranchise =
       selectedGame === "ALL"
-        ? (cohortContext?.franchise && cohortContext.franchise !== "ALL" ? cohortContext.franchise : "Activision Blizzard King")
-        : selectedGame === "COD"
+        ? (cohortContext?.franchise && cohortContext.franchise !== "ALL" ? cohortContext.franchise : "Activision")
+        : selectedGame === "WARZONE"
         ? "Call of Duty: Warzone"
-        : selectedGame === "WOW"
-        ? "World of Warcraft"
-        : selectedGame === "DIABLO4"
-        ? "Diablo IV"
-        : selectedGame === "OVERWATCH2"
-        ? "Overwatch 2"
-        : "Candy Crush Saga";
+        : selectedGame === "BLACK_OPS"
+        ? "Call of Duty: Black Ops 7"
+        : selectedGame === "MODERN_WARFARE"
+        ? "Call of Duty: Modern Warfare III"
+        : selectedGame === "CDL_RANKED"
+        ? "Call of Duty League & Ranked"
+        : selectedGame === "COD_MOBILE"
+        ? "Call of Duty: Mobile"
+        : "Call of Duty";
 
     // The OFFER under test and the AUDIENCE it is shown to are different
     // things. Previously the cohort's search text was passed as the creative
@@ -187,28 +189,32 @@ export default function CommandCenterPage() {
         ? selectedGame
         : cohortContext?.franchise && cohortContext.franchise !== "ALL"
         ? cohortContext.franchise
-        : "COD";
+        : "WARZONE";
 
     const OFFER_UNDER_TEST: Record<string, { title: string; spend: number }> = {
-      COD: {
-        title: "BlackCell Battle Pass Bundle ($29.99)",
+      WARZONE: {
+        title: "Season 6 BlackCell Battle Pass Bundle ($29.99)",
+        spend: 240000,
+      },
+      BLACK_OPS: {
+        title: "Black Ops 7 Vault Edition Upgrade ($29.99)",
         spend: 220000,
       },
-      WOW: {
-        title: "6-Month Recurring Subscription + Ethereal Mount ($77.94)",
+      MODERN_WARFARE: {
+        title: "Mastercraft Tracer Pack: Celestial Dragon ($24.99)",
         spend: 190000,
       },
-      DIABLO4: {
-        title: "Accelerated Seasonal Battle Pass + 20 Tier Skips ($24.99)",
+      CDL_RANKED: {
+        title: "CDL Championship OpTic Texas Supporter Pack ($9.99)",
         spend: 160000,
       },
-      OVERWATCH2: {
-        title: "Mythic Prism 80-Pack — Mythic Weapon / Skin ($39.99)",
-        spend: 140000,
+      COD_MOBILE: {
+        title: "CoD Mobile Mythic Weapon Drop: Grau 5.56 Phantom ($29.99)",
+        spend: 150000,
       },
-      CANDYCRUSH: {
-        title: "Mega Party Booster Super Pack, x20 Each ($49.99)",
-        spend: 110000,
+      COD: {
+        title: "Season 6 BlackCell Battle Pass Bundle ($29.99)",
+        spend: 240000,
       },
     };
 
@@ -385,15 +391,15 @@ export default function CommandCenterPage() {
             aria-label="Return to start page"
           >
             <img
-              src="/abk_logo.svg"
-              alt="Activision Blizzard King"
-              className="h-6 sm:h-7 w-auto object-contain brightness-110"
+              src="/Activision.svg"
+              alt="Activision"
+              className="h-5 w-auto object-contain brightness-110 select-none"
             />
           </button>
 
           <div className="flex items-center gap-2">
             <span className="text-gray-500 font-normal">/</span>
-            <span className="text-xs text-gray-300 font-medium">Audience Intelligence Engine</span>
+            <span className="text-xs text-gray-300 font-medium">Call of Duty Audience Intelligence Engine</span>
           </div>
         </div>
 
