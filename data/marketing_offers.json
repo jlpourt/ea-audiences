@@ -53,7 +53,7 @@
     "affinity_archetype": "PARK_REP_GRINDER",
     "lifecycle_status": "CURRENT",
     "available_from": "2026-09-04",
-    "description": "75,000 Virtual Currency — enough to take a new build to 85 OVR."
+    "description": "75,000 Virtual Currency - enough to take a new build to 85 OVR."
   },
   {
     "offer_id": "off-vc-200k",
@@ -85,7 +85,7 @@
   },
   {
     "offer_id": "off-season-pass-pro",
-    "offer_title": "Season 1 Pass — Pro",
+    "offer_title": "Season 1 Pass · Pro",
     "target_franchise": "NBA2K",
     "game_id": "game-nba2k27",
     "offer_type": "SEASON_PASS",
@@ -99,7 +99,7 @@
   },
   {
     "offer_id": "off-season-pass-hof",
-    "offer_title": "Season 1 Pass — Hall of Fame",
+    "offer_title": "Season 1 Pass · Hall of Fame",
     "target_franchise": "NBA2K",
     "game_id": "game-nba2k27",
     "offer_type": "SEASON_PASS",
@@ -113,7 +113,7 @@
   },
   {
     "offer_id": "off-myteam-galaxy-opal-deluxe-1499",
-    "offer_title": "Galaxy Opal Deluxe Pack — $14.99",
+    "offer_title": "Galaxy Opal Deluxe Pack · $14.99",
     "target_franchise": "NBA2K",
     "game_id": "game-nba2k27-myteam",
     "offer_type": "MYTEAM_PACK",
@@ -127,7 +127,7 @@
   },
   {
     "offer_id": "off-myteam-galaxy-opal-deluxe-1999",
-    "offer_title": "Galaxy Opal Deluxe Pack — $19.99",
+    "offer_title": "Galaxy Opal Deluxe Pack · $19.99",
     "target_franchise": "NBA2K",
     "game_id": "game-nba2k27-myteam",
     "offer_type": "MYTEAM_PACK",
@@ -183,7 +183,7 @@
   },
   {
     "offer_id": "off-nba2k26-vc-carryover",
-    "offer_title": "NBA 2K26 Veteran Welcome Pack — 75K VC + Cap Breaker",
+    "offer_title": "NBA 2K26 Veteran Welcome Pack · 75K VC + Cap Breaker",
     "target_franchise": "NBA2K26",
     "game_id": "game-nba2k26",
     "offer_type": "LOYALTY_UPGRADE",
@@ -211,7 +211,7 @@
   },
   {
     "offer_id": "off-nba2k-mobile-vc",
-    "offer_title": "NBA 2K Mobile — 1,500 Coins & MyTEAM Sync Pack",
+    "offer_title": "NBA 2K Mobile · 1,500 Coins & MyTEAM Sync Pack",
     "target_franchise": "NBA2KMOBILE",
     "game_id": "game-nba2k-mobile",
     "offer_type": "COIN_PACK",
@@ -225,7 +225,7 @@
   },
   {
     "offer_id": "off-nba2k-mobile-opal-pass",
-    "offer_title": "NBA 2K Mobile — Courtside Pass Premium",
+    "offer_title": "NBA 2K Mobile · Courtside Pass Premium",
     "target_franchise": "NBA2KMOBILE",
     "game_id": "game-nba2k-mobile",
     "offer_type": "SEASON_PASS",
@@ -235,7 +235,7 @@
     "affinity_archetype": "MOBILE_DAILY_RITUALIST",
     "lifecycle_status": "CURRENT",
     "available_from": "2026-09-01",
-    "description": "Unlock exclusive Courtside Pass Galaxy Opal mobile rewards and console VC bonus."
+    "description": "Earn exclusive Courtside Pass Galaxy Opal mobile rewards and console VC bonus."
   },
   {
     "offer_id": "off-wwe2k25-season-pass",
@@ -295,7 +295,7 @@
   },
   {
     "offer_id": "off-civ7-crossroads",
-    "offer_title": "Civilization VII — Crossroads of the World Collection",
+    "offer_title": "Civilization VII · Crossroads of the World Collection",
     "target_franchise": "CIV7",
     "game_id": "game-civ7",
     "offer_type": "DLC",
@@ -309,7 +309,7 @@
   },
   {
     "offer_id": "off-bl4-bounty-pack-1",
-    "offer_title": "Borderlands 4 — Vault Hunter Bounty Pack",
+    "offer_title": "Borderlands 4 · Vault Hunter Bounty Pack",
     "target_franchise": "BL4",
     "game_id": "game-bl4",
     "offer_type": "DLC",
@@ -323,7 +323,7 @@
   },
   {
     "offer_id": "off-mafia-toc-deluxe-upgrade",
-    "offer_title": "Mafia: The Old Country — Deluxe Upgrade",
+    "offer_title": "Mafia: The Old Country · Deluxe Upgrade",
     "target_franchise": "MAFIA",
     "game_id": "game-mafia-toc",
     "offer_type": "EDITION_UPGRADE",

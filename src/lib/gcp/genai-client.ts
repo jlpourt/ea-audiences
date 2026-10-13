@@ -420,8 +420,13 @@ export interface GenerateImageResult extends MediaResult {
 }
 
 export async function generateImage(input: GenerateImageInput): Promise<GenerateImageResult> {
-  const spec = MODELS.IMAGE;
-  const started = Date.now();
+  const requested = MODELS.IMAGE;
+  const chain: Array<{ id: string; location: ModelLocation }> = [
+    { id: requested.id, location: requested.location },
+  ];
+  if (requested.id !== "gemini-2.5-flash-image" || requested.location !== "us-central1") {
+    chain.push({ id: "gemini-2.5-flash-image", location: "us-central1" });
+  }
 
   const parts: Part[] = [];
   if (input.referenceImageBase64) {
@@ -440,24 +445,40 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   };
   if (input.aspectRatio) config.imageConfig = { aspectRatio: input.aspectRatio };
 
-  const res = await withRetry(spec.id, () =>
-    getGenAI(spec.location).models.generateContent({ model: spec.id, contents, config })
-  );
+  let lastErr: GenAIError | null = null;
+  for (const spec of chain) {
+    const started = Date.now();
+    try {
+      const res = await withRetry(spec.id, () =>
+        getGenAI(spec.location).models.generateContent({ model: spec.id, contents, config })
+      );
 
-  const outParts = res.candidates?.[0]?.content?.parts ?? [];
-  const image = outParts.find((p) => p.inlineData?.data);
-  if (!image?.inlineData?.data) {
-    const reason = res.candidates?.[0]?.finishReason || res.promptFeedback?.blockReason || "NO_IMAGE";
-    throw new GenAIError(`Image model returned no image (${reason}).`, undefined, spec.id);
+      const outParts = res.candidates?.[0]?.content?.parts ?? [];
+      const image = outParts.find((p) => p.inlineData?.data);
+      if (!image?.inlineData?.data) {
+        const reason =
+          res.candidates?.[0]?.finishReason || res.promptFeedback?.blockReason || "NO_IMAGE";
+        throw new GenAIError(`Image model returned no image (${reason}).`, undefined, spec.id);
+      }
+
+      return {
+        bytes: Buffer.from(image.inlineData.data, "base64"),
+        mimeType: image.inlineData.mimeType || "image/png",
+        modelUsed: res.modelVersion || spec.id,
+        latencyMs: Date.now() - started,
+        text: textOf(res) || undefined,
+      };
+    } catch (e) {
+      const err = e instanceof GenAIError ? e : new GenAIError(String(e), statusOf(e), spec.id, e);
+      lastErr = err;
+      if (err.status !== undefined && UNAVAILABLE.has(err.status) && spec !== chain[chain.length - 1]) {
+        console.warn(`[genai] ${spec.id} unavailable (${err.status}); stepping down image model.`);
+        continue;
+      }
+      throw err;
+    }
   }
-
-  return {
-    bytes: Buffer.from(image.inlineData.data, "base64"),
-    mimeType: image.inlineData.mimeType || "image/png",
-    modelUsed: res.modelVersion || spec.id,
-    latencyMs: Date.now() - started,
-    text: textOf(res) || undefined,
-  };
+  throw lastErr ?? new Error("generateImage: no image model available.");
 }
 
 // ---------------------------------------------------------------------------

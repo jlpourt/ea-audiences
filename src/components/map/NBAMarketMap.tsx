@@ -5,6 +5,7 @@ import { geoNaturalEarth1, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import worldData from "world-atlas/countries-110m.json";
 import { GraphData, GraphNode, CohortContext } from "@/lib/types";
+import { archetypeLabel } from "@/lib/archetypes";
 import {
   Users,
   X,
@@ -233,7 +234,7 @@ export function NBAMarketMap({
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-20">
             <div className="flex items-center gap-3 text-xs text-white/80">
-              <RefreshCw className="w-4 h-4 animate-spin text-[#E4002B]" />
+              <RefreshCw className="w-4 h-4 courtside-Transfer-pulse text-[#E4002B]" />
               <span>Resolving NBA DMA Coordinates &amp; 2K26 Holdout Telemetry...</span>
             </div>
           </div>
@@ -328,8 +329,20 @@ export function NBAMarketMap({
                     }}
                   />
 
-                  {/* Bubble label only for top 8 markets, selected, or hovered */}
-                  {(idx < 8 || isSelected || isHovered) && (
+                  {/* Bubble label only for clean anchor markets, selected, or hovered */}
+                  {(isSelected ||
+                    isHovered ||
+                    [
+                      "Los Angeles",
+                      "New York",
+                      "Chicago",
+                      "Miami",
+                      "Dallas",
+                      "London",
+                      "Tokyo",
+                      "Sydney",
+                      "São Paulo",
+                    ].includes(market.dma_market.replace(" DMA", ""))) && (
                     <text
                       y={-radius - 5}
                       textAnchor="middle"
@@ -483,7 +496,7 @@ export function NBAMarketMap({
                 {selectedMarket.top_archetype_label.replace(/\s*\u2014\s*/g, " · ")}
               </div>
               <div className="text-[10px] text-white/40 font-mono">
-                {selectedMarket.top_archetype}
+                {archetypeLabel(selectedMarket.top_archetype as any)}
               </div>
             </div>
 

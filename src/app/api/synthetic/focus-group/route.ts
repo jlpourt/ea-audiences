@@ -9,6 +9,7 @@ import {
   ExtendedFocusGroupResult,
 } from "@/lib/focus-group-eval";
 import { SpannerUnavailableError } from "@/lib/gcp/spanner-client";
+import { MODELS } from "@/lib/models";
 import { SwarmCrowdAgent } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
           )
         : Promise.resolve({
             crowdAgents: [] as SwarmCrowdAgent[],
-            liteModelUsed: "gemini-3.5-flash-lite",
+            liteModelUsed: MODELS.LITE.id,
           }),
     ]);
 

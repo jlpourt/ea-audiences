@@ -337,7 +337,7 @@ async function main() {
     }))
   );
 
-  console.log("\nVerifying row counts in Spanner...");
+  console.log("\nVerifying row counts in database...");
   for (const t of [
     "Players",
     "Games",

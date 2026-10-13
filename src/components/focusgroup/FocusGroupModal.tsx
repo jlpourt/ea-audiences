@@ -33,7 +33,6 @@ import { StaggerList } from "@/components/brand/StaggerList";
 import { Sparkline } from "@/components/brand/Sparkline";
 import { RedditPulseCard } from "./RedditPulseCard";
 import { PersonaInterrogationDrawer } from "./PersonaInterrogationDrawer";
-import { SYNTHETIC_FALLBACK_PERSONAS } from "@/lib/prompts/courtside_personas";
 import type { ExtendedFocusGroupResult } from "@/lib/focus-group-eval";
 
 export interface FocusGroupModalProps {
@@ -122,7 +121,7 @@ const COUNTERFACTUAL_CHIPS: CounterfactualChip[] = [
     id: "rebirth-carryover",
     label: "2K26 Cap Breaker + Rebirth Carryover",
     eventText:
-      "Grant NBA 2K26 veterans instant 90 OVR Rebirth unlock plus +2 Cap Breaker carryover tokens in NBA 2K27 Season 2",
+      "Grant NBA 2K26 veterans instant 90 OVR Rebirth progression plus +2 Cap Breaker carryover tokens in NBA 2K27 Season 2",
   },
 ];
 
@@ -250,10 +249,9 @@ export function FocusGroupModal({
       season_pass_tier: n.game_telemetry?.season_pass_tier ?? 12,
       myteam_galaxy_opal_count: n.game_telemetry?.myteam_galaxy_opal_count ?? 0,
       park_win_pct: n.game_telemetry?.park_win_pct ?? 0.5,
-      rockstar_linked: n.game_telemetry?.nba2k26_veteran ?? n.game_telemetry?.rockstar_linked ?? false,
-      gta_online_spend_usd:
-        n.game_telemetry?.nba2k26_spend_usd ?? n.game_telemetry?.gta_online_spend_usd ?? 0,
-      gta6_preorder: n.game_telemetry?.migrated_to_2k27 ?? n.game_telemetry?.gta6_preorder ?? false,
+      nba2k26_veteran: n.game_telemetry?.nba2k26_veteran ?? false,
+      nba2k26_spend_usd: n.game_telemetry?.nba2k26_spend_usd ?? 0,
+      migrated_to_2k27: n.game_telemetry?.migrated_to_2k27 ?? false,
       gravity_score: n.gravity_score ?? n.game_telemetry?.gravity_score ?? 0.5,
       favorite_team: n.game_telemetry?.favorite_team ?? "Los Angeles Lakers",
     }));
@@ -264,10 +262,10 @@ export function FocusGroupModal({
     if (graphPlayers.length >= 20) {
       return graphPlayers;
     }
-    const pool = liveSpannerDefaults.length > 0 ? liveSpannerDefaults : SYNTHETIC_FALLBACK_PERSONAS;
+    const pool = liveSpannerDefaults;
     return [
       ...graphPlayers,
-      ...pool.slice(0, 20 - graphPlayers.length),
+      ...pool.slice(0, Math.max(0, 20 - graphPlayers.length)),
     ];
   }, [graphPlayers, liveSpannerDefaults]);
 
@@ -454,8 +452,7 @@ export function FocusGroupModal({
     ...(swarmSize === 100 ? crowdAgents.map((a) => getCrowdState(a, 2)) : []),
   ];
 
-  const totalDenominator =
-    swarmSize === 100 && crowdAgents.length > 0 ? 20 + crowdAgents.length : 20;
+  const totalDenominator = swarmSize;
 
   const buyCount = allCurrentStates.filter((s) => s === "PURCHASED").length;
   const evalCount = allCurrentStates.filter(
@@ -589,7 +586,7 @@ export function FocusGroupModal({
               >
                 {isRunning ? (
                   <>
-                    <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                    <RotateCw className="w-3.5 h-3.5 courtside-Transfer-pulse" />
                     <span>
                       {streamProgress < 20
                         ? `R1 Eval (${streamProgress}/20)...`
@@ -848,7 +845,7 @@ export function FocusGroupModal({
                   >
                     <span>100-Agent Swarm Matrix</span>
                     <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-white/10 text-vc-gold">
-                      {20 + crowdAgents.length}/100
+                      {crowdAgents.length > 0 ? 20 + crowdAgents.length : 100} Agents
                     </span>
                   </button>
                 )}

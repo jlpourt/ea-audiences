@@ -229,6 +229,7 @@ function sanitizePlatformName(platform: string): string {
 
 function formatOfferTitle(title: string, price: number): string {
   let clean = title
+    .replace(/\s*\u2014\s*/g, " · ")
     .replace(/\s+/g, " ")
     .trim();
   if (clean.length > 28) {
@@ -330,7 +331,7 @@ export async function GET(request: NextRequest) {
         const angle = (idx / Math.max(1, identities.length)) * Math.PI * 2;
         nodes.push({
           id: ident.identity_id,
-          name: `${cleanPlatform}: ${ident.platform_handle ?? "—"}`,
+          name: `${cleanPlatform}: ${ident.platform_handle ?? "N/A"}`,
           type: "IDENTITY",
           platform: cleanPlatform,
           confidence: ident.confidence_score,
@@ -436,7 +437,7 @@ export async function GET(request: NextRequest) {
     }
 
     // ======================================================================
-    // LOAD LIVE CATALOG + PLAYERS FROM CLOUD SPANNER
+    // LOAD LIVE CATALOG + PLAYERS FROM 2K IDENTITY GRAPH
     // ======================================================================
     const [games, offers, creators, clans, players] = await Promise.all([
       getGames(),

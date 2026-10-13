@@ -2,433 +2,17 @@
   "scannedAt": "2026-10-13",
   "repoRoot": "/Users/jlpourt/CCAI/ea-audiences",
   "summary": {
-    "totalStaticFindings": 71,
-    "emDashTotal": 67,
+    "totalStaticFindings": 10,
+    "emDashTotal": 50,
     "metricCardTotal": 0,
     "uniqueGiveawaysTriggered": [
-      11,
-      14,
       15
     ],
-    "preliminaryAntiSlopScore": 4.6,
+    "preliminaryAntiSlopScore": 8.2,
     "screensCapturedCount": 0
   },
   "screens": [],
   "findings": [
-    {
-      "giveawayId": 11,
-      "category": "AI buzzword vocabulary",
-      "file": "scripts/generate_2k_dataset.py",
-      "line": 210,
-      "matched": "Unlock",
-      "snippet": "(\"off-nba2k-mobile-opal-pass\", \"NBA 2K Mobile \u2014 Courtside Pass Premium\", \"NBA2KMOBILE\", \"game-nba2k-mobile\", \"SEASON_PASS\", \"Mobile Season P",
-      "fix": "Rewrite using the customer's concrete operational vocabulary in `.showroom/voice.md`."
-    },
-    {
-      "giveawayId": 11,
-      "category": "AI buzzword vocabulary",
-      "file": "scripts/generate_2k_dataset.py",
-      "line": 579,
-      "matched": "seamlessly",
-      "snippet": "# Legacy compatibility mirrors so any existing JSON predicate works seamlessly",
-      "fix": "Rewrite using the customer's concrete operational vocabulary in `.showroom/voice.md`."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "scripts/spanner_load_data.js",
-      "line": 340,
-      "matched": "in Spanner",
-      "snippet": "console.log(\"\\nVerifying row counts in Spanner...\");",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/app/page.tsx",
-      "line": 67,
-      "matched": "gemini-3.5-flash",
-      "snippet": "const [modelUsed, setModelUsed] = useState<string>(\"gemini-3.5-flash\");",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/app/page.tsx",
-      "line": 198,
-      "matched": "gemini-3.5-flash",
-      "snippet": "setModelUsed(data.model_used || \"gemini-3.5-flash\");",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/app/api/audiences/nl-query/route.ts",
-      "line": 377,
-      "matched": "gemini-3.5-flash",
-      "snippet": "let modelUsed = \"gemini-3.5-flash\";",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/app/api/audiences/nl-query/route.ts",
-      "line": 389,
-      "matched": "Spanner Graph",
-      "snippet": "prompt: `Translate this 2K Courtside audience request into Spanner Graph GQL on TakeTwoPlayerGraph.",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/app/api/audiences/nl-query/route.ts",
-      "line": 397,
-      "matched": "Vertex AI",
-      "snippet": "`Vertex AI NL-to-GQL generation failed: ${err?.message || String(err)}`,",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/app/api/audiences/nl-query/route.ts",
-      "line": 870,
-      "matched": "Vertex AI",
-      "snippet": "service: \"Vertex AI Gemini\",",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/app/api/insights/core-finding/route.ts",
-      "line": 96,
-      "matched": "Cloud Spanner",
-      "snippet": "prompt: `Write a sharp, 2-sentence executive marketing insight for 2K Courtside using these exact live Cloud Spanner Graph counts across our",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/app/api/health/models/route.ts",
-      "line": 45,
-      "matched": "Vertex AI",
-      "snippet": "service: \"Vertex AI \u00b7 Gemini\",",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/app/api/health/spanner/route.ts",
-      "line": 38,
-      "matched": "Cloud Spanner",
-      "snippet": "service: \"Cloud Spanner Graph\",",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 11,
-      "category": "AI buzzword vocabulary",
-      "file": "src/app/api/simulation/triggers/route.ts",
-      "line": 35,
-      "matched": "synergy",
-      "snippet": "reason: \"Crew synergy active; teammate re-up boost available\",",
-      "fix": "Rewrite using the customer's concrete operational vocabulary in `.showroom/voice.md`."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/app/api/campaign/brief/route.ts",
-      "line": 28,
-      "matched": "Vertex AI",
-      "snippet": "throw new Error(\"Vertex AI groundedSearch returned empty community insight\");",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/app/api/campaign/brief/route.ts",
-      "line": 90,
-      "matched": "Vertex AI",
-      "snippet": "throw new Error(\"Vertex AI campaign brief generation returned invalid or incomplete JSON payload\");",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/app/api/campaign/brief/route.ts",
-      "line": 117,
-      "matched": "Vertex AI",
-      "snippet": "error: \"Failed to generate campaign brief via Vertex AI\",",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/app/api/synthetic/focus-group/stream/route.ts",
-      "line": 46,
-      "matched": "Cloud Spanner",
-      "snippet": "error: \"Failed to initialize focus group personas from Cloud Spanner\",",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/app/api/synthetic/focus-group/stream/route.ts",
-      "line": 63,
-      "matched": "gemini-3.5-flash",
-      "snippet": "let fastModelUsed = \"gemini-3.5-flash\";",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/app/api/synthetic/focus-group/stream/route.ts",
-      "line": 79,
-      "matched": "Vertex AI",
-      "snippet": "`Vertex AI persona evaluation returned unparseable JSON for ${player.gamer_tag || `persona-${index + 1}`}`",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/app/api/synthetic/focus-group/stream/route.ts",
-      "line": 170,
-      "matched": "Vertex AI",
-      "snippet": "const errorMsg = err?.message || \"Vertex AI focus group stream failed\";",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 11,
-      "category": "AI buzzword vocabulary",
-      "file": "src/app/api/creative/image/route.ts",
-      "line": 20,
-      "matched": "seamlessly",
-      "snippet": "stylePrompt = `Take-Two Interactive flagship promotional key visual: NBA 2K27 hardwood basketball arena blending seamlessly into a neon-soak",
-      "fix": "Rewrite using the customer's concrete operational vocabulary in `.showroom/voice.md`."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/sidebar/EntityInspector.tsx",
-      "line": 1152,
-      "matched": "animate-spin",
-      "snippet": "<Loader2 className=\"w-4 h-4 animate-spin text-white\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/landing/CourtsideLanding.tsx",
-      "line": 828,
-      "matched": "animate-spin",
-      "snippet": "<Loader2 className=\"w-3.5 h-3.5 animate-spin text-black\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/activation/ActivationDAG.tsx",
-      "line": 363,
-      "matched": "animate-spin",
-      "snippet": "<Clock className=\"w-4 h-4 animate-spin\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/activation/ActivationFeed.tsx",
-      "line": 87,
-      "matched": "animate-spin",
-      "snippet": "<RefreshCw className={`w-3.5 h-3.5 ${loading ? \"animate-spin\" : \"\"}`} />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/journey/SeasonJourneySankey.tsx",
-      "line": 308,
-      "matched": "animate-spin",
-      "snippet": "<RefreshCw className={`w-3.5 h-3.5 ${loading ? \"animate-spin text-[#E4002B]\" : \"\"}`} />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/journey/SeasonJourneySankey.tsx",
-      "line": 318,
-      "matched": "animate-spin",
-      "snippet": "<RefreshCw className=\"w-4 h-4 animate-spin text-[#E4002B]\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/journey/SeasonJourneySankey.tsx",
-      "line": 593,
-      "matched": "animate-spin",
-      "snippet": "<RefreshCw className=\"w-3.5 h-3.5 animate-spin text-[#E4002B]\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/components/search/NLSearchBar.tsx",
-      "line": 82,
-      "matched": "gemini-3.5-flash",
-      "snippet": "const [modelUsed, setModelUsed] = useState<string>(\"gemini-3.5-flash\");",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/components/search/NLSearchBar.tsx",
-      "line": 119,
-      "matched": "gemini-3.5-flash",
-      "snippet": "setModelUsed(data.model_used || \"gemini-3.5-flash\");",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/search/NLSearchBar.tsx",
-      "line": 231,
-      "matched": "animate-spin",
-      "snippet": "<Loader2 className=\"h-3.5 w-3.5 animate-spin\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/search/NLSearchBar.tsx",
-      "line": 316,
-      "matched": "animate-spin",
-      "snippet": "<Loader2 className=\"h-3 w-3 animate-spin\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/common/SpannerStatusPill.tsx",
-      "line": 97,
-      "matched": "animate-spin",
-      "snippet": "<Loader2 className=\"h-2.5 w-2.5 animate-spin text-chalk-dim\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/map/NBAMarketMap.tsx",
-      "line": 236,
-      "matched": "animate-spin",
-      "snippet": "<RefreshCw className=\"w-4 h-4 animate-spin text-[#E4002B]\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/focusgroup/FocusGroupModal.tsx",
-      "line": 340,
-      "matched": "animate-spin",
-      "snippet": "<RotateCw className=\"w-3.5 h-3.5 animate-spin\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/focusgroup/PersonaInterrogationDrawer.tsx",
-      "line": 185,
-      "matched": "animate-spin",
-      "snippet": "<Loader2 className=\"w-3.5 h-3.5 animate-spin text-twok-red\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/focusgroup/RedditPulseCard.tsx",
-      "line": 80,
-      "matched": "animate-spin",
-      "snippet": "<RefreshCw className={`w-3 h-3 ${isLoading ? \"animate-spin\" : \"\"}`} />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/focusgroup/RedditPulseCard.tsx",
-      "line": 87,
-      "matched": "animate-spin",
-      "snippet": "<Loader2 className=\"w-3.5 h-3.5 animate-spin text-twok-red\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/brief/CampaignBriefModal.tsx",
-      "line": 139,
-      "matched": "animate-spin",
-      "snippet": "<Loader2 className=\"w-3.5 h-3.5 animate-spin\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/creative/CreativeStudioPanel.tsx",
-      "line": 241,
-      "matched": "animate-spin",
-      "snippet": "<Loader2 className=\"w-3.5 h-3.5 animate-spin\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/creative/CreativeStudioPanel.tsx",
-      "line": 323,
-      "matched": "animate-spin",
-      "snippet": "<Loader2 className=\"w-3.5 h-3.5 animate-spin\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/creative/CreativeStudioPanel.tsx",
-      "line": 392,
-      "matched": "animate-spin",
-      "snippet": "<Loader2 className=\"w-3.5 h-3.5 animate-spin\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/audience/LiveCountTicker.tsx",
-      "line": 38,
-      "matched": "animate-spin",
-      "snippet": "<Loader2 className=\"h-2.5 w-2.5 animate-spin text-twok-red\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/audience/SaveAudienceSheet.tsx",
-      "line": 222,
-      "matched": "animate-spin",
-      "snippet": "<Loader2 className=\"h-3 w-3 animate-spin text-twok-red\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/audience/SaveAudienceSheet.tsx",
-      "line": 302,
-      "matched": "animate-spin",
-      "snippet": "<Loader2 className=\"h-4 w-4 animate-spin\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
-    {
-      "giveawayId": 14,
-      "category": "Loading spinners with no streaming/progress story",
-      "file": "src/components/audience/SavedAudiencesDrawer.tsx",
-      "line": 67,
-      "matched": "animate-spin",
-      "snippet": "<Loader2 className=\"h-4 w-4 animate-spin text-twok-red\" />",
-      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
-    },
     {
       "giveawayId": 15,
       "category": "Exposed Google Cloud / AI model & service badges in customer UI",
@@ -450,46 +34,10 @@
     {
       "giveawayId": 15,
       "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/lib/focus-group-eval.ts",
-      "line": 104,
-      "matched": "gemini-3.5-flash",
-      "snippet": "let modelUsed = \"gemini-3.5-flash\";",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/lib/focus-group-eval.ts",
-      "line": 118,
-      "matched": "Vertex AI",
-      "snippet": "`Vertex AI persona evaluation returned unparseable JSON for ${player.gamer_tag || `persona-${index + 1}`}`",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/lib/focus-group-eval.ts",
-      "line": 205,
-      "matched": "Vertex AI",
-      "snippet": "throw new Error(\"Vertex AI consensus synthesis returned invalid or incomplete JSON payload\");",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
       "file": "src/lib/models.ts",
       "line": 61,
       "matched": "gemini-3.1-pro-preview",
       "snippet": "id: \"gemini-3.1-pro-preview\",",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/lib/models.ts",
-      "line": 63,
-      "matched": "Gemini 3.1",
-      "snippet": "label: \"Gemini 3.1 Pro\",",
       "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
     },
     {
@@ -505,27 +53,9 @@
       "giveawayId": 15,
       "category": "Exposed Google Cloud / AI model & service badges in customer UI",
       "file": "src/lib/models.ts",
-      "line": 69,
-      "matched": "Gemini 3.5",
-      "snippet": "label: \"Gemini 3.5 Flash\",",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/lib/models.ts",
       "line": 73,
       "matched": "gemini-3.5-flash-lite",
       "snippet": "id: \"gemini-3.5-flash-lite\",",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/lib/models.ts",
-      "line": 75,
-      "matched": "Gemini 3.5",
-      "snippet": "label: \"Gemini 3.5 Flash-Lite\",",
       "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
     },
     {
@@ -541,27 +71,9 @@
       "giveawayId": 15,
       "category": "Exposed Google Cloud / AI model & service badges in customer UI",
       "file": "src/lib/models.ts",
-      "line": 84,
-      "matched": "Gemini 3.5",
-      "snippet": "label: \"Gemini 3.5 Flash \u00b7 Search\",",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/lib/models.ts",
       "line": 88,
-      "matched": "gemini-2.5-flash-image",
-      "snippet": "id: \"gemini-2.5-flash-image\",",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/lib/models.ts",
-      "line": 90,
-      "matched": "Gemini 2.5",
-      "snippet": "label: \"Gemini 2.5 Flash Image\",",
+      "matched": "gemini-3.1-flash-image",
+      "snippet": "id: \"gemini-3.1-flash-image\",",
       "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
     },
     {
@@ -576,82 +88,19 @@
     {
       "giveawayId": 15,
       "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/lib/models.ts",
-      "line": 96,
-      "matched": "Gemini 3.1",
-      "snippet": "label: \"Gemini 3.1 Flash TTS\",",
+      "file": "src/lib/gcp/genai-client.ts",
+      "line": 427,
+      "matched": "gemini-2.5-flash-image",
+      "snippet": "if (requested.id !== \"gemini-2.5-flash-image\" || requested.location !== \"us-central1\") {",
       "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
     },
     {
       "giveawayId": 15,
       "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/lib/gcp/spanner-client.ts",
-      "line": 393,
-      "matched": "Spanner graph",
-      "snippet": "`Spanner graph query failed: ${e?.message || e}. MATCH was: ${matchClause}. WHERE clause was: ${",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/lib/prompts/brief_generator.ts",
-      "line": 11,
-      "matched": "Spanner Graph",
-      "snippet": "1. Target 2K Audience Segment & Spanner Graph Insights (e.g. MyCAREER builds stalling under 85 OVR, MyTEAM Galaxy Opal collectors, NBA 2K26 ",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 11,
-      "category": "AI buzzword vocabulary",
-      "file": "src/lib/prompts/brief_generator.ts",
-      "line": 36,
-      "matched": "Unlock",
-      "snippet": "\"Break through the cap: Unlock your next Cap Breaker before Season 2 drops\"",
-      "fix": "Rewrite using the customer's concrete operational vocabulary in `.showroom/voice.md`."
-    },
-    {
-      "giveawayId": 11,
-      "category": "AI buzzword vocabulary",
-      "file": "src/lib/prompts/courtside_personas.ts",
-      "line": 95,
-      "matched": "unlock",
-      "snippet": "systemPrompt: `You spend hours in the 2K27 Build Lab testing badge unlock thresholds, wingspan min-maxing, and jump shot speed animations.",
-      "fix": "Rewrite using the customer's concrete operational vocabulary in `.showroom/voice.md`."
-    },
-    {
-      "giveawayId": 11,
-      "category": "AI buzzword vocabulary",
-      "file": "src/lib/prompts/courtside_personas.ts",
-      "line": 124,
-      "matched": "synergy",
-      "snippet": "You love 2K loyalty synergy: NBA 2K26 -> 2K27 Rebirth build jumpstarts, 100K VC Hall of Fame Loyalty Upgrades, Cap Breaker carryover bonuses",
-      "fix": "Rewrite using the customer's concrete operational vocabulary in `.showroom/voice.md`."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/lib/prompts/nl_to_gql.ts",
-      "line": 2,
-      "matched": "Spanner Graph",
-      "snippet": "You are the Principal Spanner Graph GQL (Graph Query Language) Engineer for 2K Courtside \u2014 2K Publishing's Audience Builder & Segmentation E",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/lib/prompts/nl_to_gql.ts",
-      "line": 3,
-      "matched": "Cloud Spanner",
-      "snippet": "You translate natural language marketing audience queries into valid Google Cloud Spanner Property Graph GQL matching the 'TakeTwoPlayerGrap",
-      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
-    },
-    {
-      "giveawayId": 15,
-      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
-      "file": "src/lib/prompts/nl_to_gql.ts",
-      "line": 31,
-      "matched": "In Spanner",
-      "snippet": "In Spanner GoogleSQL GQL, fields inside \\`p.game_telemetry\\` MUST be wrapped in an explicit type cast:",
+      "file": "src/lib/gcp/genai-client.ts",
+      "line": 428,
+      "matched": "gemini-2.5-flash-image",
+      "snippet": "chain.push({ id: \"gemini-2.5-flash-image\", location: \"us-central1\" });",
       "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
     }
   ]

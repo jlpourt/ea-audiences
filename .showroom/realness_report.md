@@ -1,244 +1,295 @@
-# 2K Courtside — Realness & Demo-Day Reliability Report (`realness-verifier`)
+# 2K Courtside — Realness & Demo-Day Reliability Report (`2k-miro`)
 
-- **Repository**: `/Users/jlpourt/CCAI/ea-audiences` (2K Courtside — Audience Builder & Segmentation Engine)
-- **Target GCP Environment**:
-  - **Project / Region**: `jamie-bq-test` (`us-central1` + `global` Vertex AI endpoint)
-  - **Cloud Spanner Graph**: `blackrock-spanner/twok_graph_db` (`TakeTwoPlayerGraph`)
-  - **BigQuery Dataset**: `twok_marketing_intelligence` (`telemetry_events`, `saved_audiences`, `activation_log`)
-  - **Cloud Storage Bucket**: `gs://twok-courtside-media-jamie-bq-test` (`images/`, `audio/`, `music/`, `briefs/`, `smoke/`)
-  - **Cloud Pub/Sub Topic**: `twok-courtside-activations` (subscription `twok-courtside-activations-sub`)
-  - **Vertex AI (`@google/genai`)**: `gemini-3.1-pro-preview` (REASONING), `gemini-3.5-flash` (FAST / GROUNDED), `gemini-3.5-flash-lite` (LITE), `gemini-2.5-flash-image` (IMAGE), `gemini-3.1-flash-tts-preview` (TTS), `lyria-002` (MUSIC), `gemini-embedding-001` (EMBED, 3,072-d)
+- **Repository**: `/Users/jlpourt/CCAI/ea-audiences` (branch: `2k-miro`)
+- **Application**: **2K Courtside — Audience Intelligence Engine** (Take-Two Interactive / 2K Games / Visual Concepts)
+- **Target GCP Project**: `jamie-bq-test`
+  - **Cloud Spanner Graph**: Instance `blackrock-spanner` · Database `twok_graph_db` · Property Graph `TakeTwoPlayerGraph`
+  - **BigQuery**: Dataset `jamie-bq-test.twok_marketing_intelligence` (`saved_audiences`, `activation_log`, `telemetry_events`)
+  - **Cloud Storage**: Bucket `gs://twok-courtside-media-jamie-bq-test`
+  - **Cloud Pub/Sub**: Topic `twok-courtside-activations` · Subscription `twok-courtside-activations-sub`
 - **Audit Date**: 2026-10-12
+- **Auditor**: `realness-verifier` (`showroom` plugin)
 
 ---
 
-## Executive Summary & Scores
+## Executive Summary & Scorecard
 
-| Metric | Score | Status | Summary |
+| Dimension | Score | Verdict | Summary |
 | :--- | :---: | :---: | :--- |
-| **Realness Score** | **6.5 / 10** | ⚠️ **BLOCKING FALLBACK VIOLATIONS** | All 22 Next.js API routes and 6 GCP client libraries (`spanner-client.ts`, `bigquery-client.ts`, `genai-client.ts`, `storage-client.ts`, `pubsub-client.ts`, `catalog.ts`) are wired to real, live Google Cloud services. **However**, 12 `try/catch` and silent fallback paths across `focus-group-eval.ts`, `campaign/brief`, `marketing/journey/summary`, `insights/core-finding`, `audiences/nl-query`, `official-server.ts`, `ActivationDAG.tsx`, and the Python `agents/` fleet violate `GEMINI.md` Rule 1 (**ZERO DATA FALLBACKS**). |
-| **Demo-Day Readiness Score** | **4.5 / 10** | ⚠️ **MISSING KILL SWITCHES** | Live health probes exist at `/api/health/spanner`, `/api/health/models`, and `/api/health/services`, plus `scripts/smoke_models.mjs`. Missing: unified `/api/health?deep=1`, `scripts/warm_cache.sh`, `scripts/reset_state.sh` (`POST /api/reset`), and UI synthetic dataset disclosure badge. |
-
-> [!CAUTION]
-> **Deterministic Scanner Note (`realness_scan_raw.json`)**: `realness_scanner.py` scored `0.0/10` prelim realness because its regexes only matched Python SDK calls (`5` in `agents/app/`) while flagging `43` `random.randint`/`random.uniform` calls inside the offline dataset generator `scripts/generate_2k_dataset.py`. Manual code trace across all 22 TypeScript Next.js routes confirms **real live GCP execution across Spanner Graph, BigQuery, GCS, Pub/Sub, and Vertex AI**, tempered by the specific `GEMINI.md` Rule 1 fallback violations cataloged in Section 2.
+| **Realness Score** | **7.6 / 10** | **REAL BACKEND / FRONTEND FALLBACK VIOLATIONS** | All 20 Next.js API routes invoke genuine Google Cloud SDK clients (`@google/genai`, `@google-cloud/spanner`, `@google-cloud/bigquery`, `@google-cloud/storage`, `@google-cloud/pubsub`) and fail loudly with `HTTP 500/502/503`. However, several frontend and synthesis modules violate `GEMINI.md` Rule 1 via hardcoded fallback arrays (`SYNTHETIC_FALLBACK_PERSONAS`, `DEFAULT_DYNAMIC_FINDINGS`, hardcoded `migration_curve` fallback), silent `.catch(() => {})` handlers, and `setTimeout`-driven DAG step animation in `ActivationDAG.tsx`. |
+| **Demo-Day Readiness Score** | **6.5 / 10** | **PARTIAL KILL SWITCHES** | Deep health probes exist (`/api/health/spanner`, `/api/health/models`, `/api/health/services`) and Cloud Run sets `minInstanceCount: 1`, but unified `/api/health?deep=1`, `scripts/warm_cache.sh`, and `scripts/reset_state.sh` (`POST /api/reset`) are missing, and synthetic seed data lacks explicit `# SYNTHETIC_EBC_SEED_DATA` code/UI labeling. |
 
 ---
 
 ## 1. End-to-End Output Traceability Matrix
 
-Every user-visible UI surface, API route, and backend service call is traced below:
+Every user-visible UI card, chart, search bar, and AI action on the `2k-miro` branch was traced end-to-end (`UI Component -> Frontend Fetch -> Backend Endpoint -> GCP Service/Model Call`).
 
-| UI Component / Surface | Frontend Fetch Call | Backend API Route | Underlying GCP Service / Model Call | Verdict | Evidence (`file:line`) |
-| :--- | :--- | :--- | :--- | :---: | :--- |
-| **Header Spanner Status Pill** (`SpannerStatusPill.tsx`) | `GET /api/health/spanner` (`SpannerStatusPill.tsx:35`) | `src/app/api/health/spanner/route.ts` | Cloud Spanner `SELECT 1` + `GRAPH TakeTwoPlayerGraph MATCH (p:Player) RETURN COUNT(*)` | **REAL** | `src/app/api/health/spanner/route.ts:20-51`, `src/lib/gcp/spanner-client.ts:615-646` |
-| **Model Health Probe** | `GET /api/health/models` | `src/app/api/health/models/route.ts` | Vertex AI `@google/genai` parallel live probes of `REASONING`, `FAST`, `LITE` | **REAL** | `src/app/api/health/models/route.ts:18-58`, `src/lib/gcp/genai-client.ts:735-764` |
-| **Infra Services Health Probe** | `GET /api/health/services` | `src/app/api/health/services/route.ts` | BigQuery `dataset.exists()`, GCS `bucket.getMetadata()`, Pub/Sub `topic.exists()` | **REAL** | `src/app/api/health/services/route.ts:14-67` |
-| **Landing KPI Strip & Play Counts** (`CourtsideLanding.tsx`) | `GET /api/insights/graph-stats` (`CourtsideLanding.tsx:101`) | `src/app/api/insights/graph-stats/route.ts` | 7 parallel Cloud Spanner GQL & SQL count queries on `TakeTwoPlayerGraph`, `Clans`, `Identities` | **REAL** *(UI swallows error)* | `src/app/api/insights/graph-stats/route.ts:7-76` (UI silent `.catch(() => {})` at `CourtsideLanding.tsx:116`) |
-| **Landing Executive Finding Banner** (`CourtsideLanding.tsx`) | `GET /api/insights/core-finding` (`CourtsideLanding.tsx:118`) | `src/app/api/insights/core-finding/route.ts` | 4 Spanner GQL queries + Vertex AI `generateText({ role: "FAST" })` (`gemini-3.5-flash`) | **SILENT_FALLBACK** | `src/app/api/insights/core-finding/route.ts:55-89` catches Gemini errors & returns canned summary with HTTP 200 |
-| **Force Graph Canvas (4 Views: Cohorts, Cross-Label, Crews, Single Identity)** (`GraphStage.tsx`) | `GET /api/graph/view` (`src/app/page.tsx:112`) | `src/app/api/graph/view/route.ts` | Cloud Spanner `getCatalog()`, `getPlayersForView()`, `getIdentitiesForPlayer()`, `getCrewMates()`, `getCrossLabelBridges()` | **REAL** | `src/app/api/graph/view/route.ts:74-617`, `src/lib/gcp/catalog.ts:154-381` |
-| **NL Audience Builder & GQL Chip Editor** (`NLSearchBar.tsx`, `AudienceBuilder.tsx`) | `POST /api/audiences/nl-query` (`src/app/page.tsx:144`, `NLSearchBar.tsx:84`) | `src/app/api/audiences/nl-query/route.ts` | Vertex AI `generateText({ role: "FAST" })` (`gemini-3.5-flash`) + Spanner `runSpannerGraphQuery()` | **SILENT_FALLBACK** | `src/app/api/audiences/nl-query/route.ts:196-271` bypasses LLM on Golden Plays; `lines 302-305` catch JSON parse error & substitute hardcoded GQL |
-| **Lookalike Audience Expansion** (`SaveAudienceSheet.tsx`) | `POST /api/audiences/lookalike` (`SaveAudienceSheet.tsx:88`) | `src/app/api/audiences/lookalike/route.ts` | Spanner candidate query + Vertex AI `embedText()` (`gemini-embedding-001`, 3,072-d cosine similarity) | **REAL** | `src/app/api/audiences/lookalike/route.ts:14-100`, `src/lib/gcp/genai-client.ts:597-633` |
-| **Save Audience Segment** (`SaveAudienceSheet.tsx`) | `POST /api/audiences/save` (`SaveAudienceSheet.tsx:111`) | `src/app/api/audiences/save/route.ts` | BigQuery `dataset("twok_marketing_intelligence").table("saved_audiences").insert()` | **REAL** | `src/app/api/audiences/save/route.ts:8-52`, `src/lib/gcp/bigquery-client.ts:34-60` |
-| **Saved Audiences Drawer** (`SavedAudiencesDrawer.tsx`) | `GET /api/audiences/saved` (`SavedAudiencesDrawer.tsx:27`) | `src/app/api/audiences/saved/route.ts` | BigQuery `SELECT ... FROM twok_marketing_intelligence.saved_audiences` | **REAL** | `src/app/api/audiences/saved/route.ts:6-20`, `src/lib/gcp/bigquery-client.ts:65-92` |
-| **20-Persona Courtside Focus Group & Offer Battle** (`FocusGroupModal.tsx`) | `POST /api/synthetic/focus-group` (`FocusGroupModal.tsx:186`) | `src/app/api/synthetic/focus-group/route.ts` | 20 parallel `generateText({ role: "FAST" })` + `synthesizeConsensus` via `REASONING` (`gemini-3.1-pro-preview`) | **SILENT_FALLBACK** | `src/lib/focus-group-eval.ts:58-92` & `184-205` catch Vertex AI errors and return hardcoded quotes, WTP curve, and lift metrics |
-| **Focus Group SSE Stream** | `POST /api/synthetic/focus-group/stream` | `src/app/api/synthetic/focus-group/stream/route.ts` | 20 streaming `generateText({ role: "FAST" })` + `synthesizeConsensus` (`REASONING`) | **SILENT_FALLBACK** | `src/app/api/synthetic/focus-group/stream/route.ts:66-85` (persona fallback) & `95-131` (deterministic fake alt-price battle) |
-| **1-on-1 Persona Interrogation Drawer** (`PersonaInterrogationDrawer.tsx`) | `POST /api/synthetic/focus-group/interrogate` (`PersonaInterrogationDrawer.tsx:50`) | `src/app/api/synthetic/focus-group/interrogate/route.ts` | Vertex AI `generateText({ role: "REASONING" })` (`gemini-3.1-pro-preview`) | **REAL** | `src/app/api/synthetic/focus-group/interrogate/route.ts:8-63` (fails loudly with HTTP 500 on error) |
-| **Live Grounded Reddit Pulse** (`RedditPulseCard.tsx`) | `POST /api/social/reddit-pulse` (`RedditPulseCard.tsx:35`) | `src/app/api/social/reddit-pulse/route.ts` | Vertex AI `groundedSearch()` (`gemini-3.5-flash` + `googleSearch` tool) + `generateText({ role: "LITE" })` | **REAL** | `src/app/api/social/reddit-pulse/route.ts:32-125`, `src/lib/gcp/genai-client.ts:666-720` (fails with HTTP 503 if citations=0) |
-| **Executive Campaign Brief Generator** (`CampaignBriefModal.tsx`) | `POST /api/campaign/brief` (`src/app/page.tsx:255`) | `src/app/api/campaign/brief/route.ts` | Vertex AI `groundedSearch()` + `generateText({ role: "REASONING" })` (`gemini-3.1-pro-preview`) | **SILENT_FALLBACK** | `src/app/api/campaign/brief/route.ts:23-33` swallows search error; `lines 87-125` fall back to canned `trigger_rules`, `creative_hooks`, `strategic_pivot` |
-| **Campaign Brief Audio Narrator** (`CampaignBriefModal.tsx`) | `POST /api/creative/brief-audio` (`CampaignBriefModal.tsx:52`) | `src/app/api/creative/brief-audio/route.ts` | Vertex AI `REASONING` script + `synthesizeSpeech()` (`gemini-3.1-flash-tts-preview`) + GCS `uploadMedia()` | **REAL** | `src/app/api/creative/brief-audio/route.ts:7-66` |
-| **Creative Studio — Pack Art Generator** (`CreativeStudioPanel.tsx`) | `POST /api/creative/image` (`CreativeStudioPanel.tsx:68`) | `src/app/api/creative/image/route.ts` | Vertex AI `generateImage()` (`gemini-2.5-flash-image`) + GCS `uploadMedia(prefix: "images")` | **REAL** | `src/app/api/creative/image/route.ts:7-50`, `src/lib/gcp/genai-client.ts:409-448` |
-| **Creative Studio — Arena PA Announcer VO** (`CreativeStudioPanel.tsx`) | `POST /api/creative/voice` (`CreativeStudioPanel.tsx:99`) | `src/app/api/creative/voice/route.ts` | Vertex AI `LITE` script + `synthesizeSpeech()` (`gemini-3.1-flash-tts-preview`) + GCS `uploadMedia(prefix: "audio")` | **REAL** | `src/app/api/creative/voice/route.ts:7-62`, `src/lib/gcp/genai-client.ts:502-537` |
-| **Creative Studio — Lyria 2 Arena Hype Bed** (`CreativeStudioPanel.tsx`) | `POST /api/creative/music` (`CreativeStudioPanel.tsx:125`) | `src/app/api/creative/music/route.ts` | Vertex AI `generateMusic()` (`lyria-002` `:predict`) + GCS `uploadMedia(prefix: "music")` | **REAL** | `src/app/api/creative/music/route.ts:7-50`, `src/lib/gcp/genai-client.ts:555-591` |
-| **Season 1→2 Journey Sankey** (`SeasonJourneySankey.tsx`) | `GET/POST /api/marketing/journey/summary` (`SeasonJourneySankey.tsx:109, 175`) | `src/app/api/marketing/journey/summary/route.ts` | Spanner `SELECT ... FROM Players` + Vertex AI `generateText({ role: "FAST" })` (`gemini-3.5-flash`) | **SILENT_FALLBACK** | `src/app/api/marketing/journey/summary/route.ts:297-321` & `348-370` catch Gemini errors & return canned `diagnosis` |
-| **36-Market NBA & Global Geo Map** (`NBAMarketMap.tsx`) | `GET /api/marketing/markets` (`NBAMarketMap.tsx:102`) | `src/app/api/marketing/markets/route.ts` | 2 Cloud Spanner SQL aggregation queries grouped by `dma_market` | **REAL** | `src/app/api/marketing/markets/route.ts:63-146` |
-| **Live Telemetry Ticker** (`LiveTelemetryTicker.tsx`) | `GET /api/simulation/triggers` (`LiveTelemetryTicker.tsx:24`) | `src/app/api/simulation/triggers/route.ts` | Cloud Spanner `SELECT ... FROM TelemetryEvents t JOIN Players p` | **REAL** | `src/app/api/simulation/triggers/route.ts:69-204` |
-| **Hold-to-Approve Activation DAG** (`ActivationDAG.tsx`) | `POST /api/activation/dispatch` (`ActivationDAG.tsx:96`) | `src/app/api/activation/dispatch/route.ts` | Cloud Pub/Sub `publishActivation()` (`twok-courtside-activations`) + BigQuery `logActivation()` (`activation_log`) | **FAKE_LATENCY** *(UI steps 1–3)* / **REAL** *(Step 4 dispatch)* | `ActivationDAG.tsx:78-80` uses `setTimeout` (`600ms`, `1400ms`, `2200ms`) for steps 1–3; `dispatch/route.ts:18-111` executes real Pub/Sub + BigQuery |
-| **Activation Audit Feed** (`ActivationFeed.tsx`) | `GET /api/activation/log?limit=25` & `GET /api/a2a` (`ActivationFeed.tsx:37-38`) | `src/app/api/activation/log/route.ts` & `src/app/api/a2a/route.ts` | BigQuery `listActivations()` (`activation_log`) + Spanner `extractPlayersForA2A()` | **SILENT_FALLBACK** | `src/app/api/a2a/route.ts:8-54` seeds 3 hardcoded fake A2A events; `src/lib/a2a/official-server.ts:114-117` catches Spanner errors and returns `[]` |
-| **Python ADK Agent Fleet** (`agents/app/fast_api_app.py`) | `POST /focus-group/simulate`, `POST /audiences/nl-query` | `agents/app/sub_agents/*.py` & `agents/app/tools/*.py` | `google.genai`, `google.cloud.spanner`, `google.cloud.bigquery` | **STUBBED / SILENT_FALLBACK** | `audience_agent.py:21-129` reads local `data/master_players.json`; `bq_tools.py:32-41`, `spanner_graph_tools.py:27-35`, `focus_group_agent.py:148-208` catch errors and return local JSON / canned reactions |
+> **Why `realness_scanner.py` reported `realGcpCallsCount: 5`**: The deterministic scanner (`scripts/realness_scanner.py`) matches Python SDK patterns (`bigquery.Client`, `spanner.Client`, `self.client.models.generate_content`) and counted only the 5 Python calls inside `agents/` and `scripts/`. The primary application backend is written in TypeScript (`src/app/api/**/route.ts` and `src/lib/gcp/*.ts`) and contains **35+ live Google Cloud SDK invocations** across all 20 API routes.
+
+| # | UI Surface / User Action | Frontend Component & Fetch | Backend Endpoint | GCP Service / Model Call (`file:line`) | Verdict |
+| :- | :--- | :--- | :--- | :--- | :--- |
+| **1** | **Courtside Landing — Live Graph Footer & Cohort Tab Counts** | [`CourtsideLanding.tsx:526`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/landing/CourtsideLanding.tsx#L526) (`GET /api/insights/graph-stats`) | [`/api/insights/graph-stats/route.ts:9-103`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/insights/graph-stats/route.ts#L9-L103) | **Cloud Spanner** (`runSpannerSql` at [`spanner-client.ts:154`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/gcp/spanner-client.ts#L154)) querying `Players`, `PlayerIdentities`, `PlayerGameStats`, `MemberOfClan` | **SILENT_FALLBACK** — Route is 100% live Spanner, but UI initializes from hardcoded [`DEFAULT_DYNAMIC_FINDINGS`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/landing/CourtsideLanding.tsx#L177-L473) and swallows errors via `.catch(() => {})` at [`CourtsideLanding.tsx:568-570`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/landing/CourtsideLanding.tsx#L568-L570). |
+| **2** | **Dynamic Core Finding Synthesis Endpoint** | *(Unwired on landing page; available at `/api/insights/core-finding`)* | [`/api/insights/core-finding/route.ts:27-328`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/insights/core-finding/route.ts#L27-L328) | **Cloud Spanner** (`runSpannerQuery` at [`route.ts:32-72`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/insights/core-finding/route.ts#L32-L72)) + **Vertex AI** `gemini-3.5-flash` (`generateText({ role: "FAST" })` at [`route.ts:94`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/insights/core-finding/route.ts#L94)) | **PARTIAL_BYPASS** — Route uses live Spanner + `gemini-3.5-flash` on `global`, but [`route.ts:212-308`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/insights/core-finding/route.ts#L212-L308) has hardcoded copy fallbacks if `aiCopy` is missing a category. |
+| **3** | **Natural Language Audience Builder & Cohort Search** | [`page.tsx:167`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/page.tsx#L167) (`POST /api/audiences/nl-query`) | [`/api/audiences/nl-query/route.ts:520-733`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/audiences/nl-query/route.ts#L520-L733) | **Vertex AI** `gemini-3.5-flash` (`generateText({ role: "FAST" })` at [`route.ts:386`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/audiences/nl-query/route.ts#L386)) -> **Cloud Spanner Graph** ISO GQL `GRAPH TakeTwoPlayerGraph MATCH ...` (`runSpannerQuery` at [`route.ts:606`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/audiences/nl-query/route.ts#L606)) | **REAL (with Golden Fast-Path)** — Executes live GQL against Spanner (`twok_graph_db`). Note: [`matchGoldenPlay()`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/audiences/nl-query/route.ts#L215-L367) bypasses Gemini for 5 preset queries while still reporting `model_used: "gemini-3.5-flash"` (`translateMs = 12`). |
+| **4** | **Full Property Graph Canvas (`Explore Graph`)** | [`page.tsx:249`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/page.tsx#L249) (`GET /api/graph/view`) | [`/api/graph/view/route.ts:13-303`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/graph/view/route.ts#L13-L303) | **Cloud Spanner Graph** (`runSpannerQuery` at [`route.ts:30-86`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/graph/view/route.ts#L30-L86)) + live catalog hydration (`loadCatalog` at [`catalog.ts:74-156`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/gcp/catalog.ts#L74-L156)) | **REAL** — 100% live Spanner Graph queries + live catalog; throws HTTP 503 on Spanner failure (`zero fallbacks`). |
+| **5** | **3,072-d Lookalike Audience Expansion** | [`AudienceBuilder.tsx`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/audience/AudienceBuilder.tsx) (`POST /api/audiences/lookalike`) | [`/api/audiences/lookalike/route.ts:9-151`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/audiences/lookalike/route.ts#L9-L151) | **Vertex AI** `gemini-embedding-001` (`embedText` 3,072-d at [`genai-client.ts:610-632`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/gcp/genai-client.ts#L610-L632)) + **Cloud Spanner** `COSINE_DISTANCE(p.behavior_embedding_3072, @seedVec)` (`runSpannerSql` at [`route.ts:79-105`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/audiences/lookalike/route.ts#L79-L105)) | **REAL** — Genuine 3,072-d embedding generation + Spanner vector cosine distance search. |
+| **6** | **Focus Group — Initial 20-Persona Roster Load** | [`FocusGroupModal.tsx:167`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L167) (`GET /api/synthetic/focus-group?limit=20`) | [`/api/synthetic/focus-group/route.ts:19-41`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/synthetic/focus-group/route.ts#L19-L41) | **Cloud Spanner** (`fetchLiveSpannerPersonas` at [`focus-group-eval.ts:83-163`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L83-L163)) | **SILENT_FALLBACK** — Backend queries Spanner, but [`FocusGroupModal.tsx:184`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L184) catches errors silently and [`FocusGroupModal.tsx:267`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L267) falls back to hardcoded [`SYNTHETIC_FALLBACK_PERSONAS`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/prompts/courtside_personas.ts#L158-L725). |
+| **7** | **Focus Group — Round 1 Isolated Persona Evaluation (20 Deep Agents)** | [`FocusGroupModal.tsx:311`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L311) (`POST /api/synthetic/focus-group`) | [`/api/synthetic/focus-group/route.ts:95-99`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/synthetic/focus-group/route.ts#L95-L99) -> [`evaluatePersonas`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L190-L236) | **Vertex AI** `gemini-3.5-flash` (`generateStructured({ role: "FAST" })` in 5 parallel batches of 4 personas at [`focus-group-eval.ts:218`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L218)) | **REAL** — Live structured JSON evaluation via `gemini-3.5-flash` on `global`. |
+| **8** | **Focus Group — Creator Broadcast Generation (`@Agent00`, `@Troydan`, `@DBG`)** | [`FocusGroupModal.tsx:311`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L311) (`POST /api/synthetic/focus-group`) | [`/api/synthetic/focus-group/route.ts:103-108`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/synthetic/focus-group/route.ts#L103-L108) -> [`generateCreatorBroadcasts`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L242-L290) | **Vertex AI** `gemini-3.5-flash` (`generateStructured({ role: "FAST", schema: CREATOR_BROADCAST_SCHEMA })` at [`focus-group-eval.ts:280`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L280)) | **REAL** — Live structured creator takes generated from Round 1 persona reactions. |
+| **9** | **Focus Group — Round 2 Social Contagion Re-Evaluation (Crew + Creator Influence)** | [`FocusGroupModal.tsx:311`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L311) (`POST /api/synthetic/focus-group`) | [`/api/synthetic/focus-group/route.ts:109-121`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/synthetic/focus-group/route.ts#L109-L121) -> [`evaluateContagionRound2`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L296-L412) | **Vertex AI** `gemini-3.5-flash` (`generateStructured({ role: "FAST", schema: CONTAGION_ROUND2_SCHEMA })` in 5 parallel batches of 4 at [`focus-group-eval.ts:387`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L387)) | **REAL** — Computes genuine Crew peer summaries + creator broadcast impact and re-evaluates all 20 deep personas via `gemini-3.5-flash`. |
+| **10** | **Focus Group — Tiered `N=80` Crowd Swarm (`N=100` Total Panel)** | [`FocusGroupModal.tsx:311`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L311) (`POST /api/synthetic/focus-group`) | [`/api/synthetic/focus-group/route.ts:109-121`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/synthetic/focus-group/route.ts#L109-L121) -> [`evaluateCrowdSwarm80`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L471-L547) | **Cloud Spanner** (`fetchLiveSpannerPersonas(80)` at [`route.ts:81`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/synthetic/focus-group/route.ts#L81)) + **Vertex AI** `gemini-3.5-flash-lite` (`generateStructured({ role: "LITE", schema: CROWD_SWARM_SCHEMA })` in 4 parallel batches of 20 at [`focus-group-eval.ts:523`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L523)) | **REAL** — Queries up to 80 distinct Spanner players and evaluates them in 4 parallel micro-batches against `gemini-3.5-flash-lite` (`global`). |
+| **11** | **Focus Group — Consensus Synthesis & Migration Curve** | [`FocusGroupModal.tsx:311`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L311) (`POST /api/synthetic/focus-group`) | [`/api/synthetic/focus-group/route.ts:127-134`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/synthetic/focus-group/route.ts#L127-L134) -> [`synthesizeConsensus`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L593-L741) | **Vertex AI** `gemini-3.5-flash` (`generateText({ role: "FAST", responseMimeType: "application/json" })` at [`focus-group-eval.ts:701`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L701)) | **SILENT_FALLBACK** — Calls live `gemini-3.5-flash` and computes math deterministically from Round 1/2 + Swarm, but [`focus-group-eval.ts:723-735`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L723-L735) falls back to a hardcoded 5-stage `migration_curve` array if omitted by the LLM. |
+| **12** | **Focus Group — SSE Streaming Endpoint** | *(Available at `POST /api/synthetic/focus-group/stream`)* | [`/api/synthetic/focus-group/stream/route.ts:30-264`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/synthetic/focus-group/stream/route.ts#L30-L264) | **Cloud Spanner** (`fetchLiveSpannerPersonas(20)`) + **Vertex AI** `gemini-3.5-flash` (`evaluateBatch`, `generateCreatorBroadcasts`, `evaluateContagionRound2`, `synthesizeConsensus`) | **REAL** — Live SSE stream backed by Spanner and `gemini-3.5-flash` (inherits `synthesizeConsensus` `migration_curve` fallback). |
+| **13** | **1-on-1 Persona Interrogation Drawer** | [`PersonaInterrogationDrawer.tsx:50`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/PersonaInterrogationDrawer.tsx#L50) (`POST /api/synthetic/focus-group/interrogate`) | [`/api/synthetic/focus-group/interrogate/route.ts:7-63`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/synthetic/focus-group/interrogate/route.ts#L7-L63) | **Vertex AI** `gemini-3.1-pro-preview` (`generateText({ role: "REASONING" })` at [`route.ts:39`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/synthetic/focus-group/interrogate/route.ts#L39)) | **REAL** — Live deep reasoning via `gemini-3.1-pro-preview` on `global`. |
+| **14** | **Live Reddit Pulse Card (`r/NBA2K · r/MyTEAM`)** | [`RedditPulseCard.tsx:33`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/RedditPulseCard.tsx#L33) (`POST /api/social/reddit-pulse`) | [`/api/social/reddit-pulse/route.ts:43-147`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/social/reddit-pulse/route.ts#L43-L147) | **Vertex AI** `gemini-3.5-flash` with Google Search Grounding (`generateGrounded` at [`route.ts:55`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/social/reddit-pulse/route.ts#L55)) + `gemini-3.5-flash-lite` (`generateStructured({ role: "LITE" })` at [`route.ts:93`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/social/reddit-pulse/route.ts#L93)) | **REAL** — Enforces non-empty web grounding citations (`genai-client.ts:722-724` throws `GenAIError` if `citations.length === 0`). |
+| **15** | **Season 1 -> Season 2 Lifecycle Sankey & Transition Takeaway** | [`SeasonJourneySankey.tsx:128,220`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/journey/SeasonJourneySankey.tsx#L128) (`GET` & `POST /api/marketing/journey/summary`) | [`/api/marketing/journey/summary/route.ts:47-370`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/marketing/journey/summary/route.ts#L47-L370) | **Cloud Spanner** (`runSpannerSql` at [`route.ts:52-79`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/marketing/journey/summary/route.ts#L52-L79)) + **Vertex AI** `gemini-3.5-flash` (`generateText({ role: "FAST" })` at [`route.ts:336`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/marketing/journey/summary/route.ts#L336)) | **REAL** — Queries all 2,850 Spanner players + `PlayerGameStats` + `MemberOfClan` live and synthesizes transition diagnosis via `gemini-3.5-flash`. |
+| **16** | **NBA Market Telemetry Geo Map (30 NBA DMAs + 5 Int'l)** | [`NBAMarketMap.tsx:89`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/map/NBAMarketMap.tsx#L89) (`GET /api/marketing/markets`) | [`/api/marketing/markets/route.ts:86-225`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/marketing/markets/route.ts#L86-L225) | **Cloud Spanner** (`runSpannerSql` at [`route.ts:90-121`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/marketing/markets/route.ts#L90-L121)) | **REAL** — Aggregates live Spanner player counts, VC spend, Season 2 cliff risk, and 2K26 holdout counts per DMA. |
+| **17** | **Campaign Brief Modal & Grounded Citations** | [`CampaignBriefModal.tsx`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/brief/CampaignBriefModal.tsx) (`POST /api/campaign/brief`) | [`/api/campaign/brief/route.ts:11-114`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/campaign/brief/route.ts#L11-L114) | **Vertex AI** `gemini-3.5-flash` Grounded (`generateGrounded` at [`route.ts:23`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/campaign/brief/route.ts#L23)) + `gemini-3.1-pro-preview` (`generateStructured({ role: "REASONING" })` at [`route.ts:75`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/campaign/brief/route.ts#L75)) | **REAL** — Two-stage grounded search + `gemini-3.1-pro-preview` structured brief synthesis. |
+| **18** | **Multimodal Creative Studio (Key Art, Voiceover, Soundtrack, Spoken Brief)** | [`CreativeStudioPanel.tsx:58,113,139`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/creative/CreativeStudioPanel.tsx#L58) & [`CampaignBriefModal.tsx:51`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/brief/CampaignBriefModal.tsx#L51) | [`/api/creative/image`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/creative/image/route.ts), [`/api/creative/voice`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/creative/voice/route.ts), [`/api/creative/music`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/creative/music/route.ts), [`/api/creative/brief-audio`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/creative/brief-audio/route.ts) | **Vertex AI** `gemini-2.5-flash-image` (`generateImage`), `gemini-3.1-flash-tts-preview` (`generateSpeech`), `lyria-002` (`generateMusic`) + **Cloud Storage** (`uploadMediaAndSign` to `gs://twok-courtside-media-jamie-bq-test` at [`storage-client.ts:79-125`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/gcp/storage-client.ts#L79-L125)) | **REAL** — Live multimodal generation persisted to GCS with V4 signed URLs. |
+| **19** | **Save & List Audiences** | [`SaveAudienceModal.tsx`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/audience/SaveAudienceModal.tsx) & [`page.tsx:107`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/page.tsx#L107) | [`/api/audiences/save/route.ts`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/audiences/save/route.ts) & [`/api/audiences/saved/route.ts`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/audiences/saved/route.ts) | **BigQuery** `twok_marketing_intelligence.saved_audiences` (`insertRow` & `runBqQuery` at [`bigquery-client.ts:27-57`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/gcp/bigquery-client.ts#L27-L57)) | **SILENT_FALLBACK (UI)** — Backend is 100% live BigQuery, but [`page.tsx:71`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/page.tsx#L71) initializes `savedAudiencesCount` to `3` and [`page.tsx:114`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/page.tsx#L114) swallows errors via `.catch(() => {})`. |
+| **20** | **Activation DAG & Multi-Channel Dispatch (2K Account, Locker Code, In-Game Store)** | [`ActivationDAG.tsx:66-109`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/activation/ActivationDAG.tsx#L66-L109) & [`ActivationFeed.tsx:58,101`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/activation/ActivationFeed.tsx#L58) | [`/api/activation/dispatch/route.ts:9-111`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/activation/dispatch/route.ts#L9-L111), [`/api/activation/log/route.ts`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/activation/log/route.ts), [`/api/a2a/route.ts`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/a2a/route.ts) | **Cloud Pub/Sub** (`publishActivation` to `twok-courtside-activations` at [`pubsub-client.ts:96-119`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/gcp/pubsub-client.ts#L96-L119)) + **BigQuery** `activation_log` (`insertRow` at [`dispatch/route.ts:62`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/activation/dispatch/route.ts#L62)) + **Cloud Spanner** (`extractPlayersForA2A` at [`official-server.ts:39-143`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/a2a/official-server.ts#L39-L143)) | **FAKE_LATENCY (UI Step 1-2) / REAL (Step 4-5)** — Step 4 -> 5 publishes a real Pub/Sub message and writes to BigQuery, but Steps 1-2 in [`ActivationDAG.tsx:77-79`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/activation/ActivationDAG.tsx#L77-L79) use `setTimeout` (`600ms`, `1400ms`, `2200ms`) to simulate Brief & Creative Agent progress without calling `/api/campaign/brief` or `/api/creative/*`. |
 
 ---
 
-## 2. `GEMINI.md` Rule 1 Audit — Zero Data Fallbacks Violations
+## 2. Triage of Scanner Flags (`fakeOrRiskFlagsCount = 54`) & `GEMINI.md` Rule 1 Audit
 
-Per `GEMINI.md` Rule 1 (**ZERO DATA FALLBACKS — REAL GCP INTEGRATIONS ONLY**), applications must **never** catch an exception from Vertex AI, BigQuery, Cloud Spanner, or any GCP API and return hardcoded objects, static JSON, canned strings, or fallback WTP curves. Every violation found in the repository is documented below with exact `file:line` references:
+The deterministic scanner ([`.showroom/realness_scan_raw.json`](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/realness_scan_raw.json)) raised **54 flags**. Below is the complete forensic separation into **49 False Positives** vs. **5 Scanner-Flagged + 4 Deep-Audit `GEMINI.md` Rule 1 Violations**.
 
-### Critical & High Severity Violations (`src/` — Active Next.js App)
+### 2.1 Verified False Positives in `realness_scan_raw.json` (49 of 54 Flags)
 
-1. **[`src/lib/focus-group-eval.ts:58-75`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L58-L75) & [`79-92`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L79-L92) — Silent Persona Verdict Fallbacks on Vertex AI Failure**
-   - **What it does**: In `evaluatePersonas()`, the `catch (err)` block swallows Vertex AI `generateText({ role: "FAST" })` exceptions and returns a fabricated `FocusGroupReaction` (`verbatim_quote: isHighPrice ? "Too steep for virtual items. I would rather grind Cap Breakers in The City." : "Solid bundle value compared to standard VC ladder pricing."`, `authenticity_rating: 0.92`, `churn_risk_score: 0.35`). Lines `79-92` also catch rejected promises via `Promise.allSettled` and return another hardcoded reaction (`"Decent offer proposition, weighing squad utility against the VC store."`).
-   - **Required Fix**: Remove the `try / catch` and `Promise.allSettled` fallback objects in `evaluatePersonas()`. Let `GenAIError` propagate so `/api/synthetic/focus-group` returns `HTTP 502/503` if Vertex AI fails.
+1. **`scripts/generate_2k_dataset.py` (38 `UNIFORM_SYNTHETIC_RANDOM` flags, lines 36–711)**:
+   - **Why it is a false positive**: This is the offline dataset generator script that seeds Spanner and BigQuery. Inspection of [`scripts/generate_2k_dataset.py:297`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py#L297) and [`line 452`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py#L452) confirms it uses **Pareto (`random.paretovariate(alpha)`)** for lifetime VC spend and **Gaussian (`random.gauss(5, 2)`)** for rage-quit distributions, while `random.randint`/`random.uniform` are used only to jitter dates, match counts, OVR bounds within archetype tiers, and spherical unit-vector dimensions.
+2. **`scripts/deploy_cloud_run.py:212,225` & `scripts/spanner_create_db.py:91,112` (4 `FAKE_LATENCY` flags)**:
+   - **Why it is a false positive**: Standard `time.sleep(2..5)` polling loops waiting for GCP Long-Running Operations (Cloud Build, Cloud Run revision readiness, and Spanner DDL creation) in CLI provisioning scripts.
+3. **UI Copy-Button & Telemetry Pulse Reset Timers (5 `FAKE_LATENCY` flags)**:
+   - [`src/components/activation/LiveTelemetryTicker.tsx:44`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/activation/LiveTelemetryTicker.tsx#L44) (`120ms` CSS opacity pulse reset on real event change).
+   - [`src/components/common/SpannerStatusPill.tsx:32`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/common/SpannerStatusPill.tsx#L32) (`140ms` CSS opacity pulse reset when probing `/api/health/spanner`).
+   - [`src/components/brief/CampaignBriefModal.tsx:34`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/brief/CampaignBriefModal.tsx#L34) (`2000ms` `"Copied"` button state reset after `navigator.clipboard.writeText`).
+   - [`src/components/creative/CreativeStudioPanel.tsx:93`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/creative/CreativeStudioPanel.tsx#L93) (`2000ms` `"Copied"` button state reset).
+   - [`src/components/audience/GqlDisclosure.tsx:29`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/audience/GqlDisclosure.tsx#L29) (`1600ms` `"Copied"` button state reset).
+4. **`agents/app/protocols/a2a_protocol.py:81,172` (2 `DATA_FALLBACK_BRANCH` flags)**:
+   - **Why it is a false positive**: Both `except Exception as e:` blocks return explicit error payloads (`{"error": str(e)}` at [`line 81`](file:///Users/jlpourt/CCAI/ea-audiences/agents/app/protocols/a2a_protocol.py#L81) and `{"status": "ERROR", "error": str(e)}` at [`line 172`](file:///Users/jlpourt/CCAI/ea-audiences/agents/app/protocols/a2a_protocol.py#L172)), not fallback data.
 
-2. **[`src/lib/focus-group-eval.ts:164-182`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L164-L182) & [`184-205`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L184-L205) — Hardcoded Consensus Summary, Lift Metrics & 8-Point WTP Curve Fallback**
-   - **What it does**: In `synthesizeConsensus()`, the `catch (err)` block (`lines 184-205`) catches failures from `generateText({ role: "REASONING" })` (`gemini-3.1-pro-preview`) and returns a hardcoded 8-point `wtpCurve` (`$2.99 -> 66%` down to `$24.99 -> 5%`), hardcoded `predictedConversionLift: 24.0`, `projectedRevenueImpactUsd: 125000`, `churnMitigationLift: 18.0`, and falsely labels `reasoningModelUsed: "gemini-3.1-pro-preview"`. Even inside the `try` block (`lines 167-178`), if `parsed?.wtp_curve` is missing, it substitutes a hardcoded 8-point WTP curve.
-   - **Required Fix**: Pass a strict `responseSchema` to `generateText({ role: "REASONING", schema: ... })` and delete the `catch (err)` fallback block (`lines 184-205`) and inline WTP curve fallback (`lines 169-178`).
+---
 
-3. **[`src/app/api/synthetic/focus-group/stream/route.ts:66-85`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/synthetic/focus-group/stream/route.ts#L66-L85) & [`95-131`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/synthetic/focus-group/stream/route.ts#L95-L131) — Streaming Focus Group Persona Fallback & Stubbed Alt-Price Offer Battle**
-   - **What it does**:
-     - Lines `66-85`: Catches Vertex AI `generateText` errors during streaming and emits fake persona reactions over SSE.
-     - Lines `95-131`: When `altPriceUsd` is provided (Play 3 Offer Battle `$14.99 vs $19.99`), the streaming endpoint **never calls Vertex AI** for the alternative price — it mutates `reactions` in-memory using `if (isMoreExpensive)` heuristics and emits a hardcoded `consensus_summary` (`"At $19.99, conversion rate drops by ~34% as casual and theorycrafter players reject the premium pricing tier."`).
-   - **Required Fix**: Remove the `catch` fallback at `lines 66-85` and call `evaluatePersonas()` + `synthesizeConsensus()` against live Vertex AI for `altPriceUsd` just as `src/app/api/synthetic/focus-group/route.ts:36-57` does.
+### 2.2 Confirmed `GEMINI.md` Rule 1 Violations & Realness Defects
 
-4. **[`src/app/api/synthetic/focus-group/route.ts:24-28`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/synthetic/focus-group/route.ts#L24-L28), [`src/app/api/synthetic/focus-group/stream/route.ts:20-24`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/synthetic/focus-group/stream/route.ts#L20-L24), [`src/components/focusgroup/FocusGroupModal.tsx:166`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L166), & [`src/lib/prompts/courtside_personas.ts:158-725`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/prompts/courtside_personas.ts#L158-L725) — Hardcoded `SYNTHETIC_FALLBACK_PERSONAS` Array**
-   - **What it does**: When `sampled_players` has fewer than 20 players, both backend routes and `FocusGroupModal.tsx` pad the cohort from `SYNTHETIC_FALLBACK_PERSONAS` (20 static in-memory objects in `courtside_personas.ts:158-725`) rather than querying live player rows from Cloud Spanner `TakeTwoPlayerGraph`.
-   - **Required Fix**: When `sampled_players.length < 20`, query the remaining players directly from Cloud Spanner via `getPlayersForView({ franchise, limit: 20 - sampledPlayers.length })` in `src/lib/gcp/catalog.ts`.
+#### VIOLATION 1 (CRITICAL — Hardcoded Fallback Persona Array & Silent Catch in Focus Group UI)
+- **Locations**:
+  - [`src/lib/prompts/courtside_personas.ts:158-725`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/prompts/courtside_personas.ts#L158-L725) (`export const SYNTHETIC_FALLBACK_PERSONAS: CourtsidePersona[]`)
+  - [`src/components/focusgroup/FocusGroupModal.tsx:36`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L36), [`line 184`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L184), and [`line 267`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L267)
+  - [`src/components/focusgroup/FocusGroupModal.tsx:477-502`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L477-L502)
+- **What Happens**:
+  1. `FocusGroupModal.tsx:167-185` fetches `/api/synthetic/focus-group?limit=20&franchise=...` on open, but `.catch(() => {})` at [`line 184`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L184) silently swallows any Spanner error.
+  2. At [`FocusGroupModal.tsx:267`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L267), `const pool = liveSpannerDefaults.length > 0 ? liveSpannerDefaults : SYNTHETIC_FALLBACK_PERSONAS;` silently falls back to 20 hardcoded personas in `courtside_personas.ts`.
+  3. Worse yet, `SYNTHETIC_FALLBACK_PERSONAS` in [`courtside_personas.ts:276-699`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/prompts/courtside_personas.ts#L276-L699) contains **prior-brand Rockstar/Zynga bleed** (`Leonida_Hooper`, `ViceCityGrind2K`, `GTA_And_2K_Whale`, `Match3Hooper`, `ToonBlastDunker`, `Rockstar + 2K Whale`).
+  4. Before a simulation run completes (`currentResult === null`), [`FocusGroupModal.tsx:477-502`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L477-L502) renders hardcoded `wtpCurve`, `migrationCurve`, `backlashIndex = 18`, `conversionLift = 26.5`, and `crewMultiplier = 3.1`.
+- **Required Fix**: Delete `SYNTHETIC_FALLBACK_PERSONAS` from `src/lib/prompts/courtside_personas.ts`, surface HTTP/Spanner errors explicitly in `FocusGroupModal.tsx`, and show an explicit empty/loading state until live Spanner personas and Gemini simulation results arrive.
 
-5. **[`src/app/api/campaign/brief/route.ts:23-33`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/campaign/brief/route.ts#L23-L33) & [`87-125`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/campaign/brief/route.ts#L87-L125) — Swallowed Search Grounding Error & Canned Brief Fallbacks**
-   - **What it does**:
-     - Lines `23-33`: Wraps `groundedSearch()` in a `try / catch` that ignores grounding failures and sets `groundedInsight` to a canned string. Even worse, inside the `try` block (`lines 27-29`), when `searchRes.text` is truthy, it overwrites `groundedInsight` with a static string (`"Live Reddit grounding across r/NBA2K confirmed high community sensitivity..."`) instead of using `searchRes.text`!
-     - Lines `87-125`: Falls back to hardcoded `trigger_rules` (`lines 100-104`), hardcoded `creative_hooks` (`lines 114-118`), and a hardcoded `strategic_pivot` (`lines 120-124`) if model JSON fields are missing.
-   - **Required Fix**: Use `searchRes.text` directly, remove the `try / catch` around `groundedSearch()`, enforce a strict JSON `responseSchema` on `generateText({ role: "REASONING" })`, and fail with HTTP 502/503 if Vertex AI fails.
+#### VIOLATION 2 (HIGH — Hardcoded `migration_curve`, Crew, and Creator Fallbacks in `focus-group-eval.ts`)
+- **Locations**:
+  - [`src/lib/focus-group-eval.ts:723-735`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L723-L735)
+  - [`src/lib/focus-group-eval.ts:75-81`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L75-L81) and [`lines 110-124`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L110-L124)
+- **What Happens**:
+  1. In `synthesizeConsensus` ([`focus-group-eval.ts:723-735`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L723-L735)), if Gemini's JSON omits `migration_curve`, the code silently substitutes a 5-stage hardcoded curve (`{ stage: "S1 Wk4", isolated_pct: 24, contagion_pct: 36 }`, etc.) instead of enforcing `migration_curve` via `generateStructured` schema validation.
+  2. In `fetchLiveSpannerPersonas` ([`focus-group-eval.ts:88-96`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L88-L96)), the SQL query only reads `FROM Players p` without joining `MemberOfClan`/`Clans` or `FollowsCreator`/`Creators`, so [`lines 110-124`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L110-L124) assign deterministic fallback Crew names (`CREW_FALLBACK_NAMES`) and creator handles (`@Agent00`, `@Troydan`, `@DBG`).
+- **Required Fix**: Join `MemberOfClan`/`Clans` and `FollowsCreator`/`Creators` directly in `fetchLiveSpannerPersonas`, and use `generateStructured` with a required `migration_curve` schema in `synthesizeConsensus`.
 
-6. **[`src/app/api/marketing/journey/summary/route.ts:297-321`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/marketing/journey/summary/route.ts#L297-L321) & [`348-370`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/marketing/journey/summary/route.ts#L348-L370) — Swallowed Gemini Failure Returning Canned Journey Diagnosis**
-   - **What it does**: Both `GET` and `POST` handlers initialize `diagnosis` to a canned 2-sentence string and wrap `generateText({ role: "FAST" })` in a `try / catch` that logs `console.warn("[journey-summary] Gemini diagnosis generation fallback:")` and returns HTTP 200 with the canned diagnosis and `model_used: "gemini-3.5-flash"`.
-   - **Required Fix**: Remove the `try / catch` fallback blocks at `lines 300-321` and `352-370` so Gemini errors surface as HTTP 502/503.
+#### VIOLATION 3 (HIGH — Simulated `setTimeout` Agent Progress in `ActivationDAG.tsx`)
+- **Location**: [`src/components/activation/ActivationDAG.tsx:76-81`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/activation/ActivationDAG.tsx#L76-L81) (flagged by `realness_scanner.py`)
+- **What Happens**: Clicking **"Run Pipeline"** in `ActivationDAG.tsx` uses three `setTimeout` calls (`600ms`, `1400ms`, `2200ms`) to animate Step 1 (`"Brief Agent: Reasoning..."`) and Step 2 (`"Creative Agent: Generating..."`) to `"completed"` before pausing at Step 3 (HITL Policy Gate). Only Step 4 -> 5 invokes a real backend endpoint (`POST /api/activation/dispatch`).
+- **Required Fix**: Wire Step 1 to `POST /api/campaign/brief` (or reuse the active brief state if already generated) and Step 2 to `/api/creative/image` before advancing to Step 3, removing the three `setTimeout` timers.
 
-7. **[`src/app/api/insights/core-finding/route.ts:55-67`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/insights/core-finding/route.ts#L55-L67) & [`69-89`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/insights/core-finding/route.ts#L69-L89) — Hardcoded Spanner Count Defaults & Swallowed Gemini Executive Summary Error**
-   - **What it does**:
-     - Lines `55-67`: Uses `|| 284`, `|| 124.8`, `|| 303`, `|| 176`, `|| 2850` fallback numbers if Spanner returns 0.
-     - Lines `69-89`: Initializes `executiveSummary` to a static template and wraps `generateText({ role: "FAST" })` in `try { ... } catch { // Keep deterministic summary if rate-limited }`, returning HTTP 200 with `model_used: "gemini-3.5-flash"`.
-   - **Required Fix**: Remove the `|| 284` / `|| 303` / `|| 176` fallback numbers and remove the `try / catch` around `generateText()`.
+#### VIOLATION 4 (MEDIUM — Landing Page Hardcoded `DEFAULT_DYNAMIC_FINDINGS` & Silent `.catch(() => {})`)
+- **Locations**:
+  - [`src/components/landing/CourtsideLanding.tsx:177-473`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/landing/CourtsideLanding.tsx#L177-L473) (`DEFAULT_DYNAMIC_FINDINGS`) and [`lines 526-570`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/landing/CourtsideLanding.tsx#L526-L570)
+  - [`src/app/page.tsx:71`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/page.tsx#L71) and [`line 114`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/page.tsx#L114)
+- **What Happens**:
+  1. `CourtsideLanding.tsx` initializes from hardcoded `DEFAULT_DYNAMIC_FINDINGS` (`418`, `284`, `196`, `512`, `364` players) and `footerStats` (`2850` players, `6853` identities). When `/api/insights/graph-stats` fails, `.catch(() => {})` at [`line 568`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/landing/CourtsideLanding.tsx#L568) keeps the static snapshot numbers instead of surfacing a Spanner error banner.
+  2. `page.tsx:71` initializes `savedAudiencesCount` to `3` and `.catch(() => {})` at [`page.tsx:114`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/page.tsx#L114) silently ignores BigQuery errors on `/api/audiences/saved`.
 
-8. **[`src/app/api/audiences/nl-query/route.ts:196-271`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/audiences/nl-query/route.ts#L196-L271) & [`298-305`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/audiences/nl-query/route.ts#L298-L305) — Regex Bypass of Gemini NL→GQL & Silent Fallback GQL on Parse Error**
-   - **What it does**:
-     - Lines `196-271` (`matchGoldenPlay`): Intercepts the 3 Golden Plays via substring matching and returns pre-written GQL without calling Vertex AI `gemini-3.5-flash`, while still returning `model_used: "gemini-3.5-flash"` (`line 281`) to the UI badge.
-     - Lines `298-305`: Catches `JSON.parse(gen.text)` errors and silently substitutes `GRAPH TakeTwoPlayerGraph MATCH (p:Player) WHERE p.primary_franchise = 'NBA2K' RETURN p.player_id`.
-   - **Required Fix**: Either route all NL queries through live `generateText({ role: "FAST" })` (with few-shot Golden Play examples in `NL_TO_GQL_SYSTEM_PROMPT` which already exist in `src/lib/prompts/nl_to_gql.ts`) or accurately label preset GQL, and throw a loud HTTP 502 error if `parseModelJson(gen.text)` fails to extract `gql_query`.
-
-9. **[`src/lib/a2a/official-server.ts:114-117`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/a2a/official-server.ts#L114-L117) & [`src/app/api/a2a/route.ts:8-54`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/a2a/route.ts#L8-L54) — Seeded Fake A2A Feed & Swallowed Spanner Error in A2A Handler**
-   - **What it does**:
-     - `src/app/api/a2a/route.ts:8-54`: Seeds `liveA2AEvents` with 3 hardcoded fake A2A messages (`msg-2k-a2a-001`, `002`, `003` with `spanner_matched_count: 431`, `predicted_retention_lift: "+26.4%"`).
-     - `src/lib/a2a/official-server.ts:114-117`: Catches Spanner query errors in `extractPlayersForA2A()` and returns `[]`, causing `handleOfficialA2ARequest()` to return `TASK_STATE_COMPLETED` with 0 players instead of failing with HTTP 503.
-   - **Required Fix**: Start `liveA2AEvents` empty (or populate from BigQuery `activation_log`) and rethrow Spanner errors in `extractPlayersForA2A()`.
-
-10. **[`src/lib/gcp/spanner-client.ts:333`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/gcp/spanner-client.ts#L333), [`347`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/gcp/spanner-client.ts#L347), [`358`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/gcp/spanner-client.ts#L358) — Swallowed Multi-Hop Bridge Query Errors**
-    - **What it does**: Chains `.catch(() => [])` onto `bridgePromise = runGql(database, bridgeSql)`, silently masking invalid GQL in multi-hop bridge queries.
-    - **Required Fix**: Remove `.catch(() => [])` so bridge query syntax or Spanner errors surface in `Promise.all`.
-
-11. **[`src/components/activation/ActivationDAG.tsx:78-80`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/activation/ActivationDAG.tsx#L78-L80) & [`src/components/landing/CourtsideLanding.tsx:81-98, 116, 128`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/landing/CourtsideLanding.tsx#L81-L128) — Frontend Fake Latency Timers & Silent Catch Blocks**
-    - **What it does**:
-      - `ActivationDAG.tsx:78-80`: Uses `setTimeout(() => setExecutionStep(1), 600)`, `setTimeout(..., 1400)`, and `setTimeout(..., 2200)` to simulate agent execution progress before the user triggers Hold-to-Approve (`POST /api/activation/dispatch`).
-      - `CourtsideLanding.tsx:81-98, 116, 128`: Initializes `graphStats` and `coreFinding` with hardcoded numbers/text and swallows `/api/insights/graph-stats` and `/api/insights/core-finding` failures via `.catch(() => {})`.
-    - **Required Fix**: Tie `ActivationDAG.tsx` node states to actual completed artifacts (`cohortContext`, `activeBrief`, generated media URLs, and `/api/activation/dispatch` response) rather than `setTimeout`, and surface API errors on `CourtsideLanding.tsx`.
-
-### Critical Violations in Python ADK Fleet (`agents/app/**`)
-
-12. **[`agents/app/tools/bq_tools.py:32-41`](file:///Users/jlpourt/CCAI/ea-audiences/agents/app/tools/bq_tools.py#L32-L41), [`agents/app/tools/spanner_graph_tools.py:27-35`](file:///Users/jlpourt/CCAI/ea-audiences/agents/app/tools/spanner_graph_tools.py#L27-L35), [`agents/app/sub_agents/audience_agent.py:21-129`](file:///Users/jlpourt/CCAI/ea-audiences/agents/app/sub_agents/audience_agent.py#L21-L129), & [`agents/app/sub_agents/focus_group_agent.py:60-62, 148-208`](file:///Users/jlpourt/CCAI/ea-audiences/agents/app/sub_agents/focus_group_agent.py#L148-L208)**
-    - **What it does**:
-      - `bq_tools.py:32-41` catches `Exception` on BigQuery and loads `data/telemetry_match_events.json`.
-      - `spanner_graph_tools.py:27-35` catches `Exception` on Cloud Spanner and loads `data/master_players.json`.
-      - `audience_agent.py:59-111` reads `data/master_players.json` directly off disk without calling Spanner or Vertex AI.
-      - `focus_group_agent.py:60-62` and `148-208` catch `Exception` on Vertex AI `genai.Client` and return 4 hardcoded `PersonaReaction` objects.
-    - **Required Fix**: Remove all `try / except` local JSON and canned response fallbacks in `agents/app/` and raise `fastapi.HTTPException(status_code=503, detail=str(e))` on any GCP failure.
+#### VIOLATION 5 (MEDIUM — Golden-Play Fast-Path Reports `gemini-3.5-flash` Without Calling Gemini, Plus Non-LLM Python `AudienceAgent`)
+- **Locations**:
+  - [`src/app/api/audiences/nl-query/route.ts:215-367`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/audiences/nl-query/route.ts#L215-L367) and [`lines 560-571`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/audiences/nl-query/route.ts#L560-L571)
+  - [`agents/app/sub_agents/audience_agent.py:21-58`](file:///Users/jlpourt/CCAI/ea-audiences/agents/app/sub_agents/audience_agent.py#L21-L58)
+- **What Happens**:
+  1. In `/api/audiences/nl-query/route.ts:560-571`, when `matchGoldenPlay(query, franchise)` matches one of the 5 preset golden queries, it skips `generateText({ role: "FAST" })` (`translateMs = 12`) and executes the pre-verified ISO GQL directly against Spanner, but still returns `model_used: MODELS.FAST.id` (`"gemini-3.5-flash"`). Either call Gemini live or label the fast-path transparently (`"iso-gql-compiled"`).
+  2. In the secondary Python ADK microservice, [`agents/app/sub_agents/audience_agent.py:21-58`](file:///Users/jlpourt/CCAI/ea-audiences/agents/app/sub_agents/audience_agent.py#L21-L58) uses `if/elif` keyword matching instead of `genai.Client`, and [`lines 46-47`](file:///Users/jlpourt/CCAI/ea-audiences/agents/app/sub_agents/audience_agent.py#L46-L47) still contain prior-brand Rockstar bleed (`'Rockstar Social Club'`, `'game-gta6'`).
 
 ---
 
 ## 3. Synthetic Data Compliance Audit (The 3 Rules)
 
-The seed dataset in `data/*.json` (generated by [`scripts/generate_2k_dataset.py`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py) and validated by [`scripts/validate_dataset.py`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/validate_dataset.py)) was audited against the 3 Showroom Synthetic Data Rules:
-
-| Rule | Status | Evidence & Audit Findings |
+| Rule | Status | Evidence (`file:line`) |
 | :--- | :---: | :--- |
-| **(a) Explicitly Labeled in Code & UI** | ⚠️ **PARTIAL** | **Code**: Docstrings in [`scripts/generate_2k_dataset.py:3`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py#L3) and [`scripts/validate_dataset.py:2`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/validate_dataset.py#L2) state `"synthetic Take-Two identity graph"`, but the canonical `# SYNTHETIC_EBC_SEED_DATA` comment tag required by `realness_scanner.py` is missing.<br>**UI**: **MISSING**. While `FocusGroupModal.tsx:408` labels `"20 Synthetic Personas"`, neither `CourtsideLanding.tsx` nor `src/app/page.tsx` displays a subtle *"Synthetic EBC Simulation Dataset"* disclosure badge in the footer/header. |
-| **(b) Statistically Believable & Aligned with Customer Catalog** | ✅ **PASS** | Verified via `python3 scripts/validate_dataset.py` (`0` dangling foreign keys across all 10 tables):<br>• **18 Take-Two Games** ([`data/games.json`](file:///Users/jlpourt/CCAI/ea-audiences/data/games.json), [`scripts/generate_2k_dataset.py:46-66`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py#L46-L66)) across `2K` (*NBA 2K27*, *MyCAREER/The City*, *MyTEAM*, *MyNBA & The W*, *NBA 2K Mobile*, *WWE 2K25*, *PGA TOUR 2K25*, *TopSpin 2K25*, *Civilization VII*, *Borderlands 4*, *Mafia: The Old Country*), `ROCKSTAR` (*GTA Online*, *Red Dead Online*, *Grand Theft Auto VI*), and `ZYNGA` (*Toon Blast*, *Words With Friends*, *Match Factory!*, *Zynga Poker*).<br>• **16 Authentic Creators** ([`data/creators.json`](file:///Users/jlpourt/CCAI/ea-audiences/data/creators.json), [`scripts/generate_2k_dataset.py:165-183`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py#L165-L183)): DBG, Tydebo, JoeKnows, Agent00, FlightReacts, CallMeAgent, Troydan, ChrisSmoove, DukeDennis, GrindingDF, Shake4ndbake, PowerDF, Assemble, TGG, MrBossFTW, PotatoMcWhiskey.<br>• **48 Crews** ([`data/clans.json`](file:///Users/jlpourt/CCAI/ea-audiences/data/clans.json), [`scripts/generate_2k_dataset.py:187-202`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py#L187-L202)): 36 NBA 2K Crews across `Rec` (16), `Pro-Am` (12), and `Comp` (8) tiers + 8 Rockstar Crews + 4 WWE Factions.<br>• **29 Marketing Offers** ([`data/marketing_offers.json`](file:///Users/jlpourt/CCAI/ea-audiences/data/marketing_offers.json), [`scripts/generate_2k_dataset.py:203-234`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py#L203-L234)): Authentic VC ladder ($1.99–$99.99), Season 1 Pass Pro/HoF ($9.99/$19.99), Galaxy Opal Deluxe Pack ($14.99 vs $19.99 variants), $4.99 Crew Re-Up Bundle, $69.99 GTA VI Pre-Order, Shark Cards, Gold Bars, and Zynga coin packs.<br>• **2,850 Players & Realistic Distributions**: Uses Pareto heavy-tailed spend (`pareto_spend` at [`scripts/generate_2k_dataset.py:317-319`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py#L317-L319)), franchise-calibrated Gaussian age/gender distributions (`demographics` at [`lines 350-363`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py#L350-L363): NBA2K median age 25, CIV7 median age 32, ZYNGA median age 41 / 56% female), 30 NBA DMA markets + 6 international hubs, and verified Golden Play cohorts (**Play 1**: 288 players, **Play 2**: 306 players, **Play 3**: 176 players). |
-| **(c) Non-Deceptive / Zero Customer PII** | ✅ **PASS** | Uses synthetic player IDs (`t2-usr-00001`..`t2-usr-02850`), masked email placeholders (`mask_email` at [`scripts/generate_2k_dataset.py:322-323`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py#L322-L323)), and curated gaming handles. Never claims to be confidential Take-Two production PII. |
+| **(a) Explicitly Labeled in Code & UI** | **FAIL** | `realness_scan_raw.json` reports `"syntheticDataLabeled": false`. While [`scripts/generate_2k_dataset.py:2`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py#L2) has a docstring (`Synthetic dataset generator for the 2K Games...`), it lacks the mandatory `# SYNTHETIC_EBC_SEED_DATA` marker, and [`CourtsideLanding.tsx:963-976`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/landing/CourtsideLanding.tsx#L963-L976) displays `"2K Courtside · Live Telemetry"` without a subtle *"Synthetic EBC Simulation Dataset"* badge. |
+| **(b) Statistically Believable** | **PASS** | [`scripts/generate_2k_dataset.py`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py) models 2,850 players across 30 authentic NBA DMAs + 5 international hubs ([`lines 189-227`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py#L189-L227)), 6 weighted 2K archetypes ([`lines 274-281`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py#L274-L281)), **Pareto lifetime spend distributions** (`random.paretovariate(alpha)` at [`line 297`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py#L297)), **Gaussian rage-quit distributions** (`random.gauss(5, 2)` at [`line 452`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py#L452)), authentic 2K titles (`game-nba2k27`, `game-nba2k26`, `game-wwe2k25`, `game-pga2k25`, `game-bl4`, `game-civ7`), and realistic VC/MyTEAM store SKUs (`offer-crew-reup-499`, `offer-hof-upgrade-6999`, `offer-opal-deluxe-1499`). |
+| **(c) Non-Deceptive (Never Presented as Real Customer PII/Financials)** | **PASS** | All player records use synthetic IDs (`player-0001`..`player-2850`), SHA-256 hashed emails, and masked display emails (`f"{tag[0].lower()}***@{domain}"` at [`generate_2k_dataset.py:324`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py#L324)). No real Take-Two / 2K customer PII or confidential non-public financials are present. |
 
 ---
 
 ## 4. Demo-Day Kill Switches Checklist & Ready-to-Drop Implementations
 
-| # | Kill Switch | Status | Existing Coverage | What Is Missing |
-| :---: | :--- | :---: | :--- | :--- |
-| 1 | **Warm Caches (`warm_cache`)** | ❌ **MISSING** | `catalog.ts` memoizes `Games`/`Offers`/`Creators`/`Clans` after first call; `reddit-pulse/route.ts` caches grounded Reddit results for 10m. | No `scripts/warm_cache.sh` or `/api/warm` route to pre-warm Cloud Run, Spanner session pool, BigQuery, and the 3 Golden Play queries + Reddit pulse before the EBC briefing starts. |
-| 2 | **Quota & Deep Health Check (`quota_check`)** | ⚠️ **PARTIAL** | `/api/health/spanner`, `/api/health/models`, `/api/health/services`, and `scripts/smoke_models.mjs` exist and test real GCP resources. | No unified `GET /api/health?deep=1` endpoint or fast `<5s` pre-demo CLI script (`scripts/quota_check.sh`) recognized by preflight tooling. |
-| 3 | **Offline Emergency Contingency (`offline_fallback`)** | ⚠️ **EXTERNAL ONLY** | Per `GEMINI.md` Rule 1.3, code-level `DEMO_OFFLINE_FALLBACK` branches are **strictly forbidden**. | Record a standalone 1080p MP4 golden-path walkthrough video (`docs/demo_walkthrough_backup.mp4`) stored outside application code for catastrophic conference Wi-Fi failure. |
-| 4 | **Reset-State Script (`reset_state`)** | ❌ **MISSING** | `invalidateCatalogCache()` exists in `src/lib/gcp/catalog.ts:272`. | No `scripts/reset_state.sh` or `POST /api/reset` endpoint to purge demo-session rows from BigQuery `saved_audiences` & `activation_log` and clear in-memory A2A tasks between back-to-back EBC briefings. |
+| # | Kill Switch | Scanner Status | Deep Audit Status | Findings & Evidence |
+| :- | :--- | :---: | :---: | :--- |
+| **1** | **Warm Caches (`warm_cache`)** | `MISSING` | **MISSING** | Cloud Run sets `minInstanceCount: 1` ([`scripts/deploy_cloud_run.py:243`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/deploy_cloud_run.py#L243)), `catalog.ts` caches Spanner catalog for 60s, and `/api/social/reddit-pulse` caches grounded results for 10m. However, there is no `scripts/warm_cache.sh` or `/api/warm` route to pre-warm Spanner sessions, BigQuery connections, Reddit pulse, and the 3 Golden Plays before executives walk in. |
+| **2** | **Quota & Health Check (`quota_check`)** | `MISSING` | **PARTIAL** | [`/api/health/spanner/route.ts`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/health/spanner/route.ts), [`/api/health/models/route.ts`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/health/models/route.ts), [`/api/health/services/route.ts`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/health/services/route.ts), and [`scripts/smoke_models.mjs`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/smoke_models.mjs) exist and probe real GCP resources, but the unified `/api/health?deep=1` endpoint and `<5s` `scripts/quota_check.sh` CLI expected by Showroom are missing. |
+| **3** | **Offline Fallback Recording (`offline_fallback`)** | `MISSING` | **SUPERSEDED BY `GEMINI.md` RULE 1.3** | **Per `GEMINI.md` Rule 1.3 (`No Offline / Canned Replay Modes`)**: Building `DEMO_OFFLINE_FALLBACK` or static golden-response dictionaries inside application code is **strictly prohibited**. Conference Wi-Fi / regional blip resilience must instead be achieved via (a) `warm_cache.sh` pre-warming live TTL caches, (b) Cloud Run `minInstanceCount: 1`, and (c) an external MP4 screen recording stored outside the runtime codebase. |
+| **4** | **Reset-State Script (`reset_state`)** | `MISSING` | **MISSING** | [`scripts/spanner_load_data.js`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/spanner_load_data.js) and [`scripts/setup-gcp-bigquery.js`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/setup-gcp-bigquery.js) perform full 60-second reloads, but there is no 1-second `scripts/reset_state.sh` or `POST /api/reset` endpoint to restore BigQuery `saved_audiences` / `activation_log` and clear in-memory `sessionA2AEvents` between back-to-back briefings. |
 
-### Ready-to-Drop Implementation 1: `scripts/warm_cache.sh`
+### Ready-to-Drop Kill Switch 1: `scripts/warm_cache.sh`
+
 ```bash
 #!/usr/bin/env bash
-# Pre-warm Cloud Run / local server, Spanner session pool, catalog cache, Golden Plays, and Reddit grounding cache.
+# Warm Cloud Run instance, Spanner session pool, BigQuery, Reddit Grounding cache, and Golden Plays
 set -euo pipefail
-BASE_URL="${1:-http://localhost:3000}"
 
-echo "🔥 Warming 2K Courtside caches against ${BASE_URL}..."
-curl -fsS "${BASE_URL}/api/health/spanner" >/dev/null
-curl -fsS "${BASE_URL}/api/health/services" >/dev/null
-curl -fsS "${BASE_URL}/api/insights/graph-stats" >/dev/null
-curl -fsS "${BASE_URL}/api/insights/core-finding" >/dev/null
-curl -fsS "${BASE_URL}/api/graph/view?view=audience-cohorts&game=ALL&archetype=ALL" >/dev/null
+BASE_URL="${1:-http://localhost:3000}"
+echo "=== [warm_cache] Pre-warming 2K Courtside at ${BASE_URL} ==="
+
+curl -fsS "${BASE_URL}/api/health/spanner" > /dev/null
+curl -fsS "${BASE_URL}/api/health/services" > /dev/null
+curl -fsS "${BASE_URL}/api/insights/graph-stats" > /dev/null
+curl -fsS "${BASE_URL}/api/graph/view?franchise=ALL" > /dev/null
+curl -fsS "${BASE_URL}/api/marketing/journey/summary" > /dev/null
+curl -fsS "${BASE_URL}/api/marketing/markets" > /dev/null
 curl -fsS -X POST "${BASE_URL}/api/social/reddit-pulse" \
-  -H "Content-Type: application/json" \
-  -d '{"topic":"NBA 2K27 Season 1 VC pricing, MyTEAM Galaxy Opal pack odds, GTA VI pre-order hype"}' >/dev/null
-echo "✅ Warm-up complete."
+  -H "Content-Type: application/json" -d '{}' > /dev/null
+
+# Pre-warm the 3 Golden Plays against Spanner Graph
+for PLAY in \
+  "NBA 2K27 MyCAREER builds below 85 OVR who spent \$50+ on VC, haven't logged in for 7 days, and are in a Crew with active teammates" \
+  "High-spend NBA 2K26 veterans who haven't migrated to NBA 2K27 yet and have Crew mates active in NBA 2K27" \
+  "NBA 2K27 MyTEAM whales with 10+ Galaxy Opals and Hall of Fame Season Pass"; do
+  curl -fsS -X POST "${BASE_URL}/api/audiences/nl-query" \
+    -H "Content-Type: application/json" \
+    -d "{\"query\":\"${PLAY}\",\"franchise\":\"ALL\"}" > /dev/null
+done
+
+echo "=== [warm_cache] All live GCP pools and caches warmed ==="
 ```
 
-### Ready-to-Drop Implementation 2: Unified Deep Health Check (`src/app/api/health/route.ts`)
+### Ready-to-Drop Kill Switch 2: Unified `src/app/api/health/route.ts` (`/api/health?deep=1`) & `scripts/quota_check.sh`
+
 ```typescript
+// src/app/api/health/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { GET as getSpanner } from "./spanner/route";
-import { GET as getServices } from "./services/route";
-import { GET as getModels } from "./models/route";
+import { probeSpannerHealth } from "@/lib/gcp/spanner-client";
+import { runBqQuery, tableFqn } from "@/lib/gcp/bigquery-client";
+import { checkBucketAccess } from "@/lib/gcp/storage-client";
+import { checkPubSubAccess } from "@/lib/gcp/pubsub-client";
+import { generateText } from "@/lib/gcp/genai-client";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest) {
-  const deep = request.nextUrl.searchParams.get("deep") === "1";
-  const started = Date.now();
+export async function GET(req: NextRequest) {
+  const deep = req.nextUrl.searchParams.get("deep") === "1";
+  const startedAt = Date.now();
 
-  const [spannerRes, servicesRes, modelsRes] = await Promise.all([
-    getSpanner(),
-    getServices(),
-    deep ? getModels() : Promise.resolve(null),
+  const spanner = await probeSpannerHealth();
+  if (!deep) {
+    return NextResponse.json(
+      { ok: spanner.ok, spanner, latency_ms: Date.now() - startedAt },
+      { status: spanner.ok ? 200 : 503 }
+    );
+  }
+
+  const [bqCheck, gcsCheck, pubsubCheck, geminiCheck] = await Promise.all([
+    runBqQuery(`SELECT COUNT(1) AS cnt FROM ${tableFqn("saved_audiences")}`)
+      .then(() => ({ ok: true }))
+      .catch((e: Error) => ({ ok: false, error: e.message })),
+    checkBucketAccess(),
+    checkPubSubAccess(),
+    generateText({
+      role: "LITE",
+      prompt: "Reply with OK.",
+      temperature: 0,
+      maxOutputTokens: 8,
+    })
+      .then((r) => ({ ok: true, model: r.modelUsed, latencyMs: r.latencyMs }))
+      .catch((e: Error) => ({ ok: false, error: e.message })),
   ]);
 
-  const spanner = await spannerRes.json();
-  const services = await servicesRes.json();
-  const models = modelsRes ? await modelsRes.json() : undefined;
+  const allOk =
+    spanner.ok && bqCheck.ok && gcsCheck.ok && pubsubCheck.ok && geminiCheck.ok;
 
-  const ok = Boolean(spanner.ok && services.ok && (!deep || models?.ok));
   return NextResponse.json(
     {
-      ok,
-      deep,
-      latencyMs: Date.now() - started,
-      spanner,
-      services: services.services,
-      models: models?.models,
-      checkedAt: new Date().toISOString(),
+      ok: allOk,
+      deep: true,
+      latency_ms: Date.now() - startedAt,
+      services: {
+        spanner,
+        bigquery: bqCheck,
+        storage: gcsCheck,
+        pubsub: pubsubCheck,
+        vertex_ai: geminiCheck,
+      },
     },
-    { status: ok ? 200 : 503 }
+    { status: allOk ? 200 : 503 }
   );
 }
 ```
 
-### Ready-to-Drop Implementation 3: Demo State Reset (`scripts/reset_state.sh`)
+### Ready-to-Drop Kill Switch 4: `src/app/api/reset/route.ts` & `scripts/reset_state.sh`
+
+```typescript
+// src/app/api/reset/route.ts
+import { NextResponse } from "next/server";
+import { runBqQuery, tableFqn } from "@/lib/gcp/bigquery-client";
+import { invalidateCatalogCache } from "@/lib/gcp/catalog";
+
+export const dynamic = "force-dynamic";
+
+export async function POST() {
+  const startedAt = Date.now();
+  try {
+    invalidateCatalogCache();
+    // Remove ad-hoc audiences and activations created during the live demo session
+    // while preserving the baseline seeded records.
+    await Promise.all([
+      runBqQuery(
+        `DELETE FROM ${tableFqn("saved_audiences")} WHERE audience_id NOT LIKE 'seed-%'`
+      ),
+      runBqQuery(
+        `DELETE FROM ${tableFqn("activation_log")} WHERE activation_id NOT LIKE 'seed-%'`
+      ),
+    ]);
+    return NextResponse.json({
+      ok: true,
+      reset_ms: Date.now() - startedAt,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { ok: false, error: err?.message || String(err) },
+      { status: 503 }
+    );
+  }
+}
+```
+
 ```bash
 #!/usr/bin/env bash
-# Reset BigQuery demo-session tables (saved_audiences, activation_log) between EBC briefings in <2s.
+# scripts/reset_state.sh — 1-second EBC briefing state reset
 set -euo pipefail
-PROJECT_ID="${GCP_PROJECT_ID:-jamie-bq-test}"
-DATASET_ID="${BQ_DATASET_ID:-twok_marketing_intelligence}"
-
-echo "🔄 Resetting BigQuery demo tables in ${PROJECT_ID}:${DATASET_ID}..."
-bq query --project_id="${PROJECT_ID}" --use_legacy_sql=false \
-  "DELETE FROM \`${PROJECT_ID}.${DATASET_ID}.saved_audiences\` WHERE TRUE;
-   DELETE FROM \`${PROJECT_ID}.${DATASET_ID}.activation_log\` WHERE TRUE;"
-echo "✅ Demo state reset complete."
+BASE_URL="${1:-http://localhost:3000}"
+curl -fsS -X POST "${BASE_URL}/api/reset"
+echo ""
 ```
 
 ---
 
 ## 5. Prioritized Remediation Roadmap
 
-1. **P0 — Eliminate All `try / catch` Data Fallbacks in Focus Group Evaluation ([`src/lib/focus-group-eval.ts:58-92`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L58-L92), [`164-205`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L164-L205), [`src/app/api/synthetic/focus-group/stream/route.ts:66-131`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/synthetic/focus-group/stream/route.ts#L66-L131))**:
-   - Remove the persona and consensus `catch` blocks returning hardcoded quotes, conversion lifts, and WTP curves. Enforce live Vertex AI execution for both primary and `altPriceUsd` Offer Battle evaluations, failing loudly with `HTTP 502/503` on error.
-2. **P0 — Replace `SYNTHETIC_FALLBACK_PERSONAS` with Live Spanner Player Sampling ([`src/app/api/synthetic/focus-group/route.ts:24-28`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/synthetic/focus-group/route.ts#L24-L28), [`stream/route.ts:20-24`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/synthetic/focus-group/stream/route.ts#L20-L24), [`FocusGroupModal.tsx:166`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L166))**:
-   - Query `getPlayersForView({ franchise, limit: 20 })` from Cloud Spanner whenever fewer than 20 players are provided by the client.
-3. **P0 — Remove Swallowed Gemini Exceptions in Campaign Brief, Journey Summary, Core Finding & NL-Query ([`campaign/brief/route.ts:23-33, 87-125`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/campaign/brief/route.ts#L23-L33), [`journey/summary/route.ts:297-321, 348-370`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/marketing/journey/summary/route.ts#L297-L321), [`core-finding/route.ts:55-89`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/insights/core-finding/route.ts#L55-L89), [`nl-query/route.ts:196-305`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/audiences/nl-query/route.ts#L196-L305))**:
-   - Let `GenAIError` and `SpannerUnavailableError` propagate to return `HTTP 502/503` instead of masking failures with canned text or fallback GQL.
-4. **P1 — Remove Local JSON & Canned Fallbacks in Python ADK Fleet ([`agents/app/tools/bq_tools.py:32-41`](file:///Users/jlpourt/CCAI/ea-audiences/agents/app/tools/bq_tools.py#L32-L41), [`spanner_graph_tools.py:27-35`](file:///Users/jlpourt/CCAI/ea-audiences/agents/app/tools/spanner_graph_tools.py#L27-L35), [`audience_agent.py:59-111`](file:///Users/jlpourt/CCAI/ea-audiences/agents/app/sub_agents/audience_agent.py#L59-L111), [`focus_group_agent.py:148-208`](file:///Users/jlpourt/CCAI/ea-audiences/agents/app/sub_agents/focus_group_agent.py#L148-L208))**:
-   - Delete all `data/*.json` fallback reads and hardcoded `PersonaReaction` lists in `agents/app/`.
-5. **P1 — Remove Fake Latency in `ActivationDAG.tsx` & Seeded Fake Events in `/api/a2a` ([`ActivationDAG.tsx:78-80`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/activation/ActivationDAG.tsx#L78-L80), [`src/app/api/a2a/route.ts:8-54`](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/a2a/route.ts#L8-L54), [`official-server.ts:114-117`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/a2a/official-server.ts#L114-L117))**:
-   - Drive DAG step states from actual completed brief/creative/dispatch state rather than `setTimeout`, and remove hardcoded initial A2A messages.
-6. **P2 — Add Demo-Day Operational Scripts & Synthetic Dataset UI Badge**:
-   - Add `src/app/api/health/route.ts` (`?deep=1`), `scripts/warm_cache.sh`, `scripts/reset_state.sh`, `# SYNTHETIC_EBC_SEED_DATA` header in `scripts/generate_2k_dataset.py`, and a subtle *"Synthetic EBC Simulation Dataset"* badge in `CourtsideLanding.tsx`.
+1. **Remove `SYNTHETIC_FALLBACK_PERSONAS` & Prior-Brand Bleed (`P0`)**:
+   - Delete `SYNTHETIC_FALLBACK_PERSONAS` in [`src/lib/prompts/courtside_personas.ts:158-725`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/prompts/courtside_personas.ts#L158-L725) (which also eliminates the Rockstar/Zynga `Leonida_Hooper`, `ViceCityGrind2K`, `Match3Hooper`, `ToonBlastDunker` bleed) and remove the fallback in [`FocusGroupModal.tsx:267`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L267) and silent `.catch(() => {})` at [`FocusGroupModal.tsx:184`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L184).
+2. **Enforce Schema-Validated `migration_curve` & Graph-Joined Crew/Creator Metadata in `focus-group-eval.ts` (`P0`)**:
+   - Replace the hardcoded `migration_curve` fallback in [`src/lib/focus-group-eval.ts:723-735`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L723-L735) with `generateStructured` schema validation, and join `MemberOfClan`/`Clans` and `FollowsCreator`/`Creators` in `fetchLiveSpannerPersonas` ([`focus-group-eval.ts:88-96`](file:///Users/jlpourt/CCAI/ea-audiences/src/lib/focus-group-eval.ts#L88-L96)).
+3. **Replace `setTimeout` DAG Step Simulation in `ActivationDAG.tsx` (`P1`)**:
+   - Wire Steps 1 and 2 in [`src/components/activation/ActivationDAG.tsx:76-81`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/activation/ActivationDAG.tsx#L76-L81) to live `/api/campaign/brief` and `/api/creative/image` execution instead of `setTimeout` timers.
+4. **Add Explicit Synthetic Dataset Labeling in Code & UI (`P1`)**:
+   - Add `# SYNTHETIC_EBC_SEED_DATA` to [`scripts/generate_2k_dataset.py:1`](file:///Users/jlpourt/CCAI/ea-audiences/scripts/generate_2k_dataset.py#L1) and add a subtle `"Synthetic EBC Simulation Dataset"` badge to the footer of [`src/components/landing/CourtsideLanding.tsx:973-975`](file:///Users/jlpourt/CCAI/ea-audiences/src/components/landing/CourtsideLanding.tsx#L973-L975).
+5. **Drop In Unified Health/Quota, Warm-Cache, and Reset-State Kill Switches (`P1`)**:
+   - Add `src/app/api/health/route.ts` (`?deep=1`), `src/app/api/reset/route.ts`, `scripts/warm_cache.sh`, and `scripts/reset_state.sh`.

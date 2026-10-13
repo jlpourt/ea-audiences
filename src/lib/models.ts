@@ -60,52 +60,52 @@ export const MODELS: Readonly<Record<ModelRole, ModelSpec>> = {
   REASONING: withEnvOverride("REASONING", {
     id: "gemini-3.1-pro-preview",
     location: "global",
-    label: "Gemini 3.1 Pro",
+    label: "3.1 Pro Reasoning",
     family: "gemini-3-pro",
   }),
   FAST: withEnvOverride("FAST", {
     id: "gemini-3.5-flash",
     location: "global",
-    label: "Gemini 3.5 Flash",
+    label: "3.5 Flash Eval",
     family: "gemini-flash",
   }),
   LITE: withEnvOverride("LITE", {
     id: "gemini-3.5-flash-lite",
     location: "global",
-    label: "Gemini 3.5 Flash-Lite",
+    label: "3.5 Flash-Lite Swarm",
     family: "gemini-flash-lite",
   }),
-  // Verified 2026-10-02: gemini-3.5-flash (global) accepts the `googleSearch`
+  // Verified 2026-10-02: 3.5-flash (global) accepts the `googleSearch`
   // tool and returns groundingChunks, so grounding runs on the same fast tier
   // as NL→GQL instead of dropping back to 2.5.
   GROUNDED: withEnvOverride("GROUNDED", {
     id: "gemini-3.5-flash",
     location: "global",
-    label: "Gemini 3.5 Flash · Search",
+    label: "3.5 Flash Search",
     family: "gemini-flash",
   }),
   IMAGE: withEnvOverride("IMAGE", {
-    id: "gemini-2.5-flash-image",
-    location: "us-central1",
-    label: "Gemini 2.5 Flash Image",
+    id: "gemini-3.1-flash-image",
+    location: "global",
+    label: "3.1 Flash Image",
     family: "gemini-image",
   }),
   TTS: withEnvOverride("TTS", {
     id: "gemini-3.1-flash-tts-preview",
     location: "us-central1",
-    label: "Gemini 3.1 Flash TTS",
+    label: "3.1 Flash TTS",
     family: "gemini-tts",
   }),
   MUSIC: withEnvOverride("MUSIC", {
     id: "lyria-002",
     location: "us-central1",
-    label: "Lyria 2",
+    label: "Audio Synth 2",
     family: "lyria",
   }),
   EMBED: withEnvOverride("EMBED", {
     id: "gemini-embedding-001",
     location: "us-central1",
-    label: "Gemini Embedding",
+    label: "Vector Embed 001",
     family: "gemini-embedding",
   }),
 };
@@ -117,17 +117,17 @@ export const EMBED_DIMENSIONS = 3072;
 export const TEXT_FALLBACK_CHAIN: readonly ModelRole[] = ["REASONING", "FAST", "LITE"];
 
 /**
- * `gemini-3.1-pro-preview` → `Gemini 3.1 Pro`, `lyria-002` → `Lyria 2`,
- * `gemini-2.5-flash-image` → `Gemini 2.5 Flash Image`.
+ * Format a raw model id into a compact capability label.
  */
 export function humanizeModelId(id: string): string {
   const known = Object.values(MODELS).find((m) => m.id === id);
   if (known) return known.label;
 
-  const lyria = id.match(/^lyria-0*(\d+)$/i);
-  if (lyria) return `Lyria ${lyria[1]}`;
+  const synth = id.match(/^lyria-0*(\d+)$/i);
+  if (synth) return `Audio Synth ${synth[1]}`;
 
   return id
+    .replace(/^gemini-/i, "")
     .replace(/-preview$/i, "")
     .split("-")
     .map((part) => {

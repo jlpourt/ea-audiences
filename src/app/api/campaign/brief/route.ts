@@ -18,14 +18,14 @@ export async function POST(request: NextRequest) {
     let groundedInsight = body.grounded_community_insight || body.grounded_insight;
     const clientStrategicPivot = body.strategic_pivot;
 
-    // Grounded sentiment via live Vertex AI Google Search grounding
+    // Grounded sentiment via live 2K Intelligence Engine Search grounding
     if (!groundedInsight) {
       const searchRes = await groundedSearch({
         prompt: `What are r/NBA2K and r/MyTEAM players saying about NBA 2K27 microtransactions, VC prices, and Season 1 progression?`,
       });
       groundedInsight = searchRes.text.trim();
       if (!groundedInsight) {
-        throw new Error("Vertex AI groundedSearch returned empty community insight");
+        throw new Error("2K Intelligence Engine groundedSearch returned empty community insight");
       }
     }
 
@@ -87,7 +87,7 @@ Generate an executive-ready Campaign Brief in strict JSON format:
       !Array.isArray(parsed.creative_hooks) ||
       !parsed.recommended_action
     ) {
-      throw new Error("Vertex AI campaign brief generation returned invalid or incomplete JSON payload");
+      throw new Error("2K Intelligence Engine campaign brief generation returned invalid or incomplete JSON payload");
     }
 
     const consensusText = String(parsed.focus_group_consensus || focusGroupConsensus || "");
@@ -114,8 +114,8 @@ Generate an executive-ready Campaign Brief in strict JSON format:
     console.error("[Campaign Brief Error]:", error);
     return NextResponse.json(
       {
-        error: "Failed to generate campaign brief via Vertex AI",
-        service: "vertex-ai",
+        error: "Failed to generate campaign brief via 2K Intelligence Engine",
+        service: "2k-intelligence-engine",
         details: error?.message || String(error),
       },
       { status: 502 }

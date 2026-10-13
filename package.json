@@ -17,7 +17,6 @@
     "@google/genai": "^2.27.0",
     "@types/d3-geo": "^3.1.1",
     "@types/topojson-client": "^3.1.5",
-    "clsx": "^2.1.1",
     "d3-geo": "^3.1.1",
     "framer-motion": "^11.18.2",
     "google-auth-library": "^10.5.0",
@@ -27,9 +26,7 @@
     "react-dom": "^18.3.1",
     "react-force-graph-2d": "^1.25.7",
     "react-force-graph-3d": "^1.24.4",
-    "tailwind-merge": "^2.6.0",
     "three": "^0.160.0",
-    "three-spritetext": "^1.8.2",
     "topojson-client": "^3.1.0",
     "world-atlas": "^2.0.2"
   },

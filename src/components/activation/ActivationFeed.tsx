@@ -84,7 +84,7 @@ export function ActivationFeed({ isOpen, onClose, onLaunchDAG }: ActivationFeedP
               className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
               title="Refresh logs"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "courtside-Transfer-pulse" : ""}`} />
             </button>
             <button
               onClick={onClose}

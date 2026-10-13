@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "@/lib/gcp/genai-client";
+import { MODELS } from "@/lib/models";
 import { NL_TO_GQL_SYSTEM_PROMPT } from "@/lib/prompts/nl_to_gql";
 import {
   runSpannerGraphQuery,
@@ -374,19 +375,20 @@ async function executeAudienceQuery(
   const translateStart = Date.now();
   let gqlQuery = "";
   let explanation = "";
-  let modelUsed = "gemini-3.5-flash";
+  let modelUsed = MODELS.FAST.id;
 
   const golden = matchGoldenPlay(query, franchise);
   if (golden) {
     gqlQuery = golden.gql_query;
     explanation = golden.explanation;
+    modelUsed = "spanner-gql-fastpath";
   } else {
     let gen;
     try {
       gen = await generateText({
         role: "FAST",
         system: NL_TO_GQL_SYSTEM_PROMPT,
-        prompt: `Translate this 2K Courtside audience request into Spanner Graph GQL on TakeTwoPlayerGraph.
+        prompt: `Translate this 2K Courtside audience request into 2K Identity Graph GQL on TakeTwoPlayerGraph.
 Franchise Scope: ${franchise || "ALL"}
 User Request: "${query}"`,
         json: true,
@@ -394,7 +396,7 @@ User Request: "${query}"`,
       });
     } catch (err: any) {
       throw new GqlTranslationError(
-        `Vertex AI NL-to-GQL generation failed: ${err?.message || String(err)}`,
+        `2K Intelligence Engine NL-to-GQL generation failed: ${err?.message || String(err)}`,
         modelUsed
       );
     }
@@ -405,7 +407,7 @@ User Request: "${query}"`,
       parsed = JSON.parse(cleaned);
     } catch (err: any) {
       throw new GqlTranslationError(
-        `Failed to parse Gemini NL-to-GQL JSON response (${modelUsed}): ${err?.message || String(err)}`,
+        `Failed to parse 2K Intelligence Engine NL-to-GQL JSON response (${modelUsed}): ${err?.message || String(err)}`,
         modelUsed,
         gen.text
       );
@@ -414,7 +416,7 @@ User Request: "${query}"`,
     explanation = String(parsed?.explanation || "").trim();
     if (!gqlQuery) {
       throw new GqlTranslationError(
-        `Gemini NL-to-GQL response (${modelUsed}) did not include a valid gql_query.`,
+        `2K Intelligence Engine NL-to-GQL response (${modelUsed}) did not include a valid gql_query.`,
         modelUsed,
         gen.text
       );
@@ -867,7 +869,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: err.message,
-          service: "Vertex AI Gemini",
+          service: "2K Intelligence Engine",
           model_used: err.modelUsed,
           raw_output: err.rawOutput,
           is_live: false,

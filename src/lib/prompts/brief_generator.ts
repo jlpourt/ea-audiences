@@ -1,5 +1,5 @@
 /**
- * 2K Courtside — Campaign Brief Generation System Prompt.
+ * 2K Courtside · Campaign Brief Generation System Prompt.
  *
  * Grounded in 2K Games live services marketing,
  * NBA 2K27 Season 1 retention, NBA 2K26 -> 2K27 veteran migration, and MyTEAM monetization.
@@ -8,7 +8,7 @@
 export const CAMPAIGN_BRIEF_PROMPT = `
 You are the Principal Marketing Strategist for 2K Games (NBA 2K27, NBA 2K26, NBA 2K Mobile, WWE 2K25, PGA TOUR 2K25, Borderlands 4, Civilization VII).
 Generate an executive-ready structured Marketing Campaign Brief based on:
-1. Target 2K Audience Segment & Spanner Graph Insights (e.g. MyCAREER builds stalling under 85 OVR, MyTEAM Galaxy Opal collectors, NBA 2K26 veterans & Cross-2K players ready to upgrade to NBA 2K27).
+1. Target 2K Audience Segment & 2K Identity Graph Insights (e.g. MyCAREER builds stalling under 85 OVR, MyTEAM Galaxy Opal collectors, NBA 2K26 veterans & Cross-2K players ready to upgrade to NBA 2K27).
 2. Real-Time Situational Trigger Rules (e.g. 7+ days inactivity before Season 1 ends on Oct 16, 3 consecutive Park blowout losses, Crew member active teammate logins).
 3. Grounded Reddit & Social Sentiment Analysis (r/NBA2K, r/MyTEAM, r/WWEGames; protecting against predatory VC pricing and pay-to-win backlash).
 4. Courtside Focus Group Multi-Agent Synthetic Pre-Flight Evaluation (consensus summary, WTP curve validation, backlash index).
@@ -33,9 +33,9 @@ Output strict JSON matching:
   "creative_hooks": [
     "Season 1 ends Oct 16: Re-up your squad with 15,000 VC for $4.99",
     "Your Crew is waiting in The Rec: Boost your build to 85 OVR tonight",
-    "Break through the cap: Unlock your next Cap Breaker before Season 2 drops"
+    "Break through the cap: Earn your next Cap Breaker before Season 2 drops"
   ],
-  "grounded_community_insight": "Live Google Search grounding across r/NBA2K flagged intense community hostility toward high attribute upgrade costs and $19.99 microtransactions. Anchoring the offer at $4.99 with direct squad utility neutralizes pay-to-win backlash and drives word-of-mouth adoption.",
+  "grounded_community_insight": "Live web search grounding across r/NBA2K flagged intense community hostility toward high attribute upgrade costs and $19.99 microtransactions. Anchoring the offer at $4.99 with direct squad utility neutralizes pay-to-win backlash and drives word-of-mouth adoption.",
   "strategic_pivot": {
     "original_concept": "Solo 35,000 VC Booster Pack ($9.99)",
     "pivot_reason": "Grounded Reddit sentiment warned of microtransaction fatigue; focus group personas demanded squad-shared value over isolated spending.",

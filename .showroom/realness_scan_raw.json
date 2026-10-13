@@ -1,75 +1,47 @@
 {
-  "scannedAt": "2026-10-12",
+  "scannedAt": "2026-10-13",
   "repoRoot": "/Users/jlpourt/CCAI/ea-audiences",
   "summary": {
     "realGcpCallsCount": 5,
-    "fakeOrRiskFlagsCount": 59,
-    "syntheticDataLabeled": false,
-    "killSwitchesPassed": "0/4",
+    "fakeOrRiskFlagsCount": 49,
+    "syntheticDataLabeled": true,
+    "killSwitchesPassed": "2/4",
     "preliminaryRealnessScore": 0.0,
-    "preliminaryDemoDayReadinessScore": 2.0
+    "preliminaryDemoDayReadinessScore": 6.0
   },
   "realCalls": [
     {
       "service": "BigQuery SQL Execution",
       "file": "agents/app/tools/bq_tools.py",
-      "line": 18,
+      "line": 16,
       "snippet": "client = bigquery.Client(project=project_id)"
     },
     {
       "service": "Cloud Spanner / Spanner Graph",
       "file": "agents/app/tools/spanner_graph_tools.py",
-      "line": 19,
+      "line": 17,
       "snippet": "client = spanner.Client(project=project_id)"
     },
     {
       "service": "Cloud Spanner / Spanner Graph",
       "file": "agents/app/tools/spanner_graph_tools.py",
-      "line": 23,
+      "line": 21,
       "snippet": "with database.snapshot() as snapshot:"
     },
     {
       "service": "Cloud Spanner / Spanner Graph",
       "file": "agents/app/tools/spanner_graph_tools.py",
-      "line": 24,
+      "line": 22,
       "snippet": "results = snapshot.execute_sql(gql, params=params or {})"
     },
     {
       "service": "Gemini / Vertex AI GenAI",
       "file": "agents/app/sub_agents/focus_group_agent.py",
-      "line": 122,
+      "line": 115,
       "snippet": "response = self.client.models.generate_content("
     }
   ],
   "fakeFlags": [
-    {
-      "type": "DATA_FALLBACK_BRANCH",
-      "file": "agents/app/tools/bq_tools.py",
-      "line": 32,
-      "snippet": "except Exception as e:",
-      "fix": "CRITICAL (`GEMINI.md`): Remove all data fallback branches and optional SDK flags (`HAS_GENAI`/`HAS_BQ`). Require real live GCP calls and fail loudly on error."
-    },
-    {
-      "type": "DATA_FALLBACK_BRANCH",
-      "file": "agents/app/tools/spanner_graph_tools.py",
-      "line": 27,
-      "snippet": "except Exception as e:",
-      "fix": "CRITICAL (`GEMINI.md`): Remove all data fallback branches and optional SDK flags (`HAS_GENAI`/`HAS_BQ`). Require real live GCP calls and fail loudly on error."
-    },
-    {
-      "type": "DATA_FALLBACK_BRANCH",
-      "file": "agents/app/sub_agents/focus_group_agent.py",
-      "line": 60,
-      "snippet": "except Exception as e:",
-      "fix": "CRITICAL (`GEMINI.md`): Remove all data fallback branches and optional SDK flags (`HAS_GENAI`/`HAS_BQ`). Require real live GCP calls and fail loudly on error."
-    },
-    {
-      "type": "DATA_FALLBACK_BRANCH",
-      "file": "agents/app/sub_agents/focus_group_agent.py",
-      "line": 148,
-      "snippet": "except Exception as e:",
-      "fix": "CRITICAL (`GEMINI.md`): Remove all data fallback branches and optional SDK flags (`HAS_GENAI`/`HAS_BQ`). Require real live GCP calls and fail loudly on error."
-    },
     {
       "type": "DATA_FALLBACK_BRANCH",
       "file": "agents/app/protocols/a2a_protocol.py",
@@ -101,294 +73,287 @@
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 291,
+      "line": 275,
       "snippet": "tag += str(random.randint(1, 99))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 319,
+      "line": 298,
       "snippet": "return round(min(cap, scale * (random.paretovariate(alpha) - 1.0) + random.uniform(0, scale * 0.4)), 2)",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 454,
+      "line": 421,
       "snippet": "last_login = weighted([(random.randint(0, 6), 74), (random.randint(7, 13), 12), (random.randint(14, 28), 10), (random.randint(29, 60), 4)])",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 455,
-      "snippet": "vc_spend_90d = round(min(lifetime, lifetime * random.uniform(0.2, 0.75)), 2) if primary == \"NBA2K\" else round(lifetime * random.uniform(0.0,",
+      "line": 422,
+      "snippet": "vc_spend_90d = round(min(lifetime, lifetime * random.uniform(0.25, 0.78)), 2)",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 460,
+      "line": 427,
       "snippet": "ovr = random.randint(72, 84)",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 461,
+      "line": 428,
       "snippet": "vc_spend_90d = round(random.uniform(50, 260), 2)",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 462,
+      "line": 429,
       "snippet": "lifetime = max(lifetime, round(vc_spend_90d * random.uniform(1.0, 1.6), 2))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 463,
+      "line": 430,
       "snippet": "last_login = random.randint(7, 28)",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 466,
+      "line": 432,
       "snippet": "vc_spend_90d = round(random.uniform(5, 49), 2)",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 469,
+      "line": 435,
       "snippet": "cap_breakers = int(clamp((ovr - 85) // 2 + random.randint(0, 2), 0, 8)) if ovr >= 85 else 0",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 475,
+      "line": 441,
       "snippet": "opals = random.randint(10, 42)",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 477,
-      "snippet": "opals = weighted([(random.randint(0, 3), 70), (random.randint(4, 9), 26), (random.randint(10, 18), 4)])",
+      "line": 443,
+      "snippet": "opals = weighted([(random.randint(0, 3), 78), (random.randint(4, 9), 20), (random.randint(10, 18), 2)])",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 481,
+      "line": 447,
       "snippet": "myteam_spend = round(min(vc_spend_90d, vc_spend_90d * random.uniform(0.5, 1.0)), 2) if packs_30d > 0 else 0.0",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 486,
+      "line": 452,
       "snippet": "loss_streak = weighted([(0, 40), (1, 20), (2, 14), (3, 10), (4, 7), (5, 4), (random.randint(6, 9), 5)])",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 487,
+      "line": 453,
       "snippet": "rage = int(clamp(random.gauss(5, 2), 1, 14)) if archetype == \"RAGE_QUIT_TILT_RISK\" else weighted([(0, 60), (1, 22), (2, 10), (3, 5), (random",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 489,
+      "line": 455,
       "snippet": "loss_streak = max(loss_streak, random.randint(3, 8))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 498,
+      "line": 464,
       "snippet": "last_login = weighted([(random.randint(0, 6), 68), (random.randint(7, 13), 14), (random.randint(14, 28), 12), (random.randint(29, 60), 6)])",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 509,
+      "line": 475,
       "snippet": "loss_streak = weighted([(0, 55), (1, 20), (2, 12), (3, 8), (random.randint(4, 7), 5)])",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 574,
+      "line": 541,
       "snippet": "followed = list(dict.fromkeys(random.sample(pool, k=min(len(set(pool)), random.randint(1, 3)))))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 720,
-      "snippet": "when = NOW - timedelta(days=random.randint(5, 120))",
+      "line": 683,
+      "snippet": "when = NOW - timedelta(days=random.randint(3, 28))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 722,
+      "line": 685,
       "snippet": "when = NOW - timedelta(days=random.randint(0, 28))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 724,
-      "snippet": "when = NOW - timedelta(days=random.randint(1, 400))",
+      "line": 687,
+      "snippet": "when = NOW - timedelta(days=random.randint(1, 300))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 797,
+      "line": 755,
       "snippet": "edges.append({\"player_id\": p[\"player_id\"], \"identity_id\": iid, \"confidence_score\": round(clamp(conf - random.uniform(0, 0.04), 0.5, 1.0), 2)",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 808,
+      "line": 763,
       "snippet": "suffix = random.choice([\"\", \"_\", \"x\", \"TTV\", str(random.randint(1, 999))])",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 809,
+      "line": 764,
       "snippet": "add(p, PLATFORM_IDENTITY[plat], f\"{tag}{suffix}\"[:40], round(random.uniform(0.86, 0.99), 2))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 812,
-      "snippet": "add(p, PLATFORM_IDENTITY[other], f\"{tag}{random.randint(1, 99)}\", round(random.uniform(0.7, 0.9), 2))",
+      "line": 768,
+      "snippet": "add(p, other, f\"{tag}{random.randint(1, 99)}\", round(random.uniform(0.75, 0.94), 2))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 814,
-      "snippet": "add(p, \"Rockstar Social Club\", f\"{tag}_RSC\" if random.random() < 0.5 else tag, round(random.uniform(0.84, 0.99), 2))",
+      "line": 770,
+      "snippet": "add(p, \"Apple Game Center\", f\"{tag}_Mobile\", round(random.uniform(0.82, 0.98), 2))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 816,
-      "snippet": "add(p, \"Zynga ID\", mask_email(tag), round(random.uniform(0.78, 0.97), 2))",
-      "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
-    },
-    {
-      "type": "UNIFORM_SYNTHETIC_RANDOM",
-      "file": "scripts/generate_2k_dataset.py",
-      "line": 825,
+      "line": 779,
       "snippet": "last_played = NOW - timedelta(days=t[\"last_login_days_ago\"], hours=random.randint(0, 20))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 835,
-      "snippet": "hrs = total_hours if is_primary else max(1.0, total_hours * random.uniform(0.08, 0.45))",
+      "line": 789,
+      "snippet": "hrs = total_hours if is_primary else max(2.0, total_hours * random.uniform(0.15, 0.55))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 836,
+      "line": 790,
       "snippet": "when = last_played if is_primary else last_played - timedelta(days=random.randint(0, 30))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 843,
+      "line": 794,
       "snippet": "edge(\"game-nba2k27-mycareer\", hrs * random.uniform(0.4, 0.8), when)",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 845,
+      "line": 796,
       "snippet": "edge(\"game-nba2k27-myteam\", hrs * random.uniform(0.2, 0.7), when)",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 847,
+      "line": 798,
       "snippet": "edge(\"game-nba2k27-mynba\", hrs * random.uniform(0.3, 0.9), when)",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 857,
-      "snippet": "edge(\"game-gta6\", 0.0, NOW - timedelta(days=random.randint(5, 120)))",
+      "line": 800,
+      "snippet": "edge(\"game-nba2k26\", max(45.0, hrs * 1.4), NOW - timedelta(days=random.randint(5, 45)))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 906,
+      "line": 850,
       "snippet": "when = NOW - timedelta(days=t[\"last_login_days_ago\"], minutes=random.randint(0, 1400))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 911,
+      "line": 855,
       "snippet": "k = random.randint(1, 6) if p[\"primary_franchise\"] == \"NBA2K\" else random.randint(0, 2)",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 919,
+      "line": 863,
       "snippet": "when = first + timedelta(minutes=random.randint(0, span))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 921,
+      "line": 865,
       "snippet": "tilt = round(clamp(p[\"tilt_sensitivity\"] * random.uniform(0.4, 0.9), 0.02, 0.98), 2)",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 924,
+      "line": 868,
       "snippet": "losses = max(2, t[\"loss_streak\"] + random.randint(0, 2))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 925,
+      "line": 869,
       "snippet": "tilt = round(clamp(p[\"tilt_sensitivity\"] + random.uniform(0.05, 0.25), 0.3, 0.99), 2)",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
     {
       "type": "UNIFORM_SYNTHETIC_RANDOM",
       "file": "scripts/generate_2k_dataset.py",
-      "line": 935,
+      "line": 879,
       "snippet": "losses = random.randint(0, max(0, t[\"loss_streak\"]))",
       "fix": "Use industry-realistic Pareto/log-normal/seasonal distributions in GCP seed tables instead of uniform random numbers, and label synthetic seed code."
     },
@@ -408,34 +373,6 @@
     },
     {
       "type": "FAKE_LATENCY",
-      "file": "src/components/activation/ActivationDAG.tsx",
-      "line": 78,
-      "snippet": "const t1 = setTimeout(() => setExecutionStep(1), 600); // Brief Agent",
-      "fix": "Remove artificial sleep/delay simulating model or database latency."
-    },
-    {
-      "type": "FAKE_LATENCY",
-      "file": "src/components/activation/ActivationDAG.tsx",
-      "line": 79,
-      "snippet": "const t2 = setTimeout(() => setExecutionStep(2), 1400); // Creative Agent",
-      "fix": "Remove artificial sleep/delay simulating model or database latency."
-    },
-    {
-      "type": "FAKE_LATENCY",
-      "file": "src/components/activation/ActivationDAG.tsx",
-      "line": 80,
-      "snippet": "const t3 = setTimeout(() => setExecutionStep(3), 2200); // HITL Gate Pause",
-      "fix": "Remove artificial sleep/delay simulating model or database latency."
-    },
-    {
-      "type": "FAKE_LATENCY",
-      "file": "src/components/activation/LiveTelemetryTicker.tsx",
-      "line": 44,
-      "snippet": "setTimeout(() => setPulseIndex(null), 120);",
-      "fix": "Remove artificial sleep/delay simulating model or database latency."
-    },
-    {
-      "type": "FAKE_LATENCY",
       "file": "src/components/brief/CampaignBriefModal.tsx",
       "line": 34,
       "snippet": "setTimeout(() => setCopied(false), 2000);",
@@ -447,20 +384,22 @@
       "line": 93,
       "snippet": "setTimeout(() => setCopiedArtUrl(false), 2000);",
       "fix": "Remove artificial sleep/delay simulating model or database latency."
-    },
-    {
-      "type": "FAKE_LATENCY",
-      "file": "src/components/audience/GqlDisclosure.tsx",
-      "line": 29,
-      "snippet": "setTimeout(() => setCopied(false), 1600);",
-      "fix": "Remove artificial sleep/delay simulating model or database latency."
     }
   ],
-  "syntheticLabels": [],
+  "syntheticLabels": [
+    {
+      "file": "scripts/generate_2k_dataset.py",
+      "line": 2,
+      "snippet": "# SYNTHETIC_EBC_SEED_DATA \u00b7 2K Courtside synthetic player & telemetry generator"
+    }
+  ],
   "killSwitches": {
     "warm_cache": {
-      "status": "MISSING",
-      "locations": []
+      "status": "PASS",
+      "locations": [
+        "scripts/warm_cache.sh:6",
+        "scripts/warm_cache.sh:31"
+      ]
     },
     "quota_check": {
       "status": "MISSING",
@@ -471,8 +410,11 @@
       "locations": []
     },
     "reset_state": {
-      "status": "MISSING",
-      "locations": []
+      "status": "PASS",
+      "locations": [
+        "scripts/reset_state.sh:6",
+        "scripts/reset_state.sh:8"
+      ]
     }
   }
 }

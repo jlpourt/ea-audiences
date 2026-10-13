@@ -1,118 +1,161 @@
 {
   "customer": {
-    "name": "2K Games / Take-Two Interactive",
-    "slug": "2k-games-take-two-interactive",
+    "name": "2K Games",
+    "slug": "2k-games",
     "domain": "2k.com",
     "publicUrl": "https://2k.com",
-    "secondaryUrls": [
-      "https://nba.2k.com",
-      "https://www.take2games.com"
+    "secondaryUrl": "https://nba.2k.com",
+    "productName": "2K Courtside — Audience Intelligence Engine",
+    "branch": "2k-miro",
+    "portfolioScope": [
+      "NBA 2K27",
+      "NBA 2K26",
+      "NBA 2K Mobile",
+      "WWE 2K25",
+      "PGA TOUR 2K25",
+      "Borderlands 4",
+      "Sid Meier's Civilization VII"
     ],
-    "pageTitleObserved": "2K Games – Official Website for 2K | Basketball Video Games | NBA 2K",
-    "extractedAt": "2026-10-12",
-    "notice": "Internal Google Cloud EBC demonstration use only. Extracted from public web properties (https://2k.com, https://nba.2k.com, https://www.take2games.com) and repository design system (DESIGN_SYSTEM.md, src/app/globals.css, tailwind.config.js)."
+    "pageTitleObserved": "2K Games – Official Website for 2K | NBA 2K27 Official Site",
+    "extractedAt": "2026-10-13",
+    "notice": "Internal Google Cloud EBC demonstration use only. Extracted from public web properties (https://2k.com, https://nba.2k.com) and 2K Courtside design system."
   },
   "logos": {
-    "svg_source": "wikimedia_commons",
-    "svg_url": "https://upload.wikimedia.org/wikipedia/commons/6/6a/2K_Sports_Logo.svg",
-    "svg_title": "File:2K Sports Logo.svg",
-    "svg_bytes": "7325",
-    "svg_path": "/Users/jlpourt/CCAI/ea-audiences/.showroom/logos/2k-games-take-two-interactive-company-logo.svg",
-    "png_source": "wikimedia_commons_512px_png",
-    "png_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6a/2K_Sports_Logo.svg/960px-2K_Sports_Logo.svg.png",
-    "png_path": "/Users/jlpourt/CCAI/ea-audiences/.showroom/logos/2k-games-take-two-interactive-disc-logo.png",
-    "repoBrandAssets": {
-      "directory": "/Users/jlpourt/CCAI/ea-audiences/public/brands/2k",
-      "primaryLockup": "/brands/2k/2k-logo.svg",
-      "primaryMarkWhite": "/brands/2k/2k-mark-white.svg",
-      "nba2kVector": "/brands/2k/nba2k-logo.svg",
-      "nba2kWordmarkWhitePng": "/brands/2k/nba2k-wordmark-white.png",
-      "rockstarLogo": "/brands/2k/rockstar-logo.svg",
-      "rockstarSocialClub": "/brands/2k/rockstar-social-club.svg",
-      "takeTwoLogo": "/brands/2k/take-two-logo.svg",
-      "takeTwoLogoWhite": "/brands/2k/take-two-logo-white.svg",
-      "zyngaLogo": "/brands/2k/zynga-logo.svg",
-      "hardwoodTexture": "/brands/2k/art/hardwood-texture.webp",
-      "heroArenaNight": "/brands/2k/art/hero-arena-night.webp"
+    "primary_2k_svg": "/brands/2k/2k-logo.svg",
+    "primary_2k_white_svg": "/brands/2k/2k-mark-white.svg",
+    "nba2k_svg": "/brands/2k/nba2k-logo.svg",
+    "nba2k_wordmark_png": "/brands/2k/nba2k-wordmark-white.png",
+    "svg_source": "wikipedia_en_infobox_and_2k_official_press_kit",
+    "svg_url": "https://upload.wikimedia.org/wikipedia/commons/2/22/2K_Games_Logo.svg",
+    "svg_path": "/Users/jlpourt/CCAI/ea-audiences/public/brands/2k/2k-logo.svg",
+    "showroom_svg_path": "/Users/jlpourt/CCAI/ea-audiences/.showroom/logos/2k-games-company-logo.svg",
+    "png_source": "wikipedia_en_infobox_512px_png",
+    "png_url": "https://nba.2k.com",
+    "png_path": "/Users/jlpourt/CCAI/ea-audiences/public/brands/2k/nba2k-wordmark-white.png",
+    "showroom_png_path": "/Users/jlpourt/CCAI/ea-audiences/.showroom/logos/2k-games-disc-logo.png",
+    "favicons": {
+      "svg": "/favicon.svg",
+      "ico": "/favicon.ico",
+      "png32": "/favicon-32x32.png",
+      "png16": "/favicon-16x16.png",
+      "appleTouchIcon": "/apple-touch-icon.png"
     }
   },
   "colors": {
-    "primary": "#EA2228",
+    "primary": "#E4002B",
     "primaryHover": "#AD171C",
-    "secondary": "#C8905A",
-    "accent": "#F5B400",
+    "secondary": "#F5B400",
+    "accent": "#00D2FF",
     "background": "#0A0A0C",
+    "canvas": "#06080E",
+    "landingCanvas": "#07090D",
     "surface": "#121216",
-    "surfaceRaised": "#1A1A20",
-    "card": "#121216",
+    "card": "#1B1C22",
     "textPrimary": "#F4F1EA",
-    "textMuted": "#979591",
-    "border": "#26262A",
-    "borderHairline": "rgba(255, 255, 255, 0.08)",
+    "textMuted": "rgba(244, 241, 234, 0.62)",
+    "border": "rgba(255, 255, 255, 0.08)",
+    "hardwood": "#C8905A",
+    "hardwoodDeep": "#7A4B24",
     "semantic": {
       "success": "#19C37D",
       "warning": "#F5B400",
       "danger": "#FF4D5E"
     },
-    "publishingLabels": {
-      "twokRed": "#EA2228",
-      "twokRedDeep": "#AD171C",
-      "rockstarGold": "#FCAF17",
-      "zyngaBlue": "#2F6FED",
-      "vcGold": "#F5B400",
-      "hardwood": "#C8905A",
-      "hardwoodDeep": "#7A4B24"
+    "franchiseAccents": {
+      "NBA2K27": "#E4002B",
+      "NBA2K26": "#FF6B35",
+      "NBA2KMOBILE": "#00D2FF",
+      "WWE2K25": "#F5B400",
+      "PGATOUR2K25": "#10B981",
+      "BORDERLANDS4": "#F28C28",
+      "CIVILIZATION7": "#C9A227"
     },
-    "publicWebTokensObserved": {
-      "2kComThemeColor": "#EB1C26",
-      "2kComAccentPrimary": "#E61F27",
-      "2kComAccentSecondary": "#A0000C",
-      "2kComBgPrimary": "#000000",
-      "2kComBgSecondary": "#1A1A1A",
-      "2kComBgElevated": "#1F1F1F",
-      "2kComElevatedBorder": "#333333",
-      "nba2kComThemeColor": "#EC1C23",
-      "take2ComThemeColor": "#1A1A1A"
-    },
-    "auditNotes": [
-      "Primary 2K red token (--twok-red: #EA2228) is extracted directly from public/brands/2k/2k-logo.svg and aligns with 2k.com (--av-accent-primary: #E61F27 / meta theme-color #EB1C26) and nba.2k.com (#EC1C23).",
-      "Minor token drift detected in 4 component files (SeasonJourneySankey.tsx, ActivationDAG.tsx, LiveTelemetryTicker.tsx, NBAMarketMap.tsx) which hardcode #E4002B instead of referencing var(--twok-red) / text-twok-red (#EA2228)."
-    ]
+    "archetypeAccents": {
+      "MYTEAM_PACK_WHALE": "#F5B400",
+      "PARK_REP_GRINDER": "#E4002B",
+      "REC_CREW_CAPTAIN": "#F28C28",
+      "MYCAREER_STORY_CASUAL": "#8FA3BF",
+      "MYNBA_FRANCHISE_SIM": "#10B981",
+      "BUILD_LAB_THEORYCRAFTER": "#00D2FF",
+      "THE_W_LOYALIST": "#D8B13A",
+      "CROSS_LABEL_NOMAD": "#FF6B35",
+      "MOBILE_DAILY_RITUALIST": "#3B82F6",
+      "RAGE_QUIT_TILT_RISK": "#FF4D5E"
+    }
   },
   "typography": {
-    "headingFont": "'Inter Tight', 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif",
-    "bodyFont": "'Inter', 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif",
-    "monoFont": "'JetBrains Mono', 'Geist Mono', ui-monospace, SFMono-Regular, monospace",
-    "googleFontsUrl": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap",
-    "publicWebFontsObserved": {
-      "2k.com": "Montserrat (700 display/titles/labels, 500 body)",
-      "take2games.com": "Gotham SSm (400 Book, 700 Bold)"
-    },
+    "headingFont": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", \"Inter Tight\", \"Inter\", system-ui, sans-serif",
+    "bodyFont": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\", \"Inter\", system-ui, sans-serif",
+    "monoFont": "\"SF Mono\", ui-monospace, \"JetBrains Mono\", Menlo, Monaco, Consolas, monospace",
+    "googleFontsUrl": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap",
     "headingWeight": "600",
-    "tracking": "-0.02em (display), -0.012em (title), 0 (body), +0.06em (uppercase captions)",
-    "lineHeight": "1.05 (display), 1.20 (title), 1.50 (body), 1.30 (caption)",
-    "numericDiscipline": "font-variant-numeric: tabular-nums mandatory on all live counts, VC figures, latencies, and countdowns (.tabular, .font-mono)"
+    "tracking": {
+      "display": "-0.02em",
+      "title": "-0.012em",
+      "body": "0em",
+      "caption": "0.06em"
+    },
+    "lineHeight": {
+      "display": "1.05",
+      "title": "1.2",
+      "body": "1.5",
+      "caption": "1.3"
+    },
+    "numericDiscipline": "font-variant-numeric: tabular-nums; font-feature-settings: \"tnum\", \"zero\""
   },
   "geometry": {
     "cornerRadius": {
-      "button": "8px",
-      "card": "12px",
-      "input": "8px",
+      "button": "12px",
+      "card": "16px",
+      "modal": "24px",
+      "input": "12px",
       "badge": "9999px"
     },
-    "spacingDensity": "broadcast-arena-dense (14px-16px panel padding, 16px-24px section gap, full-viewport workspace with floating glass drawers)",
-    "containerMaxWidth": "1280px (landing max-w-7xl) / 100vw (graph workspace)",
-    "shadowStyle": "0 24px 60px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.04) inset",
-    "borderWidth": "1px solid rgba(255, 255, 255, 0.08) with 1px top specular highlight gradient"
+    "spacingDensity": "broadcast-arena-hud (52px top utility header, 360px right inspector drawer, 16px card padding, 12px grid gap)",
+    "containerMaxWidth": "1440px",
+    "shadowStyle": "0 20px 50px rgba(0, 0, 0, 0.6), 0 8px 32px rgba(0, 0, 0, 0.35)",
+    "borderWidth": "1px"
+  },
+  "materials": {
+    "appleGlass": {
+      "className": ".apple-glass",
+      "background": "rgba(18, 22, 31, 0.72)",
+      "backdropFilter": "blur(24px) saturate(180%)",
+      "border": "1px solid rgba(255, 255, 255, 0.08)",
+      "borderTop": "1px solid rgba(255, 255, 255, 0.16)",
+      "boxShadow": "0 8px 32px 0 rgba(0, 0, 0, 0.35)"
+    },
+    "appleGlassHeavy": {
+      "className": ".apple-glass-heavy",
+      "background": "rgba(12, 15, 23, 0.88)",
+      "backdropFilter": "blur(32px) saturate(200%)",
+      "border": "1px solid rgba(255, 255, 255, 0.10)",
+      "borderTop": "1px solid rgba(255, 255, 255, 0.22)",
+      "boxShadow": "0 20px 50px rgba(0, 0, 0, 0.6)"
+    },
+    "appleGlassCard": {
+      "className": ".apple-glass-card",
+      "background": "rgba(255, 255, 255, 0.04)",
+      "backdropFilter": "blur(16px)",
+      "border": "1px solid rgba(255, 255, 255, 0.08)",
+      "borderTop": "1px solid rgba(255, 255, 255, 0.15)",
+      "transition": "all 180ms cubic-bezier(0.16, 1, 0.3, 1)"
+    },
+    "hardwoodSurface": {
+      "className": ".hardwood-surface",
+      "texture": "/brands/2k/art/hardwood-texture.webp",
+      "opacity": 0.07,
+      "blendMode": "screen"
+    }
   },
   "patterns": {
-    "buttonStyle": "Solid 2K Red (#EA2228) primary CTA with uppercase JetBrains Mono tracking-wider 600 weight, scale(0.97) on :active (120ms cubic-bezier(0.23, 1, 0.32, 1)), zero neon drop-shadow glow; HoldToConfirm 1.4s linear clip-path fill for live campaign dispatch",
-    "navPattern": "Top broadcast bar with BrandLockup (/brands/2k/2k-logo.svg + Courtside + NBA 2K27 badge) on left, segmented workspace view switcher center, live TakeTwoPlayerGraph status pill and action triggers right",
-    "photoStyle": "Dark broadcast NBA arena at night, maple hardwood court grain at 7% screen blend (/brands/2k/art/hardwood-texture.webp), authentic NBA 2K27 MyTEAM Galaxy Opal pack key art, Crew Re-Up courtside photography, and Vice City / hardwood cross-label key visuals",
-    "logoUsage": "Official vector 2K mark (/brands/2k/2k-logo.svg) in a subtle 2K Red tinted badge container, paired with Take-Two label chips (2K #EA2228, Rockstar #FCAF17, Zynga #2F6FED)",
-    "surfacePosture": "Dark-first arena broadcast mode (--court-black #0A0A0C canvas, --court-ink #121216 elevated panels, .glass backdrop-blur(20px) and .glass-heavy backdrop-blur(28px), never stacking two .glass layers directly)"
+    "buttonStyle": "High-contrast solid #E4002B (2K Crimson) or #FFFFFF primary CTAs with scale(0.97) press physics (120ms cubic-bezier(0.23, 1, 0.32, 1)) and HoldToConfirm 1.4s HITL gate",
+    "navPattern": "52px translucent Apple HUD header (.apple-glass) with official 2K + NBA 2K SVG lockup left, Cohorts / Journeys / Markets view switcher center-left, 2K Graph live latency pill and Focus Group / Studio / Activate triggers right",
+    "photoStyle": "Authentic NBA 2K27 MyTEAM Galaxy Opal pack key art, The City twilight courts, and hardwood maple grain texture; zero stock corporate photos",
+    "logoUsage": "Official /brands/2k/2k-logo.svg and /brands/2k/nba2k-logo.svg lockups on dark arena surfaces (#0A0A0C / #121216) with >=16px clearspace",
+    "surfacePosture": "Dark-first NBA arena broadcast night mode (#0A0A0C court-black, #121216 court-ink, #1B1C22 surface-raised) with specular top-edge glass highlights"
   },
-  "cssVariables": ":root[data-brand=\"2k\"], :root {\n  --brand-primary: #EA2228;\n  --brand-primary-hover: #AD171C;\n  --brand-secondary: #C8905A;\n  --brand-accent: #F5B400;\n  --brand-bg: #0A0A0C;\n  --brand-surface: #121216;\n  --brand-text: #F4F1EA;\n  --brand-text-muted: rgba(244, 241, 234, 0.62);\n  --brand-border: rgba(255, 255, 255, 0.08);\n  --brand-font-heading: var(--font-inter-tight), 'Inter Tight', 'Montserrat', sans-serif;\n  --brand-font-body: var(--font-inter), 'Inter', 'Montserrat', sans-serif;\n  --brand-radius-card: 12px;\n  --brand-radius-btn: 8px;\n  --court-black: #0A0A0C;\n  --court-ink: #121216;\n  --court-line: rgba(255, 255, 255, 0.08);\n  --chalk: #F4F1EA;\n  --chalk-dim: rgba(244, 241, 234, 0.62);\n  --twok-red: #EA2228;\n  --twok-red-deep: #AD171C;\n  --hardwood: #C8905A;\n  --hardwood-deep: #7A4B24;\n  --vc-gold: #F5B400;\n  --rockstar-gold: #FCAF17;\n  --zynga-blue: #2F6FED;\n  --win-green: #19C37D;\n  --loss-red: #FF4D5E;\n}",
+  "cssVariables": ":root[data-brand=\"2k\"], :root {\n  --court-black: #0A0A0C;\n  --court-ink: #121216;\n  --surface-raised: #1B1C22;\n  --court-raised: #1B1C22;\n  --court-line: rgba(255, 255, 255, 0.08);\n  --chalk: #F4F1EA;\n  --chalk-dim: rgba(244, 241, 234, 0.62);\n  --twok-red: #E4002B;\n  --twok-red-deep: #AD171C;\n  --hardwood: #C8905A;\n  --hardwood-deep: #7A4B24;\n  --vc-gold: #F5B400;\n  --win-green: #19C37D;\n  --loss-red: #FF4D5E;\n  --brand-primary: #E4002B;\n  --brand-secondary: #F5B400;\n  --brand-accent: #00D2FF;\n  --brand-bg: #0A0A0C;\n  --brand-surface: #121216;\n  --brand-text: #F4F1EA;\n  --brand-border: rgba(255, 255, 255, 0.08);\n  --brand-font-heading: -apple-system, BlinkMacSystemFont, \"SF Pro Display\", \"Inter Tight\", \"Inter\", system-ui, sans-serif;\n  --brand-font-body: -apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\", \"Inter\", system-ui, sans-serif;\n  --brand-radius-card: 16px;\n  --brand-radius-btn: 12px;\n}",
   "tailwindConfig": {
     "theme": {
       "extend": {
@@ -120,39 +163,49 @@
           "background": "var(--court-black)",
           "foreground": "var(--chalk)",
           "surface": "var(--court-ink)",
-          "surface-raised": "#1A1A20",
-          "surface-border": "rgba(255, 255, 255, 0.08)",
+          "surface-raised": "#1B1C22",
+          "court-raised": "#1B1C22",
           "court-black": "#0A0A0C",
           "court-ink": "#121216",
           "court-line": "rgba(255, 255, 255, 0.08)",
           "chalk": "#F4F1EA",
           "chalk-dim": "rgba(244, 241, 234, 0.62)",
-          "twok-red": "#EA2228",
+          "twok-red": "#E4002B",
           "twok-red-deep": "#AD171C",
           "hardwood": "#C8905A",
           "hardwood-deep": "#7A4B24",
           "vc-gold": "#F5B400",
-          "rockstar-gold": "#FCAF17",
-          "zynga-blue": "#2F6FED",
           "win-green": "#19C37D",
-          "loss-red": "#FF4D5E",
-          "brand": {
-            "primary": "#EA2228",
-            "secondary": "#C8905A",
-            "accent": "#F5B400",
-            "bg": "#0A0A0C",
-            "surface": "#121216",
-            "border": "rgba(255, 255, 255, 0.08)"
-          }
+          "loss-red": "#FF4D5E"
         },
         "fontFamily": {
-          "display": ["var(--font-display)", "Inter Tight", "Inter", "sans-serif"],
-          "sans": ["var(--font-sans)", "Inter", "sans-serif"],
-          "mono": ["var(--font-mono)", "JetBrains Mono", "monospace"]
-        },
-        "borderRadius": {
-          "brand-card": "12px",
-          "brand-btn": "8px"
+          "display": [
+            "-apple-system",
+            "BlinkMacSystemFont",
+            "\"SF Pro Display\"",
+            "\"Inter Tight\"",
+            "Inter",
+            "system-ui",
+            "sans-serif"
+          ],
+          "sans": [
+            "-apple-system",
+            "BlinkMacSystemFont",
+            "\"SF Pro Text\"",
+            "\"SF Pro Display\"",
+            "Inter",
+            "system-ui",
+            "sans-serif"
+          ],
+          "mono": [
+            "\"SF Mono\"",
+            "ui-monospace",
+            "\"JetBrains Mono\"",
+            "Menlo",
+            "Monaco",
+            "Consolas",
+            "monospace"
+          ]
         }
       }
     }

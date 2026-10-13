@@ -1,4 +1,5 @@
 import { generateText, parseModelJson } from "@/lib/gcp/genai-client";
+import { MODELS } from "@/lib/models";
 import { runRawGql, parseJsonColumn, toNumber } from "@/lib/gcp/spanner-client";
 import {
   buildPersonaPrompt,
@@ -57,35 +58,12 @@ export interface ExtendedFocusGroupResult extends FocusGroupResult {
   };
 }
 
-const CREATOR_HANDLE_MAP: Record<string, string> = {
-  "creator-agent00": "@Agent00",
-  "creator-troydan": "@Troydan",
-  "creator-dbg": "@DBG",
-  "creator-tydebo": "@Tydebo",
-  "creator-joeknows": "@JoeKnows",
-  "creator-flightreacts": "@FlightReacts",
-  "creator-cashnasty": "@CashNasty",
-  "creator-kot4q": "@KOT4Q",
-  "creator-chrissmoove": "@ChrisSmoove",
-  "creator-dukedennis": "@DukeDennis",
-  "creator-badgeplug": "@BadgePlug",
-  "creator-lakerfan": "@LakerFan",
-};
-
-const CREW_FALLBACK_NAMES = [
-  { id: "crew-001", name: "Bucket Getters", tier: "Rec" },
-  { id: "crew-003", name: "Dimers Only", tier: "Pro-Am" },
-  { id: "crew-008", name: "Splash Bros Rec", tier: "Rec" },
-  { id: "crew-010", name: "Lob City Legends", tier: "Pro-Am" },
-  { id: "crew-014", name: "Fadeaway Family", tier: "Comp" },
-];
-
 export async function fetchLiveSpannerPersonas(
   limit = 20,
   _franchise = "NBA2K"
 ): Promise<any[]> {
   const safeLimit = Math.max(1, Math.min(120, Math.floor(limit)));
-  const [rows, clanRows] = await Promise.all([
+  const [rows, clanRows, creatorRows] = await Promise.all([
     runRawGql(
       `SELECT p.player_id, p.gamer_tag, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.dma_market, p.followed_creators, p.primary_creator_influence, p.game_telemetry FROM GRAPH_TABLE(TakeTwoPlayerGraph MATCH (p:Player) RETURN p.player_id, p.gamer_tag, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.dma_market, p.followed_creators, p.primary_creator_influence, p.game_telemetry) AS p LIMIT @limit`,
       { limit: safeLimit }
@@ -93,35 +71,49 @@ export async function fetchLiveSpannerPersonas(
     runRawGql(
       `SELECT c.clan_id, c.name, c.tier FROM GRAPH_TABLE(TakeTwoPlayerGraph MATCH (c:Clan) RETURN c.clan_id, c.name, c.tier) AS c LIMIT 48`
     ),
+    runRawGql(
+      `SELECT cr.creator_id, cr.handle, cr.name FROM GRAPH_TABLE(TakeTwoPlayerGraph MATCH (cr:Creator) RETURN cr.creator_id, cr.handle, cr.name) AS cr LIMIT 20`
+    ),
   ]);
 
-  const clanById = new Map<string, { name: string; tier: string }>();
+  const clanById = new Map<string, { id: string; name: string; tier: string }>();
+  const liveClans: Array<{ id: string; name: string; tier: string }> = [];
   for (const c of clanRows) {
     if (c.clan_id) {
-      clanById.set(String(c.clan_id), {
-        name: String(c.name || "Bucket Getters"),
+      const entry = {
+        id: String(c.clan_id),
+        name: String(c.name || c.clan_id),
         tier: String(c.tier || "Rec"),
-      });
+      };
+      clanById.set(entry.id, entry);
+      liveClans.push(entry);
+    }
+  }
+
+  const creatorById = new Map<string, string>();
+  const liveCreatorIds: string[] = [];
+  for (const cr of creatorRows) {
+    if (cr.creator_id) {
+      const id = String(cr.creator_id);
+      const rawHandle = String(cr.handle || cr.name || id);
+      const handle = rawHandle.startsWith("@") ? rawHandle : `@${rawHandle}`;
+      creatorById.set(id, handle);
+      liveCreatorIds.push(id);
     }
   }
 
   return rows.map((r, idx) => {
     const telemetry = parseJsonColumn(r.game_telemetry, {});
-    const crewId = String(
-      telemetry.crew_id || CREW_FALLBACK_NAMES[idx % CREW_FALLBACK_NAMES.length].id
-    );
-    const clanInfo =
-      clanById.get(crewId) || CREW_FALLBACK_NAMES[idx % CREW_FALLBACK_NAMES.length];
+    const defaultClan = liveClans[idx % Math.max(1, liveClans.length)];
+    const crewId = String(telemetry.crew_id || defaultClan?.id || "");
+    const clanInfo = clanById.get(crewId) || defaultClan || { id: crewId, name: crewId, tier: "Rec" };
+    const defaultCreatorId = liveCreatorIds[idx % Math.max(1, liveCreatorIds.length)] || "";
     const primaryCreatorId = String(
       r.primary_creator_influence ||
         (Array.isArray(r.followed_creators) && r.followed_creators[0]) ||
-        (idx % 3 === 0
-          ? "creator-agent00"
-          : idx % 3 === 1
-            ? "creator-troydan"
-            : "creator-dbg")
+        defaultCreatorId
     );
-    const creatorHandle = CREATOR_HANDLE_MAP[primaryCreatorId] || "@Agent00";
+    const creatorHandle = creatorById.get(primaryCreatorId) || primaryCreatorId;
     const archetype = String(r.primary_archetype || "MYCAREER_STORY_CASUAL");
     const crewRole =
       archetype === "REC_CREW_CAPTAIN" || archetype === "PARK_REP_GRINDER"
@@ -205,7 +197,7 @@ export async function evaluatePersonas(
   franchise: string,
   counterfactualEvent?: string | null
 ): Promise<{ reactions: FocusGroupReaction[]; modelUsed: string }> {
-  let modelUsed = "gemini-3.5-flash";
+  let modelUsed = MODELS.FAST.id;
 
   const promises = players.map(async (player, index) => {
     const { system, prompt } = buildPersonaPrompt(
@@ -222,6 +214,25 @@ export async function evaluatePersonas(
       json: true,
       thinkingBudget: 0,
       maxOutputTokens: 512,
+      schema: {
+        type: "OBJECT",
+        properties: {
+          willingness_to_pay_usd: { type: "NUMBER" },
+          final_fsm_state: { type: "STRING" },
+          verbatim_quote: { type: "STRING" },
+          sentiment_score: { type: "NUMBER" },
+          authenticity_rating: { type: "NUMBER" },
+          churn_risk_score: { type: "NUMBER" },
+        },
+        required: [
+          "willingness_to_pay_usd",
+          "final_fsm_state",
+          "verbatim_quote",
+          "sentiment_score",
+          "authenticity_rating",
+          "churn_risk_score",
+        ],
+      },
     });
     modelUsed = res.modelUsed;
     const parsed = parseModelJson<any>(res.text);
@@ -498,7 +509,7 @@ export async function evaluateCrowdSwarm80(
     .map((c) => `${c.handle} (${c.stance}): ${c.headline}`)
     .join(" | ");
 
-  let liteModelUsed = "gemini-3.5-flash-lite";
+  let liteModelUsed = MODELS.LITE.id;
 
   const batchPromises = batches.map(async (batch, batchIdx) => {
     const compactInput = batch.map((p, i) => ({
@@ -704,9 +715,57 @@ Provide an executive synthesis in strict JSON format (zero em-dashes in strings)
     system: "You are an expert game monetization and social contagion economist at 2K Games.",
     json: true,
     thinkingBudget: 0,
+    schema: {
+      type: "OBJECT",
+      properties: {
+        consensus_summary: { type: "STRING" },
+        contagion_summary: { type: "STRING" },
+        crew_contagion_multiplier: { type: "NUMBER" },
+        predicted_conversion_lift: { type: "NUMBER" },
+        backlash_index: { type: "NUMBER" },
+        wtp_curve: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              price: { type: "NUMBER" },
+              conversion_pct: { type: "NUMBER" },
+            },
+            required: ["price", "conversion_pct"],
+          },
+        },
+        migration_curve: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              stage: { type: "STRING" },
+              isolated_pct: { type: "NUMBER" },
+              contagion_pct: { type: "NUMBER" },
+            },
+            required: ["stage", "isolated_pct", "contagion_pct"],
+          },
+        },
+        recommended_price: { type: "NUMBER" },
+        projected_revenue_impact_usd: { type: "NUMBER" },
+        churn_mitigation_lift: { type: "NUMBER" },
+      },
+      required: [
+        "consensus_summary",
+        "contagion_summary",
+        "crew_contagion_multiplier",
+        "predicted_conversion_lift",
+        "backlash_index",
+        "wtp_curve",
+        "migration_curve",
+        "recommended_price",
+        "projected_revenue_impact_usd",
+        "churn_mitigation_lift",
+      ],
+    },
   });
   const parsed = parseModelJson<any>(res.text);
-  if (!parsed || !Array.isArray(parsed.wtp_curve)) {
+  if (!parsed || !Array.isArray(parsed.wtp_curve) || !Array.isArray(parsed.migration_curve)) {
     throw new Error("Consensus synthesis returned invalid or incomplete JSON payload");
   }
 
@@ -720,19 +779,11 @@ Provide an executive synthesis in strict JSON format (zero em-dashes in strings)
       price: Number(pt.price),
       conversion_pct: Number(pt.conversion_pct),
     })),
-    migrationCurve: Array.isArray(parsed.migration_curve)
-      ? parsed.migration_curve.map((m: any) => ({
-          stage: String(m.stage),
-          isolated_pct: Number(m.isolated_pct),
-          contagion_pct: Number(m.contagion_pct),
-        }))
-      : [
-          { stage: "S1 Wk4", isolated_pct: 24, contagion_pct: 36 },
-          { stage: "S1 Cliff", isolated_pct: 31, contagion_pct: 54 },
-          { stage: "S2 Tip-Off", isolated_pct: 38, contagion_pct: 68 },
-          { stage: "S2 Holiday", isolated_pct: 44, contagion_pct: 79 },
-          { stage: "S3 All-Star", isolated_pct: 49, contagion_pct: 86 },
-        ],
+    migrationCurve: parsed.migration_curve.map((m: any) => ({
+      stage: String(m.stage),
+      isolated_pct: Number(m.isolated_pct),
+      contagion_pct: Number(m.contagion_pct),
+    })),
     recommendedPrice: Number(parsed.recommended_price),
     projectedRevenueImpactUsd: Number(parsed.projected_revenue_impact_usd),
     churnMitigationLift: Number(parsed.churn_mitigation_lift),

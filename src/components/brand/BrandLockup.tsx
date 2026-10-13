@@ -48,7 +48,7 @@ export function BrandLockup({
       <div className="flex flex-col leading-none">
         {showEyebrow && (
           <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-chalk-dim mb-0.5">
-            {subtitle || "2K Ecosystem Identity Graph"}
+            {subtitle || "2K Portfolio Identity Graph"}
           </span>
         )}
         <div className="flex items-baseline gap-2">

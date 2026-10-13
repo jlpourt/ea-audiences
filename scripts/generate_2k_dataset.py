@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+# SYNTHETIC_EBC_SEED_DATA · 2K Courtside synthetic player & telemetry generator
 """
-Generate the 2K Courtside dataset — a pure-2K identity graph centered on the
-NBA 2K ecosystem (NBA 2K27, NBA 2K26 holdout/upgrade migration, NBA 2K Mobile)
+Generate the 2K Courtside dataset · a pure-2K identity graph centered on the
+NBA 2K catalog (NBA 2K27, NBA 2K26 holdout/upgrade migration, NBA 2K Mobile)
 with cross-pollination across 2K Sports (WWE 2K25, PGA TOUR 2K25, TopSpin 2K25)
 and 2K Core (Borderlands 4, Sid Meier's Civilization VII, Mafia: The Old Country).
 
@@ -194,27 +195,27 @@ OFFERS = [
     ("off-vc-5k", "5,000 VC", "NBA2K", "game-nba2k27", "VC_PACK", "Virtual Currency", 1.99, 8.5, "MYCAREER_STORY_CASUAL", "CURRENT", "2026-09-04", "5,000 Virtual Currency for builds, animations and MyTEAM packs."),
     ("off-vc-15k", "15,000 VC", "NBA2K", "game-nba2k27", "VC_PACK", "Virtual Currency", 4.99, 12.1, "MYCAREER_STORY_CASUAL", "CURRENT", "2026-09-04", "15,000 Virtual Currency."),
     ("off-vc-35k", "35,000 VC", "NBA2K", "game-nba2k27", "VC_PACK", "Virtual Currency", 9.99, 15.4, "PARK_REP_GRINDER", "CURRENT", "2026-09-04", "35,000 Virtual Currency."),
-    ("off-vc-75k", "75,000 VC", "NBA2K", "game-nba2k27", "VC_PACK", "Virtual Currency", 19.99, 18.9, "PARK_REP_GRINDER", "CURRENT", "2026-09-04", "75,000 Virtual Currency — enough to take a new build to 85 OVR."),
+    ("off-vc-75k", "75,000 VC", "NBA2K", "game-nba2k27", "VC_PACK", "Virtual Currency", 19.99, 18.9, "PARK_REP_GRINDER", "CURRENT", "2026-09-04", "75,000 Virtual Currency - enough to take a new build to 85 OVR."),
     ("off-vc-200k", "200,000 VC", "NBA2K", "game-nba2k27", "VC_PACK", "Virtual Currency", 49.99, 22.3, "MYTEAM_PACK_WHALE", "CURRENT", "2026-09-04", "200,000 Virtual Currency."),
     ("off-vc-450k", "450,000 VC", "NBA2K", "game-nba2k27", "VC_PACK", "Virtual Currency", 99.99, 24.8, "MYTEAM_PACK_WHALE", "CURRENT", "2026-09-04", "450,000 Virtual Currency."),
-    ("off-season-pass-pro", "Season 1 Pass — Pro", "NBA2K", "game-nba2k27", "SEASON_PASS", "Season Pass", 9.99, 26.2, "PARK_REP_GRINDER", "CURRENT", "2026-09-04", "40 levels of Season 1 rewards plus instant level skips."),
-    ("off-season-pass-hof", "Season 1 Pass — Hall of Fame", "NBA2K", "game-nba2k27", "SEASON_PASS", "Season Pass", 19.99, 31.7, "MYTEAM_PACK_WHALE", "CURRENT", "2026-09-04", "Hall of Fame tier: 15% XP boost, 10 instant levels and exclusive MyTEAM & MyCAREER rewards."),
-    ("off-myteam-galaxy-opal-deluxe-1499", "Galaxy Opal Deluxe Pack — $14.99", "NBA2K", "game-nba2k27-myteam", "MYTEAM_PACK", "MyTEAM Pack", 14.99, 34.0, "MYTEAM_PACK_WHALE", "UPCOMING", "2026-10-17", "Guaranteed Galaxy Opal plus 4 Diamond-or-better cards. Season 2 launch pricing variant A."),
-    ("off-myteam-galaxy-opal-deluxe-1999", "Galaxy Opal Deluxe Pack — $19.99", "NBA2K", "game-nba2k27-myteam", "MYTEAM_PACK", "MyTEAM Pack", 19.99, 27.5, "MYTEAM_PACK_WHALE", "UPCOMING", "2026-10-17", "Guaranteed Galaxy Opal plus 4 Diamond-or-better cards and a Dark Matter contract. Season 2 launch pricing variant B."),
+    ("off-season-pass-pro", "Season 1 Pass · Pro", "NBA2K", "game-nba2k27", "SEASON_PASS", "Season Pass", 9.99, 26.2, "PARK_REP_GRINDER", "CURRENT", "2026-09-04", "40 levels of Season 1 rewards plus instant level skips."),
+    ("off-season-pass-hof", "Season 1 Pass · Hall of Fame", "NBA2K", "game-nba2k27", "SEASON_PASS", "Season Pass", 19.99, 31.7, "MYTEAM_PACK_WHALE", "CURRENT", "2026-09-04", "Hall of Fame tier: 15% XP boost, 10 instant levels and exclusive MyTEAM & MyCAREER rewards."),
+    ("off-myteam-galaxy-opal-deluxe-1499", "Galaxy Opal Deluxe Pack · $14.99", "NBA2K", "game-nba2k27-myteam", "MYTEAM_PACK", "MyTEAM Pack", 14.99, 34.0, "MYTEAM_PACK_WHALE", "UPCOMING", "2026-10-17", "Guaranteed Galaxy Opal plus 4 Diamond-or-better cards. Season 2 launch pricing variant A."),
+    ("off-myteam-galaxy-opal-deluxe-1999", "Galaxy Opal Deluxe Pack · $19.99", "NBA2K", "game-nba2k27-myteam", "MYTEAM_PACK", "MyTEAM Pack", 19.99, 27.5, "MYTEAM_PACK_WHALE", "UPCOMING", "2026-10-17", "Guaranteed Galaxy Opal plus 4 Diamond-or-better cards and a Dark Matter contract. Season 2 launch pricing variant B."),
     ("off-crew-reup-bundle", "Crew Re-Up Bundle", "NBA2K", "game-nba2k27-mycareer", "RETENTION_BUNDLE", "Retention Offer", 4.99, 41.2, "MYCAREER_STORY_CASUAL", "UPCOMING", "2026-10-10", "35,000 VC plus a 2x Crew XP token and teammate squad invite for Season 2 tip-off."),
     ("off-nba2k27-deluxe-to-ultra", "NBA 2K27 Deluxe → Ultra Edition Upgrade", "NBA2K", "game-nba2k27", "EDITION_UPGRADE", "Premium Game", 49.99, 19.6, "MYTEAM_PACK_WHALE", "CURRENT", "2026-09-04", "Upgrade to the Ultra Edition: 100,000 VC, Season Pass Hall of Fame tier for Seasons 1–3 and MyTEAM boosts."),
     ("off-nba2k27-loyalty-upgrade", "NBA 2K26 → 2K27 Hall of Fame Loyalty Upgrade + 100K VC", "NBA2K", "game-nba2k27", "LOYALTY_UPGRADE", "2K26 → 2K27 Bridge", 69.99, 44.5, "CROSS_LABEL_NOMAD", "CURRENT", "2026-09-04", "Exclusive loyalty bridge for NBA 2K26 veterans: full NBA 2K27 game, 100,000 VC build jumpstart, and Crew carryover badge."),
-    ("off-nba2k26-vc-carryover", "NBA 2K26 Veteran Welcome Pack — 75K VC + Cap Breaker", "NBA2K26", "game-nba2k26", "LOYALTY_UPGRADE", "2K26 → 2K27 Bridge", 19.99, 36.8, "CROSS_LABEL_NOMAD", "CURRENT", "2026-09-04", "Instant 85 OVR Rebirth boost + 75,000 VC when migrating your NBA 2K26 MyPLAYER account into NBA 2K27."),
+    ("off-nba2k26-vc-carryover", "NBA 2K26 Veteran Welcome Pack · 75K VC + Cap Breaker", "NBA2K26", "game-nba2k26", "LOYALTY_UPGRADE", "2K26 → 2K27 Bridge", 19.99, 36.8, "CROSS_LABEL_NOMAD", "CURRENT", "2026-09-04", "Instant 85 OVR Rebirth boost + 75,000 VC when migrating your NBA 2K26 MyPLAYER account into NBA 2K27."),
     ("off-2k-allstar-pass", "2K Sports All-Star Cross-Franchise Bundle (NBA 2K27 + WWE 2K25 + PGA 2K25)", "NBA2K", "game-nba2k27", "CROSS_FRANCHISE", "Cross-Franchise Bundle", 29.99, 28.4, "CROSS_LABEL_NOMAD", "CURRENT", "2026-09-15", "Unified Season Pass rewards across NBA 2K27 The City, WWE 2K25 MyFACTION, and PGA TOUR 2K25 Clubhouse Pass."),
-    ("off-nba2k-mobile-vc", "NBA 2K Mobile — 1,500 Coins & MyTEAM Sync Pack", "NBA2KMOBILE", "game-nba2k-mobile", "COIN_PACK", "Mobile Currency", 4.99, 14.3, "MOBILE_DAILY_RITUALIST", "CURRENT", "2026-01-15", "1,500 coins for NBA 2K Mobile card packs with 2K Account XP sync."),
-    ("off-nba2k-mobile-opal-pass", "NBA 2K Mobile — Courtside Pass Premium", "NBA2KMOBILE", "game-nba2k-mobile", "SEASON_PASS", "Mobile Season Pass", 9.99, 18.6, "MOBILE_DAILY_RITUALIST", "CURRENT", "2026-09-01", "Unlock exclusive Courtside Pass Galaxy Opal mobile rewards and console VC bonus."),
+    ("off-nba2k-mobile-vc", "NBA 2K Mobile · 1,500 Coins & MyTEAM Sync Pack", "NBA2KMOBILE", "game-nba2k-mobile", "COIN_PACK", "Mobile Currency", 4.99, 14.3, "MOBILE_DAILY_RITUALIST", "CURRENT", "2026-01-15", "1,500 coins for NBA 2K Mobile card packs with 2K Account XP sync."),
+    ("off-nba2k-mobile-opal-pass", "NBA 2K Mobile · Courtside Pass Premium", "NBA2KMOBILE", "game-nba2k-mobile", "SEASON_PASS", "Mobile Season Pass", 9.99, 18.6, "MOBILE_DAILY_RITUALIST", "CURRENT", "2026-09-01", "Earn exclusive Courtside Pass Galaxy Opal mobile rewards and console VC bonus."),
     ("off-wwe2k25-season-pass", "WWE 2K25 Ringside Season Pass", "WWE2K", "game-wwe2k25", "SEASON_PASS", "Season Pass", 39.99, 21.0, "MYCAREER_STORY_CASUAL", "CURRENT", "2025-03-14", "Five post-launch Superstar packs plus MyFACTION bonuses."),
     ("off-wwe2k25-myfaction-pack", "WWE 2K25 MyFACTION Gold Pack Bundle", "WWE2K", "game-wwe2k25", "CARD_PACK", "MyFACTION Pack", 9.99, 17.3, "MYTEAM_PACK_WHALE", "CURRENT", "2025-03-14", "Ten MyFACTION packs with a guaranteed Sapphire-or-better Superstar."),
     ("off-pga2k25-clubhouse-pass", "PGA TOUR 2K25 Clubhouse Pass", "PGA2K", "game-pga2k25", "SEASON_PASS", "Season Pass", 9.99, 14.7, "MYNBA_FRANCHISE_SIM", "CURRENT", "2025-02-28", "Premium Clubhouse Pass tier for the current season."),
     ("off-topspin2k25-centre-court-pass", "TopSpin 2K25 Centre Court Pass", "TOPSPIN", "game-topspin2k25", "SEASON_PASS", "Season Pass", 9.99, 13.1, "BUILD_LAB_THEORYCRAFTER", "CURRENT", "2024-04-26", "Premium Centre Court Pass tier for the current season."),
-    ("off-civ7-crossroads", "Civilization VII — Crossroads of the World Collection", "CIV7", "game-civ7", "DLC", "Expansion", 29.99, 18.2, "MYNBA_FRANCHISE_SIM", "CURRENT", "2025-03-04", "New civilizations, leaders and wonders for Civilization VII."),
-    ("off-bl4-bounty-pack-1", "Borderlands 4 — Vault Hunter Bounty Pack", "BL4", "game-bl4", "DLC", "Expansion", 14.99, 19.0, "BUILD_LAB_THEORYCRAFTER", "CURRENT", "2025-11-20", "New region, missions, bosses and legendary gear."),
-    ("off-mafia-toc-deluxe-upgrade", "Mafia: The Old Country — Deluxe Upgrade", "MAFIA", "game-mafia-toc", "EDITION_UPGRADE", "Premium Game", 9.99, 7.9, "MYCAREER_STORY_CASUAL", "CURRENT", "2025-08-08", "Deluxe Edition content: Padrino and Gatto Nero packs plus the digital soundtrack."),
+    ("off-civ7-crossroads", "Civilization VII · Crossroads of the World Collection", "CIV7", "game-civ7", "DLC", "Expansion", 29.99, 18.2, "MYNBA_FRANCHISE_SIM", "CURRENT", "2025-03-04", "New civilizations, leaders and wonders for Civilization VII."),
+    ("off-bl4-bounty-pack-1", "Borderlands 4 · Vault Hunter Bounty Pack", "BL4", "game-bl4", "DLC", "Expansion", 14.99, 19.0, "BUILD_LAB_THEORYCRAFTER", "CURRENT", "2025-11-20", "New region, missions, bosses and legendary gear."),
+    ("off-mafia-toc-deluxe-upgrade", "Mafia: The Old Country · Deluxe Upgrade", "MAFIA", "game-mafia-toc", "EDITION_UPGRADE", "Premium Game", 9.99, 7.9, "MYCAREER_STORY_CASUAL", "CURRENT", "2025-08-08", "Deluxe Edition content: Padrino and Gatto Nero packs plus the digital soundtrack."),
 ]
 OFFER_KEYS = ["offer_id", "offer_title", "target_franchise", "game_id", "offer_type", "category", "price_usd",
               "expected_conversion_boost", "affinity_archetype", "lifecycle_status", "available_from", "description"]
@@ -420,7 +421,7 @@ def build_players(crews_by_tier, crew_region):
             last_login = weighted([(random.randint(0, 6), 74), (random.randint(7, 13), 12), (random.randint(14, 28), 10), (random.randint(29, 60), 4)])
             vc_spend_90d = round(min(lifetime, lifetime * random.uniform(0.25, 0.78)), 2)
 
-            # Play 1 — Season 2 cliff cohort: stalled NBA 2K27 builds below 85 OVR that spent >= $50 and stopped logging in.
+            # Play 1 · Season 2 cliff cohort: stalled NBA 2K27 builds below 85 OVR that spent >= $50 and stopped logging in.
             if primary == "NBA2K" and archetype not in ("MYNBA_FRANCHISE_SIM", "MOBILE_DAILY_RITUALIST") and random.random() < 0.195:
                 cliff = True
                 ovr = random.randint(72, 84)
@@ -486,8 +487,8 @@ def build_players(crews_by_tier, crew_region):
             nba2k26_spend = round(pareto_spend(65 if primary == "NBA2K26" else 48), 2) if random.random() < 0.72 else 0.0
             migrated_to_2k27 = random.random() < (0.48 if primary == "NBA2K26" else 0.62)
 
-        # Play 2 — NBA 2K26 -> 2K27 Holdout & Cross-2K Upgrade Bridge cohort (~300-360 players):
-        # High-value 2K26 veterans (with 2K26 spend > 0 and MyTEAM/VC spend > 0) who have NOT yet unlocked the 2K27 Hall of Fame loyalty upgrade
+        # Play 2 · NBA 2K26 -> 2K27 Holdout & Cross-2K Upgrade Bridge cohort (~300-360 players):
+        # High-value 2K26 veterans (with 2K26 spend > 0 and MyTEAM/VC spend > 0) who have NOT yet earned the 2K27 Hall of Fame loyalty upgrade
         if nba2k26_veteran and nba2k26_spend > 0 and not migrated_to_2k27 and myteam_spend > 0 and packs_30d > 0:
             p2 = True
             played.add("NBA2K26")
@@ -576,7 +577,7 @@ def build_players(crews_by_tier, crew_region):
             "nba2k26_ovr": nba2k26_ovr,
             "migrated_to_2k27": migrated_to_2k27,
             "cross_2k_titles": cross_2k_titles,
-            # Legacy compatibility mirrors so any existing JSON predicate works seamlessly
+            # Legacy compatibility mirrors so any existing JSON predicate works cleanly
             "rockstar_linked": nba2k26_veteran,
             "gta_online_spend_usd": nba2k26_spend,
             "gta6_preorder": migrated_to_2k27,

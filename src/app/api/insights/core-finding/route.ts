@@ -93,7 +93,7 @@ async function buildFindings(franchise: GameFranchise) {
 
   const gen = await generateText({
     role: "FAST",
-    prompt: `Write a sharp, 2-sentence executive marketing insight for 2K Courtside using these exact live Cloud Spanner Graph counts across our 2K portfolio (scope: ${franchise}):
+    prompt: `Write a sharp, 2-sentence executive marketing insight for 2K Courtside using these exact live telemetry graph counts across our 2K portfolio (scope: ${franchise}):
 - ${p2N} NBA 2K26 veteran MyTEAM spenders linked via 2K Account who have not yet upgraded to NBA 2K27 (eligible for the $69.99 NBA 2K26 → 2K27 Hall of Fame Loyalty Upgrade + 100K VC).
 - ${p1N} stalled NBA 2K27 MyCAREER builds (<85 OVR, $50+ VC spend, 7+ days inactive) who have active Rec/Pro-Am Crew teammates online in the last 3 days ahead of the Oct 16 Season 1 cliff.
 - ${p3N} Hall of Fame Season Pass MyTEAM whales holding 10+ Galaxy Opals (avg LTV $${Math.round(p3Spend)}), plus ${p4N} cross-franchise 2K players (WWE 2K25, PGA TOUR 2K25, Borderlands 4, Civilization VII) and ${p5N} Creator Squad followers (Agent 00, Troydan, CashNasty, KOT4Q, DBG, Tydebo).

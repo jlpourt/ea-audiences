@@ -238,7 +238,7 @@ export function CreativeStudioPanel({
               >
                 {isGeneratingArt ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 courtside-Transfer-pulse" />
                     <span>Rendering...</span>
                   </>
                 ) : (
@@ -320,7 +320,7 @@ export function CreativeStudioPanel({
               >
                 {isGeneratingVoice ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 courtside-Transfer-pulse" />
                     <span>Synthesizing...</span>
                   </>
                 ) : (
@@ -377,7 +377,7 @@ export function CreativeStudioPanel({
               >
                 <option value="arena-hype">Stadium Hype Bed (128 BPM)</option>
                 <option value="trap-bass">808 City Trap Beat</option>
-                <option value="vice-city-synth">Vice City Neon Synthwave</option>
+                <option value="vice-city-synth">2K26 → 2K27 Loyalty Synth</option>
                 <option value="cinematic-orchestral">Playoff Fanfare Orchestral</option>
               </select>
 
@@ -389,7 +389,7 @@ export function CreativeStudioPanel({
               >
                 {isGeneratingMusic ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 courtside-Transfer-pulse" />
                     <span>Composing...</span>
                   </>
                 ) : (

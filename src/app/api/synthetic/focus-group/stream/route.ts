@@ -12,6 +12,7 @@ import {
   ExtendedFocusGroupResult,
 } from "@/lib/focus-group-eval";
 import { SpannerUnavailableError } from "@/lib/gcp/spanner-client";
+import { MODELS } from "@/lib/models";
 
 export const dynamic = "force-dynamic";
 
@@ -109,8 +110,8 @@ export async function POST(request: NextRequest) {
       };
 
       const r1ReactionsByIndex: FocusGroupReaction[] = new Array(corePlayers.length);
-      let fastModelUsed = "gemini-3.5-flash";
-      let liteModelUsed = "gemini-3.5-flash-lite";
+      let fastModelUsed = MODELS.FAST.id;
+      let liteModelUsed = MODELS.LITE.id;
 
       try {
         // Phase 1: Stream Round 1 individual gut reactions from the 20 Core Personas

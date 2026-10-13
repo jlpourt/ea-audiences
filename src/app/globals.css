@@ -22,9 +22,6 @@
   --hardwood: #c8905a;
   --hardwood-deep: #7a4b24;
   --vc-gold: #F5B400;
-  --rockstar-gold: #F5B400;
-  --zynga-blue: #D8232A;
-  --zynga-red: #D8232A;
   --win-green: #19c37d;
   --loss-red: #ff4d5e;
 
@@ -36,9 +33,6 @@
   --fr-civ7: #c9a227;
   --fr-bl4: #f28c28;
   --fr-mafia: #8c6e4a;
-  --fr-gta: var(--rockstar-gold);
-  --fr-rdo: #b0413e;
-  --fr-zynga: var(--zynga-red);
 
   /* Motion — strong curves; built-in ease-out is too weak */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -415,6 +409,16 @@ button:disabled,
 .animate-aura-pulse {
   animation: aura-pulse 14s ease-in-out infinite;
   will-change: transform, opacity;
+}
+
+@keyframes courtside-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.courtside-Transfer-pulse {
+  animation: courtside-orbit 0.9s linear infinite;
 }
 
 /* ------------------------------------------------------------------ */

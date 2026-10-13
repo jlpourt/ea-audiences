@@ -377,23 +377,29 @@ export default function ForceGraphCanvas({
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
 
+        const rawLabel = String(node.name || "")
+          .replace(/\s*—\s*/g, " · ")
+          .replace(/—/g, "·");
+        const cleanLabel =
+          rawLabel.length > 32 ? `${rawLabel.slice(0, 30)}...` : rawLabel;
+
         const text = isAnchor
           ? node.id === "game-nba2k27"
-            ? `🔥 ${node.name} (Flagship)`
-            : `🔥 ${node.name}`
+            ? `🔥 ${cleanLabel} (Flagship)`
+            : `🔥 ${cleanLabel}`
           : isClan
-          ? `🛡️ ${node.name}`
+          ? `🛡️ ${cleanLabel}`
           : isIdentity
-          ? `🆔 ${node.name}`
+          ? `🆔 ${cleanLabel}`
           : isSquadmate
-          ? `🤝 ${node.name}`
+          ? `🤝 ${cleanLabel}`
           : isCreator
-          ? `⭐ ${node.name}`
+          ? `⭐ ${cleanLabel}`
           : isOffer
-          ? `⚡ ${node.name}`
+          ? `⚡ ${cleanLabel}`
           : isSelected
-          ? `${node.name} ($${Math.round(node.spend || 0)})`
-          : node.name;
+          ? `${cleanLabel} ($${Math.round(node.spend || 0)})`
+          : cleanLabel;
 
         // Stagger labels: if node is in upper half, render above to avoid overlapping player clusters
         const isUpper = node.y < -40;
@@ -593,7 +599,13 @@ export default function ForceGraphCanvas({
       )}
 
       {/* Floating Constellation Legend (.apple-glass) */}
-      <div className="apple-glass absolute bottom-4 left-4 z-10 hidden xl:flex flex-col items-start gap-1.5 px-3 py-2.5 rounded-2xl text-[11px] font-mono text-gray-300 pointer-events-none">
+      <div
+        className={`apple-glass absolute top-3 ${
+          selectedNode || activeCohortName
+            ? "right-[384px] hidden 2xl:flex"
+            : "right-4 hidden xl:flex"
+        } z-10 items-center gap-3 px-3 py-1.5 rounded-full text-[11px] font-mono text-gray-300 pointer-events-none`}
+      >
         <span className="inline-flex items-center gap-1.5 font-semibold text-white">
           <span>🔥</span>
           <span>2K Hub</span>
@@ -626,7 +638,7 @@ export default function ForceGraphCanvas({
           width={resolvedWidth}
           height={resolvedHeight}
           graphData={data}
-          nodeLabel="name"
+          nodeLabel={(n: any) => String(n.name || "").replace(/—/g, "·")}
           nodeColor={(n: any) => n.color || "#00F0FF"}
           nodeVal={(n: any) => n.val || 7}
           nodeRelSize={4}

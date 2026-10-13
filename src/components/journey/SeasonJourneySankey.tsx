@@ -9,6 +9,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { GraphData } from "@/lib/types";
+import { archetypeLabel } from "@/lib/archetypes";
 import { TabularNumber } from "@/components/brand/TabularNumber";
 
 export interface SeasonJourneySankeyProps {
@@ -70,7 +71,7 @@ const STAGE_HEADERS = [
 const CLEAN_NODE_TITLES: Record<string, string> = {
   acq_launch: "NBA 2K27 Launch",
   acq_returning: "2K26 Returning Veterans",
-  acq_cross2k: "Cross-2K Ecosystem",
+  acq_cross2k: "Cross-2K Titles",
   mode_career: "MyCAREER / The City",
   mode_myteam: "MyTEAM",
   mode_mynba_w: "MyNBA & The W",
@@ -305,7 +306,7 @@ export function SeasonJourneySankey({
             title="Refresh lifecycle telemetry"
             aria-label="Refresh lifecycle telemetry"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#E4002B]" : ""}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "courtside-Transfer-pulse text-[#E4002B]" : ""}`} />
           </button>
         </div>
       </div>
@@ -315,7 +316,7 @@ export function SeasonJourneySankey({
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-20">
             <div className="flex items-center gap-3 text-xs text-white/80">
-              <RefreshCw className="w-4 h-4 animate-spin text-[#E4002B]" />
+              <RefreshCw className="w-4 h-4 courtside-Transfer-pulse text-[#E4002B]" />
               <span>Tracing Season 1 → Season 2 MyPLAYER &amp; 2K26 Upgrade trajectories...</span>
             </div>
           </div>
@@ -462,7 +463,7 @@ export function SeasonJourneySankey({
               cleanTitle.length > maxChars
                 ? `${cleanTitle.slice(0, maxChars - 1)}…`
                 : cleanTitle;
-            const showSubtitle = layout.h >= 68;
+            const showSubtitle = layout.h >= 44;
 
             return (
               <g
@@ -590,7 +591,7 @@ export function SeasonJourneySankey({
               </div>
               {isPathLoading ? (
                 <div className="py-1.5 flex items-center gap-2 text-xs text-white/60">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#E4002B]" />
+                  <RefreshCw className="w-3.5 h-3.5 courtside-Transfer-pulse text-[#E4002B]" />
                   <span>Analyzing cohort transition...</span>
                 </div>
               ) : (
@@ -621,7 +622,7 @@ export function SeasonJourneySankey({
                     <div className="min-w-0 pr-2">
                       <div className="font-semibold text-white truncate">{p.gamer_tag}</div>
                       <div className="text-[10px] text-white/50 font-mono truncate">
-                        {p.dma_market} · {p.primary_archetype?.replace(/_/g, " ")}
+                        {p.dma_market} · {archetypeLabel(p.primary_archetype)}
                       </div>
                     </div>
                     <div className="text-right font-mono shrink-0 tabular">

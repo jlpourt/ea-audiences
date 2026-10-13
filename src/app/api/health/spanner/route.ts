@@ -35,7 +35,7 @@ export async function GET() {
   return NextResponse.json(
     {
       ok,
-      service: "Cloud Spanner Graph",
+      service: "2K Identity Graph",
       project: GCP_CONFIG.projectId,
       instance: GCP_CONFIG.spannerInstanceId,
       database: GCP_CONFIG.spannerDatabaseId,

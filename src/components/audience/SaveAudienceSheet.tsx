@@ -26,8 +26,8 @@ const CHANNEL_OPTIONS: Array<{ id: ActivationChannel; label: string; sub: string
   },
   {
     id: "ROCKSTAR_NEWSWIRE",
-    label: "Rockstar Social Club Co-Promo",
-    sub: "Cross-label GTA VI / GTA Online tile",
+    label: "2K Locker Code Feed",
+    sub: "In-game Locker Code & 2K Newsroom tile",
   },
   {
     id: "PUSH_2K_MOBILE",
@@ -36,8 +36,8 @@ const CHANNEL_OPTIONS: Array<{ id: ActivationChannel; label: string; sub: string
   },
   {
     id: "ZYNGA_CROSS_PROMO",
-    label: "Zynga Mobile Rewarded Network",
-    sub: "Cross-label mobile placement",
+    label: "2K Companion Cross-Promo",
+    sub: "MyNBA2K & WWE SuperCard companion reward bridge",
   },
   {
     id: "PAID_SOCIAL",
@@ -217,9 +217,9 @@ export function SaveAudienceSheet({
                 className="w-full accent-twok-red cursor-pointer"
               />
 
-              {isExpanding && (
+               {isExpanding && (
                 <div className="flex items-center gap-2 font-mono text-[11px] text-chalk-dim">
-                  <Loader2 className="h-3 w-3 animate-spin text-twok-red" />
+                  <Loader2 className="h-3 w-3 courtside-Transfer-pulse text-twok-red" />
                   <span>Scoring 3,072-d player similarity...</span>
                 </div>
               )}
@@ -299,7 +299,7 @@ export function SaveAudienceSheet({
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-twok-red px-4 py-2.5 font-mono text-xs uppercase tracking-wider font-semibold text-chalk hover:bg-twok-red/90 disabled:opacity-40"
           >
             {isSaving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 courtside-Transfer-pulse" />
             ) : (
               <Bookmark className="h-4 w-4" />
             )}

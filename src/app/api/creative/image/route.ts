@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     } else if (style === "crew-reup") {
       stylePrompt = `NBA 2K27 The City blacktop basketball court under twilight sky, dramatic arena lighting, squad of ballers in authentic 2K streetwear with glowing 15,000 VC token emblem in center court, broadcast sports graphic style, cinematic depth of field. Title: "${offerTitle}".`;
     } else {
-      stylePrompt = `Take-Two Interactive flagship promotional key visual: NBA 2K27 hardwood basketball arena blending seamlessly into a neon-soaked Vice City coastline with palm trees and sports cars, Rockstar gold and 2K red lighting, premium cross-label gaming aesthetic. Title: "${offerTitle}". Target: "${audienceName}".`;
+      stylePrompt = `2K Games flagship promotional key visual: NBA 2K26 to 2K27 Hall of Fame Gold & Crimson Arena blending cleanly into a championship hardwood court with spotlights, Hall of Fame trophy gold and 2K crimson lighting, premium cross-title sports broadcast aesthetic. Title: "${offerTitle}". Target: "${audienceName}".`;
     }
 
     const imageRes = await generateImage({

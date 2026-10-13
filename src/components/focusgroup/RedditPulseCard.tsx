@@ -77,14 +77,14 @@ export function RedditPulseCard() {
             title="Refresh Reddit pulse"
             className="p-1 rounded text-chalk-dim hover:text-chalk hover:bg-white/10 transition-colors"
           >
-            <RefreshCw className={`w-3 h-3 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-3 h-3 ${isLoading ? "courtside-Transfer-pulse" : ""}`} />
           </button>
         </div>
       </div>
 
       {isLoading && !data && (
         <div className="flex items-center justify-center py-6 gap-2 text-chalk-dim text-xs">
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-twok-red" />
+          <Loader2 className="w-3.5 h-3.5 courtside-Transfer-pulse text-twok-red" />
           <span>Grounding over reddit.com...</span>
         </div>
       )}

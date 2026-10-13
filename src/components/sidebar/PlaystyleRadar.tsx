@@ -41,10 +41,10 @@ export default function PlaystyleRadar({
       color: "bg-vc-gold",
     },
     {
-      label: "Cross-Label Gravity",
+      label: "Cross-2K Affinity",
       value: Math.min(100, Math.round(gravity * 100)),
       raw: `${Math.round(gravity * 100)}%`,
-      color: "bg-rockstar-gold",
+      color: "bg-vc-gold",
     },
     {
       label: "Rage-Quit Index",

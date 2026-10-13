@@ -1,316 +1,355 @@
-# Showroom Anti-Slop Audit Report (`slop_report.md`)
+# 2K Courtside — Visual Design & Anti-Slop Audit Report (`.showroom/slop_report.md`)
 
-- **Repository**: `/Users/jlpourt/CCAI/ea-audiences`
-- **Application**: **2K Courtside — Audience Builder & Segmentation Engine** (2K Games / Take-Two Interactive)
-- **Audited By**: `slop-auditor` (`/showroom:audit`)
-- **Audit Date**: `2026-10-12`
-- **Viewports Verified via Playwright**: Desktop (`1440x900`) & Laptop (`1280x800`)
-- **Overall Anti-Slop Score**: **6.2 / 10** *(Strong dark-arena visual foundation, authentic NBA 2K27 / Rockstar / Zynga domain taxonomy, and compositor-first motion curves; penalized by pervasive Google Cloud / Gemini model badges across all 5 screens, `Sparkles`/`Wand2` AI icons, `animate-spin` blocking loaders, floating sub-header & search bar layout collisions on Laptop/Desktop, truncated Sankey Gemini output, and US map label pile-up).*
-
----
-
-## Executive Summary & Screen Score Matrix
-
-| # | Screen Name | Route / View State | Desktop (`1440x900`) | Laptop (`1280x800`) | Score (`0–10`) | Primary Slop & Visual Defects Observed |
-| :- | :--- | :--- | :--- | :--- | :---: | :--- |
-| 1 | **Courtside Landing & Audience Builder** | `/` (`showLanding = true`) | `.showroom/screenshots/landing-page-desktop.png` | `.showroom/screenshots/landing-page-laptop.png` | **7.0 / 10** | Exposed `Cloud Spanner Graph`, `BigQuery`, `Vertex AI Gemini 3`, `Gemini 3.5 Flash` pills & footer (#15); `<Sparkles>` on `"Build Segment"` CTA (#2); hero em-dash (#12); `SpannerStatusPill` renders blank `"· ms"` latency. |
-| 2 | **Graph Workspace & Cohort Inspector** | `/` (`currentView = "audience-cohorts"`) | `.showroom/screenshots/graph-workspace-desktop.png` | `.showroom/screenshots/graph-workspace-laptop.png` | **6.4 / 10** | `<Sparkles>` & `<Wand2>` icons in header, inspector, and search bar (#2); `"Spanner Graph · LIVE"` & `"Save BQ"` badges (#15); Laptop `1280x800` header buttons wrap to 2 lines; `GraphControls` & `NLSearchBar` collide horizontally with right `EntityInspector`. |
-| 3 | **Courtside Focus Group Modal** | `FocusGroupModal` (`isOpen = true`) | `.showroom/screenshots/focus-group-modal-desktop.png` | `.showroom/screenshots/focus-group-modal-laptop.png` | **6.2 / 10** | `✦ Gemini 3.5 Flash` & `✦ Gemini 3.1 Pro` header/card badges (#15); 20 uniform cards with identical canned quote & `$9.99` WTP operator-precedence bug before run (#5, #9); `RedditPulseCard` stuck on `animate-spin` (`"Grounding over reddit.com..."`) (#14). |
-| 4 | **Season 1→2 Journey Sankey** | `/` (`currentView = "marketing-journey"`) | `.showroom/screenshots/season-journey-sankey-desktop.png` | `.showroom/screenshots/season-journey-sankey-laptop.png` | **5.4 / 10** | Floating `GraphControls` overlaps Sankey header & KPI pills; Gemini diagnosis truncated mid-sentence (`"While a critical sub-85"`) due to missing `thinkingBudget: 0`; SVG text collision in 48px-tall nodes; `"Synergy"` buzzword (#11); `"LIVE SPANNER"` & `Gemini 3.5 Flash` badges (#15); `<Sparkles>` icon (#2). |
-| 5 | **NBA Market Telemetry & Gravity Map** | `/` (`currentView = "geo-map"`) | `.showroom/screenshots/nba-market-map-desktop.png` | `.showroom/screenshots/nba-market-map-laptop.png` | **6.0 / 10** | Floating `GraphControls` overlaps map header & metric tabs (`Players / VC Spend / Season 2 Cliff Risk / GTA VI Gravity`); 30 US NBA DMA bubbles & permanent `<text>` labels pile up illegibly over North America; `"Live Spanner DMA clustering"` copy (#15); `animate-spin` loader (#14). |
+**Customer**: 2K Games (Take-Two Interactive Software, Inc. · `TTWO`)  
+**Product Surface**: **2K Courtside — Audience Intelligence Engine** (`NBA 2K27` Season 1 → Season 2 Live-Ops & `NBA 2K26 → 2K27` Loyalty Upgrade Command Center)  
+**Branch Audited**: `2k-miro` (`http://127.0.0.1:3000`)  
+**Audit Date**: October 12, 2026  
+**Auditor**: `slop-auditor` (Showroom Anti-Slop Subagent)  
 
 ---
 
-## The 15 Mandatory AI Slop Giveaways — Master Checklist
+## Executive Summary & Overall Score
 
-| # | Slop Giveaway Category | Status | Hit Count | Summary of Findings |
-| :- | :--- | :---: | :---: | :--- |
-| **1** | **Default purple/blue gradients** (`#6366f1`, `#8b5cf6`, `from-indigo-*`) | **PASS** | `0` | Zero indigo/purple gradients. Uses authentic 2K broadcast arena palette (`--court-black: #0a0a0c`, `--court-ink: #121216`, `--twok-red: #ea2228`, `--vc-gold: #f5b400`, `--rockstar-gold: #fcaf17`, `--win-green: #19c37d`). |
-| **2** | **Sparkle / magic-wand icons** (`✨`, `🪄`, `Sparkles`, `Wand2`) | **FAIL** | `21` | `<Sparkles>` and `<Wand2>` used on primary operational CTAs (`Build Segment`, `Focus Group`, `Creative Studio`, `Pressure-Test`, `Segment`, `Generate Art/VO/Beat`, `Brief Agent`, `SeasonJourneySankey` diagnosis banner) plus 4-point sparkle star SVG inside `<ModelBadge>`. |
-| **3** | **Emoji in headers** (`🚀`, `📊`, `🤖`, `💡`, `🔥` in `<h1>`–`<h4>`, nav, KPIs) | **PASS** | `0` | Zero emojis in DOM headers, navigation bars, or KPI titles. (Emoji strings in `courtside_personas.ts:26-143` are not rendered in UI headers). |
-| **4** | **Generic all-Inter look** (`font-family: Inter` everywhere with no brand display contrast) | **WARN** | `3` | `src/app/layout.tsx:5-16` and `src/app/globals.css:51-52` pair `Inter` (`--font-sans`) with `Inter_Tight` (`--font-display`), and `ForceGraphCanvas.tsx:291` hardcodes `Inter`. While optical tracking (`-0.02em` display, `tabular-nums`) is well-crafted, `.showroom/brand.json` identifies 2K's display/ athletic typography (`VideoJS`, `Montserrat`, `Roboto`). |
-| **5** | **Identical rounded cards in endless grids** | **WARN** | `1` | `FocusGroupModal.tsx:420-515` renders a 2x10 grid of 20 uniform `rounded-xl` persona cards that all display the exact same placeholder quote (`"Evaluating whether this offer justifies the VC investment before Season 1 ends."`) before running a test. |
-| **6** | **Meaningless "AI Insights" panels** | **PASS** | `0` | Zero generic `"AI Insights"` or `"Smart Recommendations"` titles. Uses domain-specific headers (`Live Graph Synthesis`, `Willingness-to-Pay Curve`, `Backlash Index`, `Cross-Label Gravity Histogram`). |
-| **7** | **Chatbot-as-the-whole-UI** | **PASS** | `0` | Natural language segmentation is integrated into an operational Audience Builder with franchise filters, predicate chips, live count ticker, and GQL disclosure. |
-| **8** | **Placeholder / Acme / lorem data** | **PASS** | `0` | Zero `Acme`, `Lorem ipsum`, or `SKU-12345` placeholders. Grounded in NBA 2K27 (`MyCAREER`, `MyTEAM`, `The City`, `Cap Breakers`, `Galaxy Opal`), Rockstar (`GTA VI`, `GTA Online`, `Social Club`), and Zynga terminology. |
-| **9** | **Suspiciously round numbers** | **WARN** | `2` | Spanner cohort counts (`2,850`, `1,791`, `284`, `303`, `176`) are realistic. However, `FocusGroupModal.tsx:362-398` initializes with `0 / 20` across all 4 verdict boxes and a ternary precedence bug (`FocusGroupModal.tsx:497`) forces 19/20 persona cards to display `WTP: $9.99`. |
-| **10** | **Made-up personas with stock names** (`Sarah Jenkins`, `Alex Rivera`, `Marcus Chen`) | **PASS** | `0` | UI renders authentic NBA 2K gamer tags (`TheWBucketz`, `MeterOffMike`, `LegendRepLeo`, `PosterizePete`, `ClarkDeluxeCrew`, `NoZenHere`). |
-| **11** | **AI buzzword vocabulary** (`seamless`, `unlock`, `synergy`, `empower`, `elevate`) | **FAIL** | `8` | `"Launch & Synergy"` (`SeasonJourneySankey.tsx:69`), `"Take-Two Cross-Label Synergy"` (`journey/summary/route.ts:56`, visible on Stage 4 Sankey node), `"Crew synergy active"` (`triggers/route.ts:35`), `"Unlock your next Cap Breaker"` (`brief/route.ts:117`), `"blending seamlessly"` (`creative/image/route.ts:20`). |
-| **12** | **Overused em-dashes** (`—` in UI copy and generated insights) | **WARN** | `76` | Em-dashes appear in Landing Page hero copy (`CourtsideLanding.tsx:269`), default offer title (`page.tsx:81, 88`: `"Crew Re-Up Bundle — 15,000 VC..."`), and Focus Group offer input. |
-| **13** | **Dashboards with 12+ metrics and no point of view** | **PASS** | `0` | KPI strips are disciplined (3–4 metrics per view) and directly tied to next-step operational actions. |
-| **14** | **Loading spinners with no streaming/progress story** (`animate-spin`) | **FAIL** | `19` | 19 `animate-spin` instances across 12 components: `RedditPulseCard.tsx:90` spins indefinitely on initial modal open; `SeasonJourneySankey.tsx:305` blocks the entire canvas for 5+ seconds waiting on Gemini; `FocusGroupModal.tsx:276` uses a blocking POST instead of the existing SSE stream route `/api/synthetic/focus-group/stream`. |
-| **15** | **Exposed Google Cloud / AI model & vendor service badges in customer UI** | **FAIL** | `48` | Pervasive vendor marketing badges across every screen: `<ModelBadge>` (`✦ Gemini 3.5 Flash`, `✦ Gemini 3.1 Pro`, `✦ Gemini 2.5 Flash Image`, `✦ Gemini 3.1 Flash TTS`, `✦ Lyria 2`, `✦ Gemini Embedding`), `"TakeTwoPlayerGraph · LIVE"` / `"SPANNER · LIVE"`, `"Save to BigQuery"`, `"LIVE SPANNER"`, `"GCP NATIVE"`, and footer infrastructure strings. |
+| Metric | Value | Status |
+| :--- | :--- | :--- |
+| **Deterministic Scanner Score (`slop_scan_raw.json`)** | **4.6 / 10.0** | Automated static + DOM regex baseline |
+| **Visual + Copy + Layout Composite Anti-Slop Score** | **6.4 / 10.0** | **Needs Targeted Polish Before Executive EBC** |
+| **Total Static Source Hits (`slop_scan_raw.json`)** | **66 findings** | Across Giveaways `#11` (8), `#14` (23), `#15` (35) |
+| **Total Em-Dashes (`—` / `\u2014`) in Repo** | **69 occurrences** | 2 rendered directly on Graph Canvas offer nodes |
+| **Screens Audited (Desktop `1440×900` + Laptop `1280×800`)** | **7 screens (14 PNGs)** | Saved in `.showroom/screenshots/` |
+
+### Why `slop_scan_raw.json` Scored `4.6 / 10` (Root-Cause Breakdown)
+The deterministic scanner (`scripts/slop_scanner.py`) penalized the repository for **3 active giveaway categories (`[11, 14, 15]`)** plus **69 em-dashes**:
+1. **Giveaway #15 — Exposed Google Cloud / AI Model & Service Strings (`35 findings`, `-1.8 pts`)**:
+   - **What is already fixed in the visible UI**: `ModelBadge.tsx` and `SpannerStatusPill.tsx` were successfully scrubbed to render customer-native labels (`"2K Graph · 184ms"`, `"Deep Synthesis"`, `"Live Telemetry Eval"`, `"4K Key Art Render"`, `"Arena PA Synth"`, `"128 BPM Audio Synth"`). Zero visible GCP/Gemini strings appeared in the live DOM text scan (`domGiveawayHits: 0`).
+   - **What still triggers the scanner (and leaks on error states)**:
+     - `src/lib/models.ts:61-96` defines `label: "Gemini 3.1 Pro"`, `"Gemini 3.5 Flash"`, `"Gemini 3.5 Flash-Lite"`, `"Gemini 2.5 Flash Image"` (which is also an outdated model ID vs. `gemini-3.1-flash-image-preview`), and `"Gemini 3.1 Flash TTS"`.
+     - `src/app/api/campaign/brief/route.ts:28, 90, 117` returns `"Failed to generate campaign brief via Vertex AI"` in JSON `error` payloads, which `CampaignBriefModal.tsx:162` renders directly into the customer-facing error banner.
+     - `src/app/api/audiences/nl-query/route.ts:377, 389, 397, 870`, `src/app/api/insights/core-finding/route.ts:96`, `src/app/api/synthetic/focus-group/route.ts:100`, `src/app/api/synthetic/focus-group/stream/route.ts:112-113`, `src/lib/prompts/brief_generator.ts:11`, and `src/lib/prompts/nl_to_gql.ts:2, 3, 31` contain literal `"Spanner Graph"`, `"Cloud Spanner"`, and `"Vertex AI"` strings in prompts, error messages, or comments.
+2. **Giveaway #14 — Generic `animate-spin` Loading Spinners (`23 findings`, `-1.8 pts`)**:
+   - 14 frontend components use `<Loader2 className="animate-spin" />` or `<RefreshCw className="animate-spin" />` instead of arena shot-clock telemetry bars, step-level progress indicators, or tabular skeleton states. Worst offender: `src/components/activation/ActivationDAG.tsx:363` puts `animate-spin` on a `<Clock />` icon during a static **Human-in-the-Loop (HITL) Approval Gate** wait state.
+3. **Giveaway #11 — AI Buzzword Vocabulary (`8 findings`, `-1.8 pts`)**:
+   - `unlock` / `Unlock` in `src/components/focusgroup/FocusGroupModal.tsx:125`, `src/lib/prompts/brief_generator.ts:36`, `src/lib/prompts/courtside_personas.ts:95`, `scripts/generate_2k_dataset.py:210`.
+   - `synergy` in `src/lib/prompts/courtside_personas.ts:124`, `src/app/api/simulation/triggers/route.ts:35`.
+   - `seamlessly` in `src/app/api/creative/image/route.ts:20`, `scripts/generate_2k_dataset.py:579`.
+
+### Top Visual & Layout Defects Discovered via Screenshot Inspection (`view_file`)
+Beyond the static regex hits, inspecting all 14 Desktop (`1440×900`) and Laptop (`1280×800`) screenshots exposed **7 high-visibility visual/layout defects**:
+1. **CRITICAL Laptop Top HUD Collision (`1280×800` on Graph Workspace & Entity Inspector)**: At `1280px` (the exact Tailwind `xl:` breakpoint), the `{nodeCount}N · {edgeCount}E` pill (`82N · 111E` in `GraphControls.tsx:164`) switches from `hidden` to `xl:flex` and **physically overlaps** the `"2K Graph · 184ms"` (`SpannerStatusPill`) in the top 52px header.
+2. **Graph Workspace Bottom-Left Legend vs. `NLSearchBar` Collision & Chip Clipping**: On `1440×900` and `1280×800`, the 4 quick-query chips under `NLSearchBar` clip horizontally (`26 Holdouts w/ 2K27 Crew` and `04 · Multi-Title 2K C` are cut off). On `1280×800` when the right-hand `EntityInspector` opens, `NLSearchBar` shifts left (`lg:left-[calc(50%-190px)]`) and **collides directly into the bottom-left Graph Legend card** (cutting `⚡ VC / Offer` into `⚡ VC / Offe`).
+3. **Landing Page 5th Cohort Tab Border Overflow (`1440×900` & `1280×800`)**: In `CourtsideLanding.tsx:845`, the 5 segmented cohort tabs (`01. 2K26 → 2K27 Bridge` … `05. Creator & Crew Squads`) exceed the width of their `rounded-2xl border border-white/10` wrapper, causing `05. Creator & Crew Squads` to spill outside the right border of the pill bar.
+4. **Landing Page Hero vs. Prompt Card Count Mismatch (`334` vs. `418`)**: When `/api/insights/graph-stats` hydrates the live Spanner count into the hero headline (`"334 NBA 2K26 Veterans Ready to Upgrade"` / `"CORE FINDING · 334 HOLDOUT VETERANS"`), the first prompt card directly below still displays the hardcoded fallback `418 Veterans` (`CourtsideLanding.tsx:217`).
+5. **Focus Group Modal `N=100 Swarm` Pre-Run Denominator Bug (`0 / 20` instead of `0 / 100`) & Input Clipping**: When toggled to `N=100 Swarm` (`swarmSize === 100`) before clicking Run, `totalDenominator` (`FocusGroupModal.tsx:457-458`) falls back to `20` because `crowdAgents.length === 0`, rendering `BUY 0 / 20`, `EVALUATE 0 / 20`, `PASS 0 / 20`, `BOYCOTT 0 / 20` and tab badge `20/100` underneath an active `N=100 Swarm` pill. Furthermore, the offer title input clips `"Crew Re-Up Bundle · 15,000 VC + 2x Crew REP Booste"` (`FocusGroupModal.tsx:643`).
+6. **Season Journey Sankey 1-to-1 Deterministic Stage 3 → Stage 4 Duplication & `MyTEAM` 86% Skew**: In `src/app/api/marketing/journey/summary/route.ts:109-116`, Stage 3 (`3. Week 4-6 Status`) maps 1:1 with zero branching to Stage 4 (`4. Intervention Offer`), producing identical counts across two adjacent columns (`1,201 (42%) → 1,201 (42%)`, `483 (17%) → 483 (17%)`, `235 (8%) → 235 (8%)`, `931 (33%) → 931 (33%)`). Additionally, line 92 classifies any player with `myteam_packs_opened_30d > 0` into `MyTEAM`, skewing `MyTEAM` to `2,463 (86%)` and leaving `MyCAREER / The City` with only `314 (11%)`. Finally, the bottom node in Stage 2 (`MyNBA & The W`, `h = 54px`) drops its subtitle because `layout.h < 68`.
+7. **NBA Market Map Label Pile-Up & Raw Enum Bleed (`NBAMarketMap.tsx`)**: Plotting 30 North American NBA DMAs on a zoomed-out global `geoNaturalEarth1` projection with permanent labels for all markets `>= 70 players` causes `San Francisco Bay Area`, `Los Angeles / Inglewood`, `San Antonio`, `Chicago`, `Detroit`, `Cleveland`, `Toronto`, `Brooklyn`, and `Washington DC` to pile on top of each other in an illegible cluster. Meanwhile, the right-hand market drawer prints raw `SCREAMING_SNAKE_CASE` (`MYCAREER_STORY_CASUAL`) directly beneath `"MyCAREER Story Casual"`.
 
 ---
 
-## Screen-by-Screen Visual & Code Audit
+## Complete 15-Point Mandatory AI Slop Checklist
 
-### Screen 1: Courtside Landing & Audience Builder (`/`)
-- **Score**: **7.0 / 10**
+| # | Slop Giveaway Category | Status | Hits | Audit Evidence (`file:line` / DOM Observation) |
+| :-: | :--- | :---: | :-: | :--- |
+| **1** | **Default purple/blue gradients** (`#6366f1`, `#8b5cf6`, `from-indigo-*`, `via-purple-*`) | **PASS** | `0` | Palette strictly uses 2K Crimson (`#E4002B`), Championship Gold (`#F5B400`), Court Hardwood (`#C8905A`), and Arena Obsidian (`#0A0A0C` / `#121216`). |
+| **2** | **Sparkle / magic-wand icons** (`✨`, `🪄`, `Sparkles`, `Wand2`, `AutoAwesome`) | **PASS** | `0` | Zero `Sparkles` or `Wand2` imports across `src/`. Uses operational icons (`Zap`, `Flame`, `Users`, `Radio`, `Swords`, `Shield`). |
+| **3** | **Emoji in headers / badges** (`🚀`, `📊`, `🤖`, `💡`, `🔥` in `<h1>`–`<h4>` or pills) | **WARN** | `5` | Not in `<h1>`–`<h4>`, but raw emojis appear in Graph Canvas node labels (`⚡ NBA 2K Mobile...`, `🔥 Season 2 Pro...`) and `EntityInspector.tsx:999, 1028` (`🛡️`, `⭐`, `📺`). |
+| **4** | **Generic all-Inter look** (`font-family: Inter` everywhere with no display contrast) | **WARN** | `2` | `src/app/globals.css:55-56` and `SeasonJourneySankey.tsx:60` use `-apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter"` everywhere without loading a condensed broadcast display face (`Barlow Condensed` / `Oswald` / `VideoJS`) for arena headers as prescribed in `.showroom/brand.json`. |
+| **5** | **Identical rounded cards in endless grids** (`border-radius: 16px` uniform 3×4 boxes) | **PASS** | `0` | Varied asymmetric layouts (force graph canvas, 5-stage Sankey, 2-round focus group battle arena, DMA map). |
+| **6** | **Meaningless "AI Insights" panels** (`"AI Insights"`, `"AI Summary"`, `"Smart Recommendations"`) | **PASS** | `0` | Uses domain-specific 2K headers (`CORE FINDING · 334 HOLDOUT VETERANS`, `CREW & CREATOR CONTAGION`, `OFFER BATTLE ARENA`). |
+| **7** | **Chatbot-as-the-whole-UI** (generic chat bubble taking center stage) | **PASS** | `0` | Embedded command-bar GQL translator (`NLSearchBar`), graph canvas, and 1-on-1 persona interrogation drawer. |
+| **8** | **Placeholder / Acme / lorem data** (`Acme Corp`, `Lorem ipsum`, `SKU-12345`) | **PASS** | `0` | Authentic 2K entities (`NBA 2K27`, `NBA 2K26`, `WWE 2K25`, `PGA TOUR 2K25`, `Borderlands 4`, `@Agent00`, `@KOT4Q`, `@Troydan`). |
+| **9** | **Suspiciously round / deterministic numbers** (`$1,000,000`, `100%`, or 1:1 duplicate columns) | **FAIL** | `3` | 1) `SeasonJourneySankey` Stage 3 & Stage 4 have 100% identical numbers across all 4 rows (`1,201 → 1,201`, `483 → 483`, `235 → 235`, `931 → 931`). 2) `EntityInspector.tsx:782` formats spend as `$4000.00` (missing comma). 3) `FocusGroupModal.tsx:457` shows `0 / 20` when `N=100 Swarm` is selected. |
+| **10** | **Made-up personas with stock names** (`Sarah Jenkins`, `Alex Rivera`, `Marcus Chen`) | **PASS** | `0` | Uses authentic NBA 2K gamer tags (`FlaggBaronSr`, `SauceKing`, `DimeDemon27`, `OopBoy2K51`, `BadgeSniper41`, `MambaMerchantYT`). |
+| **11** | **AI buzzword vocabulary** (`seamless`, `unlock`, `delve`, `empower`, `synergy`, `elevate`) | **FAIL** | `8` | `FocusGroupModal.tsx:125` (`unlock`), `brief_generator.ts:36` (`Unlock`), `courtside_personas.ts:95` (`unlock`), `courtside_personas.ts:124` (`synergy`), `triggers/route.ts:35` (`synergy`), `creative/image/route.ts:20` (`seamlessly`), `generate_2k_dataset.py:210, 579`. |
+| **12** | **Overused em-dashes** (`—` in UI descriptions, subtitles, or generated insights) | **FAIL** | `69` | 69 em-dashes across source/data files; 2 render visibly on Graph Workspace offer nodes (`⚡ NBA 2K Mobile — Courtside...`, `⚡ Borderlands 4 — Vault Hunt...` from `scripts/generate_2k_dataset.py:203-216` & `scripts/spanner_load_data.js`). |
+| **13** | **Dashboards with 12+ metrics and no point of view** | **PASS** | `0` | KPI bars are capped at 4–5 operational pills tied to immediate cohort actions (`Pressure-Test`, `Studio`, `Activate`). |
+| **14** | **Loading spinners with no streaming/progress story** (`animate-spin`) | **FAIL** | `23` | 23 `animate-spin` instances across 14 components (`EntityInspector.tsx:1152`, `CourtsideLanding.tsx:828`, `ActivationDAG.tsx:363`, `SeasonJourneySankey.tsx:308,318,593`, `NLSearchBar.tsx:231,316`, `SpannerStatusPill.tsx:97`, etc.). |
+| **15** | **Exposed Google Cloud / AI model & vendor badges** (`Vertex AI`, `Spanner Graph`, `Gemini 3.x`) | **FAIL** | `35` | UI badges were scrubbed, but 35 backend/config/prompt/error strings remain (`src/lib/models.ts:61-96`, `src/app/api/campaign/brief/route.ts:28,90,117` leaking `"Vertex AI"` to UI error banner, `nl_to_gql.ts:2,3,31`, `brief_generator.ts:11`). |
+
+---
+
+## Screen-by-Screen Visual & Copy Audit (7 Screens · 14 Screenshots)
+
+---
+
+### Screen 1: Courtside Landing Page (`/` — Initial Cohort Discovery View)
+- **Route / State**: `/` (`isLandingView === true` in `src/components/landing/CourtsideLanding.tsx`)
+- **Anti-Slop Score**: **7.2 / 10.0**
+- **Post-Polish Target Score**: **9.5 / 10.0**
 - **Screenshots**:
-  - Desktop (`1440x900`): [landing-page-desktop.png](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/landing-page-desktop.png)
-  - Laptop (`1280x800`): [landing-page-laptop.png](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/landing-page-laptop.png)
+  - Desktop (`1440×900`): [`.showroom/screenshots/landing-desktop.png`](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/landing-desktop.png)
+  - Laptop (`1280×800`): [`.showroom/screenshots/landing-laptop.png`](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/landing-laptop.png)
 
-#### Visual Inspection Notes
-- Strong visual hierarchy at both `1440x900` and `1280x800`: the dark hardwood arena backdrop, `2,850` / `48` / `1,791` tabular stat strip, two-column Audience Builder island (`grid-cols-[1fr_290px]`), and Three Golden Plays rail with custom key art look cohesive and purposeful.
-- **Defect 1 (Broken Latency Pill)**: In the top header, `SpannerStatusPill` renders `● TakeTwoPlayerGraph · LIVE · ms` with a blank number before `ms` because `/api/health/spanner` returns `graphLatencyMs` / `probe.latencyMs` while `SpannerStatusPill.tsx:108` reads `health.latencyMs`.
-- **Defect 2 (Exposed Vendor Badges — Giveaway #15)**: Hero paragraph (`CourtsideLanding.tsx:269-270`) advertises `"— powered by Cloud Spanner Graph, BigQuery, and Vertex AI Gemini 3."`; the Audience Builder right panel shows `"SPANNER · LIVE"`, `"✦ Gemini 3.5 Flash · 0 ms"`, and `"Save to BigQuery"`; the footer lists `"Cloud Spanner Graph · blackrock-spanner/twok_graph_db · BigQuery · twok_marketing_intelligence · Pub/Sub · twok-courtside-activations"` and `"Gemini 3.1 Pro · Gemini 3.5 Flash · Flash Image · Flash TTS · Lyria 2"`.
-- **Defect 3 (Magic Sparkle CTA Icon — Giveaway #2)**: The primary red `"BUILD SEGMENT"` button inside `AudienceBuilder.tsx:203` wears a `<Sparkles>` icon.
-
-#### Flagged Slop Giveaways — Screen 1
-
+#### Flagged Slop Giveaways & Visual Defects Table — Screen 1
 | Giveaway # & Category | File:Line / Selector | Exact Problem Observed | Exact Fix (CSS / Copy / Component Level) |
 | :--- | :--- | :--- | :--- |
-| **#15 Exposed GCP / AI Model Badges** | [CourtsideLanding.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/landing/CourtsideLanding.tsx#L265-L271) | Hero subtitle reads: `"...and Zynga IDs — powered by Cloud Spanner Graph, BigQuery, and Vertex AI Gemini 3."` (also uses em-dash #12). | Rewrite in 2K product voice: `"Multi-hop audience segmentation across TakeTwoPlayerGraph connecting NBA 2K27 MyPLAYER builds, Crews, Rockstar Social Club, and Zynga IDs in real time."` |
-| **#2 Sparkle / Magic-Wand Icons** | [AudienceBuilder.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/audience/AudienceBuilder.tsx#L201-L205) | Primary `"Build Segment"` CTA renders `<Sparkles className="h-3.5 w-3.5" />`. | Replace `<Sparkles>` with `<Filter className="h-3.5 w-3.5" />` or `<Crosshair className="h-3.5 w-3.5" />` from `lucide-react`. |
-| **#15 Exposed GCP / AI Model Badges** | [LiveCountTicker.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/audience/LiveCountTicker.tsx#L47-L54), [L94](file:///Users/jlpourt/CCAI/ea-audiences/src/components/audience/LiveCountTicker.tsx#L94) | Displays `"SPANNER · LIVE"` and `<ModelBadge modelId={modelUsed} />` (`"✦ Gemini 3.5 Flash · 0 ms"`). | Replace `"SPANNER · LIVE"` with `"IDENTITY GRAPH · LIVE"` and replace `<ModelBadge>` with an operational telemetry badge: `"NL→GQL Parser · ${translateMs || executionMs} ms"`. |
-| **#15 Exposed GCP / AI Model Badges** | [AudienceBuilder.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/audience/AudienceBuilder.tsx#L174) | Button label reads `"Save to BigQuery"`. | Rename button to `"Save Segment"` or `"Save to Audience Library"`. |
-| **#15 Exposed GCP / AI Model Badges** | [CourtsideLanding.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/landing/CourtsideLanding.tsx#L332), [L422](file:///Users/jlpourt/CCAI/ea-audiences/src/components/landing/CourtsideLanding.tsx#L422), [L440-L459](file:///Users/jlpourt/CCAI/ea-audiences/src/components/landing/CourtsideLanding.tsx#L440-L459) | Playbook subtitle (`"execute live GQL on Spanner"`), Core Finding `<ModelBadge>`, and footer advertising GCP database/model names. | Replace with customer product terminology: `"Click any play to execute live graph traversal"`, remove `<ModelBadge>`, and replace footer with `"2K Courtside · Take-Two Interactive Identity Spine · NBA 2K27 Season 1 Live-Ops"`. |
-| **Visual Bug: Blank Latency in Status Pill** | [SpannerStatusPill.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/common/SpannerStatusPill.tsx#L6-L13), [L108](file:///Users/jlpourt/CCAI/ea-audiences/src/components/common/SpannerStatusPill.tsx#L108) | Renders `TakeTwoPlayerGraph · LIVE · ms` with missing number because API returns `graphLatencyMs` / `probe.latencyMs`. | Read `health.graphLatencyMs ?? health.probe?.latencyMs ?? health.latencyMs` in `SpannerStatusPill.tsx`. |
+| **Visual Overflow (5th Cohort Tab)** | `src/components/landing/CourtsideLanding.tsx:845` | The 5 segmented cohort tabs (`01. 2K26 → 2K27 Bridge` through `05. Creator & Crew Squads`) exceed the width of their `inline-flex items-center gap-1.5 p-1 rounded-2xl bg-black/40 border border-white/10` wrapper on both `1440×900` and `1280×800`, causing `05. Creator & Crew Squads` to spill outside the right border. | Remove fixed `max-w-full overflow-x-auto` clipping inside a tight inline-flex or tighten tab padding (`px-3 py-1.5 text-[11px]`) and use `flex-wrap justify-center` so all 5 tabs sit cleanly inside the container border. |
+| **Data Inconsistency (`334` vs `418` Veterans)** | `src/components/landing/CourtsideLanding.tsx:217, 675-692` | When `/api/insights/graph-stats` updates the hero badge and title to `CORE FINDING · 334 HOLDOUT VETERANS` and `"334 NBA 2K26 Veterans Ready to Upgrade"`, the first prompt card directly below still reads `418 Veterans` (`DEFAULT_DYNAMIC_FINDINGS[1].prompts[0].highlight`). | In the `useEffect` that applies `liveStats.holdoutVeterans` (`CourtsideLanding.tsx:680`), also update `prompts[0].highlight` to `` `${liveStats.holdoutVeterans} Veterans` `` so the hero and card never contradict each other. |
+| **#4 Generic All-Inter Typography** | `src/app/globals.css:55-56`, `CourtsideLanding.tsx:896` | Hero headline (`"334 NBA 2K26 Veterans Ready to Upgrade"`) renders in standard system sans (`SF Pro Display` / `Inter`) instead of a high-impact condensed arena broadcast display font (`Barlow Condensed` / `Oswald` uppercase tracking) per `.showroom/brand.json`. | Import `Barlow_Condensed` in `src/app/layout.tsx` (`--font-display`) and apply `font-display uppercase tracking-tight` to hero headlines and KPI numerals. |
+| **#14 Generic Spinner (`animate-spin`)** | `src/components/landing/CourtsideLanding.tsx:828` | `<Loader2 className="w-3.5 h-3.5 animate-spin text-[#E4002B]" />` inside the custom query search bar when executing a cohort query. | Replace `Loader2 animate-spin` with a pulsing 2K Crimson shot-clock telemetry indicator (`animate-pulse`) + `"Executing 2K Graph Traversal..."`. |
 
----
-
-### Screen 2: Graph Workspace & Cohort Inspector (`/`, `currentView = "audience-cohorts"`)
-- **Score**: **6.4 / 10**
-- **Screenshots**:
-  - Desktop (`1440x900`): [graph-workspace-desktop.png](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/graph-workspace-desktop.png)
-  - Laptop (`1280x800`): [graph-workspace-laptop.png](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/graph-workspace-laptop.png)
-
-#### Visual Inspection Notes
-- The 2D Force Graph canvas (`446 nodes · 1,014 edges`) with Take-Two label hubs (`NBA 2K27`, `GTA Online`, `Grand Theft Auto VI`, `Toon Blast`, `WWE 2K25`, `PGA TOUR 2K25`) and the right-hand `EntityInspector` (`420 MATCHED PLAYERS`, `AVG LTV $246`, `RAGE-QUIT RISK 25%`, `HIGH CHURN 33`, stacked archetype bar, 10-bar Cross-Label Gravity histogram, and sampled player roster) is visually rich and domain-authentic.
-- **Defect 1 (Laptop `1280x800` Header Wrapping & Sub-Header / Search Bar Collisions)**:
-  - At `1280x800` ([graph-workspace-laptop.png](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/graph-workspace-laptop.png)), the top `<header>` (`src/app/page.tsx:388`) runs out of horizontal space, forcing button labels (`Courtside Home`, `FOCUS GROUP`, `Creative Studio`, `Save Segment`, `Activate DAG`) to wrap onto two lines inside a fixed `h-14` bar.
-  - `GraphControls` (`src/components/graph/GraphControls.tsx:67`, `absolute top-16 left-5 z-20`) has no right boundary when `EntityInspector` (`fixed right-4 top-16 w-[410px] z-30`) is open, so the `ARCHETYPE All 10 Archetypes` select pill extends **underneath** the `EntityInspector` panel on Laptop (`1280x800`).
-  - `NLSearchBar` (`src/components/search/NLSearchBar.tsx:150`, `fixed bottom-12 left-1/2 -translate-x-1/2 w-[94%] max-w-3xl z-20`) is centered across the full viewport width rather than the canvas area left of the `410px` inspector. Consequently, the right side of `NLSearchBar` (including the red `"Segment"` button and the `"Play 02 · GTA VI"` preset chip) is **covered by the bottom of `EntityInspector`** on both `1280x800` and `1440x900`!
-- **Defect 2 (Sparkle & Magic-Wand Icons — Giveaway #2)**:
-  - Top bar `"FOCUS GROUP"` button (`<Sparkles>`), `"Creative Studio"` button (`<Wand2>`), `EntityInspector` `"PRESSURE-TEST IN COURTSIDE FOCUS GROUP"` button (`<Sparkles>`), `EntityInspector` `"Creative"` button (`<Wand2>`), and `NLSearchBar` `"Segment"` button (`<Sparkles>`).
-- **Defect 3 (Exposed Vendor Badges — Giveaway #15)**:
-  - `EntityInspector.tsx:438` badge reads `"● Spanner Graph · LIVE"`; `EntityInspector.tsx:695` button reads `"Save BQ"`; `LiveTelemetryTicker.tsx:137` reads `"Streaming Take-Two live telemetry triggers from Spanner..."`.
-
-#### Flagged Slop Giveaways — Screen 2
-
-| Giveaway # & Category | File:Line / Selector | Exact Problem Observed | Exact Fix (CSS / Copy / Component Level) |
-| :--- | :--- | :--- | :--- |
-| **Layout Collision (Desktop & Laptop)** | [NLSearchBar.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/search/NLSearchBar.tsx#L150), [GraphControls.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/graph/GraphControls.tsx#L67) | Centered `NLSearchBar` (`left-1/2 -translate-x-1/2 max-w-3xl`) and `GraphControls` collide with the open `410px` right-hand `EntityInspector` (`right-4 z-30`), hiding the `"Segment"` button and `"ARCHETYPE"` filter. | When `isInspectorOpen` is true on graph views, constrain `GraphControls` with `right-[436px]` and shift `NLSearchBar` to center within the available canvas (`left-5 right-[436px] translate-x-0 max-w-2xl mx-auto`). Add `whitespace-nowrap` to top `<header>` buttons in `src/app/page.tsx:390-452`. |
-| **#2 Sparkle / Magic-Wand Icons** | [page.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/app/page.tsx#L413-L424), [EntityInspector.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/sidebar/EntityInspector.tsx#L403), [L673-L685](file:///Users/jlpourt/CCAI/ea-audiences/src/components/sidebar/EntityInspector.tsx#L673-L685), [NLSearchBar.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/search/NLSearchBar.tsx#L326) | 6 visible `<Sparkles>` and `<Wand2>` icons across header, inspector, and search bar CTAs. | Replace `<Sparkles>` on Focus Group CTAs with `<Users className="h-3.5 w-3.5" />`, replace `<Wand2>` on Creative Studio CTAs with `<Palette className="h-3.5 w-3.5 text-vc-gold" />`, and replace `<Sparkles>` on `"Segment"` with `<ArrowRight className="h-3 w-3" />`. |
-| **#15 Exposed GCP / AI Model Badges** | [EntityInspector.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/sidebar/EntityInspector.tsx#L438), [L695](file:///Users/jlpourt/CCAI/ea-audiences/src/components/sidebar/EntityInspector.tsx#L695), [LiveTelemetryTicker.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/activation/LiveTelemetryTicker.tsx#L137) | Inspector badge reads `"Spanner Graph · LIVE"`, button reads `"Save BQ"`, ticker reads `"from Spanner..."`. | Change `"Spanner Graph · LIVE"` to `"Take-Two Graph · LIVE"`, `"Save BQ"` to `"Save"`, and `"from Spanner..."` to `"from Courtside Telemetry Spine..."`. |
-| **#4 Generic All-Inter Canvas Font** | [ForceGraphCanvas.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/graph/ForceGraphCanvas.tsx#L291) | Hardcodes `ctx.font = "600 ${fontSize}px Inter, system-ui, sans-serif"`. | Use `Roboto` / condensed display font stack matching `.showroom/brand.json`. |
-
----
-
-### Screen 3: Courtside Focus Group Modal (`FocusGroupModal`)
-- **Score**: **6.2 / 10**
-- **Screenshots**:
-  - Desktop (`1440x900`): [focus-group-modal-desktop.png](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/focus-group-modal-desktop.png)
-  - Laptop (`1280x800`): [focus-group-modal-laptop.png](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/focus-group-modal-laptop.png)
-
-#### Visual Inspection Notes
-- The right column (Willingness-to-Pay Sparkline with `$4.99` optimal callout, Backlash Index bar at `18%`, and Offer Battle toggle) is well-structured and readable at both `1440x900` and `1280x800`.
-- **Defect 1 (20 Identical Placeholder Quotes & `$9.99` WTP Bug Before Run — Giveaways #5 & #9)**:
-  - Look at the 20 persona cards in [focus-group-modal-desktop.png](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/focus-group-modal-desktop.png): before clicking `"Run 20-Persona Pressure Test"`, every single card displays the exact same italicized string: `"Evaluating whether this offer justifies the VC investment before Season 1 ends."` (`FocusGroupModal.tsx:507-508`), while the top 4 verdict boxes read `0 / 20` across the board.
-  - Worse, at `FocusGroupModal.tsx:497`, `value={reaction?.willingness_to_pay_usd ?? p.vc_spend_90d ? 9.99 : 4.99}` has a JavaScript operator-precedence bug (`??` binds looser than `? :`), so whenever `p.vc_spend_90d` is truthy (`$14`, `$81`, `$37`, `$101`, `$216`, `$652`, `$6`), it evaluates to `$9.99` even when `reaction` is `null`!
-- **Defect 2 (`RedditPulseCard` Indefinite `animate-spin` — Giveaway #14)**:
-  - In the bottom-right panel of both screenshots, `LIVE REDDIT PULSE` shows a spinning red circle (`<Loader2 className="w-3.5 h-3.5 animate-spin text-twok-red" /> Grounding over reddit.com...`) because `/api/social/reddit-pulse` takes several seconds on mount with no skeleton or step-level progress indicator.
-- **Defect 3 (Exposed Gemini Model Badges — Giveaway #15)**:
-  - Modal header displays `✦ Gemini 3.5 Flash` and `✦ Gemini 3.1 Pro` (`FocusGroupModal.tsx:262-263`), and `RedditPulseCard` displays `✦ Gemini 3.5 Flash` (`RedditPulseCard.tsx:76`).
-
-#### Flagged Slop Giveaways — Screen 3
-
-| Giveaway # & Category | File:Line / Selector | Exact Problem Observed | Exact Fix (CSS / Copy / Component Level) |
-| :--- | :--- | :--- | :--- |
-| **#5 & #9 Identical Placeholder Quotes & `$9.99` WTP Precedence Bug** | [FocusGroupModal.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L496-L509) | 1) `reaction?.willingness_to_pay_usd ?? p.vc_spend_90d ? 9.99 : 4.99` evaluates to `9.99` for 19/20 personas. 2) All 20 cards show the identical string `"Evaluating whether this offer justifies the VC investment before Season 1 ends."` | 1) Parenthesize the fallback: `reaction?.willingness_to_pay_usd ?? (p.vc_spend_90d >= 100 ? 14.99 : p.vc_spend_90d >= 50 ? 9.99 : 4.99)`. 2) Render each persona's authentic telemetry context (`"${p.myplayer_ovr} OVR ${p.myplayer_build} · $${p.vc_spend_90d} 90d VC · ${p.favorite_team}"`) when `reaction` is null, or auto-trigger the SSE stream `/api/synthetic/focus-group/stream` on open. |
-| **#14 Loading Spinners (`animate-spin`)** | [FocusGroupModal.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L185-L205), [L276](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L276), [RedditPulseCard.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/RedditPulseCard.tsx#L88-L93) | `FocusGroupModal` calls blocking `/api/synthetic/focus-group` with `RotateCw animate-spin` instead of streaming persona cards one by one via `/api/synthetic/focus-group/stream`; `RedditPulseCard` shows a bare `Loader2 animate-spin`. | Wire `FocusGroupModal` to `/api/synthetic/focus-group/stream` so persona reactions flip in progressively (`1 / 20` → `20 / 20`), and replace the `RedditPulseCard` spinner with a 3-row shimmer skeleton (`r/NBA2K`, `r/MyTEAM`, `r/GTA6`). |
-| **#15 Exposed GCP / AI Model Badges** | [FocusGroupModal.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/FocusGroupModal.tsx#L261-L264), [RedditPulseCard.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/focusgroup/RedditPulseCard.tsx#L76) | Renders `<ModelBadge modelId="gemini-3.5-flash" />` and `<ModelBadge modelId="gemini-3.1-pro-preview" />` in the modal header and Reddit card. | Remove `<ModelBadge>` from customer-facing headers; replace with domain badges (`"20-Persona Cohort Panel"`, `"Live Community Signal"`). |
-| **#12 Em-Dash in Default Offer Input** | [page.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/app/page.tsx#L81), [L88](file:///Users/jlpourt/CCAI/ea-audiences/src/app/page.tsx#L88) | Default offer title uses em-dash: `"Crew Re-Up Bundle — 15,000 VC + 2x Crew REP Booster"`. | Replace em-dash with middle dot: `"Crew Re-Up Bundle · 15,000 VC + 2x Crew REP Booster"`. |
-
----
-
-### Screen 4: Season 1→2 Journey Sankey (`/`, `currentView = "marketing-journey"`)
-- **Score**: **5.4 / 10**
-- **Screenshots**:
-  - Desktop (`1440x900`): [season-journey-sankey-desktop.png](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/season-journey-sankey-desktop.png)
-  - Laptop (`1280x800`): [season-journey-sankey-laptop.png](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/season-journey-sankey-laptop.png)
-
-#### Visual Inspection Notes
-- The 5-stage Sankey flow diagram (`1. Acquisition` → `2. Mode Entry` → `3. Week 4–6 Status` → `4. Intervention Offer` → `5. Season 2 Outcome`) has strong color coding and cubic-bezier ribbons, but **four severe visual/copy defects** appear in the live screenshots:
-- **Defect 1 (Severe Header Overlap with `GraphControls`)**:
-  - Look at the top-left of [season-journey-sankey-desktop.png](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/season-journey-sankey-desktop.png) and [season-journey-sankey-laptop.png](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/season-journey-sankey-laptop.png): the floating `GraphControls` bar (`Audience Graph | Cross-Label Bridges | Crews | Season 1→2 Sankey | NBA Markets`, `TITLE All Take-Two Labels`, `446 nodes · 1,014 edges`) sits **directly on top of** `SeasonJourneySankey`'s internal top bar (`← Graph Canvas`, `NBA 2K27 Season 1 → Season 2 Lifecycle Flows`, `TOTAL COHORT 2,850`, `SUB-85 CLIFF RISK 431`)!
-- **Defect 2 (Truncated 4-Word Gemini Diagnosis)**:
-  - Look at the diagnosis banner below the header: on Desktop it reads `"✨ While a critical sub-85"` and stops mid-phrase; on Laptop it reads `"✨ While our Season 1"` and stops mid-phrase!
-  - Root cause: [src/app/api/marketing/journey/summary/route.ts:301-314](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/marketing/journey/summary/route.ts#L301-L314) calls `generateText({ role: "FAST", maxOutputTokens: 200 })` **without** `thinkingBudget: 0`. Because `gemini-3.5-flash` uses ~195 tokens for internal thinking by default, only 4–5 output tokens remain before hitting `maxOutputTokens: 200`!
-- **Defect 3 (SVG Node Text Collision & Horizontal Overflow)**:
-  - In compact 48px-tall Sankey nodes (`NBA 2K27 Launch (S...`, `MyNBA & The W`, `MyTEAM Whale (10+ ...`, `Galaxy Opal Deluxe...`), `SeasonJourneySankey.tsx:438-458` renders the subtitle at `y={32}` and the count/percentage (`61 (2%)`, `104 (4%)`, `239 (8%)`) at `y={Math.min(layout.h - 8, 48)}` (`y=40`), causing the two text lines to overlap and collide vertically! Meanwhile, longer subtitles (`"Play 1 Retention Churn Risk"`, `"$19.99 40-Tier Accelerator"`, `"Take-Two Cross-Label Synergy"`, `"Lost Engagement Pre-Oct 16"`) overflow horizontally outside the `150px`-wide `<rect>` border.
-- **Defect 4 (AI Buzzword `"Synergy"` + `<Sparkles>` + Exposed Badges — Giveaways #2, #11, #14, #15)**:
-  - Stage 1 subtitle reads `"Launch & Synergy"` (`SeasonJourneySankey.tsx:69`) and Stage 4 bottom node subtitle reads `"Take-Two Cross-Label Synergy"` (`journey/summary/route.ts:56`).
-  - Diagnosis bar uses `<Sparkles className="w-4 h-4 text-[#F5B400]" />` and `<ModelBadge modelId={modelUsed} />` (`"✦ Gemini 3.5 Flash"`), and header pill reads `"LIVE SPANNER"`.
-
-#### Flagged Slop Giveaways — Screen 4
-
-| Giveaway # & Category | File:Line / Selector | Exact Problem Observed | Exact Fix (CSS / Copy / Component Level) |
-| :--- | :--- | :--- | :--- |
-| **Layout Collision (Desktop & Laptop)** | [page.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/app/page.tsx#L456-L480), [SeasonJourneySankey.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/journey/SeasonJourneySankey.tsx#L223) | `GraphControls` (`absolute top-16 left-5 z-20`) overlaps `SeasonJourneySankey`'s top header bar (`px-6 py-4`). | Either hide `GraphControls` when `currentView === "marketing-journey" \|\| currentView === "geo-map"`, or add `pt-14` top offset to `SeasonJourneySankey` / `NBAMarketMap` and remove their duplicate `"← Graph Canvas"` button. |
-| **Truncated LLM Output & Fallback Violation** | [journey/summary/route.ts](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/marketing/journey/summary/route.ts#L297-L321), [L348-L370](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/marketing/journey/summary/route.ts#L348-L370) | `generateText` omits `thinkingBudget: 0` with `maxOutputTokens: 200`, truncating visible diagnosis to `"While a critical sub-85"`. Also wraps `generateText` in a `try/catch` canned fallback (violating `GEMINI.md`). | Pass `thinkingBudget: 0, maxOutputTokens: 320` to `generateText`, and remove the `try/catch` canned diagnosis fallback. |
-| **SVG Text Overlap & Overflow** | [SeasonJourneySankey.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/journey/SeasonJourneySankey.tsx#L154), [L427-L458](file:///Users/jlpourt/CCAI/ea-audiences/src/components/journey/SeasonJourneySankey.tsx#L427-L458) | `Math.max(48, rawH)` puts `y=32` subtitle and `y=40` metric text on top of each other; subtitles >22 chars overflow `width=150`. | Increase minimum node height to `Math.max(58, Math.min(160, rawH))`, place metrics at `y={Math.max(48, layout.h - 10)}`, and truncate `node.subtitle` at 22 chars (`node.subtitle.length > 22 ? node.subtitle.slice(0, 21) + "…" : node.subtitle`). |
-| **#11 AI Buzzword Vocabulary (`Synergy`)** | [SeasonJourneySankey.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/journey/SeasonJourneySankey.tsx#L69), [journey/summary/route.ts](file:///Users/jlpourt/CCAI/ea-audiences/src/app/api/marketing/journey/summary/route.ts#L56) | Stage 1 subtitle reads `"Launch & Synergy"`; Stage 4 GTA VI node subtitle reads `"Take-Two Cross-Label Synergy"`. | Change `"Launch & Synergy"` to `"Launch & Cross-Label"` and `"Take-Two Cross-Label Synergy"` to `"Rockstar Social Club Bridge"`. |
-| **#2 & #15 Sparkles & Vendor Badges** | [SeasonJourneySankey.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/journey/SeasonJourneySankey.tsx#L238), [L281-L284](file:///Users/jlpourt/CCAI/ea-audiences/src/components/journey/SeasonJourneySankey.tsx#L281-L284), [L306](file:///Users/jlpourt/CCAI/ea-audiences/src/components/journey/SeasonJourneySankey.tsx#L306), [L513-L516](file:///Users/jlpourt/CCAI/ea-audiences/src/components/journey/SeasonJourneySankey.tsx#L513-L516) | `"LIVE SPANNER"` pill, `<Sparkles>` icons, `<ModelBadge>` (`"✦ Gemini 3.5 Flash"`), and `"Computing Take-Two Spanner Graph Trajectories..."`. | Replace `"LIVE SPANNER"` with `"SEASON 1 TELEMETRY"`, replace `<Sparkles>` with `<TrendingUp className="w-4 h-4 text-[#F5B400]" />`, and remove `<ModelBadge>`. |
-
----
-
-### Screen 5: NBA Market Telemetry & Gravity Map (`/`, `currentView = "geo-map"`)
-- **Score**: **6.0 / 10**
-- **Screenshots**:
-  - Desktop (`1440x900`): [nba-market-map-desktop.png](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/nba-market-map-desktop.png)
-  - Laptop (`1280x800`): [nba-market-map-laptop.png](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/nba-market-map-laptop.png)
-
-#### Visual Inspection Notes
-- **Defect 1 (Severe Header Overlap with `GraphControls`)**:
-  - Look at the top bar in [nba-market-map-desktop.png](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/nba-market-map-desktop.png) and [nba-market-map-laptop.png](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/nba-market-map-laptop.png): `GraphControls` (`Audience Graph | Cross-Label Bridges | Crews | Season 1→2 Sankey | NBA Markets`, `TITLE All Take-Two Labels`, `36 NBA & Global DMAs`) sits right on top of `NBAMarketMap`'s header (`NBA Market Telemetry & Gravity Map | 30 NBA DMAS + INTL`) and **completely covers** the first three metric toggle buttons (`Players`, `VC Spend`, `Season 2 Cliff Risk`), leaving only `... Gravity` peeking out underneath `36 NBA & Global DMAs`!
-- **Defect 2 (Continental US Bubble & Label Pile-Up)**:
-  - Because `NBAMarketMap.tsx:120-124` uses a full world map (`geoNaturalEarth1().scale(mapSize.width / 5.4)`) and renders a permanent white `<text>` label for every bubble with `radius >= 12` (`NBAMarketMap.tsx:346`), 30 US NBA DMAs are crammed into a ~220x130px region of North America. The city labels (`Portland`, `San Francisco`, `Los Angeles`, `Salt Lake City`, `Denver`, `Minneapolis / St. Paul`, `Milwaukee`, `Chicago`, `Indiana`, `New York`, `Boston`, `Charlotte`, `Houston`, `Miami / Fort Lauderdale`) overlap into an illegible cluster.
-- **Defect 3 (Exposed Vendor Copy & Spinner — Giveaways #14 & #15)**:
-  - Subtitle reads `"Live Spanner DMA clustering · Season 2 Cliff & GTA VI Pre-Order Gravity"` (`NBAMarketMap.tsx:211`) and loading overlay uses `<RefreshCw className="w-5 h-5 animate-spin" /> Resolving Spanner DMA Coordinates...` (`NBAMarketMap.tsx:260-261`).
-
-#### Flagged Slop Giveaways — Screen 5
-
-| Giveaway # & Category | File:Line / Selector | Exact Problem Observed | Exact Fix (CSS / Copy / Component Level) |
-| :--- | :--- | :--- | :--- |
-| **Layout Collision (Desktop & Laptop)** | [NBAMarketMap.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/map/NBAMarketMap.tsx#L191-L253), [GraphControls.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/graph/GraphControls.tsx#L67) | Floating `GraphControls` covers `NBAMarketMap`'s title and obscures the `Players / VC Spend / Season 2 Cliff Risk / GTA VI Gravity` segmented control. | Add `pt-14` to `NBAMarketMap`'s top bar or hide `GraphControls` on non-graph views (`marketing-journey`, `geo-map`). |
-| **Map Label Pile-Up Over US DMAs** | [NBAMarketMap.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/map/NBAMarketMap.tsx#L314), [L346-L357](file:///Users/jlpourt/CCAI/ea-audiences/src/components/map/NBAMarketMap.tsx#L346-L357) | `radius >= 12` matches almost all 30 US NBA markets simultaneously on a global projection, causing 25+ `<text>` labels to overlap over the US. | Only render permanent `<text>` labels for the top 6 non-overlapping global/regional hubs (e.g., `Los Angeles`, `New York`, `Chicago`, `Miami`, `London`, `Manila`, `São Paulo`, `Sydney`) or when `isSelected \|\| isHovered`, and tighten bubble radius to `Math.max(4, Math.min(18, (val / max) * 14 + 4))`. |
-| **#14 & #15 Vendor Copy & Spinner** | [NBAMarketMap.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/map/NBAMarketMap.tsx#L211), [L260-L261](file:///Users/jlpourt/CCAI/ea-audiences/src/components/map/NBAMarketMap.tsx#L260-L261) | `"Live Spanner DMA clustering"` and `"Resolving Spanner DMA Coordinates..."` with `animate-spin`. | Replace with `"30 NBA Team Markets + 6 Global Hubs · Season 2 Cliff & GTA VI Pre-Order Gravity"`. |
-
----
-
-### Secondary Drawers & Modals Audited (`CreativeStudioPanel`, `CampaignBriefModal`, `SaveAudienceSheet`, `SavedAudiencesDrawer`, `ActivationDAG`, `ActivationFeed`)
-
-| Component & File | Giveaway # | Exact Problem Observed | Exact Fix |
-| :--- | :---: | :--- | :--- |
-| [CreativeStudioPanel.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/creative/CreativeStudioPanel.tsx#L209), [L246](file:///Users/jlpourt/CCAI/ea-audiences/src/components/creative/CreativeStudioPanel.tsx#L246), [L258](file:///Users/jlpourt/CCAI/ea-audiences/src/components/creative/CreativeStudioPanel.tsx#L258), [L297](file:///Users/jlpourt/CCAI/ea-audiences/src/components/creative/CreativeStudioPanel.tsx#L297), [L331](file:///Users/jlpourt/CCAI/ea-audiences/src/components/creative/CreativeStudioPanel.tsx#L331), [L373-L375](file:///Users/jlpourt/CCAI/ea-audiences/src/components/creative/CreativeStudioPanel.tsx#L373-L375), [L403](file:///Users/jlpourt/CCAI/ea-audiences/src/components/creative/CreativeStudioPanel.tsx#L403) | **#2, #14, #15** | `<Sparkles>` on `"Generate Art"`, `"Generate VO"`, `"Generate Beat"`; `<ModelBadge>` pills; `"Gemini 2.5 Flash Render"` label on `CompareSlider`; `"Arena Hype Bed (Lyria 2)"` header. | Replace `<Sparkles>` with `<ImageIcon>`, `<Mic>`, `<Music2>`; change `afterLabel` to `"Custom Cohort Key Art"`; change `"Arena Hype Bed (Lyria 2)"` to `"Arena Hype Sound Bed"`. |
-| [ActivationDAG.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/activation/ActivationDAG.tsx#L156-L160), [L249](file:///Users/jlpourt/CCAI/ea-audiences/src/components/activation/ActivationDAG.tsx#L249), [L266-L270](file:///Users/jlpourt/CCAI/ea-audiences/src/components/activation/ActivationDAG.tsx#L266-L270), [L342](file:///Users/jlpourt/CCAI/ea-audiences/src/components/activation/ActivationDAG.tsx#L342), [L364](file:///Users/jlpourt/CCAI/ea-audiences/src/components/activation/ActivationDAG.tsx#L364) | **#2, #14, #15** | Header pill `"GCP NATIVE"`, subtitle `"Spanner Identity Graph → Gemini Reasoning Agents → HITL Gate → Pub/Sub & BigQuery"`, Node 2 `<Sparkles>` + `<ModelBadge>` (`"Gemini 3.1 Pro"`), Node 5 `"PUB/SUB & BQ"`, Gate pause `<Clock className="animate-spin" />`. | Replace `"GCP NATIVE"` with `"LIVE-OPS PIPELINE"`, subtitle with `"Take-Two Identity Spine → Campaign Brief → Creative Pack → Policy Gate → Multi-Channel Dispatch"`, and `<Sparkles>` with `<FileText>`. |
-| [SaveAudienceSheet.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/audience/SaveAudienceSheet.tsx#L156-L159), [L191-L193](file:///Users/jlpourt/CCAI/ea-audiences/src/components/audience/SaveAudienceSheet.tsx#L191-L193), [L222-L223](file:///Users/jlpourt/CCAI/ea-audiences/src/components/audience/SaveAudienceSheet.tsx#L222-L223), [L308-L309](file:///Users/jlpourt/CCAI/ea-audiences/src/components/audience/SaveAudienceSheet.tsx#L308-L309) | **#14, #15** | Title `"Save Segment to BigQuery"`, `"Lookalike Expansion (Gemini Embedding)"` + `<ModelBadge>`, `"Scoring 3,072-d cosine similarity in Spanner…"`, CTA `"Save to twok_marketing_intelligence.saved_audiences"`. | Rename to `"Save Audience Segment"`, `"Lookalike Expansion (3,072-d Vector Similarity)"`, `"Scoring player behavioral similarity…"`, and `"Save Segment to Library"`. |
-| [CampaignBriefModal.tsx](file:///Users/jlpourt/CCAI/ea-audiences/src/components/brief/CampaignBriefModal.tsx#L86), [L112](file:///Users/jlpourt/CCAI/ea-audiences/src/components/brief/CampaignBriefModal.tsx#L112), [L128](file:///Users/jlpourt/CCAI/ea-audiences/src/components/brief/CampaignBriefModal.tsx#L128), [L206](file:///Users/jlpourt/CCAI/ea-audiences/src/components/brief/CampaignBriefModal.tsx#L206) | **#14, #15** | Renders 3 `<ModelBadge>` pills and `"Synthesizes key metrics into a 55-word briefing via Gemini TTS."` | Remove `<ModelBadge>` pills and change copy to `"Synthesizes cohort metrics and community guardrails into a 55-word audio briefing."` |
-
----
-
-## Ready-to-Apply Code, CSS & Copy Fixes
-
-### Fix 1: Eliminate Sub-Header & Search Bar Collisions (`src/app/page.tsx`, `src/components/graph/GraphControls.tsx`, `src/components/search/NLSearchBar.tsx`)
-1. In `src/app/page.tsx:456-480`, only render floating `<GraphControls>` on graph canvas views (or add `top-14` spacing so it never overlaps `SeasonJourneySankey` or `NBAMarketMap`), and pass `isInspectorOpen` to `GraphControls` and `NLSearchBar`:
+#### Ready-to-Apply Fix Snippets — Screen 1
 ```tsx
-// src/components/graph/GraphControls.tsx (line 67)
-return (
-  <div
-    className={`absolute top-16 left-5 z-20 flex flex-wrap items-center gap-2 font-sans ${
-      isGraphCanvasView ? "right-[436px]" : "right-5"
-    }`}
-  >
-```
-2. In `src/components/search/NLSearchBar.tsx:150`, offset the search bar away from the right-hand `410px` `EntityInspector`:
-```tsx
-// src/components/search/NLSearchBar.tsx (line 150)
-<div className="fixed bottom-12 left-5 right-[436px] z-20 mx-auto max-w-3xl flex flex-col items-center gap-2 font-sans">
+// 1. src/components/landing/CourtsideLanding.tsx (lines 680-694) — Sync prompt highlight with live Spanner count
+if (holdouts > 0) {
+  updated[1] = {
+    ...updated[1],
+    badge: `CORE FINDING · ${holdouts} HOLDOUT VETERANS`,
+    title: `${holdouts} NBA 2K26 Veterans Ready to Upgrade`,
+    prompts: updated[1].prompts.map((p, idx) =>
+      idx === 0 ? { ...p, highlight: `${holdouts} Veterans` } : p
+    ),
+  };
+}
+
+// 2. src/components/landing/CourtsideLanding.tsx (lines 845-865) — Fix 5-tab container overflow
+<div className="inline-flex flex-wrap items-center justify-center gap-1 p-1.5 rounded-2xl bg-black/50 border border-white/10 backdrop-blur-md">
+  {FINDING_TABS.map((tab) => (
+    <button
+      key={tab.id}
+      onClick={() => handleTabChange(tab.id)}
+      className={`px-3 py-1.5 rounded-xl text-[11px] font-medium whitespace-nowrap transition-all ${
+        selectedTab === tab.id
+          ? "bg-[#E4002B] text-white shadow-[0_0_20px_rgba(228,0,43,0.4)]"
+          : "text-white/60 hover:text-white hover:bg-white/[0.06]"
+      }`}
+    >
+      <span className="opacity-60 font-mono mr-1">{tab.num}.</span>
+      {tab.shortLabel}
+    </button>
+  ))}
+</div>
 ```
 
-### Fix 2: Fix `SpannerStatusPill` Blank Latency & Vendor Copy (`src/components/common/SpannerStatusPill.tsx`)
+---
+
+### Screen 2: Graph Workspace (`/Cohorts` — 2K Telemetry Property Graph Canvas)
+- **Route / State**: `/` (`activeWorkspaceTab === "graph"`, `isLandingView === false`)
+- **Anti-Slop Score**: **5.8 / 10.0**
+- **Post-Polish Target Score**: **9.2 / 10.0**
+- **Screenshots**:
+  - Desktop (`1440×900`): [`.showroom/screenshots/graph-workspace-desktop.png`](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/graph-workspace-desktop.png)
+  - Laptop (`1280×800`): [`.showroom/screenshots/graph-workspace-laptop.png`](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/graph-workspace-laptop.png)
+
+#### Flagged Slop Giveaways & Visual Defects Table — Screen 2
+| Giveaway # & Category | File:Line / Selector | Exact Problem Observed | Exact Fix (CSS / Copy / Component Level) |
+| :--- | :--- | :--- | :--- |
+| **CRITICAL Laptop HUD Collision (`1280×800`)** | `src/components/graph/GraphControls.tsx:164`, `src/app/page.tsx:474` | At `1280×800` (`xl` breakpoint), the `{nodeCount}N · {edgeCount}E` badge (`82N · 111E`) inside `GraphControls` becomes `xl:flex` and **physically collides with and overlaps** the `"2K Graph · 184ms"` (`SpannerStatusPill`) in the top 52px bar. | Change `hidden xl:flex` on the `{nodeCount}N · {edgeCount}E` badge in `GraphControls.tsx:164` to `hidden 2xl:flex` (or remove it from the top bar since the bottom-left Legend already displays node/edge context). |
+| **Bottom-Left Legend vs. `NLSearchBar` Collision & Chip Clipping** | `src/components/search/NLSearchBar.tsx:163, 336`, `src/components/graph/GraphStage.tsx` | On both `1440×900` and `1280×800`, the 4 quick-query chips below `NLSearchBar` clip horizontally (`26 Holdouts w/ 2K27 Crew` on the left, `04 · Multi-Title 2K C` on the right). Worse, on `1280×800` when the right inspector opens, `NLSearchBar` shifts left (`lg:left-[calc(50%-190px)]`) and overlaps the bottom-left Legend card (`⚡ VC / Offe`). | 1) Constrain `NLSearchBar` width when `isInspectorOpen` is true (`lg:max-w-xl lg:left-[calc(50%-140px)]`). 2) Wrap the quick-query chips in `flex-wrap justify-center gap-1.5` instead of a single overflowing horizontal row. 3) Move the Graph Legend to `top-16 left-4` so it never competes with the bottom command bar. |
+| **#12 Overused Em-Dashes on Canvas Nodes** | `scripts/generate_2k_dataset.py:203-216`, `scripts/spanner_load_data.js`, `src/components/graph/GraphStage.tsx` | Offer nodes rendered on the 2D canvas display literal em-dashes: `⚡ NBA 2K Mobile — Courtside... ($9.99)` and `⚡ Borderlands 4 — Vault Hunt... ($14.99)`. | Sanitize node labels in `GraphStage.tsx` (`label.replace(/\s*\u2014\s*/g, " · ")`) and replace `—` with `·` in `scripts/generate_2k_dataset.py:203-216`. |
+| **#14 Generic Spinners (`animate-spin`)** | `src/components/search/NLSearchBar.tsx:231, 316`, `src/components/common/SpannerStatusPill.tsx:97` | Uses `Loader2 animate-spin` in both the GQL command bar and the top status pill. | Replace with pulsing status dots (`span className="w-2 h-2 rounded-full bg-[#E4002B] animate-ping"`). |
+
+#### Ready-to-Apply Fix Snippets — Screen 2
 ```tsx
-// src/components/common/SpannerStatusPill.tsx (lines 6-14 & 97-111)
-export type SpannerHealth = {
-  ok: boolean;
-  database: string;
-  graph?: string;
-  playerCount?: number;
-  latencyMs?: number;
-  graphLatencyMs?: number;
-  probe?: { ok: boolean; latencyMs: number };
-  error?: string;
-};
-// ...
-const resolvedLatencyMs =
-  health?.graphLatencyMs ?? health?.probe?.latencyMs ?? health?.latencyMs;
-// ...
-<span className="font-medium tracking-tight">
-  {phase === "live"
-    ? "TakeTwoPlayerGraph · LIVE"
-    : phase === "down"
-      ? `Graph Offline · ${health?.error?.slice(0, 28) || "error"}`
-      : "Identity Graph · Probing"}
+// 1. src/components/graph/GraphControls.tsx (line 164) — Prevent 1280px top-bar overlap with SpannerStatusPill
+<div className="hidden 2xl:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.03] border border-white/[0.06] text-[11px] font-mono text-slate-400 tabular">
+  <span className="text-white font-semibold">{nodeCount}</span>N
+  <span className="text-slate-600">·</span>
+  <span className="text-white font-semibold">{edgeCount}</span>E
+</div>
+
+// 2. src/components/search/NLSearchBar.tsx (lines 161-166 & 334-345) — Prevent Legend collision & chip clipping
+<div
+  className={`fixed bottom-5 z-30 transition-all duration-300 ${
+    isInspectorOpen
+      ? "left-1/2 lg:left-[calc(50%-150px)] -translate-x-1/2 w-[88%] max-w-xl"
+      : "left-1/2 -translate-x-1/2 w-[92%] max-w-2xl"
+  }`}
+>
+  {/* ... */}
+  <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5 px-2">
+    {/* Quick suggestion chips never clip horizontally */}
+  </div>
+</div>
+```
+
+---
+
+### Screen 3: Entity Inspector Drawer (`EntityInspector.tsx` — Cohort & Player Node Deep-Dive)
+- **Route / State**: `/Cohorts` with a Player/Cohort node selected (`FlaggBaronSr` · `Park Rep Grinder`)
+- **Anti-Slop Score**: **6.5 / 10.0**
+- **Post-Polish Target Score**: **9.3 / 10.0**
+- **Screenshots**:
+  - Desktop (`1440×900`): [`.showroom/screenshots/entity-inspector-desktop.png`](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/entity-inspector-desktop.png)
+  - Laptop (`1280×800`): [`.showroom/screenshots/entity-inspector-laptop.png`](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/entity-inspector-laptop.png)
+
+#### Flagged Slop Giveaways & Visual Defects Table — Screen 3
+| Giveaway # & Category | File:Line / Selector | Exact Problem Observed | Exact Fix (CSS / Copy / Component Level) |
+| :--- | :--- | :--- | :--- |
+| **#9 Unformatted Round Spend Number (`$4000.00`)** | `src/components/sidebar/EntityInspector.tsx:782` | Displays `Lifetime Spend: $4000.00` using `node.spend.toFixed(2)` without thousands separators, looking like raw database float output (`$4000.00` instead of `$4,000` or `$4,000.00`). | Format with `node.spend.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })` (`$4,000`). |
+| **#3 Raw Emoji Badges in Inspector Pills** | `src/components/sidebar/EntityInspector.tsx:999, 1028` | Uses raw system emojis (`🛡️`, `⭐`, `📺`) inside Crew and Creator affinity badges instead of Lucide vector icons (`Shield`, `Star`, `Tv`). | Replace raw emoji literals at lines 999 and 1028 with `<Shield className="w-3 h-3" />`, `<Star className="w-3 h-3" />`, and `<Tv className="w-3 h-3" />`. |
+| **#14 Generic Spinner (`animate-spin`)** | `src/components/sidebar/EntityInspector.tsx:1152` | Uses `<Loader2 className="w-4 h-4 animate-spin text-[#E4002B]" />` during AI next-best-action synthesis. | Replace with a 3-bar telemetry equalizer pulse or step-progress label (`"Synthesizing MyPLAYER Telemetry..."`). |
+| **Laptop Canvas & Legend Crowding (`1280×800`)** | `src/components/sidebar/EntityInspector.tsx` + `NLSearchBar.tsx` | On `1280×800`, when the 380px right-hand `EntityInspector` drawer opens, the bottom `NLSearchBar` collides with the bottom-left Legend box (`⚡ VC / Offe`). | Auto-collapse the bottom `NLSearchBar` into a compact pill when a single node is being inspected on viewports `< 1360px`, or relocate the Legend to `top-16 left-4`. |
+
+#### Ready-to-Apply Fix Snippets — Screen 3
+```tsx
+// src/components/sidebar/EntityInspector.tsx (line 782) — Proper currency formatting
+<span className="text-sm font-mono font-bold text-emerald-400 tabular">
+  ${Number(node.spend || 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}
 </span>
-{phase === "live" && typeof resolvedLatencyMs === "number" && (
-  <>
-    <span className="opacity-35">·</span>
-    <span className="tabular text-win-green font-semibold">
-      {resolvedLatencyMs} ms
-    </span>
-  </>
-)}
 ```
 
-### Fix 3: Fix Truncated Sankey Diagnosis (`thinkingBudget: 0`), SVG Node Text Overlap & `"Synergy"` Buzzword (`src/app/api/marketing/journey/summary/route.ts` & `src/components/journey/SeasonJourneySankey.tsx`)
+---
+
+### Screen 4: Social Contagion Focus Group — 20 Core Personas (`FocusGroupModal.tsx`)
+- **Route / State**: `FocusGroupModal` open (`activeMatrixTab === "core20"`)
+- **Anti-Slop Score**: **6.2 / 10.0**
+- **Post-Polish Target Score**: **9.4 / 10.0**
+- **Screenshots**:
+  - Desktop (`1440×900`): [`.showroom/screenshots/focus-group-core20-desktop.png`](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/focus-group-core20-desktop.png)
+  - Laptop (`1280×800`): [`.showroom/screenshots/focus-group-core20-laptop.png`](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/focus-group-core20-laptop.png)
+
+#### Flagged Slop Giveaways & Visual Defects Table — Screen 4
+| Giveaway # & Category | File:Line / Selector | Exact Problem Observed | Exact Fix (CSS / Copy / Component Level) |
+| :--- | :--- | :--- | :--- |
+| **#9 Pre-Run Denominator Bug (`0 / 20` under `N=100 Swarm`)** | `src/components/focusgroup/FocusGroupModal.tsx:457-458, 709` | Because `swarmSize` defaults to `100` (`N=100 Swarm` pill highlighted in red), but `crowdAgents` is empty (`[]`) before clicking Run, `const isSwarm100 = swarmSize === 100 && crowdAgents.length > 0` evaluates to `false`! As a result, all 4 KPI tally boxes say `0 / 20` and the tab badge says `100-Agent Swarm Matrix 20/100` while the top header says `N=100 Swarm` and `Run 100-Agent Battle`. | Change line 458 to `const totalDenominator = swarmSize === 100 ? (crowdAgents.length > 0 ? activeTotalCount : 100) : activePersonas.length;` and show `100` on the tab badge so the header and KPI counters are 100% consistent before and after execution. |
+| **Offer Title Input Horizontal Clipping** | `src/components/focusgroup/FocusGroupModal.tsx:643` | The Offer Title `<input>` (`w-64`) truncates `"Crew Re-Up Bundle · 15,000 VC + 2x Crew REP Booste"` mid-word on both `1440×900` and `1280×800` because the 4 preset pills and Battle Mode button share the same horizontal row. | Move the 4 preset pills into a secondary compact strip or give the Offer `<input>` `flex-1 min-w-[290px]` with tighter preset labels (`$4.99 Crew`, `$14.99 vs $19.99 Opal`, `$19.99 HoF Pass`, `$69.99 2K26→2K27`). |
+| **#11 AI Buzzword (`unlock`)** | `src/components/focusgroup/FocusGroupModal.tsx:125`, `src/lib/prompts/courtside_personas.ts:95, 124` | Event preset `carryover_cap_breaker` uses `"instant 90 OVR Rebirth unlock"` (`FocusGroupModal.tsx:125`), and `courtside_personas.ts` uses `"badge unlock thresholds"` (line 95) and `"2K loyalty synergy"` (line 124). | Replace `"unlock"` with `"tier access"` / `"progression gate"` and `"synergy"` with `"cross-title loyalty bonus"` per `.showroom/voice.md`. |
+| **#14 Generic Spinners (`animate-spin`)** | `src/components/focusgroup/FocusGroupModal.tsx:592`, `PersonaInterrogationDrawer.tsx:185`, `RedditPulseCard.tsx:80, 87` | Uses `RotateCw animate-spin` / `Loader2 animate-spin` during focus group evaluation, persona interrogation, and Reddit pulse refresh. | Replace with live round-by-round progress telemetry (`"Round 1 Isolated → Round 2 Crew Contagion"`). |
+
+#### Ready-to-Apply Fix Snippets — Screen 4
+```tsx
+// 1. src/components/focusgroup/FocusGroupModal.tsx (lines 457-459) — Fix 0/20 vs 0/100 denominator mismatch
+const isSwarm100 = swarmSize === 100 && crowdAgents.length > 0;
+const totalDenominator =
+  swarmSize === 100
+    ? crowdAgents.length > 0
+      ? activeTotalCount
+      : 100
+    : activePersonas.length;
+
+// 2. src/components/focusgroup/FocusGroupModal.tsx (line 125) — Replace "unlock" with authentic 2K terminology
+description:
+  "Grant NBA 2K26 veterans instant 90 OVR Rebirth access plus +2 Cap Breaker carryover tokens in NBA 2K27 Season 2",
+```
+
+---
+
+### Screen 5: Social Contagion Focus Group — 100-Agent Swarm Matrix (`FocusGroupModal.tsx`)
+- **Route / State**: `FocusGroupModal` open (`activeMatrixTab === "swarm100"`)
+- **Anti-Slop Score**: **6.3 / 10.0**
+- **Post-Polish Target Score**: **9.4 / 10.0**
+- **Screenshots**:
+  - Desktop (`1440×900`): [`.showroom/screenshots/focus-group-swarm100-desktop.png`](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/focus-group-swarm100-desktop.png)
+  - Laptop (`1280×800`): [`.showroom/screenshots/focus-group-swarm100-laptop.png`](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/focus-group-swarm100-laptop.png)
+
+#### Flagged Slop Giveaways & Visual Defects Table — Screen 5
+| Giveaway # & Category | File:Line / Selector | Exact Problem Observed | Exact Fix (CSS / Copy / Component Level) |
+| :--- | :--- | :--- | :--- |
+| **Pre-Run Empty Crowd Matrix (`20/100` Shown in `100-Agent Swarm Matrix` Tab)** | `src/components/focusgroup/FocusGroupModal.tsx:965-1035` | When clicking the `100-Agent Swarm Matrix` tab before running the test, only the 20 core personas render in a 4×5 grid while the subtitle on the right claims `"20 Rich Personas + 80 Crowd Swarm Agents"` and the badge says `20/100`. | Pre-seed the 80 crowd swarm agent slots in an `"AWAITING TELEMETRY"` standby grid (10×10 compact matrix) on mount so the 100-Agent Swarm Matrix visually looks like a 100-agent swarm immediately upon opening the tab. |
+| **Right-Column Below-the-Fold Clipping (`1280×800`)** | `src/components/focusgroup/FocusGroupModal.tsx:1086-1230` | On `1280×800` when `Battle Mode` is active, the `Willingness-To-Pay Curve` sparkline, `Backlash Index`, and `Live Reddit Pulse` cards are pushed below the fold with no visible scroll cue. | Make the right analytics rail compact (`gap-2.5 p-3`) or place `Offer Battle Arena` and `Willingness-To-Pay Curve` side-by-side in a 2-column sub-grid. |
+
+---
+
+### Screen 6: Season Journey Sankey (`/Journeys` — `SeasonJourneySankey.tsx`)
+- **Route / State**: `/` (`activeWorkspaceTab === "journeys"`)
+- **Anti-Slop Score**: **6.0 / 10.0**
+- **Post-Polish Target Score**: **9.3 / 10.0**
+- **Screenshots**:
+  - Desktop (`1440×900`): [`.showroom/screenshots/season-journey-sankey-desktop.png`](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/season-journey-sankey-desktop.png)
+  - Laptop (`1280×800`): [`.showroom/screenshots/season-journey-sankey-laptop.png`](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/season-journey-sankey-laptop.png)
+
+#### Flagged Slop Giveaways & Visual Defects Table — Screen 6
+| Giveaway # & Category | File:Line / Selector | Exact Problem Observed | Exact Fix (CSS / Copy / Component Level) |
+| :--- | :--- | :--- | :--- |
+| **#9 Suspicious 1:1 Duplicate Numbers Across Stage 3 & Stage 4** | `src/app/api/marketing/journey/summary/route.ts:108-116` | Stage 3 (`3. Week 4-6 Status`) and Stage 4 (`4. Intervention Offer`) have **100% identical player counts and percentages across all 4 rows**: `1,201 (42%) → 1,201 (42%)`, `483 (17%) → 483 (17%)`, `235 (8%) → 235 (8%)`, `931 (33%) → 931 (33%)`, and the top KPI bar shows `Sub-85 Cliff: 483` and `Crew Re-Up: 483`. This happens because `classifyPlayer()` maps `s2` deterministically 1:1 to `s3`. | Route players from Stage 3 into Stage 4 based on actual offer eligibility/affinity signals (`tilt_sensitivity`, `vc_spend_90d`, `crew_id`, `myteam_packs_opened_30d`) so cross-flows exist between Stage 3 and Stage 4 and `Crew Re-Up` reflects actual converted/targeted players rather than duplicating `Sub-85 Cliff: 483`. |
+| **86% `MyTEAM` Mode Classification Skew** | `src/app/api/marketing/journey/summary/route.ts:91-96` | Stage 2 (`2. Mode Entry`) assigns `2,463 (86%)` of all players to `MyTEAM` and only `314 (11%)` to `MyCAREER / The City` because line 92 checks `Number(tel.myteam_packs_opened_30d || 0) > 0`, which is true for almost every player in the dataset. | Classify Stage 2 primarily by `p.primary_archetype` (`PARK_REP_GRINDER`, `REC_SQUAD_CAPTAIN`, `MYCAREER_STORY_CASUAL`, `RAGE_QUIT_CHURN_RISK` → `mode_career`; `MYTEAM_PACK_WHALE` or `opals >= 5` → `mode_myteam`; `MYNBA_FRANCHISE_SIM` / `THE_W_LOYALIST` → `mode_mynba_w`). |
+| **Missing Subtitle on `MyNBA & The W` Node** | `src/components/journey/SeasonJourneySankey.tsx:520-545` | In Stage 2, the bottom card `MyNBA & The W` (`h = 54px`) omits its subtitle (`"Eras & Caitlin Clark WNBA"`), making it the only card out of 17 nodes on the screen without a subtitle. | Increase `minH` in `SeasonJourneySankey.tsx:183` from `54` to `68` so all 3-node and 4-node columns always render their subtitle cleanly. |
+| **Hardcoded Fallback Numbers Shown During Loading + `animate-spin`** | `src/components/journey/SeasonJourneySankey.tsx:269, 278, 285, 292, 299, 308, 318` | While `loading === true` (`RefreshCw animate-spin` overlay), the header already displays hardcoded fallback numbers (`2,850`, `483`, `483`, `81%`). | Render tabular shimmer placeholders (`—`) while `metrics === null && loading` and replace `RefreshCw animate-spin` with a multi-stage Sankey skeleton. |
+
+#### Ready-to-Apply Fix Snippets — Screen 6
 ```ts
-// src/app/api/marketing/journey/summary/route.ts (line 56 & lines 301-315)
-{ stageIndex: 3, id: "offer_gta6_bridge", title: "GTA VI Pre-Order Bridge", subtitle: "Rockstar Social Club Bridge", color: "#FCAF17" },
-// ...
-const genRes = await generateText({
-  role: "FAST",
-  prompt: `...`,
-  temperature: 0.2,
-  maxOutputTokens: 320,
-  thinkingBudget: 0,
-});
-```
-```tsx
-// src/components/journey/SeasonJourneySankey.tsx (lines 69, 154, 438-458)
-const STAGE_HEADERS = [
-  { index: 0, title: "1. Acquisition", subtitle: "Launch & Cross-Label" },
-  // ...
-];
-// In svgLayout (line 154):
-const h = Math.max(58, Math.min(160, rawH));
-// In SVG Node rendering (lines 438-458):
-<text x={12} y={32} fill="rgba(244,241,234,0.5)" fontSize={9} className="pointer-events-none font-mono">
-  {node.subtitle.length > 22 ? `${node.subtitle.slice(0, 21)}…` : node.subtitle}
-</text>
-<text x={12} y={Math.max(46, Math.min(layout.h - 8, 52))} fill={node.color} fontSize={11} fontWeight={600} className="pointer-events-none font-mono">
-  {node.count.toLocaleString()} ({node.pct}%)
-</text>
+// 1. src/app/api/marketing/journey/summary/route.ts (lines 90-117) — Fix Mode Entry skew & 1:1 Stage 3->4 duplication
+// Stage 2 (1): Mode Entry — ground in primary_archetype so MyCAREER / The City leads
+let s1 = "mode_career";
+if (p.primary_archetype === "MYTEAM_PACK_WHALE" || opals >= 6) {
+  s1 = "mode_myteam";
+} else if (
+  p.primary_archetype === "MYNBA_FRANCHISE_SIM" ||
+  p.primary_archetype === "THE_W_LOYALIST"
+) {
+  s1 = "mode_mynba_w";
+}
+
+// Stage 4 (3): Intervention Offer — realistic cross-branching instead of 1:1 copy of Stage 3
+let s3 = "offer_hof_pass";
+if (s2 === "status_sub85_cliff") {
+  s3 = p.tilt_sensitivity < 0.75 ? "offer_crew_reup" : "offer_hof_pass";
+} else if (s2 === "status_whale") {
+  s3 = opals >= 12 ? "offer_deluxe_pack" : "offer_hof_pass";
+} else if (s2 === "status_2k26_holdout") {
+  s3 = spend >= 120 ? "offer_2k26_upgrade" : "offer_crew_reup";
+} else if (Number(tel.vc_spend_90d || 0) >= 150) {
+  s3 = "offer_deluxe_pack";
+}
 ```
 
-### Fix 4: Fix `FocusGroupModal` WTP Operator-Precedence Bug & Identical Placeholder Quotes (`src/components/focusgroup/FocusGroupModal.tsx`)
+---
+
+### Screen 7: NBA Market Telemetry Map (`/Markets` — `NBAMarketMap.tsx`)
+- **Route / State**: `/` (`activeWorkspaceTab === "markets"`)
+- **Anti-Slop Score**: **6.8 / 10.0**
+- **Post-Polish Target Score**: **9.4 / 10.0**
+- **Screenshots**:
+  - Desktop (`1440×900`): [`.showroom/screenshots/nba-market-map-desktop.png`](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/nba-market-map-desktop.png)
+  - Laptop (`1280×800`): [`.showroom/screenshots/nba-market-map-laptop.png`](file:///Users/jlpourt/CCAI/ea-audiences/.showroom/screenshots/nba-market-map-laptop.png)
+
+#### Flagged Slop Giveaways & Visual Defects Table — Screen 7
+| Giveaway # & Category | File:Line / Selector | Exact Problem Observed | Exact Fix (CSS / Copy / Component Level) |
+| :--- | :--- | :--- | :--- |
+| **North America DMA Label Pile-Up & Overlap** | `src/components/map/NBAMarketMap.tsx:318-375` | Because 30 US/Canada NBA DMAs are plotted on a full world map (`geoNaturalEarth1` at `scale: 155`) and `isTopMarket = m.playerCount >= 70 || isSelected` renders permanent `<text>` labels for ~10 markets simultaneously, `San Francisco Bay Area`, `Los Angeles / Inglewood`, `San Antonio`, `Toronto`, `Detroit`, `Cleveland`, `Chicago`, `Brooklyn`, and `Washington DC` collide in an unreadable heap over the US. | Only render permanent `<text>` labels on the map for the **currently selected market (`isSelected`)**, the **hovered market (`isHovered`)**, and well-separated international hubs (`London`, `Paris`, `São Paulo`), or add a `"North America Court Zoom"` default projection (`scale: 420, center: [-96, 38]`) with a toggle for `"Global 35 DMAs"`. |
+| **Raw `SCREAMING_SNAKE_CASE` Enum in Market Drawer** | `src/components/map/NBAMarketMap.tsx:464-467` | Under `DOMINANT ARCHETYPE`, the drawer displays `MyCAREER Story Casual` and directly below it renders the raw database enum string `MYCAREER_STORY_CASUAL` (`{selectedMarket.topArchetype}`). | Replace raw `{selectedMarket.topArchetype}` with a human-readable operational subtitle (e.g., `"Primary Mode: MyCAREER / The City · Park & Rec"`). |
+| **#14 Generic Spinner (`animate-spin`)** | `src/components/map/NBAMarketMap.tsx:236` | Uses `<RefreshCw className="w-5 h-5 animate-spin text-[#E4002B]" />` while loading DMA telemetry. | Replace with a pulsing court radar ring animation. |
+
+#### Ready-to-Apply Fix Snippets — Screen 7
 ```tsx
-// src/components/focusgroup/FocusGroupModal.tsx (lines 496-509)
-<TabularNumber
-  value={
-    reaction?.willingness_to_pay_usd ??
-    ((p.vc_spend_90d || 0) >= 150 ? 14.99 : (p.vc_spend_90d || 0) >= 60 ? 9.99 : 4.99)
-  }
-  decimals={2}
-/>
-// ...
-<p className="pl-2 text-[11px] text-chalk-dim/90 line-clamp-2 leading-relaxed italic">
-  {reaction?.verbatim_quote ? (
-    <>&ldquo;{reaction.verbatim_quote}&rdquo;</>
-  ) : (
-    <span className="not-italic font-mono text-[10px] text-chalk-dim">
-      {p.myplayer_ovr || 85} OVR {p.myplayer_build || "MyPLAYER"} · {p.favorite_team || "NBA 2K27"}
-    </span>
-  )}
-</p>
+// 1. src/components/map/NBAMarketMap.tsx (lines 320-322) — Prevent North America DMA text label collision
+const isSelected = selectedMarket?.dma === m.dma;
+const isHovered = hoveredDma === m.dma;
+const isIsolatedIntl = m.country !== "United States" && m.country !== "Canada";
+const showLabel = isSelected || isHovered || isIsolatedIntl;
+
+// 2. src/components/map/NBAMarketMap.tsx (lines 461-469) — Remove raw SCREAMING_SNAKE_CASE enum bleed
+<div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+  <div className="text-[10px] font-mono uppercase tracking-wider text-white/45 mb-1">
+    DOMINANT ARCHETYPE
+  </div>
+  <div className="text-sm font-semibold text-white">
+    {ARCHETYPE_LABELS[selectedMarket.topArchetype] || selectedMarket.topArchetype}
+  </div>
+  <div className="text-[11px] text-white/50 mt-0.5">
+    NBA 2K27 Live-Ops · Regional Telemetry Cohort
+  </div>
+</div>
 ```
 
-### Fix 5: Declutter `NBAMarketMap` US DMA Label Pile-Up (`src/components/map/NBAMarketMap.tsx`)
-```tsx
-// src/components/map/NBAMarketMap.tsx (lines 314 & 346-357)
-const MAJOR_LABEL_HUBS = new Set([
-  "Los Angeles DMA",
-  "New York DMA",
-  "Chicago DMA",
-  "Miami / Fort Lauderdale DMA",
-  "Dallas / Fort Worth DMA",
-  "London",
-  "Paris",
-  "Manila",
-  "São Paulo",
-  "Sydney",
-]);
-const radius = Math.max(5, Math.min(20, (val / max) * 16 + 4));
-const showLabel = isSelected || isHovered || MAJOR_LABEL_HUBS.has(market.dma_market);
-```
+---
+
+## Backend, Prompt & Dataset Slop Remediation Matrix (Giveaways `#11`, `#12`, `#14`, `#15`)
+
+To raise `slop_scanner.py`'s deterministic score from **`4.6 / 10`** to **`9.5+ / 10`**, apply these exact cleanups across the backend routes, prompt templates, and model registry:
+
+| Giveaway | Target Files (`file:line`) | Exact Remediation |
+| :--- | :--- | :--- |
+| **#15 Exposed Vendor / Model Strings (`35 hits`)** | 1. `src/lib/models.ts:61-96`<br>2. `src/app/api/campaign/brief/route.ts:28, 90, 117`<br>3. `src/app/api/audiences/nl-query/route.ts:377, 389, 397, 870`<br>4. `src/app/api/insights/core-finding/route.ts:96`<br>5. `src/app/api/synthetic/focus-group/route.ts:100`<br>6. `src/app/api/synthetic/focus-group/stream/route.ts:112-113`<br>7. `src/lib/prompts/brief_generator.ts:11`<br>8. `src/lib/prompts/nl_to_gql.ts:2, 3, 31`<br>9. `src/lib/config.ts:23, 27`<br>10. `src/lib/focus-group-eval.ts:208, 501`<br>11. `src/lib/gcp/spanner-client.ts:393`<br>12. `scripts/spanner_load_data.js:340` | 1. In `src/lib/models.ts`, change display `label` values from `"Gemini 3.1 Pro"` / `"Gemini 3.5 Flash"` to customer-native capability names (`"2K Courtside Deep Synthesis"`, `"2K Courtside Fast Eval"`), and upgrade `gemini-2.5-flash-image` to `gemini-3.1-flash-image-preview`.<br>2. In `src/app/api/campaign/brief/route.ts`, replace `"Failed to generate campaign brief via Vertex AI"` with `"2K Courtside Intelligence Engine failed to synthesize campaign brief"`.<br>3. In `nl_to_gql.ts` and `brief_generator.ts`, refer to `"2K Telemetry Property Graph (ISO GQL)"` instead of `"Cloud Spanner"` / `"Spanner Graph"`. |
+| **#14 Generic `animate-spin` Spinners (`23 hits`)** | `EntityInspector.tsx:1152`, `CourtsideLanding.tsx:828`, `ActivationDAG.tsx:363`, `ActivationFeed.tsx:87`, `SeasonJourneySankey.tsx:308,318,593`, `NLSearchBar.tsx:231,316`, `SpannerStatusPill.tsx:97`, `NBAMarketMap.tsx:236`, `FocusGroupModal.tsx:592`, `PersonaInterrogationDrawer.tsx:185`, `RedditPulseCard.tsx:80,87`, `CampaignBriefModal.tsx:139`, `CreativeStudioPanel.tsx:241,323,392`, `LiveCountTicker.tsx:38`, `SaveAudienceSheet.tsx:222,302`, `SavedAudiencesDrawer.tsx:67` | Replace `animate-spin` utility classes with a shared `<CourtTelemetryPulse />` component using CSS keyframe opacity/scale pulses (`animate-pulse`) and step-level operational telemetry labels, especially removing `animate-spin` from the static `<Clock />` icon in `ActivationDAG.tsx:363`. |
+| **#11 AI Buzzwords (`8 hits`)** | `FocusGroupModal.tsx:125` (`unlock`), `brief_generator.ts:36` (`Unlock`), `courtside_personas.ts:95` (`unlock`), `courtside_personas.ts:124` (`synergy`), `triggers/route.ts:35` (`synergy`), `creative/image/route.ts:20` (`seamlessly`), `scripts/generate_2k_dataset.py:210, 579` | Replace `unlock` → `access` / `earn`, `synergy` → `chemistry` / `squad boost`, `seamlessly` → `cleanly` / `natively`. |
+| **#12 Em-Dashes (`69 hits`)** | `scripts/generate_2k_dataset.py:203-216`, `scripts/spanner_load_data.js`, `src/components/graph/GraphStage.tsx` | Replace `\u2014` (`—`) in offer titles and descriptions with middle dots (`·`) and add `.replace(/\s*\u2014\s*/g, " · ")` to node label rendering in `GraphStage.tsx`. |
+
+---
+
+## Prioritized Top 5 Polish Actions for `/showroom:polish`
+
+1. **Fix Laptop (`1280×800`) HUD & Search Bar Collisions (`GraphControls.tsx:164`, `NLSearchBar.tsx:163, 336`, `CourtsideLanding.tsx:845`)**:
+   - Hide the redundant `{nodeCount}N · {edgeCount}E` badge below `2xl` so it stops colliding with `SpannerStatusPill` (`"2K Graph · 184ms"`).
+   - Wrap `NLSearchBar` quick-query chips (`flex-wrap justify-center`) and relocate or offset the Graph Legend so `NLSearchBar` never overlaps `⚡ VC / Offer` when `EntityInspector` is open.
+   - Fix the 5-tab cohort selector overflow on `CourtsideLanding.tsx`.
+2. **Fix Season Journey Sankey Stage 2 Skew & Stage 3 → Stage 4 1:1 Number Duplication (`src/app/api/marketing/journey/summary/route.ts:90-117`, `SeasonJourneySankey.tsx:183`)**:
+   - Ground Stage 2 (`Mode Entry`) in `primary_archetype` so `MyCAREER / The City` is the primary mode instead of `MyTEAM` absorbing 86% of players.
+   - Add realistic cross-branching between Stage 3 and Stage 4 so the two columns no longer display 100% identical numbers (`1,201 → 1,201`, `483 → 483`, `235 → 235`, `931 → 931`).
+   - Increase `minH` from `54` to `68` so `MyNBA & The W` renders its subtitle.
+3. **Fix Focus Group `N=100 Swarm` Pre-Run Denominator (`0 / 20` → `0 / 100`) & Offer Input Clipping (`FocusGroupModal.tsx:457, 643`)**:
+   - Use `swarmSize === 100 ? 100 : 20` as the pre-run denominator and widen the Offer Title `<input>` so `"Crew Re-Up Bundle · 15,000 VC + 2x Crew REP Booster"` never clips mid-word.
+4. **Fix NBA Market Map North America Label Pile-Up & Raw Enum String (`NBAMarketMap.tsx:320, 465`)**:
+   - Show DMA labels on hover/selection (or add a North America default zoom) and replace raw `MYCAREER_STORY_CASUAL` with formatted operational copy.
+5. **Scrub Remaining Static Slop Hits (`#11`, `#12`, `#14`, `#15`)**:
+   - Sanitize `—` on `GraphStage.tsx` offer nodes, replace the 8 `unlock`/`synergy`/`seamlessly` occurrences, replace `animate-spin` with telemetry pulse indicators, and scrub `"Vertex AI"` / `"Spanner Graph"` / `"Gemini"` labels from `src/lib/models.ts` and API error payloads (`src/app/api/campaign/brief/route.ts`).

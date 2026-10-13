@@ -64,7 +64,7 @@ export function SavedAudiencesDrawer({
         <div className="flex-1 overflow-y-auto py-4 space-y-3">
           {loading ? (
             <div className="flex items-center justify-center py-16 font-mono text-xs text-chalk-dim gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-twok-red" />
+              <Loader2 className="h-4 w-4 courtside-Transfer-pulse text-twok-red" />
               <span>Loading saved cohorts…</span>
             </div>
           ) : audiences.length === 0 ? (

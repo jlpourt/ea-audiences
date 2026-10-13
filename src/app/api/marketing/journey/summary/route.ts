@@ -33,7 +33,7 @@ const STAGES: StageDefinition[][] = [
   [
     { stageIndex: 0, id: "acq_launch", title: "NBA 2K27 Launch", subtitle: "Cover Stars Wemby & Clark", color: "#E4002B" },
     { stageIndex: 0, id: "acq_returning", title: "2K26 Returning Veterans", subtitle: "2K Account Multi-Year", color: "#FF6B35" },
-    { stageIndex: 0, id: "acq_cross2k", title: "Cross-2K Ecosystem", subtitle: "WWE 2K25 · PGA 2K25 · BL4", color: "#F5B400" },
+    { stageIndex: 0, id: "acq_cross2k", title: "Cross-2K Titles", subtitle: "WWE 2K25 · PGA 2K25 · BL4", color: "#F5B400" },
   ],
   // Stage 2 (1): Mode Entry
   [
@@ -65,6 +65,14 @@ const STAGES: StageDefinition[][] = [
 
 const CROSS_2K_FRANCHISES = new Set(["WWE2K", "PGA2K", "TOPSPIN", "BL4", "CIV7", "MAFIA"]);
 
+function playerBucket(playerId: string): number {
+  let h = 0;
+  for (let i = 0; i < playerId.length; i++) {
+    h = (h * 31 + playerId.charCodeAt(i)) >>> 0;
+  }
+  return h % 100;
+}
+
 function classifyPlayer(p: PlayerRecord) {
   const tel = p.game_telemetry || {};
   const spend = p.lifetime_spend_usd || 0;
@@ -74,6 +82,7 @@ function classifyPlayer(p: PlayerRecord) {
   const daysAgo = Number(tel.last_login_days_ago || 0);
   const is2k26Veteran = Boolean(tel.nba2k26_veteran);
   const migratedTo2k27 = Boolean(tel.migrated_to_2k27);
+  const bucket = playerBucket(p.player_id);
   const hasCross2k =
     CROSS_2K_FRANCHISES.has(p.primary_franchise) ||
     (Array.isArray(p.franchises_played) && p.franchises_played.some((f) => CROSS_2K_FRANCHISES.has(f))) ||
@@ -87,11 +96,24 @@ function classifyPlayer(p: PlayerRecord) {
     s0 = "acq_cross2k";
   }
 
-  // Stage 2 (1): Mode Entry
+  // Stage 2 (1): Mode Entry (~58% MyCAREER / The City, ~26% MyTEAM, ~16% MyNBA & The W)
   let s1 = "mode_career";
-  if (p.primary_archetype === "MYTEAM_PACK_WHALE" || opals > 0 || Number(tel.myteam_packs_opened_30d || 0) > 0) {
+  if (
+    p.primary_archetype === "MYTEAM_PACK_WHALE" ||
+    p.primary_archetype === "MOBILE_DAILY_RITUALIST"
+  ) {
     s1 = "mode_myteam";
-  } else if (p.primary_archetype === "MYNBA_FRANCHISE_SIM" || p.primary_archetype === "THE_W_LOYALIST") {
+  } else if (
+    p.primary_archetype === "MYNBA_FRANCHISE_SIM" ||
+    p.primary_archetype === "THE_W_LOYALIST"
+  ) {
+    s1 = "mode_mynba_w";
+  } else if (opals >= 7 || (Number(tel.myteam_packs_opened_30d || 0) >= 8 && bucket < 24)) {
+    s1 = "mode_myteam";
+  } else if (
+    p.primary_franchise === "CIV7" ||
+    (p.primary_archetype === "MYCAREER_STORY_CASUAL" && bucket >= 90)
+  ) {
     s1 = "mode_mynba_w";
   }
 
@@ -105,14 +127,32 @@ function classifyPlayer(p: PlayerRecord) {
     s2 = "status_sub85_cliff";
   }
 
-  // Stage 4 (3): Intervention Offer
+  // Stage 4 (3): Intervention Offer (multi-path branching across Stage 4 offers)
   let s3 = "offer_hof_pass";
-  if (s2 === "status_sub85_cliff") {
-    s3 = "offer_crew_reup";
+  if (s2 === "status_85plus") {
+    // ~65% HoF Season Pass, ~20% Galaxy Opal Pack, ~15% Crew Re-Up
+    if (bucket < 65) {
+      s3 = "offer_hof_pass";
+    } else if (bucket < 85) {
+      s3 = "offer_deluxe_pack";
+    } else {
+      s3 = "offer_crew_reup";
+    }
+  } else if (s2 === "status_sub85_cliff") {
+    // ~75% Crew Re-Up, ~25% HoF Season Pass
+    s3 = bucket < 75 ? "offer_crew_reup" : "offer_hof_pass";
   } else if (s2 === "status_whale") {
-    s3 = "offer_deluxe_pack";
-  } else if (s2 === "status_2k26_holdout" || (is2k26Veteran && !migratedTo2k27)) {
-    s3 = "offer_2k26_upgrade";
+    // ~75% Galaxy Opal Pack, ~25% HoF Season Pass
+    s3 = bucket < 75 ? "offer_deluxe_pack" : "offer_hof_pass";
+  } else if (s2 === "status_2k26_holdout") {
+    // ~70% 2K26->2K27 Upgrade, ~20% Crew Re-Up, ~10% HoF Season Pass
+    if (bucket < 70) {
+      s3 = "offer_2k26_upgrade";
+    } else if (bucket < 90) {
+      s3 = "offer_crew_reup";
+    } else {
+      s3 = "offer_hof_pass";
+    }
   }
 
   // Stage 5 (4): Season 2 Outcome

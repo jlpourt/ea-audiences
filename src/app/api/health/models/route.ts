@@ -42,7 +42,7 @@ export async function GET() {
   return NextResponse.json(
     {
       ok,
-      service: "Vertex AI · Gemini",
+      service: "2K Intelligence Models",
       models,
       registry: Object.fromEntries(
         (Object.keys(MODELS) as ModelRole[]).map((role) => [

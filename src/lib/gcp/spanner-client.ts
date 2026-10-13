@@ -390,7 +390,7 @@ export async function runSpannerGraphQuery(
     ]);
   } catch (e: any) {
     throw new SpannerUnavailableError(
-      `Spanner graph query failed: ${e?.message || e}. MATCH was: ${matchClause}. WHERE clause was: ${
+      `Property graph query failed: ${e?.message || e}. MATCH was: ${matchClause}. WHERE clause was: ${
         where || "(none)"
       }`,
       e

@@ -32,12 +32,12 @@ const EVENT_DESCRIPTIONS: Record<string, { label: string; offer: { id: string; t
   REC_GAME_COMPLETE: {
     label: "Rec 5v5 Match Complete",
     offer: { id: "off-crew-reup-bundle", title: "$4.99 Crew Re-Up Bundle", price: 4.99, discount: 50 },
-    reason: "Crew synergy active; teammate re-up boost available",
+    reason: "Crew affinity active; teammate re-up boost available",
   },
   PARK_GAME_COMPLETE: {
     label: "The City 3v3 Park Win",
     offer: { id: "off-nba2k27-season-pass-hof", title: "Season Pass Hall of Fame", price: 19.99, discount: 25 },
-    reason: "Rep tier grind active; 40-tier Season 1 accelerator unlocked",
+    reason: "Rep tier grind active; 40-tier Season 1 accelerator earned",
   },
   MYTEAM_PACK_OPENED: {
     label: "MyTEAM Pack Opened",

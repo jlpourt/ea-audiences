@@ -19,8 +19,16 @@ import {
   Coins,
 } from "lucide-react";
 import { GameFranchise, DynamicCohortFinding } from "@/lib/types";
-import type { ConditionChip } from "@/components/audience/AudienceBuilder";
 import SpannerStatusPill from "@/components/common/SpannerStatusPill";
+
+export interface ConditionChip {
+  id: string;
+  field: string;
+  op: string;
+  value: string;
+  label: string;
+  rawFragment?: string;
+}
 
 export interface CourtsideLandingProps {
   onSearchQuery?: (query: string, game: GameFranchise) => void;
@@ -178,8 +186,8 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
   {
     id: "2k26-bridge",
     category: "cross_title",
-    tabLabel: "01. 2K26 → 2K27 Bridge",
-    shortLabel: "2K26 Bridge",
+    tabLabel: "01. 2K26 → 2K27 Upgrade",
+    shortLabel: "2K26 Upgrade",
     badge: "3-Hop Upgrade Bridge",
     iconType: "cross_title",
     iconColor: "text-orange-400",
@@ -253,7 +261,7 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
       cohortSize: 284,
       avgSpend: 218,
       avgChurn: 0.64,
-      liftMetric: "+28.4% S2 Retention",
+      liftMetric: "+28.4% S2 Retention · +$10.4M-$42.9M RCS",
       highRiskCount: 284,
       secondaryMetric: "$4.99 Crew Re-Up Bundle",
     },
@@ -273,7 +281,7 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
           "NBA 2K27 MyCAREER builds below 85 OVR who spent $50+ on VC, haven't logged in for 7 days, and are in a Crew with active teammates",
         franchise: "NBA2K",
         tag: "2-Hop Crew",
-        highlight: "284 Players",
+        highlight: "284 At-Risk Builds",
       },
       {
         title: "Park Loss Streak & Rage-Quit Risk",
@@ -332,7 +340,7 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
           "NBA 2K27 MyTEAM whales with 10+ Galaxy Opals and Hall of Fame Season Pass",
         franchise: "NBA2K",
         tag: "Offer Battle",
-        highlight: "10+ Opals",
+        highlight: "196 Opal Whales",
       },
       {
         title: "High-Velocity VC Vault Holders",
@@ -355,7 +363,7 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
   {
     id: "2k-crossplay",
     category: "cross_title",
-    tabLabel: "04. Multi-Title 2K Cross-Play",
+    tabLabel: "04. 2K Cross-Play",
     shortLabel: "2K Cross-Play",
     badge: "Unified 2K Account Graph",
     iconType: "shield",
@@ -541,7 +549,16 @@ export default function CourtsideLanding({
                   ...f,
                   title: `${p2} NBA 2K26 Veterans Ready to Upgrade`,
                   metricPill: `${p2} Holdout Veterans`,
+                  base: `${p2} NBA 2K26 Holdout Veterans · 2K Identity Graph`,
                   metrics: { ...f.metrics, cohortSize: p2 },
+                  caveats: [
+                    `${p2} high-spend NBA 2K26 veterans ($342 avg LTV) have 2+ Crew mates already active in NBA 2K27.`,
+                    f.caveats[1],
+                    f.caveats[2],
+                  ],
+                  prompts: f.prompts.map((pr, idx) =>
+                    idx === 0 ? { ...pr, highlight: `${p2} Veterans` } : pr
+                  ),
                 };
               }
               if (f.id === "season2-cliff" && typeof p1 === "number" && p1 > 0) {
@@ -549,7 +566,16 @@ export default function CourtsideLanding({
                   ...f,
                   title: `${p1} Sub-85 Builds at Season 2 Cliff`,
                   metricPill: `${p1} Stalled Builds`,
-                  metrics: { ...f.metrics, cohortSize: p1, highRiskCount: p1 },
+                  base: `${p1} Stalled MyCAREER Builds · 2K Identity Graph`,
+                  metrics: {
+                    ...f.metrics,
+                    cohortSize: p1,
+                    highRiskCount: p1,
+                    liftMetric: "+28.4% S2 Retention · +$10.4M-$42.9M RCS",
+                  },
+                  prompts: f.prompts.map((pr, idx) =>
+                    idx === 0 ? { ...pr, highlight: `${p1} At-Risk Builds` } : pr
+                  ),
                 };
               }
               if (f.id === "myteam-whales" && typeof p3 === "number" && p3 > 0) {
@@ -557,7 +583,11 @@ export default function CourtsideLanding({
                   ...f,
                   title: `${p3} MyTEAM Galaxy Opal Pack Whales`,
                   metricPill: `${p3} HoF Whales`,
+                  base: `${p3} MyTEAM Opal Whales · 2K Identity Graph`,
                   metrics: { ...f.metrics, cohortSize: p3 },
+                  prompts: f.prompts.map((pr, idx) =>
+                    idx === 0 ? { ...pr, highlight: `${p3} Opal Whales` } : pr
+                  ),
                 };
               }
               return f;
@@ -718,7 +748,7 @@ export default function CourtsideLanding({
             2K Courtside
           </h1>
           <p className="text-xs sm:text-sm text-zinc-400 max-w-xl mx-auto leading-relaxed">
-            Cross-title player identity, lifecycle cohorts, and offer testing across the 2K ecosystem.
+            Cross-title player identity, lifecycle cohorts, and offer testing across the 2K portfolio.
           </p>
         </div>
 
@@ -825,7 +855,7 @@ export default function CourtsideLanding({
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
+                    <Loader2 className="w-3.5 h-3.5 courtside-Transfer-pulse text-black" />
                     <span>Synthesizing...</span>
                   </>
                 ) : (
@@ -842,7 +872,7 @@ export default function CourtsideLanding({
         {/* 4. Dynamic Cohort Explorer (5 Segmented Tabs + Single Core Finding Callout Card + 3 Prompt Cards) */}
         <div className="w-full space-y-2.5">
           {/* Dynamic Cohort Segmented Tabs */}
-          <div className="flex items-center justify-between bg-black/40 p-1 rounded-2xl border border-white/10 backdrop-blur-xl gap-1">
+          <div className="flex flex-wrap items-center justify-center bg-black/40 p-1 rounded-2xl border border-white/10 backdrop-blur-xl gap-1">
             {dynamicFindings.map((finding) => {
               const isSelected = activeFindingId === finding.id;
               const IconComponent = getFindingIcon(finding.iconType);
@@ -851,7 +881,7 @@ export default function CourtsideLanding({
                   key={finding.id}
                   type="button"
                   onClick={() => setActiveFindingId(finding.id)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-2.5 rounded-xl text-xs font-medium transition-all ${
+                  className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl text-[11px] font-medium transition-all ${
                     isSelected
                       ? "bg-white/15 text-white font-semibold shadow-sm border border-white/10"
                       : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5"
@@ -970,8 +1000,12 @@ export default function CourtsideLanding({
           <span>·</span>
           <span>12 2K Titles</span>
         </div>
-        <div className="flex items-center gap-1.5 text-zinc-400">
-          <span>2K Courtside · Live Telemetry</span>
+        <div className="flex items-center gap-2 text-zinc-400">
+          <span className="px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-[10px] text-zinc-400">
+            Synthetic EBC Telemetry Cohort · Live GCP Execution
+          </span>
+          <span>·</span>
+          <span>2K Courtside</span>
         </div>
       </footer>
 

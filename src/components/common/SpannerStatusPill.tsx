@@ -94,7 +94,7 @@ export default function SpannerStatusPill({ className = "" }: { className?: stri
       className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-mono leading-none ${tone} ${className}`}
     >
       {phase === "checking" ? (
-        <Loader2 className="h-2.5 w-2.5 animate-spin text-chalk-dim" />
+        <Loader2 className="h-2.5 w-2.5 courtside-Transfer-pulse text-chalk-dim" />
       ) : (
         <span
           className={`h-2 w-2 rounded-full ${

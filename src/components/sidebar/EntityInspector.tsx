@@ -66,10 +66,14 @@ export default function EntityInspector({
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");
 
   const handleLaunchFocusGroup = (target?: GraphNode) => {
+    const normalizedTarget =
+      target && target.name?.startsWith("Crew Re-Up Bundle")
+        ? { ...target, name: "Crew Re-Up Bundle" }
+        : target;
     if (onLaunchFocusGroup) {
-      onLaunchFocusGroup(target);
+      onLaunchFocusGroup(normalizedTarget);
     } else if (onLaunchDeepSona) {
-      onLaunchDeepSona(target);
+      onLaunchDeepSona(normalizedTarget);
     }
   };
 
@@ -1149,7 +1153,7 @@ export default function EntityInspector({
         >
           {isFocusLoading ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin text-white" />
+              <Loader2 className="w-4 h-4 courtside-Transfer-pulse text-white" />
               <span>Running Focus Group...</span>
             </>
           ) : (

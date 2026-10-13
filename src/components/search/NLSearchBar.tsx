@@ -38,25 +38,25 @@ const GOLDEN_PLAY_PRESETS: Array<{
 }> = [
   {
     tag: "01",
-    label: "2K26 Holdouts w/ 2K27 Crew",
+    label: "2K26 Holdouts",
     query:
       "High-spend NBA 2K26 veterans who haven't migrated to NBA 2K27 yet and have Crew mates active in NBA 2K27",
   },
   {
     tag: "02",
-    label: "S2 Sub-85 OVR Build Cliff",
+    label: "S2 Build Cliff",
     query:
       "NBA 2K27 MyCAREER builds below 85 OVR who spent $50+ on VC, haven't logged in for 7 days, and are in a Crew with active teammates",
   },
   {
     tag: "03",
-    label: "MyTEAM 10+ Opal Whales",
+    label: "10+ Opal Whales",
     query:
       "NBA 2K27 MyTEAM whales with 10+ Galaxy Opals and Hall of Fame Season Pass",
   },
   {
     tag: "04",
-    label: "Multi-Title 2K Cross-Play",
+    label: "2K Cross-Play",
     query:
       "Multi-franchise 2K players linked via 2K Account playing NBA 2K27 alongside WWE 2K25, PGA TOUR 2K25, Borderlands 4, or Civilization VII",
   },
@@ -228,7 +228,7 @@ export default function NLSearchBar({
             >
               {isFocusGroupLoading ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 courtside-Transfer-pulse" />
                   <span>Running…</span>
                 </>
               ) : (
@@ -313,7 +313,7 @@ export default function NLSearchBar({
           >
             {isLoading ? (
               <span className="flex items-center gap-1">
-                <Loader2 className="h-3 w-3 animate-spin" />
+                <Loader2 className="h-3 w-3 courtside-Transfer-pulse" />
                 <span>Running…</span>
               </span>
             ) : (
@@ -327,7 +327,7 @@ export default function NLSearchBar({
       </div>
 
       {/* 4 Compact Quick Suggestion Chips */}
-      <div className="flex items-center justify-center gap-1.5 w-full overflow-x-auto py-0.5">
+      <div className="flex flex-wrap items-center justify-center gap-1.5 w-full py-0.5">
         {GOLDEN_PLAY_PRESETS.map((p, idx) => (
           <button
             key={idx}

@@ -81,14 +81,14 @@ export default function HomePage() {
     priceUsd: number;
     altPriceUsd?: number;
   } | null>({
-    title: "Crew Re-Up Bundle · 15,000 VC + 2x Crew REP Booster",
+    title: "Crew Re-Up Bundle",
     priceUsd: 4.99,
   });
 
   const [isCreativeStudioOpen, setIsCreativeStudioOpen] =
     useState<boolean>(false);
   const [creativeOfferTitle, setCreativeOfferTitle] = useState<string>(
-    "Crew Re-Up Bundle · 15,000 VC + 2x Crew REP Booster"
+    "Crew Re-Up Bundle"
   );
 
   const [activeBrief, setActiveBrief] = useState<CampaignBrief | null>(null);
@@ -730,6 +730,10 @@ export default function HomePage() {
               </div>
             </div>
           )}
+        {/* Subtle Synthetic Data Labeling Badge */}
+        <div className="pointer-events-none absolute bottom-2 left-4 z-10 hidden xl:flex items-center gap-1.5 rounded-full bg-black/50 border border-white/[0.06] px-2.5 py-0.5 text-[10px] font-mono text-zinc-400">
+          <span>Synthetic EBC Telemetry Cohort · Live GCP Execution</span>
+        </div>
       </div>
 
       {/* Modals & Sheets */}

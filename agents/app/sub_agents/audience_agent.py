@@ -41,10 +41,10 @@ class AudienceAgent:
         f"ORDER BY p.lifetime_spend_usd DESC\n"
         f"LIMIT {safe_limit}"
       )
-    elif "gta" in qLower or "rockstar" in qLower or "gravity" in qLower or "social club" in qLower:
+    elif "2k26" in qLower or "holdout" in qLower or "loyalty" in qLower or "veteran" in qLower or "upgrade" in qLower:
       generated_gql = (
-        f"GRAPH TakeTwoPlayerGraph MATCH (p:Player)-[:HAS_IDENTITY]->(i:Identity {{platform: 'Rockstar Social Club'}})\n"
-        f"WHERE NOT EXISTS {{ MATCH (p2:Player)-[:PLAYS_GAME]->(:Game {{game_id: 'game-gta6'}}) WHERE p2.player_id = p.player_id }}\n"
+        f"GRAPH TakeTwoPlayerGraph MATCH (p:Player)-[:HAS_IDENTITY]->(i:Identity {{platform: '2K Account'}}), (p)-[:PLAYS_GAME]->(g:Game {{game_id: 'game-nba2k26'}})\n"
+        f"WHERE BOOL(p.game_telemetry.nba2k26_veteran) = true AND BOOL(p.game_telemetry.migrated_to_2k27) = false\n"
         f"RETURN p.player_id, p.display_name, p.gamer_tag, p.primary_archetype, p.churn_risk_score, p.tilt_sensitivity, p.lifetime_spend_usd\n"
         f"LIMIT {safe_limit}"
       )

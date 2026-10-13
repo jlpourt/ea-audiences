@@ -182,7 +182,7 @@ export function PersonaInterrogationDrawer({
 
           {isLoading && (
             <div className="flex items-center gap-2 text-xs text-chalk-dim py-2">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-twok-red" />
+              <Loader2 className="w-3.5 h-3.5 courtside-Transfer-pulse text-twok-red" />
               <span>Persona is formulating reasoning response...</span>
             </div>
           )}

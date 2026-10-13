@@ -97,7 +97,7 @@ export default function GraphControls({
 
       {/* 2. Title Selector (when on graph view) */}
       {isGraphCanvasView && (
-        <div className="flex items-center px-2.5 py-1 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs">
+        <div className="flex items-center px-2 py-1 rounded-xl bg-white/[0.04] border border-white/[0.08] text-[11px]">
           <span className="text-gray-400 mr-1.5 text-[11px]">Title</span>
           <select
             aria-label="Filter by 2K title"
@@ -106,7 +106,7 @@ export default function GraphControls({
               onGameChange(e.target.value as GameFranchise);
               onArchetypeChange("ALL");
             }}
-            className="bg-transparent text-xs text-white font-medium focus:outline-none cursor-pointer"
+            className="bg-transparent text-[11px] text-white font-medium focus:outline-none cursor-pointer"
           >
             {GAME_OPTIONS.map((g) => (
               <option
@@ -123,13 +123,13 @@ export default function GraphControls({
 
       {/* 3. Cohort Archetype Dropdown (when on graph view) */}
       {isGraphCanvasView && (
-        <div className="flex items-center px-2.5 py-1 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs">
+        <div className="flex items-center px-2 py-1 rounded-xl bg-white/[0.04] border border-white/[0.08] text-[11px]">
           <span className="text-gray-400 mr-1.5 text-[11px]">Cohort</span>
           <select
             aria-label="Filter by player cohort archetype"
             value={archetypeFilter}
             onChange={(e) => onArchetypeChange(e.target.value)}
-            className="bg-transparent text-xs text-white font-medium focus:outline-none cursor-pointer"
+            className="bg-transparent text-[11px] text-white font-medium focus:outline-none cursor-pointer"
           >
             {COHORT_OPTIONS.map((f) => (
               <option
@@ -149,7 +149,7 @@ export default function GraphControls({
         <button
           type="button"
           onClick={onToggle3D}
-          className={`px-2.5 py-1 rounded-xl text-xs font-medium transition-all ${
+          className={`px-2 py-1 rounded-xl text-[11px] font-medium transition-all ${
             is3D
               ? "bg-white text-black border border-white font-semibold"
               : "bg-white/[0.04] border border-white/[0.08] text-gray-300 hover:text-white"
@@ -161,7 +161,7 @@ export default function GraphControls({
 
       {/* 5. Nodes · Edges Counter Pill */}
       {isGraphCanvasView && (
-        <div className="hidden xl:flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/[0.03] border border-white/[0.07] text-[11px] text-gray-300 font-mono tabular">
+        <div className="hidden 2xl:flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/[0.03] border border-white/[0.07] text-[11px] text-gray-300 font-mono tabular">
           <span>{nodeCount}N</span>
           <span className="text-gray-500">·</span>
           <span>{edgeCount}E</span>

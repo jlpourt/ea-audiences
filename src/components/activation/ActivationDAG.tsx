@@ -63,7 +63,7 @@ export function ActivationDAG({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [dispatchError, setDispatchError] = useState<string | null>(null);
 
-  // Auto-advance through agents up to HITL Policy Gate (Step 3)
+  // Set pre-flight brief/creative steps to ready immediately when opened
   useEffect(() => {
     if (!isOpen) {
       setExecutionStep(0);
@@ -73,16 +73,7 @@ export function ActivationDAG({
       return;
     }
 
-    // Step 0: Audience resolves immediately
-    const t1 = setTimeout(() => setExecutionStep(1), 600); // Brief Agent
-    const t2 = setTimeout(() => setExecutionStep(2), 1400); // Creative Agent
-    const t3 = setTimeout(() => setExecutionStep(3), 2200); // HITL Gate Pause
-
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
+    setExecutionStep(3);
   }, [isOpen]);
 
   // Execute Dispatch on HoldToConfirm
@@ -360,7 +351,7 @@ export function ActivationDAG({
           <div className="text-xs">
             {executionStep === 3 ? (
               <div className="flex items-center gap-2 text-[#F5B400]">
-                <Clock className="w-4 h-4 animate-spin" />
+                <Clock className="w-4 h-4" />
                 <span className="font-semibold">Pipeline paused at Policy Gate. Hold button to execute live dispatch.</span>
               </div>
             ) : executionStep === 4 ? (
