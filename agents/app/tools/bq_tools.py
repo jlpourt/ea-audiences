@@ -1,41 +1,35 @@
-"""BigQuery Data Warehouse Tools for ADK Agents."""
+"""BigQuery Data Warehouse Tools for 2K Courtside ADK Agents."""
 
 import os
-import json
 import logging
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
+from google.cloud import bigquery
 
-logger = logging.getLogger("ea.audiences.tools.bq")
+logger = logging.getLogger("twok.courtside.tools.bq")
 
 
-def query_telemetry_events(player_id: str = None, limit: int = 50) -> List[Dict[str, Any]]:
-    """Queries time-series player telemetry events from BigQuery."""
+def query_telemetry_events(player_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+    """Queries live time-series player telemetry events from BigQuery twok_marketing_intelligence."""
     project_id = os.getenv("GCP_PROJECT_ID", "jamie-bq-test")
-    dataset_id = os.getenv("BQ_DATASET_ID", "ea_marketing_intelligence")
+    dataset_id = os.getenv("BQ_DATASET_ID", "twok_marketing_intelligence")
 
-    try:
-        from google.cloud import bigquery
-        client = bigquery.Client(project=project_id)
-        
-        where_clause = f"WHERE player_id = '{player_id}'" if player_id else ""
-        query = f"""
-        SELECT event_id, player_id, game_id, event_timestamp, event_type, match_outcome,
-               loss_streak_count, frustration_score, tilt_index, spend_amount_usd
-        FROM `{project_id}.{dataset_id}.fct_player_telemetry_events`
-        {where_clause}
-        ORDER BY event_timestamp DESC
-        LIMIT {limit}
-        """
-        query_job = client.query(query)
-        results = [dict(row) for row in query_job]
-        return results
-    except Exception as e:
-        logger.warning(f"BigQuery telemetry query deferred to local dataset: {e}")
-        data_path = os.path.join(os.path.dirname(__file__), "../../../data/telemetry_match_events.json")
-        if os.path.exists(data_path):
-            with open(data_path) as f:
-                events = json.load(f)
-            if player_id:
-                events = [ev for ev in events if ev["player_id"] == player_id]
-            return events[:limit]
-        return []
+    client = bigquery.Client(project=project_id)
+    safe_limit = max(1, min(int(limit), 200))
+
+    where_clause = "WHERE player_id = @player_id" if player_id else ""
+    query_params = [bigquery.ScalarQueryParameter("limit", "INT64", safe_limit)]
+    if player_id:
+        query_params.append(bigquery.ScalarQueryParameter("player_id", "STRING", player_id))
+
+    query = f"""
+    SELECT event_id, player_id, game_id, event_timestamp, event_type,
+           consecutive_losses, tilt_index, triggered_offer_id
+    FROM `{project_id}.{dataset_id}.telemetry_events`
+    {where_clause}
+    ORDER BY event_timestamp DESC
+    LIMIT @limit
+    """
+    job_config = bigquery.QueryJobConfig(query_parameters=query_params)
+    query_job = client.query(query, job_config=job_config)
+    return [dict(row) for row in query_job]
+

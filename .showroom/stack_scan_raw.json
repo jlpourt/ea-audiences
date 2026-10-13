@@ -1,0 +1,896 @@
+{
+  "scannedAt": "2026-10-12",
+  "repoRoot": "/Users/jlpourt/CCAI/ea-audiences",
+  "summary": {
+    "modelsDetected": 51,
+    "sdksAndServicesDetected": 59,
+    "deprecatedCount": 3,
+    "outdatedCount": 0,
+    "currentCount": 101,
+    "preliminaryScore": 2.5
+  },
+  "models": [
+    {
+      "modelId": "gemini-3.1-pro-preview",
+      "status": "CURRENT",
+      "file": "README.md",
+      "line": 37,
+      "snippet": "| `REASONING` | `gemini-3.1-pro-preview` | `global` | NL \u2192 Spanner ISO GQL compiler, Focus Group consensus & WTP pricing curve, Campaign Bri",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "README.md",
+      "line": 38,
+      "snippet": "| `FAST` | `gemini-3.5-flash` | `global` | 20-persona parallel Courtside Focus Group evaluation, Season 1\u21922 Sankey lifecycle diagnosis, Core",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash-lite",
+      "status": "CURRENT",
+      "file": "README.md",
+      "line": 39,
+      "snippet": "| `LITE` | `gemini-3.5-flash-lite` | `global` | Sub-second pill suggestions, Arena PA script drafting, Reddit Pulse JSON structuring |",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "README.md",
+      "line": 40,
+      "snippet": "| `GROUNDED` | `gemini-3.5-flash` + `googleSearch` | `global` | Live Google Search grounding across `r/NBA2K`, `r/MyTEAM`, and `r/GTA6` |",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-2.5-flash-image",
+      "status": "CURRENT",
+      "file": "README.md",
+      "line": 41,
+      "snippet": "| `IMAGE` | `gemini-2.5-flash-image` | `us-central1` | Live MyTEAM Galaxy Opal pack & Crew Re-Up promo key art generation |",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.1-flash-tts-preview",
+      "status": "CURRENT",
+      "file": "README.md",
+      "line": 42,
+      "snippet": "| `TTS` | `gemini-3.1-flash-tts-preview` | `us-central1` | Arena PA announcer voiceover (`Charon`, `Fenrir`, `Kore`) & \"Hear the Brief\" exec",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-embedding-001",
+      "status": "EMBEDDING_MODEL",
+      "file": "README.md",
+      "line": 44,
+      "snippet": "| `EMBED` | `gemini-embedding-001` | `us-central1` | 3,072-dimensional vector lookalike audience expansion (`findLookalikes`) |",
+      "recommendation": "Google Cloud embedding model."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "agents/app/agent.py",
+      "line": 27,
+      "snippet": "def __init__(self, model_name: str = \"gemini-3.5-flash\"):",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "agents/app/sub_agents/audience_agent.py",
+      "line": 15,
+      "snippet": "def __init__(self, model_name: str = \"gemini-3.5-flash\"):",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "agents/app/sub_agents/focus_group_agent.py",
+      "line": 43,
+      "snippet": "def __init__(self, model_name: str = \"gemini-3.5-flash\"):",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/app/page.tsx",
+      "line": 68,
+      "snippet": "const [modelUsed, setModelUsed] = useState<string>(\"gemini-3.5-flash\");",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/app/page.tsx",
+      "line": 168,
+      "snippet": "setModelUsed(data.model_used || \"gemini-3.5-flash\");",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/app/api/audiences/nl-query/route.ts",
+      "line": 281,
+      "snippet": "let modelUsed = \"gemini-3.5-flash\";",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-embedding-001",
+      "status": "EMBEDDING_MODEL",
+      "file": "src/app/api/audiences/lookalike/route.ts",
+      "line": 11,
+      "snippet": "* Lookalike Audience Expansion powered by `gemini-embedding-001` (3,072-d)",
+      "recommendation": "Google Cloud embedding model."
+    },
+    {
+      "modelId": "gemini-embedding-001",
+      "status": "EMBEDDING_MODEL",
+      "file": "src/app/api/audiences/lookalike/route.ts",
+      "line": 41,
+      "snippet": "// Embed seed profile + candidate archetype summaries via gemini-embedding-001",
+      "recommendation": "Google Cloud embedding model."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/app/api/insights/core-finding/route.ts",
+      "line": 70,
+      "snippet": "let modelUsed = \"gemini-3.5-flash\";",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/app/api/synthetic/focus-group/stream/route.ts",
+      "line": 35,
+      "snippet": "let fastModelUsed = \"gemini-3.5-flash\";",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/app/api/marketing/journey/summary/route.ts",
+      "line": 298,
+      "snippet": "let model_used = \"gemini-3.5-flash\";",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/app/api/marketing/journey/summary/route.ts",
+      "line": 349,
+      "snippet": "let model_used = \"gemini-3.5-flash\";",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/components/landing/CourtsideLanding.tsx",
+      "line": 97,
+      "snippet": "modelUsed: \"gemini-3.5-flash\",",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/components/landing/CourtsideLanding.tsx",
+      "line": 124,
+      "snippet": "modelUsed: d.model_used || \"gemini-3.5-flash\",",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/components/brand/ModelBadge.tsx",
+      "line": 19,
+      "snippet": "const label = humanizeModelId(modelId || \"gemini-3.5-flash\");",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.1-pro-preview",
+      "status": "CURRENT",
+      "file": "src/components/activation/ActivationDAG.tsx",
+      "line": 267,
+      "snippet": "<ModelBadge modelId=\"gemini-3.1-pro-preview\" size=\"xs\" />",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/components/journey/SeasonJourneySankey.tsx",
+      "line": 88,
+      "snippet": "const [modelUsed, setModelUsed] = useState<string>(\"gemini-3.5-flash\");",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/components/search/NLSearchBar.tsx",
+      "line": 70,
+      "snippet": "const [modelUsed, setModelUsed] = useState<string>(\"gemini-3.5-flash\");",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/components/search/NLSearchBar.tsx",
+      "line": 107,
+      "snippet": "setModelUsed(data.model_used || \"gemini-3.5-flash\");",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-2.5-flash-image",
+      "status": "CURRENT",
+      "file": "src/components/creative/CreativeStudioPanel.tsx",
+      "line": 37,
+      "snippet": "const [artModelUsed, setArtModelUsed] = useState<string>(\"gemini-2.5-flash-image\");",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.1-flash-tts-preview",
+      "status": "CURRENT",
+      "file": "src/components/creative/CreativeStudioPanel.tsx",
+      "line": 47,
+      "snippet": "const [voiceModelUsed, setVoiceModelUsed] = useState<string>(\"gemini-3.1-flash-tts-preview\");",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/components/audience/LiveCountTicker.tsx",
+      "line": 26,
+      "snippet": "modelUsed = \"gemini-3.5-flash\",",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-embedding-001",
+      "status": "EMBEDDING_MODEL",
+      "file": "src/components/audience/SaveAudienceSheet.tsx",
+      "line": 193,
+      "snippet": "<ModelBadge modelId=\"gemini-embedding-001\" size=\"xs\" />",
+      "recommendation": "Google Cloud embedding model."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/lib/config.ts",
+      "line": 23,
+      "snippet": "vertexModel: process.env.VERTEX_MODEL || \"gemini-3.5-flash\",",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-2.5-flash",
+      "status": "CURRENT",
+      "file": "src/lib/config.ts",
+      "line": 27,
+      "snippet": "vertexGroundedModel: process.env.VERTEX_GROUNDED_MODEL || \"gemini-2.5-flash\",",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-embedding-001",
+      "status": "EMBEDDING_MODEL",
+      "file": "src/lib/config.ts",
+      "line": 28,
+      "snippet": "embeddingModel: process.env.EMBEDDING_MODEL || \"gemini-embedding-001\",",
+      "recommendation": "Google Cloud embedding model."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/lib/focus-group-eval.ts",
+      "line": 32,
+      "snippet": "let modelUsed = \"gemini-3.5-flash\";",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.1-pro-preview",
+      "status": "CURRENT",
+      "file": "src/lib/focus-group-eval.ts",
+      "line": 203,
+      "snippet": "reasoningModelUsed: \"gemini-3.1-pro-preview\",",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.1-pro-preview",
+      "status": "CURRENT",
+      "file": "src/lib/models.ts",
+      "line": 11,
+      "snippet": "* `MODEL_REASONING=gemini-3.1-pro-preview`). Overrides change the id only \u2014",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-pro",
+      "status": "DEPRECATED",
+      "file": "src/lib/models.ts",
+      "line": 29,
+      "snippet": "| \"gemini-pro\"",
+      "recommendation": "Retired/deprecated legacy Vertex AI / PaLM / Gemini 1.0 model. Upgrade to `gemini-2.5-flash` or `gemini-2.5-pro` (or `text-embedding-005` / `gemini-embedding-001`)."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/lib/models.ts",
+      "line": 38,
+      "snippet": "/** Vertex AI publisher model id, e.g. `gemini-3.5-flash`. */",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.1-pro-preview",
+      "status": "CURRENT",
+      "file": "src/lib/models.ts",
+      "line": 61,
+      "snippet": "id: \"gemini-3.1-pro-preview\",",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-pro",
+      "status": "DEPRECATED",
+      "file": "src/lib/models.ts",
+      "line": 64,
+      "snippet": "family: \"gemini-pro\",",
+      "recommendation": "Retired/deprecated legacy Vertex AI / PaLM / Gemini 1.0 model. Upgrade to `gemini-2.5-flash` or `gemini-2.5-pro` (or `text-embedding-005` / `gemini-embedding-001`)."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/lib/models.ts",
+      "line": 67,
+      "snippet": "id: \"gemini-3.5-flash\",",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash-lite",
+      "status": "CURRENT",
+      "file": "src/lib/models.ts",
+      "line": 73,
+      "snippet": "id: \"gemini-3.5-flash-lite\",",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/lib/models.ts",
+      "line": 78,
+      "snippet": "// Verified 2026-10-02: gemini-3.5-flash (global) accepts the `googleSearch`",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.5-flash",
+      "status": "CURRENT",
+      "file": "src/lib/models.ts",
+      "line": 82,
+      "snippet": "id: \"gemini-3.5-flash\",",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-2.5-flash-image",
+      "status": "CURRENT",
+      "file": "src/lib/models.ts",
+      "line": 88,
+      "snippet": "id: \"gemini-2.5-flash-image\",",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-3.1-flash-tts-preview",
+      "status": "CURRENT",
+      "file": "src/lib/models.ts",
+      "line": 94,
+      "snippet": "id: \"gemini-3.1-flash-tts-preview\",",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-embedding-001",
+      "status": "EMBEDDING_MODEL",
+      "file": "src/lib/models.ts",
+      "line": 106,
+      "snippet": "id: \"gemini-embedding-001\",",
+      "recommendation": "Google Cloud embedding model."
+    },
+    {
+      "modelId": "gemini-3.1-pro-preview",
+      "status": "CURRENT",
+      "file": "src/lib/models.ts",
+      "line": 120,
+      "snippet": "* `gemini-3.1-pro-preview` \u2192 `Gemini 3.1 Pro`, `lyria-002` \u2192 `Lyria 2`,",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-2.5-flash-image",
+      "status": "CURRENT",
+      "file": "src/lib/models.ts",
+      "line": 121,
+      "snippet": "* `gemini-2.5-flash-image` \u2192 `Gemini 2.5 Flash Image`.",
+      "recommendation": "Current-generation Gemini model family."
+    },
+    {
+      "modelId": "gemini-pro",
+      "status": "DEPRECATED",
+      "file": "src/lib/models.ts",
+      "line": 153,
+      "snippet": "? \"gemini-pro\"",
+      "recommendation": "Retired/deprecated legacy Vertex AI / PaLM / Gemini 1.0 model. Upgrade to `gemini-2.5-flash` or `gemini-2.5-pro` (or `text-embedding-005` / `gemini-embedding-001`)."
+    },
+    {
+      "modelId": "gemini-3",
+      "status": "CURRENT",
+      "file": "src/lib/gcp/genai-client.ts",
+      "line": 193,
+      "snippet": "return /^gemini-3(\\.\\d+)?-/i.test(id);",
+      "recommendation": "Current-generation Gemini model family."
+    }
+  ],
+  "sdksAndServices": [
+    {
+      "sdkOrService": "Unified Google GenAI SDK (google-genai)",
+      "status": "CURRENT",
+      "file": "README.md",
+      "line": 27,
+      "snippet": "| **Container Runtime** | **Cloud Run** | `us-central1` | Next.js 16 App Router + Vertex AI GenAI SDK (`@google/genai`) |",
+      "recommendation": "Unified Google GenAI SDK (`google-genai`)."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "next.config.js",
+      "line": 48,
+      "snippet": "\"@google-cloud/spanner\",",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud BigQuery",
+      "status": "CURRENT",
+      "file": "next.config.js",
+      "line": 49,
+      "snippet": "\"@google-cloud/bigquery\",",
+      "recommendation": "BigQuery client library."
+    },
+    {
+      "sdkOrService": "Unified Google GenAI SDK (google-genai)",
+      "status": "CURRENT",
+      "file": "next.config.js",
+      "line": 52,
+      "snippet": "\"@google/genai\",",
+      "recommendation": "Unified Google GenAI SDK (`google-genai`)."
+    },
+    {
+      "sdkOrService": "Google Cloud BigQuery",
+      "status": "CURRENT",
+      "file": "package-lock.json",
+      "line": 12,
+      "snippet": "\"@google-cloud/bigquery\": \"^7.9.2\",",
+      "recommendation": "BigQuery client library."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "package-lock.json",
+      "line": 14,
+      "snippet": "\"@google-cloud/spanner\": \"^7.18.0\",",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Unified Google GenAI SDK (google-genai)",
+      "status": "CURRENT",
+      "file": "package-lock.json",
+      "line": 16,
+      "snippet": "\"@google/genai\": \"^2.27.0\",",
+      "recommendation": "Unified Google GenAI SDK (`google-genai`)."
+    },
+    {
+      "sdkOrService": "Google Cloud BigQuery",
+      "status": "CURRENT",
+      "file": "package-lock.json",
+      "line": 536,
+      "snippet": "\"node_modules/@google-cloud/bigquery\": {",
+      "recommendation": "BigQuery client library."
+    },
+    {
+      "sdkOrService": "Google Cloud BigQuery",
+      "status": "CURRENT",
+      "file": "package-lock.json",
+      "line": 538,
+      "snippet": "\"resolved\": \"https://registry.npmjs.org/@google-cloud/bigquery/-/bigquery-7.9.4.tgz\",",
+      "recommendation": "BigQuery client library."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "package-lock.json",
+      "line": 868,
+      "snippet": "\"node_modules/@google-cloud/spanner\": {",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "package-lock.json",
+      "line": 870,
+      "snippet": "\"resolved\": \"https://registry.npmjs.org/@google-cloud/spanner/-/spanner-7.21.0.tgz\",",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "package-lock.json",
+      "line": 910,
+      "snippet": "\"node_modules/@google-cloud/spanner/node_modules/gcp-metadata\": {",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "package-lock.json",
+      "line": 924,
+      "snippet": "\"node_modules/@google-cloud/spanner/node_modules/google-auth-library\": {",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "package-lock.json",
+      "line": 941,
+      "snippet": "\"node_modules/@google-cloud/spanner/node_modules/google-logging-utils\": {",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "package-lock.json",
+      "line": 950,
+      "snippet": "\"node_modules/@google-cloud/spanner/node_modules/gtoken\": {",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Unified Google GenAI SDK (google-genai)",
+      "status": "CURRENT",
+      "file": "package-lock.json",
+      "line": 1041,
+      "snippet": "\"node_modules/@google/genai\": {",
+      "recommendation": "Unified Google GenAI SDK (`google-genai`)."
+    },
+    {
+      "sdkOrService": "Unified Google GenAI SDK (google-genai)",
+      "status": "CURRENT",
+      "file": "package-lock.json",
+      "line": 1043,
+      "snippet": "\"resolved\": \"http://airlock-proxy.uplink.goog:999/npm/artifact-foundry-prod/npm-3p-limited-internal-use/@google/genai/-/genai-2.27.0.tgz\",",
+      "recommendation": "Unified Google GenAI SDK (`google-genai`)."
+    },
+    {
+      "sdkOrService": "Unified Google GenAI SDK (google-genai)",
+      "status": "CURRENT",
+      "file": "package-lock.json",
+      "line": 1065,
+      "snippet": "\"node_modules/@google/genai/node_modules/gaxios\": {",
+      "recommendation": "Unified Google GenAI SDK (`google-genai`)."
+    },
+    {
+      "sdkOrService": "Unified Google GenAI SDK (google-genai)",
+      "status": "CURRENT",
+      "file": "package-lock.json",
+      "line": 1079,
+      "snippet": "\"node_modules/@google/genai/node_modules/gcp-metadata\": {",
+      "recommendation": "Unified Google GenAI SDK (`google-genai`)."
+    },
+    {
+      "sdkOrService": "Unified Google GenAI SDK (google-genai)",
+      "status": "CURRENT",
+      "file": "package-lock.json",
+      "line": 1093,
+      "snippet": "\"node_modules/@google/genai/node_modules/google-auth-library\": {",
+      "recommendation": "Unified Google GenAI SDK (`google-genai`)."
+    },
+    {
+      "sdkOrService": "Unified Google GenAI SDK (google-genai)",
+      "status": "CURRENT",
+      "file": "package-lock.json",
+      "line": 1110,
+      "snippet": "\"node_modules/@google/genai/node_modules/node-fetch\": {",
+      "recommendation": "Unified Google GenAI SDK (`google-genai`)."
+    },
+    {
+      "sdkOrService": "Google Cloud BigQuery",
+      "status": "CURRENT",
+      "file": "package.json",
+      "line": 13,
+      "snippet": "\"@google-cloud/bigquery\": \"^7.9.2\",",
+      "recommendation": "BigQuery client library."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "package.json",
+      "line": 15,
+      "snippet": "\"@google-cloud/spanner\": \"^7.18.0\",",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Unified Google GenAI SDK (google-genai)",
+      "status": "CURRENT",
+      "file": "package.json",
+      "line": 17,
+      "snippet": "\"@google/genai\": \"^2.27.0\",",
+      "recommendation": "Unified Google GenAI SDK (`google-genai`)."
+    },
+    {
+      "sdkOrService": "Unified Google GenAI SDK (google-genai)",
+      "status": "CURRENT",
+      "file": "agents/pyproject.toml",
+      "line": 11,
+      "snippet": "\"google-genai>=0.1.1\",",
+      "recommendation": "Unified Google GenAI SDK (`google-genai`)."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "agents/pyproject.toml",
+      "line": 12,
+      "snippet": "\"google-cloud-spanner>=3.40.0\",",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud BigQuery",
+      "status": "CURRENT",
+      "file": "agents/pyproject.toml",
+      "line": 13,
+      "snippet": "\"google-cloud-bigquery>=3.18.0\",",
+      "recommendation": "BigQuery client library."
+    },
+    {
+      "sdkOrService": "Unified Google GenAI SDK (google-genai)",
+      "status": "CURRENT",
+      "file": "agents/requirements.txt",
+      "line": 4,
+      "snippet": "google-genai>=0.1.1",
+      "recommendation": "Unified Google GenAI SDK (`google-genai`)."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "agents/requirements.txt",
+      "line": 5,
+      "snippet": "google-cloud-spanner>=3.40.0",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud BigQuery",
+      "status": "CURRENT",
+      "file": "agents/requirements.txt",
+      "line": 6,
+      "snippet": "google-cloud-bigquery>=3.18.0",
+      "recommendation": "BigQuery client library."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "agents/app/sub_agents/audience_agent.py",
+      "line": 23,
+      "snippet": "f\"GRAPH TakeTwoPlayerGraph MATCH (p:Player)-[r:PLAYS_GAME]->(g:Game {{game_id: 'game-nba2k27'}})\\n\"",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "agents/app/sub_agents/audience_agent.py",
+      "line": 31,
+      "snippet": "f\"GRAPH TakeTwoPlayerGraph MATCH (p:Player)-[r:PLAYS_GAME]->(g:Game {{game_id: 'game-nba2k27'}})\\n\"",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "agents/app/sub_agents/audience_agent.py",
+      "line": 38,
+      "snippet": "f\"GRAPH TakeTwoPlayerGraph MATCH (p:Player)-[r:PLAYS_GAME]->(g:Game {{game_id: 'game-nba2k27-myteam'}})\\n\"",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "agents/app/sub_agents/audience_agent.py",
+      "line": 46,
+      "snippet": "f\"GRAPH TakeTwoPlayerGraph MATCH (p:Player)-[r:PLAYS_GAME]->(g:Game)\\n\"",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "agents/app/sub_agents/audience_agent.py",
+      "line": 53,
+      "snippet": "f\"GRAPH TakeTwoPlayerGraph MATCH (p:Player)-[m:MEMBER_OF_CLAN]->(c:Clan)<-[m2:MEMBER_OF_CLAN]-(mate:Player)\\n\"",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Unified Google GenAI SDK (google-genai)",
+      "status": "CURRENT",
+      "file": "agents/app/sub_agents/focus_group_agent.py",
+      "line": 50,
+      "snippet": "from google import genai",
+      "recommendation": "Unified Google GenAI SDK (`google-genai`)."
+    },
+    {
+      "sdkOrService": "Google Cloud Run",
+      "status": "CURRENT",
+      "file": "scripts/deploy_cloud_run.py",
+      "line": 230,
+      "snippet": "base = f\"https://run.googleapis.com/v2/projects/{PROJECT}/locations/{REGION}/services\"",
+      "recommendation": "Google Cloud Run."
+    },
+    {
+      "sdkOrService": "Google Cloud Run",
+      "status": "CURRENT",
+      "file": "scripts/deploy_cloud_run.py",
+      "line": 257,
+      "snippet": "resp = wait_operation(http, \"https://run.googleapis.com/v2/\", op[\"name\"], \"run.deploy\")",
+      "recommendation": "Google Cloud Run."
+    },
+    {
+      "sdkOrService": "Google Cloud BigQuery",
+      "status": "CURRENT",
+      "file": "scripts/setup-gcp-bigquery.js",
+      "line": 11,
+      "snippet": "const { BigQuery } = require(\"@google-cloud/bigquery\");",
+      "recommendation": "BigQuery client library."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "scripts/setup-gcp-bigquery.js",
+      "line": 99,
+      "snippet": "gql: `GRAPH TakeTwoPlayerGraph MATCH (p:Player)-[:MEMBER_OF_CLAN]->(c:Clan)<-[:MEMBER_OF_CLAN]-(mate:Player) WHERE p.primary_franchise = 'NB",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "scripts/setup-gcp-bigquery.js",
+      "line": 114,
+      "snippet": "gql: `GRAPH TakeTwoPlayerGraph MATCH (p:Player)-[:HAS_IDENTITY]->(i:Identity {platform: 'Rockstar Social Club'}), (p)-[:PLAYS_GAME]->(g:Game",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "scripts/spanner_load_data.js",
+      "line": 9,
+      "snippet": "const { Spanner } = require(\"@google-cloud/spanner\");",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "scripts/spanner_load_data.js",
+      "line": 362,
+      "snippet": "sql: `GRAPH TakeTwoPlayerGraph MATCH (p:Player) RETURN COUNT(p) AS total_players`,",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "scripts/spanner_load_data.js",
+      "line": 375,
+      "snippet": "sql: `GRAPH TakeTwoPlayerGraph",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "scripts/spanner_load_data.js",
+      "line": 388,
+      "snippet": "sql: `GRAPH TakeTwoPlayerGraph",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "scripts/spanner_load_data.js",
+      "line": 402,
+      "snippet": "sql: `GRAPH TakeTwoPlayerGraph",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "src/app/api/audiences/save/route.ts",
+      "line": 26,
+      "snippet": "gql: gql || \"GRAPH TakeTwoPlayerGraph MATCH (p:Player) RETURN p.player_id\",",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud BigQuery",
+      "status": "CURRENT",
+      "file": "src/app/api/health/services/route.ts",
+      "line": 2,
+      "snippet": "import { BigQuery } from \"@google-cloud/bigquery\";",
+      "recommendation": "BigQuery client library."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "src/components/audience/SaveAudienceSheet.tsx",
+      "line": 122,
+      "snippet": "\"GRAPH TakeTwoPlayerGraph MATCH (p:Player) RETURN p.player_id\",",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud BigQuery",
+      "status": "CURRENT",
+      "file": "src/lib/gcp/bigquery-client.ts",
+      "line": 1,
+      "snippet": "import { BigQuery } from \"@google-cloud/bigquery\";",
+      "recommendation": "BigQuery client library."
+    },
+    {
+      "sdkOrService": "Unified Google GenAI SDK (google-genai)",
+      "status": "CURRENT",
+      "file": "src/lib/gcp/genai-client.ts",
+      "line": 4,
+      "snippet": "* One `@google/genai` client per Vertex location (`global`, `us-central1`),",
+      "recommendation": "Unified Google GenAI SDK (`google-genai`)."
+    },
+    {
+      "sdkOrService": "Unified Google GenAI SDK (google-genai)",
+      "status": "CURRENT",
+      "file": "src/lib/gcp/genai-client.ts",
+      "line": 21,
+      "snippet": "} from \"@google/genai\";",
+      "recommendation": "Unified Google GenAI SDK (`google-genai`)."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "src/lib/gcp/spanner-client.ts",
+      "line": 7,
+      "snippet": "import { Database, Spanner } from \"@google-cloud/spanner\";",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Unified Google GenAI SDK (google-genai)",
+      "status": "CURRENT",
+      "file": "src/lib/gcp/vertex-client.ts",
+      "line": 9,
+      "snippet": "* thin wrapper over `@google/genai` with `vertexai: true` (ADC auth).",
+      "recommendation": "Unified Google GenAI SDK (`google-genai`)."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "src/lib/prompts/nl_to_gql.ts",
+      "line": 50,
+      "snippet": "GRAPH TakeTwoPlayerGraph",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "src/lib/prompts/nl_to_gql.ts",
+      "line": 64,
+      "snippet": "GRAPH TakeTwoPlayerGraph",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "src/lib/prompts/nl_to_gql.ts",
+      "line": 80,
+      "snippet": "GRAPH TakeTwoPlayerGraph",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "src/lib/prompts/nl_to_gql.ts",
+      "line": 89,
+      "snippet": "GRAPH TakeTwoPlayerGraph",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    },
+    {
+      "sdkOrService": "Google Cloud Spanner / Spanner Graph",
+      "status": "CURRENT",
+      "file": "src/lib/prompts/nl_to_gql.ts",
+      "line": 104,
+      "snippet": "\"gql_query\": \"GRAPH TakeTwoPlayerGraph MATCH ... WHERE ... RETURN p.player_id\",",
+      "recommendation": "Cloud Spanner / Spanner Graph."
+    }
+  ]
+}

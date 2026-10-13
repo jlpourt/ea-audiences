@@ -8,12 +8,14 @@ const ForceGraphCanvas = dynamic(() => import("./ForceGraphCanvas"), {
   ssr: false,
 });
 
-interface GraphStageProps {
+export interface GraphStageProps {
   data: GraphData;
   is3D: boolean;
   selectedNode: GraphNode | null;
   onNodeClick: (node: GraphNode) => void;
   cohortContext?: CohortContext | null;
+  clusterByLabel?: boolean;
+  highlightBridges?: boolean;
 }
 
 export default function GraphStage({
@@ -22,8 +24,10 @@ export default function GraphStage({
   selectedNode,
   onNodeClick,
   cohortContext,
+  clusterByLabel = false,
+  highlightBridges = false,
 }: GraphStageProps) {
-  const [dimensions, setDimensions] = useState({ width: 1200, height: 800 });
+  const [dimensions, setDimensions] = useState({ width: 1280, height: 800 });
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -42,9 +46,7 @@ export default function GraphStage({
   if (!mounted) return null;
 
   return (
-    <div className="relative w-full h-full bg-[#080A0E] overflow-hidden">
-      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(0,240,255,0.03)_0%,transparent_70%)]" />
-
+    <div className="relative h-full w-full overflow-hidden bg-court-black hardwood-surface">
       <ForceGraphCanvas
         data={data}
         is3D={is3D}
@@ -52,6 +54,8 @@ export default function GraphStage({
         onNodeClick={onNodeClick}
         width={dimensions.width}
         height={dimensions.height}
+        clusterByLabel={clusterByLabel}
+        highlightBridges={highlightBridges || Boolean(cohortContext?.isMultiHop)}
       />
     </div>
   );

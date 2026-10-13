@@ -1,18 +1,18 @@
 [project]
-name = "ea-audiences-adk-fleet"
+name = "twok-courtside-adk-fleet"
 version = "1.0.0"
-description = "Production Gemini Enterprise ADK Multi-Agent Fleet for EA Engagement Intelligence Engine & DeepSona Persona Simulation"
+description = "Production Vertex AI ADK Multi-Agent Fleet for 2K Courtside Audience Builder & Courtside Focus Group Simulation"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.28.0",
     "pydantic>=2.6.0",
-    "google-genai>=0.1.1",
+    "google-adk>=1.0.0",
+    "google-genai>=1.16.0",
     "google-cloud-spanner>=3.40.0",
     "google-cloud-bigquery>=3.18.0",
     "google-cloud-storage>=2.14.0",
-    "google-cloud-aiplatform>=1.44.0",
     "numpy>=1.26.0",
     "scipy>=1.12.0",
     "requests>=2.31.0",
@@ -22,3 +22,4 @@ dependencies = [
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+

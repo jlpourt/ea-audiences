@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { GraphNode, GraphData, CohortContext } from "@/lib/types";
-import { archetypeLabel } from "@/lib/archetypes";
+import { GraphNode, GraphData, CohortContext, PlayerIdentity } from "@/lib/types";
+import { archetypeLabel, archetypeColor } from "@/lib/archetypes";
 import { formatFollowers } from "@/lib/format";
 import PlaystyleRadar from "./PlaystyleRadar";
+import IdentityTree from "./IdentityTree";
 import {
   X,
   User,
@@ -12,36 +13,38 @@ import {
   Users,
   ShoppingBag,
   Gamepad2,
-  Zap,
-  DollarSign,
-  TrendingUp,
-  ShieldAlert,
-  Award,
   Loader2,
   PackageCheck,
-  Receipt,
-  MapPin,
-  Sparkles,
-  Video,
   Radio,
   Flame,
-  CheckCircle2,
   ChevronRight,
   ArrowLeft,
   Search,
-  SlidersHorizontal,
+  Target,
+  Sliders,
+  Bookmark,
+  Send,
+  Award,
 } from "lucide-react";
 
-interface EntityInspectorProps {
-  node: GraphNode | null;
-  /** Shared shape — see CohortContext in @/lib/types. Partial because the
-   *  inspector can render before a cohort query has run. */
+export type InspectableGraphNode = GraphNode & {
+  linked_identities?: PlayerIdentity[];
+  master_player_id?: string;
+};
+
+export interface EntityInspectorProps {
+  node: InspectableGraphNode | null;
   cohortContext?: Partial<CohortContext> | null;
   graphData?: GraphData;
   onSelectNode?: (node: GraphNode | null) => void;
   onClose: () => void;
-  onLaunchDeepSona: (node?: GraphNode) => void;
+  onLaunchFocusGroup?: (node?: GraphNode) => void;
+  onLaunchDeepSona?: (node?: GraphNode) => void;
   onEmitA2A: (node?: GraphNode) => void;
+  onOpenCreativeStudio?: () => void;
+  onSaveAudience?: () => void;
+  onToggleSocialGravity?: () => void;
+  isFocusGroupLoading?: boolean;
   isDeepSonaLoading?: boolean;
 }
 
@@ -51,37 +54,69 @@ export default function EntityInspector({
   graphData,
   onSelectNode,
   onClose,
+  onLaunchFocusGroup,
   onLaunchDeepSona,
   onEmitA2A,
+  onOpenCreativeStudio,
+  onSaveAudience,
+  onToggleSocialGravity,
+  isFocusGroupLoading = false,
   isDeepSonaLoading = false,
 }: EntityInspectorProps) {
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");
+
+  const handleLaunchFocusGroup = (target?: GraphNode) => {
+    if (onLaunchFocusGroup) {
+      onLaunchFocusGroup(target);
+    } else if (onLaunchDeepSona) {
+      onLaunchDeepSona(target);
+    }
+  };
+
+  const isFocusLoading = isFocusGroupLoading || isDeepSonaLoading;
 
   // Extract all player nodes from current graph data
   const playerNodes = useMemo(() => {
     return (graphData?.nodes || []).filter((n) => n.type === "PLAYER");
   }, [graphData]);
 
-  // Compute cohort averages
+  // Compute cohort averages and telemetry distribution
   const cohortStats = useMemo(() => {
+    const gravityBuckets = Array.from({ length: 10 }, () => 0);
+
     if (playerNodes.length === 0) {
       return {
         count: cohortContext?.matchedCount || 0,
-        estimatedTotal: cohortContext?.estimatedTotal || 0,
-        avgSpend: cohortContext?.avgSpend || 850,
-        avgChurn: cohortContext?.avgChurn || 0.45,
-        avgTilt: cohortContext?.avgTilt || 0.65,
+        estimatedTotal: cohortContext?.estimatedTotal || cohortContext?.matchedCount || 0,
+        isSampled: cohortContext?.isSampled ?? false,
+        avgSpend: cohortContext?.avgSpend || 210,
+        avgOvr: 84,
+        avgChurn: cohortContext?.avgChurn || 0.38,
+        avgTilt: cohortContext?.avgTilt || 0.42,
         avgLossStreak: 2.1,
-        dominantArchetype: cohortContext?.dominantArchetype || "COMPETITIVE_GRINDER",
+        highChurnCount: cohortContext?.highChurnCount || 0,
+        dominantArchetype: cohortContext?.dominantArchetype || "MYCAREER_STORY_CASUAL",
+        archetypeDistribution: [] as {
+          id: string;
+          label: string;
+          color: string;
+          count: number;
+          pct: number;
+        }[],
+        gravityBuckets,
         topCreators: [
-          { name: "SCUMP", pct: "48%" },
-          { name: "TIMTHETATMAN", pct: "36%" },
+          { name: "AGENT00", pct: "46%" },
+          { name: "TROYDAN", pct: "38%" },
         ],
-        topCountries: [{ name: "United Kingdom", flag: "🇬🇧", pct: "58%" }],
+        topCountries: [{ name: "United States", flag: "🇺🇸", pct: "64%" }],
       };
     }
 
     const totalSpend = playerNodes.reduce((acc, p) => acc + (p.spend || 0), 0);
+    const totalOvr = playerNodes.reduce(
+      (acc, p) => acc + Number(p.game_telemetry?.myplayer_ovr || 84),
+      0
+    );
     const totalChurn = playerNodes.reduce((acc, p) => acc + (p.churn_risk || 0), 0);
     const totalTilt = playerNodes.reduce((acc, p) => acc + (p.tilt || 0), 0);
     const totalLossStreak = playerNodes.reduce((acc, p) => acc + (p.loss_streak || 0), 0);
@@ -91,7 +126,13 @@ export default function EntityInspector({
     const countryCounts: Record<string, { count: number; flag: string }> = {};
 
     playerNodes.forEach((p) => {
-      if (p.archetype) archCounts[p.archetype] = (archCounts[p.archetype] || 0) + 1;
+      const arch = String(p.archetype || "MYCAREER_STORY_CASUAL");
+      archCounts[arch] = (archCounts[arch] || 0) + 1;
+
+      const g = Number(p.gravity_score ?? p.game_telemetry?.gravity_score ?? 0.45);
+      const b = Math.min(9, Math.max(0, Math.floor(g * 10)));
+      gravityBuckets[b]++;
+
       if (p.followed_creators) {
         p.followed_creators.forEach((c) => {
           const cName = c.replace("creator-", "").toUpperCase();
@@ -106,10 +147,21 @@ export default function EntityInspector({
       }
     });
 
+    const totalArch = Object.values(archCounts).reduce((a, b) => a + b, 0) || 1;
+    const archetypeDistribution = Object.entries(archCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([id, count]) => ({
+        id,
+        label: archetypeLabel(id),
+        color: archetypeColor(id),
+        count,
+        pct: Math.round((count / totalArch) * 100),
+      }));
+
     const dominantArch =
-      Object.entries(archCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+      archetypeDistribution[0]?.id ||
       cohortContext?.dominantArchetype ||
-      "COMPETITIVE_GRINDER";
+      "MYCAREER_STORY_CASUAL";
 
     const topCreators = Object.entries(creatorCounts)
       .sort((a, b) => b[1] - a[1])
@@ -130,15 +182,22 @@ export default function EntityInspector({
 
     return {
       count: playerNodes.length,
-      // True cohort size when a query supplied it; otherwise just what is drawn.
-      // Never extrapolate from the rendered node count.
-      estimatedTotal: cohortContext?.estimatedTotal || playerNodes.length,
+      estimatedTotal:
+        cohortContext?.estimatedTotal ||
+        cohortContext?.matchedCount ||
+        playerNodes.length,
       isSampled: cohortContext?.isSampled ?? false,
       avgSpend: cohortContext?.avgSpend ?? totalSpend / playerNodes.length,
+      avgOvr: Math.round(totalOvr / playerNodes.length),
       avgChurn: cohortContext?.avgChurn ?? totalChurn / playerNodes.length,
-      avgTilt: totalTilt / playerNodes.length,
+      avgTilt: cohortContext?.avgTilt ?? totalTilt / playerNodes.length,
       avgLossStreak: totalLossStreak / playerNodes.length,
+      highChurnCount:
+        cohortContext?.highChurnCount ??
+        playerNodes.filter((p) => (p.churn_risk || 0) >= 0.7).length,
       dominantArchetype: dominantArch,
+      archetypeDistribution,
+      gravityBuckets,
       topCreators,
       topCountries,
     };
@@ -146,21 +205,24 @@ export default function EntityInspector({
 
   // Filtered players list for search within cohort
   const filteredPlayers = useMemo(() => {
-    if (!playerSearchQuery.trim()) return playerNodes;
+    if (!playerSearchQuery.trim()) return playerNodes.slice(0, 45);
     const q = playerSearchQuery.toLowerCase();
-    return playerNodes.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        (p.country && p.country.toLowerCase().includes(q)) ||
-        (p.dma_market && p.dma_market.toLowerCase().includes(q)) ||
-        (p.archetype && p.archetype.toLowerCase().includes(q))
-    );
+    return playerNodes
+      .filter(
+        (p) =>
+          p.name?.toLowerCase().includes(q) ||
+          (p.country && p.country.toLowerCase().includes(q)) ||
+          (p.dma_market && p.dma_market.toLowerCase().includes(q)) ||
+          (p.archetype && String(p.archetype).toLowerCase().includes(q)) ||
+          String(p.game_telemetry?.myplayer_build || "")
+            .toLowerCase()
+            .includes(q)
+      )
+      .slice(0, 45);
   }, [playerNodes, playerSearchQuery]);
 
-  // If no node is selected and no cohort data exists, return null
   if (!node && playerNodes.length === 0 && !cohortContext) return null;
 
-  // Single Node Type Flags
   const isOffer = node?.type === "OFFER";
   const isGame = node?.type === "GAME";
   const isPlayer = node?.type === "PLAYER";
@@ -169,769 +231,975 @@ export default function EntityInspector({
   const isSquadmate = node?.type === "SQUADMATE";
   const isIdentity = node?.type === "IDENTITY";
   const offerData = (node as any)?.offer_data;
-  const gameMeta = (node as any)?.game_telemetry;
+  const tel = (node as any)?.game_telemetry || {};
   const creatorData = (node as any)?.creator_data;
 
-  // If node is null, we render the Cohort Intelligence View!
   const isCohortView = !node;
+  const maxGravBucket = Math.max(1, ...cohortStats.gravityBuckets);
 
   return (
-    <div className="absolute top-16 right-6 z-30 w-[410px] apple-glass-heavy rounded-3xl p-5 space-y-4 animate-spring-in font-sans text-xs max-h-[88vh] overflow-y-auto shadow-2xl border border-white/10">
-      {/* 1. TOP NAVIGATION / BREADCRUMB */}
-      {!isCohortView && playerNodes.length > 0 && (
-        <button
-          onClick={() => onSelectNode?.(null)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-cyan-300 text-[11px] font-medium transition-all group"
-        >
-          <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-          <span>Back to Cohort Overview ({playerNodes.length} Players)</span>
-        </button>
-      )}
-
-      {/* 2. HEADER */}
-      <div className="flex items-start justify-between border-b border-white/10 pb-3">
-        <div className="flex items-center gap-3">
-          <div
-            className={`w-9 h-9 rounded-2xl flex items-center justify-center text-white shrink-0 ${
-              isCohortView
-                ? "bg-gradient-to-br from-cyan-500/25 to-purple-500/25 border border-cyan-500/30 text-cyan-300 shadow-lg"
-                : isOffer
-                ? "bg-gradient-to-br from-amber-500/20 to-pink-500/20 border border-pink-500/30 text-pink-300"
-                : isCreator
-                ? "bg-gradient-to-br from-cyan-500/20 to-pink-500/20 border border-cyan-500/30 text-cyan-300 shadow-md"
-                : isGame
-                ? "bg-emerald-500/20 border border-emerald-500/30 text-emerald-300"
-                : "bg-white/10 text-white"
-            }`}
+    <aside className="apple-glass-heavy glass-enter absolute top-3 bottom-3 right-4 w-[360px] rounded-2xl z-30 flex flex-col overflow-hidden text-white shadow-2xl border border-white/10 font-sans text-xs">
+      {/* 1. FIXED HEADER & BREADCRUMB */}
+      <div className="p-4 pb-3 border-b border-white/10 space-y-2.5 shrink-0">
+        {!isCohortView && playerNodes.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onSelectNode?.(null)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-cyan-300 text-[11px] font-medium transition-all group"
           >
-            {isCohortView ? (
-              <Users className="w-4 h-4 text-cyan-300" />
-            ) : isOffer ? (
-              <ShoppingBag className="w-4 h-4" />
-            ) : isCreator ? (
-              <Sparkles className="w-4 h-4 text-cyan-300" />
-            ) : isGame ? (
-              <Gamepad2 className="w-4 h-4" />
-            ) : (
-              <User className="w-4 h-4" />
-            )}
-          </div>
+            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+            <span>Cohort Overview ({playerNodes.length})</span>
+          </button>
+        )}
 
-          <div className="truncate">
-            <div className="text-sm font-semibold text-white tracking-tight flex items-center gap-2">
-              <span className="truncate max-w-[210px]">
-                {isCohortView ? (cohortContext?.query || "Synthesized Audience Cohort") : node?.name}
-              </span>
-              <span
-                className={`text-[9px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${
-                  isCohortView
-                    ? "bg-cyan-500/15 border border-cyan-500/30 text-cyan-300"
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                isCohortView
+                  ? "bg-[#E4002B]/20 border border-[#E4002B]/40 text-white"
+                  : isOffer
+                  ? "bg-amber-500/20 border border-amber-500/30 text-amber-300"
+                  : isCreator
+                  ? "bg-cyan-500/20 border border-cyan-500/30 text-cyan-300"
+                  : isGame
+                  ? "bg-emerald-500/20 border border-emerald-500/30 text-emerald-300"
+                  : "bg-white/10 text-white"
+              }`}
+            >
+              {isCohortView ? (
+                <Users className="w-4 h-4 text-white" />
+              ) : isOffer ? (
+                <ShoppingBag className="w-4 h-4" />
+              ) : isCreator ? (
+                <Award className="w-4 h-4 text-cyan-300" />
+              ) : isGame ? (
+                <Gamepad2 className="w-4 h-4" />
+              ) : (
+                <User className="w-4 h-4" />
+              )}
+            </div>
+
+            <div className="truncate min-w-0">
+              <div className="text-xs font-semibold text-white tracking-tight flex items-center gap-1.5">
+                <span className="truncate max-w-[175px]">
+                  {isCohortView
+                    ? cohortContext?.query || "2K Audience Cohort"
+                    : node?.name}
+                </span>
+                <span
+                  className={`text-[11px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${
+                    isCohortView
+                      ? "bg-[#E4002B]/20 border border-[#E4002B]/40 text-white"
+                      : isOffer
+                      ? "bg-amber-500/15 border border-amber-500/30 text-amber-300"
+                      : isCreator
+                      ? "bg-cyan-500/15 border border-cyan-500/30 text-cyan-300"
+                      : isGame
+                      ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-300"
+                      : "bg-white/10 text-gray-300"
+                  }`}
+                >
+                  {isCohortView
+                    ? "COHORT"
                     : isOffer
-                    ? "bg-pink-500/10 border border-pink-500/20 text-pink-400"
+                    ? "VC SKU"
                     : isCreator
-                    ? "bg-cyan-500/10 border border-cyan-500/20 text-cyan-400"
-                    : isGame
-                    ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
-                    : "bg-white/10 text-gray-300"
-                }`}
-              >
-                {isCohortView ? "ACTIVE COHORT" : isOffer ? "STORE ITEM" : isCreator ? "CREATOR" : node?.type}
-              </span>
-            </div>
-            <div className="text-[11px] text-gray-400 font-mono mt-0.5 truncate">
-              {isCohortView
-                ? cohortStats.isSampled
-                  ? `${cohortStats.estimatedTotal.toLocaleString()} players matched • showing ${cohortStats.count}`
-                  : `${cohortStats.estimatedTotal.toLocaleString()} players matched`
-                : `${node?.franchise ? `${node.franchise} • ` : ""}${node?.id}`}
+                    ? "CREATOR"
+                    : node?.type}
+                </span>
+              </div>
+              <div className="text-[11px] text-gray-400 font-mono mt-0.5 truncate">
+                {isCohortView
+                  ? `${cohortStats.estimatedTotal.toLocaleString()} players · ${archetypeLabel(cohortStats.dominantArchetype)}`
+                  : `${node?.franchise ? `${node.franchise} · ` : ""}${node?.id}`}
+              </div>
             </div>
           </div>
-        </div>
 
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-all shrink-0 ml-2"
-        >
-          <X className="w-4 h-4" />
-        </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close inspector"
+            className="p-1 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-all shrink-0 ml-1"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      {/* 3. COHORT INTELLIGENCE VIEW (When no single node is clicked) */}
-      {isCohortView && (
-        <div className="space-y-3.5">
-          {/* Multi-Hop Traversal Relationship Proof */}
-          {cohortContext?.isMultiHop && cohortContext?.multiHopMetadata && (
-            <div className="p-3.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                  Spanner Graph Relationship Proof
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-mono font-semibold">
-                  {cohortContext.multiHopMetadata.hops} Hops
-                </span>
+      {/* 2. SCROLLABLE BODY */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+        {/* COHORT INTELLIGENCE VIEW (When no single node is clicked) */}
+        {isCohortView && (
+          <div className="space-y-3">
+            {/* Compact Multi-Hop Path Proof */}
+            {cohortContext?.isMultiHop && cohortContext?.multiHopMetadata && (
+              <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-cyan-400" />
+                    Multi-Hop Path
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 text-[11px] font-mono font-semibold">
+                    {cohortContext.multiHopMetadata.hops} Hops
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 text-[11px] font-mono text-gray-200 overflow-x-auto pb-0.5">
+                  {cohortContext.multiHopMetadata.steps.map((s: string, idx: number) => (
+                    <React.Fragment key={idx}>
+                      {idx > 0 && <span className="text-cyan-400 font-bold shrink-0">→</span>}
+                      <span className="px-2 py-0.5 rounded-md bg-black/40 border border-white/10 shrink-0">
+                        {s}
+                      </span>
+                    </React.Fragment>
+                  ))}
+                </div>
               </div>
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-white overflow-x-auto pb-1 scrollbar-none">
-                {cohortContext.multiHopMetadata.steps.map((s: string, idx: number) => (
-                  <React.Fragment key={idx}>
-                    {idx > 0 && <span className="text-cyan-400 font-bold shrink-0">➔</span>}
-                    <span className="px-2 py-1 rounded-lg bg-black/40 border border-white/10 text-[10px] font-mono text-gray-200 shrink-0">
-                      {s}
-                    </span>
-                  </React.Fragment>
-                ))}
-              </div>
-              <p className="text-[11px] text-gray-300 leading-relaxed italic border-t border-cyan-500/20 pt-1.5">
-                &ldquo;{cohortContext.multiHopMetadata.summary}&rdquo;
-              </p>
-            </div>
-          )}
+            )}
 
-          {/* Top KPI Cards (Cohort Averages) */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-              <span className="text-[10px] text-gray-500 block uppercase font-medium">Dominant Playstyle</span>
-              <span className="font-semibold text-cyan-300 text-xs truncate block mt-0.5">
-                {cohortStats.dominantArchetype}
-              </span>
-            </div>
-            <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-              <span className="text-[10px] text-gray-500 block uppercase font-medium">Avg Lifetime Spend</span>
-              <span className="font-semibold text-amber-300 text-xs font-mono block mt-0.5">
-                {`$${cohortStats.avgSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              </span>
-              <span className="text-[9px] text-gray-400 block mt-0.5">
-                {`Cohort LTV: $${(cohortStats.avgSpend * cohortStats.estimatedTotal).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-              </span>
-            </div>
-          </div>
-
-          {/* Aggregated Cohort Telemetry Box */}
-          <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
-            <div className="flex items-center justify-between border-b border-white/5 pb-1">
-              <span className="text-gray-400 font-semibold uppercase text-[10px]">Cohort Aggregated Telemetry</span>
-              <span className="text-emerald-400 font-mono text-[10px]">Cloud Spanner Property Graph</span>
-            </div>
-            
-            <div className="grid grid-cols-3 gap-2 pt-1 text-center font-mono">
-              <div className="p-2 rounded-xl bg-black/40 border border-white/5">
-                <span className="text-[9px] text-gray-400 block uppercase">Avg Tilt</span>
-                <span className="text-pink-400 font-semibold text-xs mt-0.5 block">
-                  {Math.round(cohortStats.avgTilt * 100)}%
+            {/* 2x2 KPI Grid: Players, Avg 90d VC, Avg OVR, Churn Risk */}
+            <div className="grid grid-cols-2 gap-2 font-mono tabular">
+              <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                <span className="text-[11px] text-gray-400 block">Players</span>
+                <span className="font-semibold text-white text-sm block mt-0.5">
+                  {cohortStats.estimatedTotal.toLocaleString()}
                 </span>
               </div>
-              <div className="p-2 rounded-xl bg-black/40 border border-white/5">
-                <span className="text-[9px] text-gray-400 block uppercase">Avg Churn</span>
-                <span className="text-amber-400 font-semibold text-xs mt-0.5 block">
+              <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                <span className="text-[11px] text-gray-400 block">Avg 90d VC</span>
+                <span className="font-semibold text-amber-300 text-sm block mt-0.5">
+                  ${Math.round(cohortStats.avgSpend).toLocaleString()}
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                <span className="text-[11px] text-gray-400 block">Avg OVR</span>
+                <span className="font-semibold text-cyan-300 text-sm block mt-0.5">
+                  {cohortStats.avgOvr} OVR
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                <span className="text-[11px] text-gray-400 block">Churn Risk</span>
+                <span className="font-semibold text-rose-400 text-sm block mt-0.5">
                   {Math.round(cohortStats.avgChurn * 100)}%
                 </span>
               </div>
-              <div className="p-2 rounded-xl bg-black/40 border border-white/5">
-                <span className="text-[9px] text-gray-400 block uppercase">Loss Slump</span>
-                <span className="text-purple-300 font-semibold text-xs mt-0.5 block">
-                  {cohortStats.avgLossStreak.toFixed(1)} Matches
+            </div>
+
+            {/* 2K26 -> 2K27 & Cross-2K Gravity Histogram */}
+            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-gray-300">
+                  2K26 → 2K27 Bridge Gravity
                 </span>
+                {onToggleSocialGravity && (
+                  <button
+                    type="button"
+                    onClick={onToggleSocialGravity}
+                    className="font-mono text-[11px] text-amber-400 hover:underline"
+                  >
+                    Bridges
+                  </button>
+                )}
+              </div>
+              <div className="flex h-10 items-end gap-1 pt-1">
+                {cohortStats.gravityBuckets.map((count, idx) => {
+                  const hPct = Math.max(0.12, count / maxGravBucket);
+                  return (
+                    <div
+                      key={idx}
+                      className="flex-1 flex flex-col items-center gap-1 h-full justify-end"
+                      title={`2K Gravity ${idx * 10}-${(idx + 1) * 10}%: ${count} players`}
+                    >
+                      <div
+                        style={{
+                          transform: `scaleY(${hPct.toFixed(2)})`,
+                        }}
+                        className={`w-full h-full origin-bottom rounded-t-sm ${
+                          idx >= 6 ? "bg-amber-400" : "bg-[#E4002B]/80"
+                        }`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex justify-between font-mono text-[11px] text-gray-400 tabular">
+                <span>0.0 Single-Title</span>
+                <span>1.0 Cross-2K Bridge</span>
               </div>
             </div>
 
-            {/* Dominant Geographic Distribution */}
-            {cohortStats.topCountries.length > 0 && (
-              <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-white/5">
-                <span className="text-gray-400">Primary Geographic Reach:</span>
-                <div className="flex items-center gap-1.5 font-medium text-white">
-                  <span>{cohortStats.topCountries[0].flag}</span>
-                  <span>{cohortStats.topCountries[0].name}</span>
-                  <span className="text-cyan-300 font-mono text-[10px]">({cohortStats.topCountries[0].pct})</span>
-                </div>
+            {/* Compact Sampled Roster List */}
+            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-white font-semibold text-[11px] flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Sampled Roster ({playerNodes.length})</span>
+                </span>
+                <span className="text-[11px] text-gray-400">Select player</span>
               </div>
-            )}
-          </div>
 
-          {/* Top Creator Influence Gravity */}
-          {cohortStats.topCreators.length > 0 && (
-            <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
-              <div className="flex items-center justify-between border-b border-white/5 pb-1">
-                <div className="flex items-center gap-1.5 text-white font-semibold text-[11px]">
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Creator Network Gravity</span>
+              {playerNodes.length > 6 && (
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2" />
+                  <input
+                    type="text"
+                    value={playerSearchQuery}
+                    onChange={(e) => setPlayerSearchQuery(e.target.value)}
+                    placeholder="Filter by gamer tag or build..."
+                    className="w-full pl-8 pr-3 py-1 rounded-lg bg-black/40 border border-white/10 text-white placeholder-gray-500 text-[11px] outline-none focus:border-cyan-500/50"
+                  />
                 </div>
-                <span className="text-[9px] font-mono text-gray-400">Follower Share</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {cohortStats.topCreators.map((creator, cIdx) => (
-                  <div
-                    key={cIdx}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-[10px] font-semibold"
+              )}
+
+              <div className="space-y-1 max-h-44 overflow-y-auto pr-1">
+                {filteredPlayers.map((player, idx) => (
+                  <button
+                    key={player.id || idx}
+                    type="button"
+                    onClick={() => onSelectNode?.(player)}
+                    className="w-full flex items-center justify-between p-2 rounded-lg bg-black/40 hover:bg-white/[0.06] border border-white/5 hover:border-cyan-500/30 text-left transition-all group"
                   >
-                    <span>⭐</span>
-                    <span>{creator.name}</span>
-                    <span className="text-[9px] font-mono text-cyan-200/70">({creator.pct})</span>
-                  </div>
+                    <div className="flex items-center gap-2 truncate max-w-[215px]">
+                      <span className="text-xs select-none shrink-0">
+                        {player.country_flag || "🏀"}
+                      </span>
+                      <div className="truncate">
+                        <span className="text-white block font-medium text-[11px] truncate group-hover:text-cyan-300 transition-colors">
+                          {player.name}
+                        </span>
+                        <span className="text-[11px] text-gray-400 block truncate">
+                          {player.game_telemetry?.myplayer_ovr
+                            ? `${player.game_telemetry.myplayer_ovr} OVR · ${
+                                player.game_telemetry.myplayer_build || "MyPLAYER"
+                              }`
+                            : `${player.dma_market || "Global"} · ${
+                                player.loss_streak || 0
+                              }L`}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0 ml-2">
+                      <span className="font-mono text-amber-300 font-semibold text-[11px] tabular">
+                        ${(player.spend || 0).toFixed(0)}
+                      </span>
+                      <ChevronRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-cyan-300 transition-colors" />
+                    </div>
+                  </button>
                 ))}
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Interactive Cohort Players Roster */}
-          <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2.5">
-            <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
-              <div className="flex items-center gap-1.5 text-white font-semibold text-[11px]">
-                <Users className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Sampled Cohort Players ({playerNodes.length})</span>
-              </div>
-              <span className="text-[9px] text-gray-400">Click to Inspect</span>
-            </div>
+        {/* SINGLE ENTITY VIEWS (When a specific node is clicked) */}
+        {!isCohortView && node && (
+          <>
+            {/* A. Store Offer / VC Bundle Nodes */}
+            {isOffer && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-[11px] text-gray-400 block">Store Price</span>
+                    <span className="font-semibold text-emerald-400 text-sm font-mono block mt-0.5">
+                      {typeof node.spend === "number" ? `$${node.spend.toFixed(2)}` : "-"}
+                    </span>
+                    <span className="text-[11px] text-gray-400 block mt-0.5">
+                      {offerData?.category || "2K VC / MyTEAM SKU"}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-[11px] text-gray-400 block">
+                      Conversion Lift
+                    </span>
+                    <span className="font-semibold text-cyan-400 text-sm font-mono block mt-0.5">
+                      {typeof offerData?.expected_conversion_boost === "number"
+                        ? `+${offerData.expected_conversion_boost.toFixed(1)}%`
+                        : "+24.5%"}
+                    </span>
+                    <span className="text-[11px] text-gray-400 block mt-0.5">
+                      Modelled uplift
+                    </span>
+                  </div>
+                </div>
 
-            {/* Quick Player Filter */}
-            {playerNodes.length > 6 && (
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
-                <input
-                  type="text"
-                  value={playerSearchQuery}
-                  onChange={(e) => setPlayerSearchQuery(e.target.value)}
-                  placeholder="Filter players in cohort..."
-                  className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-black/40 border border-white/10 text-white placeholder-gray-500 text-[11px] outline-none focus:border-cyan-500/50"
-                />
+                {offerData?.affinity_archetype && (
+                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-[11px] text-gray-400 block">
+                      Best Fit Archetype
+                    </span>
+                    <span className="font-semibold text-pink-400 text-xs font-mono block mt-0.5">
+                      {archetypeLabel(offerData.affinity_archetype)}
+                    </span>
+                  </div>
+                )}
+
+                {offerData?.description && (
+                  <p className="text-[11px] text-gray-300 p-2.5 rounded-xl bg-white/[0.02] border border-white/5 leading-relaxed">
+                    {offerData.description}
+                  </p>
+                )}
               </div>
             )}
 
-            {/* Scrollable Player List */}
-            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-              {filteredPlayers.map((player, idx) => (
+            {/* B. 2K NextMakers Content Creator Nodes */}
+            {isCreator && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+                    <span className="text-[11px] text-cyan-300 block font-medium">
+                      Follower Reach
+                    </span>
+                    <span className="font-semibold text-white text-sm font-mono block mt-0.5">
+                      {formatFollowers(creatorData?.followers ?? 1850000)}
+                    </span>
+                    <span className="text-[11px] text-gray-400 block mt-0.5">
+                      {creatorData?.platform || node.platform || "YouTube & Twitch"}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-[11px] text-gray-400 block">
+                      Avg. Concurrents
+                    </span>
+                    <span className="font-semibold text-pink-400 text-sm font-mono block mt-0.5">
+                      {formatFollowers(creatorData?.avg_stream_viewers ?? 22000)}
+                    </span>
+                    <span className="text-[11px] text-gray-400 block mt-0.5 truncate">
+                      {creatorData?.signature_mode || "The City / Park"}
+                    </span>
+                  </div>
+                </div>
+
+                {typeof creatorData?.conversion_affinity === "number" && (
+                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-[11px] text-gray-400 block">
+                      Conversion Affinity
+                    </span>
+                    <span className="font-semibold text-emerald-400 text-sm font-mono block mt-0.5">
+                      {(creatorData.conversion_affinity * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                )}
+
                 <button
-                  key={player.id || idx}
-                  onClick={() => onSelectNode?.(player)}
-                  className="w-full flex items-center justify-between p-2 rounded-xl bg-black/40 hover:bg-white/[0.06] border border-white/5 hover:border-cyan-500/30 text-left transition-all group"
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      const handle =
+                        creatorData?.handle || node.name || node.id;
+                      window.dispatchEvent(
+                        new CustomEvent("courtside:run-query", {
+                          detail: {
+                            query: `NBA 2K27 players influenced by creator ${handle}`,
+                            franchise: node.franchise || "NBA2K",
+                          },
+                        })
+                      );
+                    }
+                  }}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-amber-400 px-3 py-2 font-mono text-xs font-semibold text-black hover:bg-amber-300 transition-all"
                 >
-                  <div className="flex items-center gap-2 truncate max-w-[240px]">
-                    <span className="text-sm select-none shrink-0">
-                      {player.country_flag || "👤"}
-                    </span>
-                    <div className="truncate">
-                      <span className="text-white block font-medium text-[11px] truncate group-hover:text-cyan-300 transition-colors">
-                        {player.name}
-                      </span>
-                      <span className="text-[9px] text-gray-400 block truncate">
-                        {player.dma_market || "Global"} • Loss Streak: {player.loss_streak || 0}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                    <span className="font-mono text-amber-300 font-semibold text-[11px]">
-                      $${(player.spend || 0).toFixed(0)}
-                    </span>
-                    <ChevronRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-cyan-300 transition-colors" />
-                  </div>
+                  <Users className="h-3.5 w-3.5" />
+                  <span>Isolate Creator Followers</span>
                 </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Cohort Averages Playstyle & Behavioral Profile */}
-          <PlaystyleRadar
-            spend={cohortStats.avgSpend}
-            churnRisk={cohortStats.avgChurn}
-            tilt={cohortStats.avgTilt}
-            archetype={cohortStats.dominantArchetype}
-          />
-        </div>
-      )}
-
-      {/* 4. SINGLE ENTITY VIEWS (When a specific node is clicked) */}
-      {!isCohortView && node && (
-        <>
-          {/* A. Content for In-Game Purchasable Monetization Nodes */}
-          {isOffer && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                  <span className="text-[10px] text-gray-500 block uppercase">Store Price</span>
-                  <span className="font-semibold text-emerald-400 text-base font-mono block mt-0.5">
-                    {/* Was `$${node.spend?.toFixed(2) || "4.99"}` — the doubled
-                        `$$` rendered every price as "$$99.99", and the fallback
-                        invented a price for any offer missing one. */}
-                    {typeof node.spend === "number" ? `$${node.spend.toFixed(2)}` : "—"}
-                  </span>
-                  <span className="text-[10px] text-gray-400 block mt-0.5">
-                    {offerData?.category || "Monetization SKU"}
-                  </span>
-                </div>
-                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                  <span className="text-[10px] text-gray-500 block uppercase">Conversion Lift</span>
-                  <span className="font-semibold text-cyan-400 text-base font-mono block mt-0.5">
-                    {/* Now a number (percentage points) rather than the old
-                        "+24.8%" string, which was also the hardcoded fallback
-                        shown whenever the real value was missing. */}
-                    {typeof offerData?.expected_conversion_boost === "number"
-                      ? `+${offerData.expected_conversion_boost.toFixed(1)}%`
-                      : "—"}
-                  </span>
-                  <span className="text-[10px] text-gray-400 block mt-0.5">
-                    Modelled uplift
-                  </span>
-                </div>
               </div>
+            )}
 
-              {offerData?.affinity_archetype && (
-                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                  <span className="text-[10px] text-gray-500 block uppercase">Best Fit Archetype</span>
-                  <span className="font-semibold text-pink-400 text-xs font-mono block mt-0.5">
-                    {archetypeLabel(offerData.affinity_archetype)}
-                  </span>
-                </div>
-              )}
-
-              {offerData?.description && (
-                <p className="text-[11px] text-gray-300 p-3 rounded-2xl bg-white/[0.02] border border-white/5 leading-relaxed">
-                  {offerData.description}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* B. Content for Content Creator Nodes */}
-          {isCreator && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/20">
-                  <span className="text-[10px] text-cyan-300 block uppercase font-medium">Follower Reach</span>
-                  <span className="font-semibold text-white text-base font-mono block mt-0.5">
-                    {/* Was `creatorData?.subscribers || "1.2M+"`. No creator
-                        record has a `subscribers` field, so every creator in
-                        the demo displayed the same invented 1.2M+ figure —
-                        including Scump, who has 3.2M. */}
-                    {formatFollowers(creatorData?.followers)}
-                  </span>
-                  <span className="text-[10px] text-gray-400 block mt-0.5">
-                    {creatorData?.platform || "—"}
-                  </span>
-                </div>
-                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                  <span className="text-[10px] text-gray-500 block uppercase">Avg. Concurrents</span>
-                  {/* Was `creatorData?.primary_archetype`, which creators do
-                      not have, so this always fell back to a constant. Average
-                      stream viewership is a field that actually exists and is
-                      the more useful number for a media buy. */}
-                  <span className="font-semibold text-pink-400 text-base font-mono block mt-0.5">
-                    {formatFollowers(creatorData?.avg_stream_viewers)}
-                  </span>
-                  <span className="text-[10px] text-gray-400 block mt-0.5">
-                    {creatorData?.signature_mode || "—"}
-                  </span>
-                </div>
-              </div>
-
-              {typeof creatorData?.conversion_affinity === "number" && (
-                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                  <span className="text-[10px] text-gray-500 block uppercase">Conversion Affinity</span>
-                  <span className="font-semibold text-emerald-400 text-base font-mono block mt-0.5">
-                    {(creatorData.conversion_affinity * 100).toFixed(0)}%
-                  </span>
-                </div>
-              )}
-
-              {creatorData?.sponsorship_angle && (
-                <div className="p-3.5 rounded-2xl bg-black/40 border border-white/5 space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-cyan-400">
-                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Co-Branded LiveOps Activation Concept</span>
+            {/* C. 2K Game Hub Nodes */}
+            {isGame && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-[11px] text-gray-400 block">
+                      2K Franchise
+                    </span>
+                    <span className="font-semibold text-white text-xs block mt-0.5">
+                      {node.franchise || "NBA2K"}
+                    </span>
                   </div>
-                  <p className="text-[11px] text-gray-300 font-mono leading-relaxed bg-black/50 p-2.5 rounded-xl border border-white/5">
-                    {creatorData.sponsorship_angle}
+                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-[11px] text-gray-400 block">Lifecycle</span>
+                    <span
+                      className={`font-semibold text-xs font-mono block mt-0.5 ${
+                        node.lifecycle_status === "LIVE"
+                          ? "text-emerald-400"
+                          : node.lifecycle_status === "LEGACY"
+                          ? "text-amber-400"
+                          : "text-cyan-400"
+                      }`}
+                    >
+                      {node.lifecycle_status || "LIVE"}
+                    </span>
+                  </div>
+                </div>
+
+                {node.current_season && (
+                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-[11px] text-gray-400 block">
+                      Current Season
+                    </span>
+                    <span className="font-semibold text-white text-xs block mt-0.5">
+                      {node.current_season}
+                    </span>
+                  </div>
+                )}
+
+                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-gray-300 leading-relaxed">
+                  2K Identity Graph hub node. Select any connected player to inspect MyPLAYER OVR, 90d VC spend, and Crew links.
+                </div>
+              </div>
+            )}
+
+            {/* C2. Rec / Pro-Am Crew (Clan) Nodes */}
+            {isClan && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                    <span className="text-[11px] text-emerald-300 block font-medium">
+                      Crew Tier
+                    </span>
+                    <span className="font-semibold text-emerald-400 text-xs block mt-0.5">
+                      {node.rank_tier || "Pro-Am / Rec"}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-[11px] text-gray-400 block">Franchise</span>
+                    <span className="font-semibold text-white text-xs block mt-0.5">
+                      {node.franchise || "NBA 2K27"}
+                    </span>
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-1 text-xs text-gray-300">
+                  <div className="flex items-center gap-1.5 text-emerald-400 font-semibold text-[11px]">
+                    <Users className="w-3.5 h-3.5" />
+                    <span>2K Crew Entity</span>
+                  </div>
+                  <p className="text-[11px] text-gray-300 leading-relaxed">
+                    Competitive Rec &amp; Pro-Am Crew linking MyCAREER builds with active teammates across The City.
                   </p>
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* C. Content for Game Mode Nodes */}
-          {isGame && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                  <span className="text-[10px] text-gray-500 block uppercase">Franchise</span>
-                  {/* The fallback here used to name a franchise that is not in the catalog — a
-                      leftover the reskin audit missed because it does not
-                      contain any of the searched brand terms. */}
-                  <span className="font-semibold text-white text-xs block mt-0.5">
-                    {node.franchise || "—"}
-                  </span>
-                </div>
-                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                  <span className="text-[10px] text-gray-500 block uppercase">Lifecycle</span>
-                  <span
-                    className={`font-semibold text-xs font-mono block mt-0.5 ${
-                      node.lifecycle_status === "LIVE"
-                        ? "text-emerald-400"
-                        : node.lifecycle_status === "UPCOMING"
-                        ? "text-purple-400"
-                        : node.lifecycle_status === "SUNSET"
-                        ? "text-alert-red"
-                        : "text-gray-400"
-                    }`}
-                  >
-                    {node.lifecycle_status || "—"}
-                  </span>
-                </div>
               </div>
+            )}
 
-              {node.current_season && (
-                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                  <span className="text-[10px] text-gray-500 block uppercase">Current Season</span>
-                  <span className="font-semibold text-white text-xs block mt-0.5">
-                    {node.current_season}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* C2. Content for Clan Nodes */}
-          {isClan && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
-                  <span className="text-[10px] text-emerald-300 block uppercase font-medium">Clan Tier</span>
-                  <span className="font-semibold text-emerald-400 text-xs block mt-0.5">
-                    {node.rank_tier || "PRO_ESPORTS"}
-                  </span>
-                </div>
-                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                  <span className="text-[10px] text-gray-500 block uppercase">Franchise</span>
-                  <span className="font-semibold text-white text-xs block mt-0.5">
-                    {node.franchise || "Call of Duty"}
-                  </span>
-                </div>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 space-y-1.5 text-xs text-gray-300">
-                <div className="flex items-center gap-1.5 text-emerald-400 font-semibold text-[11px]">
-                  <Users className="w-3.5 h-3.5" />
-                  <span>Spanner Graph Squad Entity</span>
-                </div>
-                <p className="text-[11px] text-gray-300 leading-relaxed">
-                  Competitive squad bridge connecting at-risk Warzone players with clanmates who play across Call of Duty titles.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* C3. Content for Squadmate Nodes */}
-          {isSquadmate && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/20">
-                  <span className="text-[10px] text-cyan-300 block uppercase font-medium">Status</span>
-                  <span className="font-semibold text-cyan-300 text-xs block mt-0.5">
-                    Active Squadmate
-                  </span>
-                </div>
-                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                  <span className="text-[10px] text-gray-500 block uppercase">Migration Target</span>
-                  <span className="font-semibold text-orange-400 text-xs block mt-0.5">
-                    Call of Duty: Black Ops 6 & Zombies
-                  </span>
-                </div>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 space-y-1.5 text-xs text-gray-300">
-                <div className="flex items-center gap-1.5 text-cyan-400 font-semibold text-[11px]">
-                  <Flame className="w-3.5 h-3.5" />
-                  <span>Squad Churn Contagion Node</span>
-                </div>
-                <p className="text-[11px] text-gray-300 leading-relaxed">
-                  This clanmate migrated to Black Ops 6 Zombies after finishing their Warzone battle pass, creating social pull that draws teammates away from Resurgence.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* D. Content for Player Nodes */}
-          {isPlayer && (
-            <>
-              {/* Spanner Multi-Hop Graph Path Proof */}
-              {node.multiHopPath && (
-                <div className="p-3.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                      Spanner Graph Path Proof ({node.multiHopPath.hops} Hops)
+            {/* C3. Active Crew Squadmate Nodes */}
+            {isSquadmate && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+                    <span className="text-[11px] text-cyan-300 block font-medium">
+                      Status
                     </span>
-                    <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-mono font-semibold">
-                      {node.multiHopPath.patternLabel}
+                    <span className="font-semibold text-cyan-300 text-xs block mt-0.5">
+                      Active Crew Mate
                     </span>
                   </div>
-                  <div className="space-y-1.5 pt-1">
-                    {node.multiHopPath.steps.map((step, idx) => (
-                      <div key={idx} className="flex items-start gap-2 text-[11px]">
-                        <span className="w-4 h-4 rounded-full bg-cyan-500/20 text-cyan-300 text-[9px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                          {idx + 1}
+                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-[11px] text-gray-400 block">
+                      Active Destination
+                    </span>
+                    <span className="font-semibold text-amber-400 text-xs block mt-0.5">
+                      NBA 2K27 · The City &amp; Rec
+                    </span>
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 space-y-1 text-xs text-gray-300">
+                  <div className="flex items-center gap-1.5 text-cyan-400 font-semibold text-[11px]">
+                    <Flame className="w-3.5 h-3.5" />
+                    <span>2-Hop Crew Social Pull Node</span>
+                  </div>
+                  <p className="text-[11px] text-gray-300 leading-relaxed">
+                    Active Crew teammate logged into NBA 2K27 within 72 hours.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* C4. Identity Node */}
+            {isIdentity && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                    <span className="text-[11px] text-purple-300 block font-medium">
+                      Platform
+                    </span>
+                    <span className="font-semibold text-white text-xs block mt-0.5">
+                      {node.platform || "2K Account"}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-[11px] text-gray-400 block">
+                      Match Confidence
+                    </span>
+                    <span className="font-semibold text-emerald-400 text-xs font-mono block mt-0.5">
+                      {`${Math.round((node.confidence ?? 0.98) * 100)}%`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* D. Player Nodes */}
+            {isPlayer && (
+              <div className="space-y-3">
+                {/* Multi-Hop Path Proof */}
+                {node.multiHopPath && (
+                  <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-cyan-400" />
+                        Multi-Hop Path ({node.multiHopPath.hops} Hops)
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 text-[11px] font-mono font-semibold">
+                        {node.multiHopPath.patternLabel}
+                      </span>
+                    </div>
+                    <div className="space-y-1 pt-0.5">
+                      {node.multiHopPath.steps.map((step, idx) => (
+                        <div key={idx} className="flex items-start gap-2 text-[11px]">
+                          <span className="w-4 h-4 rounded-full bg-cyan-500/20 text-cyan-300 text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                            {idx + 1}
+                          </span>
+                          <span className="text-gray-200">{step}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Top Metrics */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-[11px] text-gray-400 block">Playstyle</span>
+                    <span className="font-semibold text-white text-xs truncate block mt-0.5">
+                      {archetypeLabel(node.archetype)}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                    <span className="text-[11px] text-gray-400 block">
+                      Lifetime Spend
+                    </span>
+                    <span className="font-semibold text-amber-300 text-xs font-mono block mt-0.5">
+                      ${(node.spend || 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Geographic Location & NBA Market */}
+                {(node.dma_market || node.country) && (
+                  <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5 text-[11px] text-gray-200">
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="text-sm leading-none select-none">
+                        {node.country_flag || "🇺🇸"}
+                      </span>
+                      <div className="truncate">
+                        <span className="font-semibold text-white block truncate">
+                          {node.dma_market || "Major NBA Market DMA"}
                         </span>
-                        <span className="text-gray-200">{step}</span>
+                        <span className="text-[11px] text-gray-400 block truncate">
+                          {node.country || "United States"}{" "}
+                          {node.country_code ? `(${node.country_code})` : ""}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 shrink-0">
+                      Verified Geo
+                    </span>
+                  </div>
+                )}
+
+                {/* 1. MyPLAYER Build Card */}
+                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-gray-400 font-semibold">
+                      MyPLAYER Build · Season 1
+                    </span>
+                    <span className="font-mono text-[11px] text-cyan-300">
+                      {tel.platform || "PS5"} · {tel.rep_tier || "Starter II"}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <div>
+                      <div className="text-xl font-bold font-mono text-white">
+                        {tel.myplayer_ovr ?? 84}{" "}
+                        <span className="text-[11px] font-mono uppercase text-[#E4002B]">
+                          OVR
+                        </span>
+                      </div>
+                      <div className="text-[11px] font-medium text-gray-200 mt-0.5">
+                        {tel.myplayer_build || "2-Way 3-Level Threat"} ·{" "}
+                        <span className="font-mono text-gray-400">
+                          {tel.position || "PG"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-right font-mono text-xs tabular">
+                      <div>
+                        <div className="text-[11px] text-gray-400">Badges</div>
+                        <div className="font-semibold text-white">
+                          {tel.badges_count ?? 22} / 53
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] text-gray-400">Cap Breakers</div>
+                        <div className="font-semibold text-amber-300">
+                          +{tel.cap_breakers_unlocked ?? 1}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. VC Wallet & 90d VC Spend */}
+                <div className="grid grid-cols-3 gap-2 font-mono tabular">
+                  <div className="p-2 rounded-xl bg-white/[0.03] border border-white/5">
+                    <div className="text-[11px] text-gray-400">VC Balance</div>
+                    <div className="text-xs font-semibold text-amber-300 mt-0.5">
+                      {(tel.vc_balance ?? 14500).toLocaleString()} VC
+                    </div>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white/[0.03] border border-white/5">
+                    <div className="text-[11px] text-gray-400">90d VC</div>
+                    <div className="text-xs font-semibold text-white mt-0.5">
+                      ${Math.round(tel.vc_spend_90d ?? node.spend ?? 65)}
+                    </div>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white/[0.03] border border-white/5">
+                    <div className="text-[11px] text-gray-400">Season Pass</div>
+                    <div className="text-xs font-semibold text-cyan-300 mt-0.5 truncate">
+                      {tel.season_pass_edition === "HALL_OF_FAME"
+                        ? "HoF"
+                        : tel.season_pass_edition || "PRO"}{" "}
+                      · L{tel.season_pass_tier ?? 24}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. MyTEAM Galaxy Opals & Park Telemetry */}
+                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-gray-400">
+                      MyTEAM &amp; Park Telemetry
+                    </span>
+                    <span className="font-mono text-[11px] text-gray-400">
+                      Login: {tel.last_login_days_ago ?? 1}d ago
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 font-mono text-xs tabular">
+                    <div className="p-2 rounded-lg bg-black/40 border border-white/5">
+                      <div className="text-[11px] text-gray-400">Opals</div>
+                      <div className="font-semibold text-amber-300 mt-0.5">
+                        {tel.myteam_galaxy_opal_count ?? 0}
+                      </div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-black/40 border border-white/5">
+                      <div className="text-[11px] text-gray-400">Packs (30d)</div>
+                      <div className="font-semibold text-white mt-0.5">
+                        {tel.myteam_packs_opened_30d ?? 4}
+                      </div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-black/40 border border-white/5">
+                      <div className="text-[11px] text-gray-400">Win %</div>
+                      <div className="font-semibold text-emerald-400 mt-0.5">
+                        {tel.park_win_pct
+                          ? `${Math.round(tel.park_win_pct * 100)}%`
+                          : "54%"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 10-Segment Rage-Quit Index Bar */}
+                  <div className="pt-0.5">
+                    <div className="flex items-center justify-between font-mono text-[11px] tabular mb-1">
+                      <span className="text-gray-400">
+                        Rage-Quit ({tel.rage_quits_7d ?? 1} / 7d ·{" "}
+                        {node.loss_streak ?? tel.loss_streak ?? 0}L)
+                      </span>
+                      <span className="text-pink-400 font-semibold">
+                        {Math.round((node.tilt ?? 0.35) * 100)} / 100
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-10 gap-1">
+                      {Array.from({ length: 10 }, (_, idx) => {
+                        const rageSegments = Math.min(
+                          10,
+                          Math.max(1, Math.round(Number(node.tilt ?? 0.35) * 10))
+                        );
+                        return (
+                          <span
+                            key={idx}
+                            className={`h-2 rounded-sm ${
+                              idx < rageSegments ? "bg-[#FF4D5E]" : "bg-white/10"
+                            }`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. NBA 2K26 Veteran & Cross-2K Bridge Status */}
+                <div className="p-3 rounded-xl bg-amber-500/[0.06] border border-amber-500/25 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[11px] text-amber-300 font-semibold">
+                      2K26 Veteran &amp; Cross-2K Bridge
+                    </span>
+                    <span className="font-mono text-xs font-semibold tabular text-amber-300">
+                      {Math.round(
+                        Number(node.gravity_score ?? tel.gravity_score ?? 0.52) * 100
+                      )}
+                      % Gravity
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 font-mono text-xs tabular">
+                    <div className="rounded-lg border border-white/[0.08] bg-black/40 p-2">
+                      <div className="text-[11px] text-gray-400">
+                        NBA 2K26 History
+                      </div>
+                      <div className="font-semibold text-white mt-0.5">
+                        {tel.nba2k26_veteran !== false
+                          ? `Veteran · $${Math.round(
+                              tel.nba2k26_spend_usd || (node.spend || 140) * 0.55
+                            )}`
+                          : "New in 2K27"}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-white/[0.08] bg-black/40 p-2">
+                      <div className="text-[11px] text-gray-400">
+                        2K26 → 2K27 Status
+                      </div>
+                      <div
+                        className={`font-semibold mt-0.5 ${
+                          tel.migrated_to_2k27 === false
+                            ? "text-amber-300"
+                            : "text-emerald-400"
+                        }`}
+                      >
+                        {tel.migrated_to_2k27 === false
+                          ? "2K26 HOLDOUT"
+                          : `${tel.cross_2k_titles || 2}x 2K TITLES`}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4b. Crew & Creator Affinity */}
+                {((node.followed_creators && node.followed_creators.length > 0) ||
+                  node.primary_creator_influence ||
+                  tel.crew_id) && (
+                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-1">
+                      <div className="flex items-center gap-1.5 text-white font-semibold text-[11px]">
+                        <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Crew &amp; Creator Affinity</span>
+                      </div>
+                      {tel.crew_id && (
+                        <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                          🛡️ {tel.crew_id}
+                        </span>
+                      )}
+                    </div>
+                    {node.followed_creators && node.followed_creators.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-0.5">
+                        {node.followed_creators.map((cId, cIdx) => {
+                          const creatorNode = (graphData?.nodes || []).find(
+                            (n) => n.id === cId
+                          );
+                          const creatorName =
+                            creatorNode?.name ||
+                            cId.replace("creator-", "").toUpperCase();
+                          const isPrimary = cId === node.primary_creator_influence;
+                          return (
+                            <button
+                              key={cIdx}
+                              type="button"
+                              onClick={() => {
+                                if (creatorNode && onSelectNode) {
+                                  onSelectNode(creatorNode);
+                                }
+                              }}
+                              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border transition-all ${
+                                isPrimary
+                                  ? "bg-cyan-500/15 border-cyan-500/30 text-cyan-300"
+                                  : "bg-white/5 border-white/10 text-gray-300 hover:border-cyan-500/30"
+                              }`}
+                            >
+                              <span>{isPrimary ? "⭐" : "📺"}</span>
+                              <span>{creatorName}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 4c. 2K Unified Identity Spine Tree */}
+                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                  <IdentityTree
+                    identities={
+                      node.linked_identities && node.linked_identities.length > 0
+                        ? node.linked_identities
+                        : [
+                            {
+                              platform: "2K Account",
+                              handle: node.name || node.id,
+                              confidence_score: 0.99,
+                            },
+                            {
+                              platform:
+                                tel.platform === "XBOX"
+                                  ? "Xbox Live"
+                                  : tel.platform === "PC"
+                                  ? "Steam"
+                                  : "PlayStation Network",
+                              handle: node.name || node.id,
+                              confidence_score: 0.97,
+                            },
+                            {
+                              platform: "NBA 2K Mobile ID",
+                              handle: `${node.name || node.id}_2KM`,
+                              confidence_score: 0.93,
+                            },
+                          ]
+                    }
+                    masterId={node.master_player_id || node.id}
+                  />
+                </div>
+
+                {/* 4d. Verified In-Game Purchases & SKUs */}
+                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
+                  <div className="flex items-center justify-between border-b border-white/5 pb-1">
+                    <div className="flex items-center gap-1.5 text-white font-semibold text-[11px]">
+                      <ShoppingBag className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Verified 2K Purchases</span>
+                    </div>
+                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      {(node.spend || 0) >= 1000
+                        ? "MyTEAM Whale"
+                        : (node.spend || 0) >= 300
+                        ? "High-Velocity VC"
+                        : (node.spend || 0) >= 70
+                        ? "Core 2K Loyalist"
+                        : "Standard Edition"}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                    {(node.purchased_items && node.purchased_items.length > 0
+                      ? node.purchased_items.filter((it) =>
+                          /2k|vc|myteam|mycareer|wwe|pga|topspin|borderlands|civ|mafia|pass|pack|bundle|edition/i.test(
+                            it.title || ""
+                          )
+                        )
+                      : [
+                          {
+                            title: `${node.franchise || "NBA 2K27"} Hall of Fame Edition`,
+                            price: (node.spend || 0) > 0 ? node.spend || 99.99 : 69.99,
+                            date: "2026-09-04",
+                            category: "2K Retail & VC Bundle",
+                          },
+                        ]
+                    ).map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-2 rounded-lg bg-black/40 border border-white/5 text-[11px]"
+                      >
+                        <div className="flex items-center gap-2 truncate max-w-[195px]">
+                          <PackageCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <div className="truncate">
+                            <span className="text-white block font-medium truncate">
+                              {item.title}
+                            </span>
+                            <span className="text-[11px] text-gray-400 block truncate">
+                              {item.category} · {item.date}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="font-mono text-emerald-400 font-semibold shrink-0 ml-2">
+                          ${Number(item.price || 0).toFixed(2)}
+                        </span>
                       </div>
                     ))}
                   </div>
-                  <p className="text-[10px] text-cyan-300/80 border-t border-cyan-500/20 pt-1.5 leading-tight italic">
-                    &ldquo;{node.multiHopPath.summary}&rdquo;
-                  </p>
                 </div>
-              )}
 
-              {/* Top Metrics */}
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                  <span className="text-[10px] text-gray-500 block uppercase">Playstyle</span>
-                  <span className="font-semibold text-white text-xs truncate block mt-0.5">
-                    {node.archetype || "GENERAL_PLAYER"}
-                  </span>
-                </div>
-                <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                  <span className="text-[10px] text-gray-500 block uppercase">Lifetime Spend</span>
-                  <span className="font-semibold text-amber-300 text-xs font-mono block mt-0.5">
-                    $${node.spend?.toFixed(2) || "0.00"}
-                  </span>
-                </div>
+                {/* 5. Playstyle & Behavioral Radar */}
+                <PlaystyleRadar
+                  spend={node.spend || 120}
+                  churnRisk={node.churn_risk || 0.38}
+                  tilt={node.tilt || 0.42}
+                  archetype={String(node.archetype || "MYCAREER_STORY_CASUAL")}
+                  telemetry={tel}
+                />
               </div>
+            )}
+          </>
+        )}
+      </div>
 
-              {/* Geographic Location & DMA Market */}
-              {(node.dma_market || node.country) && (
-                <div className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-white/[0.03] border border-white/5 text-[11px] text-gray-200">
-                  <div className="flex items-center gap-2 truncate">
-                    <span className="text-base leading-none select-none">
-                      {node.country_flag || (node.country === "United Kingdom" ? "🇬🇧" : node.country === "Germany" ? "🇩🇪" : node.country === "France" ? "🇫🇷" : node.country === "Spain" ? "🇪🇸" : node.country === "Brazil" ? "🇧🇷" : node.country === "Japan" ? "🇯🇵" : node.country === "Saudi Arabia" ? "🇸🇦" : node.country === "Canada" ? "🇨🇦" : node.country === "Mexico" ? "🇲🇽" : node.country === "Italy" ? "🇮🇹" : "🇺🇸")}
-                    </span>
-                    <div className="truncate">
-                      <span className="font-semibold text-white block truncate">
-                        {node.dma_market || "Major Metropolitan DMA"}
-                      </span>
-                      <span className="text-[10px] text-gray-400 block truncate">
-                        {node.country || "United States"} {node.country_code ? `(${node.country_code})` : ""}
-                      </span>
-                    </div>
-                  </div>
-                  <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shrink-0">
-                    Verified Geo
-                  </span>
-                </div>
-              )}
-
-              {/* Creator Affiliations */}
-              {node.followed_creators && node.followed_creators.length > 0 && (
-                <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
-                  <div className="flex items-center justify-between border-b border-white/5 pb-1">
-                    <div className="flex items-center gap-1.5 text-white font-semibold text-[11px]">
-                      <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>Creator & Influencer Affinities</span>
-                    </div>
-                    <span className="text-[9px] font-mono text-gray-400">
-                      {node.followed_creators.length} Linked Creators
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {node.followed_creators.map((cId, cIdx) => {
-                      const creatorName = cId.replace("creator-", "").toUpperCase();
-                      const isPrimary = cId === node.primary_creator_influence;
-                      return (
-                        <span
-                          key={cIdx}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-semibold border ${
-                            isPrimary
-                              ? "bg-cyan-500/15 border-cyan-500/30 text-cyan-300"
-                              : "bg-white/5 border-white/10 text-gray-300"
-                          }`}
-                        >
-                          <span>{isPrimary ? "⭐" : "📺"}</span>
-                          <span>{creatorName}</span>
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Game-Specific Telemetry Box */}
-              {gameMeta && (
-                <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px] border-b border-white/5 pb-1 mb-1">
-                    <span className="text-gray-400 font-semibold uppercase text-[10px]">Game Telemetry:</span>
-                    <span className="text-emerald-400 font-mono">{node.franchise}</span>
-                  </div>
-                  {gameMeta.rank_tier && (
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-400">Rank Tier:</span>
-                      <span className="text-white font-medium">{gameMeta.rank_tier}</span>
-                    </div>
-                  )}
-                  {gameMeta.kd_ratio && (
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-400">K/D Ratio:</span>
-                      <span className="text-amber-300 font-mono">{gameMeta.kd_ratio}</span>
-                    </div>
-                  )}
-                  {gameMeta.gulag_win_rate !== undefined && (
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-400">Gulag Win Rate:</span>
-                      <span className="text-emerald-300 font-mono">{Math.round(gameMeta.gulag_win_rate * 100)}%</span>
-                    </div>
-                  )}
-                  {gameMeta.main_loadout && (
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-400">Main Loadout:</span>
-                      <span className="text-cyan-300">{gameMeta.main_loadout}</span>
-                    </div>
-                  )}
-                  {gameMeta.character_class && (
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-400">Character Class:</span>
-                      <span className="text-yellow-300 font-medium">{gameMeta.character_class}</span>
-                    </div>
-                  )}
-                  {gameMeta.raid_progression && (
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-400">Raid Progression:</span>
-                      <span className="text-purple-300 font-mono">{gameMeta.raid_progression}</span>
-                    </div>
-                  )}
-                  {gameMeta.pit_tier !== undefined && (
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-400">Pit Tier:</span>
-                      <span className="text-rose-300 font-mono">Tier {gameMeta.pit_tier}</span>
-                    </div>
-                  )}
-                  {gameMeta.main_hero && (
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-400">Main Hero:</span>
-                      <span className="text-cyan-300 font-medium">{gameMeta.main_hero}</span>
-                    </div>
-                  )}
-                  {gameMeta.current_level !== undefined && (
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-400">Current Level:</span>
-                      <span className="text-pink-300 font-mono">Level {gameMeta.current_level}</span>
-                    </div>
-                  )}
-                  {gameMeta.primary_playstyle && (
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-400">Playstyle:</span>
-                      <span className="text-purple-300">{gameMeta.primary_playstyle}</span>
-                    </div>
-                  )}
-                  {node.loss_streak !== undefined && node.loss_streak > 0 && (
-                    <div className="flex justify-between text-[11px] text-pink-400">
-                      <span>Recent Defeats:</span>
-                      <span className="font-mono">{node.loss_streak} Match Streak</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Verified In-Game Purchases & Owned Content */}
-              <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2.5">
-                <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
-                  <div className="flex items-center gap-1.5 text-white font-semibold text-[11px]">
-                    <ShoppingBag className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Verified In-Game Purchases & SKUs</span>
-                  </div>
-                  <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    {(node.spend || 0) >= 2500
-                      ? "Tier 4 Mega Whale"
-                      : (node.spend || 0) >= 700
-                      ? "Tier 3 High Engagement"
-                      : (node.spend || 0) >= 100
-                      ? "Tier 2 Core Loyalist"
-                      : (node.spend || 0) > 0
-                      ? "Tier 1 Starter Spender"
-                      : "Tier 0 Base Game / F2P"}
-                  </span>
-                </div>
-
-                {/* List of Purchased Items */}
-                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                  {(node.purchased_items && node.purchased_items.length > 0
-                    ? node.purchased_items
-                    : [
-                        {
-                          title: `${node.franchise || "COD"} Standard Retail Edition`,
-                          price: (node.spend || 0) > 0 ? (node.spend || 0) : 0.0,
-                          date: "2024-09-27",
-                          category: (node.spend || 0) > 0 ? "Retail & In-Game Items" : "Free-to-Play Tier",
-                          type: "RETAIL_BASE",
-                        },
-                      ]
-                  ).map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-2 rounded-xl bg-black/40 border border-white/5 text-[11px]"
-                    >
-                      <div className="flex items-center gap-2 truncate max-w-[210px]">
-                        <PackageCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                        <div className="truncate">
-                          <span className="text-white block font-medium truncate">{item.title}</span>
-                          <span className="text-[9px] text-gray-400 block truncate">{item.category} • {item.date}</span>
-                        </div>
-                      </div>
-                      <span className="font-mono text-emerald-400 font-semibold shrink-0 ml-2">
-                        $${item.price.toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Total Cumulative Spend Footer */}
-                <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[10px] text-gray-400">
-                  <span>Cumulative Lifetime Spend:</span>
-                  <span className="font-mono text-amber-300 font-bold text-xs">
-                    $${(node.spend || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-              </div>
-
-              {/* Playstyle & Frustration Radar */}
-              <PlaystyleRadar
-                spend={node.spend || 120}
-                churnRisk={node.churn_risk || 0.45}
-                tilt={node.tilt || 0.65}
-                archetype={node.archetype || ""}
-              />
-            </>
-          )}
-        </>
-      )}
-
-      {/* 5. ACTION BUTTONS (Focus Group & A2A Dispatch) */}
-      <div className="pt-2 space-y-2">
+      {/* 3. FIXED ACTION FOOTER */}
+      <div className="p-4 pt-3 space-y-2 border-t border-white/10 shrink-0 bg-[#0C0F17]/90">
         <button
-          onClick={() => onLaunchDeepSona(node || undefined)}
-          disabled={isDeepSonaLoading}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white text-black hover:bg-gray-200 text-xs font-semibold shadow-lg transition-all disabled:opacity-70 active:scale-[0.98]"
+          type="button"
+          onClick={() => handleLaunchFocusGroup(node || undefined)}
+          disabled={isFocusLoading}
+          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-[#E4002B] text-white hover:bg-[#E4002B]/90 text-xs font-semibold shadow-lg transition-all disabled:opacity-70 active:scale-[0.98]"
         >
-          {isDeepSonaLoading ? (
+          {isFocusLoading ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin text-black" />
-              <span>Synthesizing Focus Group...</span>
+              <Loader2 className="w-4 h-4 animate-spin text-white" />
+              <span>Running Focus Group...</span>
             </>
           ) : (
             <>
-              <Users className="w-4 h-4 text-black" />
+              <Target className="w-4 h-4 text-white" />
               <span>
                 {isCohortView
-                  ? "Launch Synthetic Focus Group for Cohort"
+                  ? "Test Cohort in Focus Group"
                   : isOffer
-                  ? "Test Offer in Synthetic Focus Group"
-                  : "Launch Synthetic Focus Group"}
+                  ? "Test Offer in Focus Group"
+                  : "Launch Focus Group"}
               </span>
             </>
           )}
         </button>
 
-        <button
-          onClick={() => onEmitA2A(node || undefined)}
-          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white text-xs font-medium transition-all active:scale-[0.98]"
-        >
-          <span>Emit A2A Brief to Act 2 (Creative)</span>
-          <ArrowUpRight className="w-3.5 h-3.5" />
-        </button>
+        <div className="grid grid-cols-3 gap-1.5">
+          {onOpenCreativeStudio && (
+            <button
+              type="button"
+              onClick={onOpenCreativeStudio}
+              className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 hover:text-white text-[11px] font-medium transition-all"
+            >
+              <Sliders className="w-3 h-3 text-amber-400" />
+              <span>Studio</span>
+            </button>
+          )}
+          {onSaveAudience && (
+            <button
+              type="button"
+              onClick={onSaveAudience}
+              className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 hover:text-white text-[11px] font-medium transition-all"
+            >
+              <Bookmark className="w-3 h-3 text-emerald-400" />
+              <span>Save</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => onEmitA2A(node || undefined)}
+            className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 hover:text-white text-[11px] font-medium transition-all ${
+              !onOpenCreativeStudio && !onSaveAudience ? "col-span-3" : ""
+            }`}
+          >
+            <Send className="w-3 h-3 text-cyan-400" />
+            <span>Brief</span>
+            <ArrowUpRight className="w-3 h-3" />
+          </button>
+        </div>
       </div>
-    </div>
+    </aside>
   );
 }

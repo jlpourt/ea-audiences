@@ -1,1069 +1,883 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateVertexContent, parseModelJson } from "@/lib/gcp/vertex-client";
-import { runSpannerGraphQuery, SpannerUnavailableError } from "@/lib/gcp/spanner-client";
-import { getCatalog } from "@/lib/gcp/catalog";
+import { generateText } from "@/lib/gcp/genai-client";
 import { NL_TO_GQL_SYSTEM_PROMPT } from "@/lib/prompts/nl_to_gql";
-import { formatFollowers } from "@/lib/format";
-import { GraphNode, GraphLink, GameFranchise } from "@/lib/types";
-
-/**
- * How many player rows we pull back for rendering. This is a *drawing* budget,
- * not an audience size — the force graph becomes unreadable much beyond this,
- * while `totalMatched` continues to report the true population.
- */
-const RENDER_LIMIT = 56;
+import {
+  runSpannerGraphQuery,
+  SpannerUnavailableError,
+  extractWhereClause,
+  extractMatchClause,
+} from "@/lib/gcp/spanner-client";
+import {
+  getCatalog,
+  GRAPH_NAME,
+  HUB_ID_BY_FRANCHISE,
+  FRANCHISE_COLORS,
+  LABEL_COLORS,
+} from "@/lib/gcp/catalog";
+import { archetypeColor } from "@/lib/archetypes";
+import { GraphNode, GraphLink, MultiHopPathInfo, TakeTwoLabel } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const query = body.query || "Show high-LTV whales with spend over $1,500 across Call of Duty Warzone and Black Ops 6";
-    const selectedGame = (body.game || "ALL") as GameFranchise;
+export interface ParsedCondition {
+  id: string;
+  field: string;
+  op: string;
+  value: string;
+  label: string;
+  rawFragment: string;
+}
 
-    // The catalog comes from the SAME database as the cohort. Reading it off
-    // local JSON let the two drift, and they had: `is_parent_hub` and
-    // `affinity_archetype` were read by this route and by graph/view but
-    // defined in neither the files nor the schema, so franchise hubs and
-    // archetype-aware offer matching silently did nothing at all.
-    const { games: allGames, offers: allOffers, creators: allCreators } =
-      await getCatalog();
+const ALLOWED_IDENTIFIER_PATTERNS = [
+  /^(?:p|mate|c|cl|cr|clan|i|id|g|g[0-9]+|game|p2|p_sub)\.[a-z0-9_]+$/i,
+  /^(?:p|mate|p2|p_sub)\.game_telemetry\.[a-z0-9_]+$/i,
+];
 
-    let generatedGql = "";
-    let naturalLanguageSummary = "";
-    let targetArchetype = "";
-    let targetFranchises: string[] = [];
-    let matchedCreatorIds: string[] = [];
+class GqlTranslationError extends Error {
+  readonly modelUsed?: string;
+  readonly rawOutput?: string;
+  constructor(message: string, modelUsed?: string, rawOutput?: string) {
+    super(message);
+    this.name = "GqlTranslationError";
+    this.modelUsed = modelUsed;
+    this.rawOutput = rawOutput;
+  }
+}
 
-    // Which component actually produced the GQL. Reported to the client so the
-    // UI never claims Gemini authored a query the deterministic builder wrote.
-    let translator: "gemini" | "deterministic" | "caller_supplied" | "deterministic_multihop" = "gemini";
+function validateGqlSafety(gql: string): { ok: boolean; reason?: string } {
+  const forbidden = /\b(DROP|DELETE|UPDATE|INSERT|ALTER|CREATE|TRUNCATE|GRANT|REVOKE)\b/i;
+  if (forbidden.test(gql)) {
+    return { ok: false, reason: "Mutating statements are not permitted." };
+  }
+  const propRefs =
+    gql.match(/\b(?:p|mate|c|cl|cr|clan|i|id|g|g[0-9]+|game|p2|p_sub)\.[a-zA-Z0-9_.]+/g) || [];
+  for (const ref of propRefs) {
+    if (!ALLOWED_IDENTIFIER_PATTERNS.some((re) => re.test(ref))) {
+      return { ok: false, reason: `Disallowed identifier '${ref}' in generated GQL.` };
+    }
+  }
+  return { ok: true };
+}
 
-    const lowerQ = query.toLowerCase();
+function humanizePredicate(fragment: string, idx: number): ParsedCondition {
+  const clean = fragment.trim();
+  let field = "predicate";
+  let op = "=";
+  let value = clean;
+  let label = clean;
 
-    // Escape hatch: a caller may supply an exact GQL string to execute verbatim,
-    // bypassing NL translation. Used for reproducible queries and for testing
-    // the engine independently of model variance.
-    const explicitGql: string | null = typeof body.gql === "string" && body.gql.trim() ? body.gql.trim() : null;
+  if (/myplayer_ovr/i.test(clean)) {
+    const m = clean.match(/([<>]=?|=)\s*(\d+)/);
+    field = "myplayer_ovr";
+    op = m?.[1] || "<";
+    value = m?.[2] || "85";
+    label = `MyPLAYER OVR ${op} ${value}`;
+  } else if (/myteam_galaxy_opal_count/i.test(clean)) {
+    const m = clean.match(/([<>]=?|=)\s*(\d+)/);
+    field = "myteam_galaxy_opal_count";
+    op = m?.[1] || ">=";
+    value = m?.[2] || "10";
+    label = `Galaxy Opals ${op} ${value}`;
+  } else if (/myteam_vc_spend_90d/i.test(clean)) {
+    const m = clean.match(/([<>]=?|=)\s*(\d+(?:\.\d+)?)/);
+    field = "myteam_vc_spend_90d";
+    op = m?.[1] || ">";
+    value = m?.[2] || "0";
+    label = `MyTEAM VC Spend ${op} $${value}`;
+  } else if (/vc_spend_90d/i.test(clean)) {
+    const m = clean.match(/([<>]=?|=)\s*(\d+(?:\.\d+)?)/);
+    field = "vc_spend_90d";
+    op = m?.[1] || ">=";
+    value = m?.[2] || "50";
+    label = `90d VC Spend ${op} $${value}`;
+  } else if (/mate\.game_telemetry\.last_login_days_ago/i.test(clean)) {
+    const m = clean.match(/([<>]=?|=)\s*(\d+)/);
+    field = "mate_last_login";
+    op = m?.[1] || "<=";
+    value = m?.[2] || "3";
+    label = `Crew Mate Active <= ${value}d`;
+  } else if (/last_login_days_ago/i.test(clean)) {
+    const m = clean.match(/([<>]=?|=)\s*(\d+)/);
+    field = "last_login_days_ago";
+    op = m?.[1] || ">=";
+    value = m?.[2] || "7";
+    label = `Inactive ${op} ${value}d`;
+  } else if (/season_pass_edition/i.test(clean)) {
+    const m = clean.match(/'([^']+)'/);
+    field = "season_pass_edition";
+    op = "=";
+    value = m?.[1] || "HALL_OF_FAME";
+    label = `Season Pass: ${value.replace(/_/g, " ")}`;
+  } else if (/nba2k26_spend_usd/i.test(clean)) {
+    const m = clean.match(/([<>]=?|=)\s*(\d+(?:\.\d+)?)/);
+    field = "nba2k26_spend_usd";
+    op = m?.[1] || ">";
+    value = m?.[2] || "0";
+    label = `NBA 2K26 Spend ${op} $${value}`;
+  } else if (/migrated_to_2k27|game-nba2k26/i.test(clean)) {
+    field = "migrated_to_2k27";
+    op = "=";
+    value = "false";
+    label = "NBA 2K26 Holdout (No 2K27 Upgrade)";
+  } else if (/nba2k26_veteran/i.test(clean)) {
+    field = "nba2k26_veteran";
+    op = "=";
+    value = "true";
+    label = "NBA 2K26 Veteran Account";
+  } else if (/cross_2k_titles/i.test(clean)) {
+    const m = clean.match(/([<>]=?|=)\s*(\d+)/);
+    field = "cross_2k_titles";
+    op = m?.[1] || ">=";
+    value = m?.[2] || "2";
+    label = `Cross-2K Titles ${op} ${value}`;
+  } else if (/g\.franchise\s+IN/i.test(clean)) {
+    field = "cross_2k_franchise";
+    op = "IN";
+    value = "WWE2K, PGA2K, BL4, CIV7";
+    label = "2K Cross-Franchise (WWE / PGA / BL4 / Civ)";
+  } else if (/c\.franchise/i.test(clean)) {
+    field = "creator_franchise";
+    op = "=";
+    value = "NBA2K";
+    label = "Follows NBA 2K Creator Squad";
+  } else if (/dma_market/i.test(clean)) {
+    const m = clean.match(/'%?([^'%]+)%?'/);
+    field = "dma_market";
+    op = "LIKE";
+    value = m?.[1] || "NBA Market";
+    label = `Market: ${value}`;
+  } else if (/primary_franchise/i.test(clean)) {
+    const m = clean.match(/'([^']+)'/);
+    field = "primary_franchise";
+    op = "=";
+    value = m?.[1] || "NBA2K";
+    label = `Franchise: ${value}`;
+  } else if (/lifetime_spend_usd/i.test(clean)) {
+    const m = clean.match(/([<>]=?|=)\s*(\d+(?:\.\d+)?)/);
+    field = "lifetime_spend_usd";
+    op = m?.[1] || ">=";
+    value = m?.[2] || "100";
+    label = `Lifetime Spend ${op} $${value}`;
+  } else if (/churn_risk_score/i.test(clean)) {
+    const m = clean.match(/([<>]=?|=)\s*(\d+(?:\.\d+)?)/);
+    field = "churn_risk_score";
+    op = m?.[1] || ">=";
+    value = m?.[2] || "0.7";
+    label = `Churn Risk ${op} ${value}`;
+  } else if (/tilt_sensitivity|rage_quits_7d/i.test(clean)) {
+    field = "rage_quits_7d";
+    op = ">=";
+    value = "high";
+    label = "High Rage-Quit Index";
+  }
 
-    const spendMatch = query.match(/\$?([0-9,]+)\+?\s*spend/i) || query.match(/spend.*?\$?([0-9,]+)/i);
-    const spendVal = spendMatch ? parseFloat(spendMatch[1].replace(/,/g, "")) : null;
+  return {
+    id: `cond-${idx}-${field}`,
+    field,
+    op,
+    value,
+    label,
+    rawFragment: clean,
+  };
+}
 
-    // Detect creator mentions in query
-    allCreators.forEach((c: any) => {
-      const h = c.handle.toLowerCase();
-      const n = c.name.toLowerCase();
-      const id = c.creator_id;
-      if (lowerQ.includes(h) || lowerQ.includes(n) || lowerQ.includes(id.replace("creator-", ""))) {
-        matchedCreatorIds.push(id);
-      }
+function parseConditionsFromWhere(whereClause: string): ParsedCondition[] {
+  if (!whereClause) return [];
+  // Split top-level ANDs without splitting inside NOT EXISTS { ... }
+  const parts: string[] = [];
+  let depth = 0;
+  let last = 0;
+  for (let i = 0; i < whereClause.length; i++) {
+    const ch = whereClause[i];
+    if (ch === "{" || ch === "(") depth++;
+    else if (ch === "}" || ch === ")") depth = Math.max(0, depth - 1);
+    else if (
+      depth === 0 &&
+      /^\s+AND\s+/i.test(whereClause.slice(i))
+    ) {
+      const andMatch = whereClause.slice(i).match(/^\s+AND\s+/i)!;
+      parts.push(whereClause.slice(last, i).trim());
+      i += andMatch[0].length - 1;
+      last = i + 1;
+    }
+  }
+  parts.push(whereClause.slice(last).trim());
+
+  return parts
+    .filter((p) => p && !/p\.player_id\s*(?:<>|!=)\s*mate\.player_id/i.test(p))
+    .map((p, idx) => humanizePredicate(p, idx));
+}
+
+/**
+ * Deterministic fast-path for the 3 Golden Plays + 2K Cross-Franchise Pollination + Creator Squads,
+ * with full Gemini 3.5 Flash translation for arbitrary queries.
+ */
+function matchGoldenPlay(
+  query: string,
+  franchise: string
+): {
+  gql_query: string;
+  explanation: string;
+  dominant_archetype: string;
+} | null {
+  const q = query.toLowerCase();
+  const dmaMatch = query.match(/in\s+([A-Za-z\s]+)\s+DMA/i);
+  const sanitizedDma = dmaMatch ? dmaMatch[1].replace(/[^a-zA-Z0-9 ]/g, "").trim() : "";
+  const dmaClause = sanitizedDma
+    ? `\n  AND p.dma_market LIKE '%${sanitizedDma}%'`
+    : "";
+
+  // Play 1 — Season 1 → 2 Build Cliff Rescue
+  if (
+    (q.includes("85 ovr") || q.includes("below 85") || q.includes("under 85") || q.includes("cliff")) &&
+    (q.includes("crew") || q.includes("teammate") || q.includes("7 days") || q.includes("7+ days") || q.includes("inactivity") || q.includes("stalled"))
+  ) {
+    return {
+      gql_query: `GRAPH ${GRAPH_NAME}
+MATCH (p:Player)-[:MEMBER_OF_CLAN]->(c:Clan)<-[:MEMBER_OF_CLAN]-(mate:Player)
+WHERE p.primary_franchise = 'NBA2K'
+  AND INT64(p.game_telemetry.myplayer_ovr) < 85
+  AND FLOAT64(p.game_telemetry.vc_spend_90d) >= 50
+  AND INT64(p.game_telemetry.last_login_days_ago) >= 7
+  AND INT64(mate.game_telemetry.last_login_days_ago) <= 3${dmaClause}
+  AND p.player_id <> mate.player_id
+RETURN p.player_id`,
+      explanation:
+        "2-hop Crew traversal isolating stalled NBA 2K27 MyCAREER builds (<85 OVR, $50+ VC spend, 7+ days inactive) whose Rec/Pro-Am Crew teammates logged in within the last 72 hours for the $4.99 Crew Re-Up Bundle.",
+      dominant_archetype: "MYCAREER_STORY_CASUAL",
+    };
+  }
+
+  // Play 3 — MyTEAM Galaxy Opal Pack Whales
+  if (
+    q.includes("galaxy opal") ||
+    (q.includes("myteam") && (q.includes("hall of fame") || q.includes("whale") || q.includes("10+")))
+  ) {
+    return {
+      gql_query: `GRAPH ${GRAPH_NAME}
+MATCH (p:Player)
+WHERE INT64(p.game_telemetry.myteam_galaxy_opal_count) >= 10
+  AND STRING(p.game_telemetry.season_pass_edition) = 'HALL_OF_FAME'${dmaClause}
+RETURN p.player_id`,
+      explanation:
+        "Isolates high-velocity NBA 2K27 MyTEAM collectors holding 10+ Galaxy Opal cards and the Hall of Fame Season Pass.",
+      dominant_archetype: "MYTEAM_PACK_WHALE",
+    };
+  }
+
+  // Creator Squads & Halo (Agent 00, Troydan, CashNasty, Kenny Beecham / KOT4Q, DBG, Tydebo)
+  if (
+    q.includes("creator") ||
+    q.includes("agent 00") ||
+    q.includes("agent00") ||
+    q.includes("troydan") ||
+    q.includes("cashnasty") ||
+    q.includes("kenny beecham") ||
+    q.includes("kot4q") ||
+    q.includes("dbg") ||
+    q.includes("tydebo")
+  ) {
+    return {
+      gql_query: `GRAPH ${GRAPH_NAME}
+MATCH (p:Player)-[:FOLLOWS_CREATOR]->(c:Creator)
+WHERE c.franchise = 'NBA2K'
+  AND p.lifetime_spend_usd >= 200${dmaClause}
+RETURN p.player_id`,
+      explanation:
+        "2-hop Creator Squad traversal isolating high-LTV NBA 2K27 players ($200+ lifetime spend) following Agent 00, Troydan, CashNasty, Kenny Beecham / KOT4Q, DBG, and Tydebo.",
+      dominant_archetype: "BUILD_LAB_THEORYCRAFTER",
+    };
+  }
+
+  // 2K Cross-Franchise Pollination (explicitly asking for WWE 2K25, PGA TOUR 2K25, Borderlands 4, Civilization VII without 2K26 holdout/upgrade)
+  if (
+    !q.includes("2k26") &&
+    !q.includes("holdout") &&
+    !q.includes("loyalty") &&
+    !q.includes("veteran") &&
+    !q.includes("upgrade") &&
+    (q.includes("wwe") ||
+      q.includes("pga") ||
+      q.includes("topspin") ||
+      q.includes("borderlands") ||
+      q.includes("bl4") ||
+      q.includes("civ") ||
+      q.includes("mafia") ||
+      q.includes("cross-franchise") ||
+      q.includes("crossplay") ||
+      q.includes("cross-play"))
+  ) {
+    return {
+      gql_query: `GRAPH ${GRAPH_NAME}
+MATCH (p:Player)-[:HAS_IDENTITY]->(i:Identity {platform: '2K Account'}),
+      (p)-[:PLAYS_GAME]->(g:Game)
+WHERE g.franchise IN ('WWE2K', 'PGA2K', 'TOPSPIN', 'BL4', 'CIV7', 'MAFIA')
+  AND p.lifetime_spend_usd >= 150${dmaClause}
+RETURN p.player_id`,
+      explanation:
+        "Multi-hop 2K Account traversal connecting NBA 2K27 players across WWE 2K25, PGA TOUR 2K25, TopSpin 2K25, Borderlands 4, Civilization VII, and Mafia: The Old Country.",
+      dominant_archetype: "CROSS_LABEL_NOMAD",
+    };
+  }
+
+  // Play 2 — NBA 2K26 → 2K27 Holdout & Cross-2K Upgrade Bridge
+  if (
+    q.includes("2k26") ||
+    q.includes("upgrade") ||
+    q.includes("holdout") ||
+    q.includes("loyalty") ||
+    q.includes("veteran") ||
+    q.includes("cross-franchise") ||
+    q.includes("wwe") ||
+    q.includes("pga") ||
+    q.includes("borderlands") ||
+    q.includes("civ")
+  ) {
+    return {
+      gql_query: `GRAPH ${GRAPH_NAME}
+MATCH (p:Player)-[:HAS_IDENTITY]->(i:Identity {platform: '2K Account'}),
+      (p)-[:PLAYS_GAME]->(g:Game {game_id: 'game-nba2k26'})
+WHERE BOOL(p.game_telemetry.nba2k26_veteran) = true
+  AND FLOAT64(p.game_telemetry.nba2k26_spend_usd) > 0
+  AND BOOL(p.game_telemetry.migrated_to_2k27) = false
+  AND FLOAT64(p.game_telemetry.myteam_vc_spend_90d) > 0${dmaClause}
+RETURN p.player_id`,
+      explanation:
+        "3-hop 2K Account traversal bridging high-value NBA 2K26 veterans and cross-2K spenders who have not yet claimed the NBA 2K26 → 2K27 Hall of Fame Loyalty Upgrade + 100K VC.",
+      dominant_archetype: "CROSS_LABEL_NOMAD",
+    };
+  }
+
+  // DMA Market fast-path when dispatched from NBAMarketMap
+  if (sanitizedDma) {
+    const spendClause = q.includes("100+") || q.includes("high-spend")
+      ? `\n  AND p.lifetime_spend_usd >= 100`
+      : "";
+    return {
+      gql_query: `GRAPH ${GRAPH_NAME}
+MATCH (p:Player)
+WHERE p.dma_market LIKE '%${sanitizedDma}%'${spendClause}
+RETURN p.player_id`,
+      explanation: `Isolates active NBA 2K27, NBA 2K26, and 2K Sports players clustered in the ${sanitizedDma} DMA market.`,
+      dominant_archetype: "PARK_REP_GRINDER",
+    };
+  }
+
+  return null;
+}
+
+async function executeAudienceQuery(
+  query: string,
+  franchise: string,
+  excludeConditionIds: string[] = []
+) {
+  const translateStart = Date.now();
+  let gqlQuery = "";
+  let explanation = "";
+  let modelUsed = "gemini-3.5-flash";
+
+  const golden = matchGoldenPlay(query, franchise);
+  if (golden) {
+    gqlQuery = golden.gql_query;
+    explanation = golden.explanation;
+  } else {
+    let gen;
+    try {
+      gen = await generateText({
+        role: "FAST",
+        system: NL_TO_GQL_SYSTEM_PROMPT,
+        prompt: `Translate this 2K Courtside audience request into Spanner Graph GQL on TakeTwoPlayerGraph.
+Franchise Scope: ${franchise || "ALL"}
+User Request: "${query}"`,
+        json: true,
+        thinkingBudget: 0,
+      });
+    } catch (err: any) {
+      throw new GqlTranslationError(
+        `Vertex AI NL-to-GQL generation failed: ${err?.message || String(err)}`,
+        modelUsed
+      );
+    }
+    modelUsed = gen.modelUsed;
+    let parsed: any;
+    try {
+      const cleaned = gen.text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+      parsed = JSON.parse(cleaned);
+    } catch (err: any) {
+      throw new GqlTranslationError(
+        `Failed to parse Gemini NL-to-GQL JSON response (${modelUsed}): ${err?.message || String(err)}`,
+        modelUsed,
+        gen.text
+      );
+    }
+    gqlQuery = String(parsed?.gql_query || "").trim();
+    explanation = String(parsed?.explanation || "").trim();
+    if (!gqlQuery) {
+      throw new GqlTranslationError(
+        `Gemini NL-to-GQL response (${modelUsed}) did not include a valid gql_query.`,
+        modelUsed,
+        gen.text
+      );
+    }
+  }
+  const translateMs = Date.now() - translateStart;
+
+  // Apply excludeConditions if any chip was removed by the user
+  let matchClause = extractMatchClause(gqlQuery);
+  let whereClause = extractWhereClause(gqlQuery);
+  const allConditions = parseConditionsFromWhere(whereClause);
+
+  if (excludeConditionIds.length > 0) {
+    const excludeSet = new Set(excludeConditionIds);
+    const remaining = allConditions.filter(
+      (c) => !excludeSet.has(c.id) && !excludeSet.has(c.field) && !excludeSet.has(c.label)
+    );
+    const needsCrewMateJoin = /\bmate\b/.test(matchClause);
+    const mateGuard = needsCrewMateJoin ? ["p.player_id <> mate.player_id"] : [];
+    whereClause = [...remaining.map((c) => c.rawFragment), ...mateGuard].join(" AND ");
+    gqlQuery = `GRAPH ${GRAPH_NAME}\nMATCH ${matchClause}\n${
+      whereClause ? `WHERE ${whereClause}\n` : ""
+    }RETURN p.player_id`;
+  }
+
+  const safety = validateGqlSafety(gqlQuery);
+  if (!safety.ok) {
+    throw new Error(safety.reason || "Invalid GQL query.");
+  }
+
+  const spannerRes = await runSpannerGraphQuery(gqlQuery, 72);
+  const { games, creators } = await getCatalog();
+  const gameById = new Map(games.map((g) => [g.game_id, g]));
+  const creatorById = new Map(creators.map((c) => [c.creator_id, c]));
+
+  const nodes: GraphNode[] = [];
+  const links: GraphLink[] = [];
+  const nodeIds = new Set<string>();
+
+  const addNode = (n: GraphNode) => {
+    if (nodeIds.has(n.id)) return;
+    nodeIds.add(n.id);
+    nodes.push(n);
+  };
+
+  // Add franchise / game hub nodes referenced by matched players
+  const activeFranchises = new Set<string>();
+  for (const r of spannerRes.rows) {
+    activeFranchises.add(r.primary_franchise);
+  }
+  if (activeFranchises.size === 0) activeFranchises.add("NBA2K");
+
+  Array.from(activeFranchises).forEach((f, idx) => {
+    const hubId = HUB_ID_BY_FRANCHISE[f] || "game-nba2k27";
+    const g = gameById.get(hubId);
+    const lbl = (g?.label || "2K") as TakeTwoLabel;
+    const angle = (idx / Math.max(1, activeFranchises.size)) * Math.PI * 2;
+    addNode({
+      id: hubId,
+      name: g?.title || f,
+      type: "GAME",
+      franchise: f,
+      label: lbl,
+      val: 34,
+      color: FRANCHISE_COLORS[f] || LABEL_COLORS[lbl],
+      fx: activeFranchises.size === 1 ? 0 : Math.cos(angle) * 220,
+      fy: activeFranchises.size === 1 ? -140 : Math.sin(angle) * 180,
+    });
+  });
+
+  // Add matched player nodes
+  for (const r of spannerRes.rows) {
+    const primaryLabel: TakeTwoLabel =
+      r.primary_franchise === "WWE2K" ||
+      r.primary_franchise === "PGA2K" ||
+      r.primary_franchise === "TOPSPIN"
+        ? "2K_SPORTS"
+        : r.primary_franchise === "BL4" ||
+            r.primary_franchise === "CIV7" ||
+            r.primary_franchise === "MAFIA"
+          ? "2K_CORE"
+          : "2K";
+
+    addNode({
+      id: r.player_id,
+      name: r.gamer_tag || r.display_name,
+      type: "PLAYER",
+      franchise: r.primary_franchise,
+      label: primaryLabel,
+      archetype: r.primary_archetype,
+      spend: r.lifetime_spend_usd,
+      churn_risk: r.churn_risk_score,
+      tilt: r.tilt_sensitivity,
+      loss_streak: r.recent_loss_streak,
+      gravity_score: Number(r.game_telemetry?.gravity_score ?? 0),
+      game_telemetry: r.game_telemetry,
+      purchased_items: r.purchased_items,
+      country: r.country ?? undefined,
+      country_code: r.country_code ?? undefined,
+      country_flag: r.country_flag ?? undefined,
+      dma_market: r.dma_market ?? undefined,
+      lat: r.lat ?? undefined,
+      lng: r.lng ?? undefined,
+      val: Math.max(6, Math.min(18, Math.sqrt(r.lifetime_spend_usd || 30) * 0.45)),
+      color: archetypeColor(r.primary_archetype),
     });
 
-    // If generic creator / streamer mention without specific name, include top CoD creators
-    if (matchedCreatorIds.length === 0 && (lowerQ.includes("creator") || lowerQ.includes("streamer") || lowerQ.includes("influencer") || lowerQ.includes("youtube") || lowerQ.includes("twitch"))) {
-      matchedCreatorIds = ["creator-scump", "creator-swagg", "creator-timthetatman", "creator-biffle", "creator-jgod"];
-    }
-
-    // Detect CoD modes in the query.
-    let franchiseExplicit = true;
-    if (lowerQ.includes("warzone") || lowerQ.includes("resurgence") || lowerQ.includes("gulag")) {
-      targetFranchises = ["WARZONE"];
-    } else if (lowerQ.includes("black ops") || lowerQ.includes("bo6") || lowerQ.includes("zombies") || lowerQ.includes("terminus")) {
-      targetFranchises = ["BLACK_OPS"];
-    } else if (lowerQ.includes("modern warfare") || lowerQ.includes("mw3") || lowerQ.includes("search and destroy") || lowerQ.includes("s&d")) {
-      targetFranchises = ["MODERN_WARFARE"];
-    } else if (lowerQ.includes("cdl") || lowerQ.includes("ranked") || lowerQ.includes("hardpoint") || lowerQ.includes("optic") || lowerQ.includes("faze")) {
-      targetFranchises = ["CDL_RANKED"];
-    } else if (lowerQ.includes("mobile") || lowerQ.includes("claw")) {
-      targetFranchises = ["COD_MOBILE"];
-    } else if (selectedGame !== "ALL") {
-      targetFranchises = [selectedGame];
-    } else {
-      targetFranchises = ["WARZONE", "BLACK_OPS", "MODERN_WARFARE", "CDL_RANKED", "COD_MOBILE"];
-      franchiseExplicit = false;
-    }
-
-    // Check for signature Multi-Hop Spanner Graph traversals first
-    const isBo7Query =
-      lowerQ.includes("bo7") ||
-      lowerQ.includes("black ops 7") ||
-      (lowerQ.includes("newest") && lowerQ.includes("game"));
-
-    const isSquadContagion =
-      (lowerQ.includes("clan") || lowerQ.includes("squad") || lowerQ.includes("contagion") || lowerQ.includes("teammate") || lowerQ.includes("mate")) &&
-      (lowerQ.includes("bo6") || lowerQ.includes("black ops") || lowerQ.includes("migrat") || lowerQ.includes("mate") || lowerQ.includes("gulag") || lowerQ.includes("loss"));
-
-    const isCreatorHalo =
-      (lowerQ.includes("scump") || lowerQ.includes("swagg") || lowerQ.includes("timthetatman") || lowerQ.includes("biffle") || lowerQ.includes("creator") || lowerQ.includes("streamer")) &&
-      (lowerQ.includes("whale") || lowerQ.includes("spend") || lowerQ.includes("churn") || lowerQ.includes("risk") || lowerQ.includes("halo") || lowerQ.includes("shield"));
-
-    const isCrossIdentityBridge =
-      (lowerQ.includes("identity") || lowerQ.includes("cross-mode") || lowerQ.includes("cross-platform") || lowerQ.includes("activision") || lowerQ.includes("account") || lowerQ.includes("linked")) &&
-      (lowerQ.includes("steam") || lowerQ.includes("battlenet") || lowerQ.includes("psn") || lowerQ.includes("xbox") || lowerQ.includes("mobile") || lowerQ.includes("bridge"));
-
-    if (isBo7Query) {
-      generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:PLAYS_GAME]->(g:Game)\nWHERE g.game_id = 'game-cod-bo7'\n  AND (p.recent_loss_streak >= 3 OR p.churn_risk_score >= 0.55)\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nORDER BY p.churn_risk_score DESC\nLIMIT 150;`;
-      naturalLanguageSummary = "Spanner Property Graph Traversal: Isolated 567 Black Ops 7 players exhibiting early adoption churn friction and 3+ defeat streaks across Omnimovement 2.0 and Next-Gen Zombies.";
-      targetArchetype = "GULAG_TILT_RISK";
-      targetFranchises = ["BLACK_OPS"];
-      translator = "deterministic_multihop";
-    } else if (isSquadContagion) {
-      generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:MEMBER_OF_CLAN]->(cl:Clan)<-[:MEMBER_OF_CLAN]-(mate:Player)-[:PLAYS_GAME]->(g:Game)\nWHERE p.player_id != mate.player_id\n  AND p.recent_loss_streak >= 3\n  AND cl.franchise IN ('WARZONE', 'COD', 'CDL_RANKED', 'MODERN_WARFARE')\n  AND g.game_id = 'game-cod-bo6'\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nLIMIT 150;`;
-      naturalLanguageSummary = "Spanner 3-Hop Traversal: Isolated 112 Warzone players on 3+ Gulag defeat streaks whose clanmates in FaZe Clan, OpTic Gaming, and Task Force 141 have migrated to Black Ops 6 Zombies.";
-      targetArchetype = "GULAG_TILT_RISK";
-      targetFranchises = ["WARZONE", "BLACK_OPS"];
-      translator = "deterministic_multihop";
-    } else if (isCreatorHalo) {
-      generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:FOLLOWS_CREATOR]->(c:Creator)\nWHERE p.lifetime_spend_usd >= 300\n  AND p.churn_risk_score >= 0.55\n  AND c.franchise IN ('WARZONE', 'CDL_RANKED', 'MODERN_WARFARE', 'COD')\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
-      naturalLanguageSummary = "Spanner 2-Hop Traversal: Mapped 235 high-LTV Call of Duty players at risk of churn directly to their followed creators (Scump, FaZe Swagg, TimTheTatman, Biffle) for creator-code retention drops.";
-      targetArchetype = "BLACKCELL_WHALE";
-      targetFranchises = ["WARZONE", "BLACK_OPS", "CDL_RANKED"];
-      matchedCreatorIds = ["creator-scump", "creator-swagg", "creator-timthetatman"];
-      translator = "deterministic_multihop";
-    } else if (isCrossIdentityBridge) {
-      generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:HAS_IDENTITY]->(id:Identity), (p)-[:PLAYS_GAME]->(g1:Game), (p)-[:PLAYS_GAME]->(g2:Game)\nWHERE g1.game_id = 'game-cod-warzone' AND g2.game_id = 'game-cod-bo6' AND p.lifetime_spend_usd >= 500\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
-      naturalLanguageSummary = "Spanner 3-Hop Traversal: Resolved unified Activision ID cross-platform identities linking 128 high-value accounts ($500+ spend) playing across Warzone and Black Ops 6.";
-      targetArchetype = "BLACKCELL_WHALE";
-      targetFranchises = ["WARZONE", "BLACK_OPS"];
-      translator = "deterministic_multihop";
-    } else {
-      // 1. Live Vertex AI Gemini NL-to-GQL Translation
-      try {
-        if (explicitGql) throw new Error("explicit GQL supplied; skipping translation");
-        const prompt = `
-${NL_TO_GQL_SYSTEM_PROMPT}
-
-User Prompt: "${query}"
-Active Game Filter: "${selectedGame}"
-
-Translate the request into a Spanner Property Graph GQL query.
-Output strict JSON:
-{
-  "gql_query": "GRAPH ABKPlayerGraph MATCH (p:Player) WHERE ... RETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak LIMIT 150",
-  "explanation": "...",
-  "dominant_archetype": "...",
-  "target_franchises": ["WARZONE", "BLACK_OPS"]
-}
-`;
-        const generatedText = await generateVertexContent(prompt, true);
-        const parsed = parseModelJson(generatedText);
-        if (!parsed) throw new Error("Model returned unparseable JSON");
-        generatedGql = parsed.gql_query || "";
-        naturalLanguageSummary = parsed.explanation || "";
-        targetArchetype = parsed.dominant_archetype || "";
-        if (parsed.target_franchises && Array.isArray(parsed.target_franchises) && parsed.target_franchises.length > 0) {
-          targetFranchises = parsed.target_franchises;
-        }
-      } catch (aiErr) {
-        console.warn("[Vertex AI NL-to-GQL] Using deterministic semantic GQL builder:", aiErr);
-      }
-
-      // An explicitly supplied query is executed verbatim: no guard, no rewriting.
-      if (explicitGql) {
-        generatedGql = explicitGql;
-        translator = "caller_supplied";
-      }
-
-      // The franchise selector is authoritative for single-node queries.
-      if (!explicitGql && generatedGql && selectedGame !== "ALL" && !generatedGql.includes("Clan") && !generatedGql.includes("Creator") && !generatedGql.includes("Identity")) {
-        const whereOnly = (generatedGql.match(/\bWHERE\b([\s\S]*?)(?:\bRETURN\b|\bORDER\s+BY\b|\bLIMIT\b|$)/i) || [, ""])[1];
-        const alreadyScoped = /primary_franchise|franchises_played/i.test(whereOnly);
-
-        if (!alreadyScoped) {
-          const guard = `(p.primary_franchise = '${selectedGame}' OR '${selectedGame}' IN p.franchises_played)`;
-          if (/\bWHERE\b/i.test(generatedGql)) {
-            generatedGql = generatedGql.replace(/\bWHERE\b/i, `WHERE ${guard} AND `);
-          } else {
-            generatedGql = generatedGql.replace(/\bRETURN\b/i, `WHERE ${guard}\nRETURN`);
-          }
-          console.log(`[NL-to-GQL] Injected franchise guard for ${selectedGame}`);
-        }
-      }
-
-      // Normalise franchise scoping semantics
-      if (!explicitGql && generatedGql) {
-        generatedGql = generatedGql.replace(
-          /\bp\.primary_franchise\s*=\s*'([A-Z0-9_]+)'/gi,
-          (match, franchise) => {
-            const scoped = `'${franchise}' IN p.franchises_played`;
-            return generatedGql.includes(scoped)
-              ? match
-              : `(p.primary_franchise = '${franchise}' OR ${scoped})`;
-          }
-        );
-      }
-    }
-
-    // 2. Deterministic Semantic Fallback — for TRANSLATION ONLY.
-    if (!explicitGql && (!generatedGql || !generatedGql.includes("GRAPH ABKPlayerGraph"))) {
-      translator = "deterministic";
-
-      // Check for signature Multi-Hop Spanner Graph traversals first
-      const isBo7Query =
-        lowerQ.includes("bo7") ||
-        lowerQ.includes("black ops 7") ||
-        (lowerQ.includes("newest") && lowerQ.includes("game"));
-
-      const isSquadContagion =
-        (lowerQ.includes("clan") || lowerQ.includes("squad") || lowerQ.includes("contagion") || lowerQ.includes("teammate") || lowerQ.includes("mate")) &&
-        (lowerQ.includes("bo6") || lowerQ.includes("black ops") || lowerQ.includes("migrat") || lowerQ.includes("mate") || lowerQ.includes("gulag") || lowerQ.includes("loss"));
-
-      const isCreatorHalo =
-        (lowerQ.includes("scump") || lowerQ.includes("swagg") || lowerQ.includes("timthetatman") || lowerQ.includes("biffle") || lowerQ.includes("creator") || lowerQ.includes("streamer")) &&
-        (lowerQ.includes("whale") || lowerQ.includes("spend") || lowerQ.includes("churn") || lowerQ.includes("risk") || lowerQ.includes("halo") || lowerQ.includes("shield"));
-
-      const isCrossIdentityBridge =
-        (lowerQ.includes("identity") || lowerQ.includes("cross-mode") || lowerQ.includes("cross-platform") || lowerQ.includes("activision") || lowerQ.includes("account") || lowerQ.includes("linked")) &&
-        (lowerQ.includes("steam") || lowerQ.includes("battlenet") || lowerQ.includes("psn") || lowerQ.includes("xbox") || lowerQ.includes("mobile") || lowerQ.includes("bridge"));
-
-      if (isBo7Query) {
-        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:PLAYS_GAME]->(g:Game)\nWHERE g.game_id = 'game-cod-bo7'\n  AND (p.recent_loss_streak >= 3 OR p.churn_risk_score >= 0.55)\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nORDER BY p.churn_risk_score DESC\nLIMIT 150;`;
-        naturalLanguageSummary = "Spanner Property Graph Traversal: Isolated 567 Black Ops 7 players exhibiting early adoption churn friction and 3+ defeat streaks across Omnimovement 2.0 and Next-Gen Zombies.";
-        targetArchetype = "GULAG_TILT_RISK";
-        targetFranchises = ["BLACK_OPS"];
-      } else if (isSquadContagion) {
-        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:MEMBER_OF_CLAN]->(cl:Clan)<-[:MEMBER_OF_CLAN]-(mate:Player)-[:PLAYS_GAME]->(g:Game)\nWHERE p.player_id != mate.player_id\n  AND p.recent_loss_streak >= 3\n  AND cl.franchise IN ('WARZONE', 'COD', 'CDL_RANKED', 'MODERN_WARFARE')\n  AND g.game_id = 'game-cod-bo6'\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nLIMIT 150;`;
-        naturalLanguageSummary = "Spanner 3-Hop Traversal: Isolated 112 Warzone players on 3+ Gulag defeat streaks whose clanmates in FaZe Clan, OpTic Gaming, and Task Force 141 have migrated to Black Ops 6 Zombies.";
-        targetArchetype = "GULAG_TILT_RISK";
-        targetFranchises = ["WARZONE", "BLACK_OPS"];
-      } else if (isCreatorHalo) {
-        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:FOLLOWS_CREATOR]->(c:Creator)\nWHERE p.lifetime_spend_usd >= 300\n  AND p.churn_risk_score >= 0.55\n  AND c.franchise IN ('WARZONE', 'CDL_RANKED', 'MODERN_WARFARE', 'COD')\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
-        naturalLanguageSummary = "Spanner 2-Hop Traversal: Mapped 235 high-LTV Call of Duty players at risk of churn directly to their followed creators (Scump, FaZe Swagg, TimTheTatman, Biffle) for creator-code retention drops.";
-        targetArchetype = "BLACKCELL_WHALE";
-        targetFranchises = ["WARZONE", "BLACK_OPS", "CDL_RANKED"];
-        matchedCreatorIds = ["creator-scump", "creator-swagg", "creator-timthetatman"];
-      } else if (isCrossIdentityBridge) {
-        generatedGql = `GRAPH ABKPlayerGraph\nMATCH (p:Player)-[:HAS_IDENTITY]->(id:Identity), (p)-[:PLAYS_GAME]->(g1:Game), (p)-[:PLAYS_GAME]->(g2:Game)\nWHERE g1.game_id = 'game-cod-warzone' AND g2.game_id = 'game-cod-bo6' AND p.lifetime_spend_usd >= 500\nRETURN DISTINCT p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, p.account_tenure_days, p.currency_balance, p.country, p.dma_market\nORDER BY p.lifetime_spend_usd DESC\nLIMIT 150;`;
-        naturalLanguageSummary = "Spanner 3-Hop Traversal: Resolved unified Activision ID cross-platform identities linking 128 high-value accounts ($500+ spend) playing across Warzone and Black Ops 6.";
-        targetArchetype = "BLACKCELL_WHALE";
-        targetFranchises = ["WARZONE", "BLACK_OPS"];
-      } else {
-        const clauses: string[] = [];
-
-        const geoTokens: [string[], string][] = [
-          [["dallas"], "p.dma_market LIKE '%Dallas%'"],
-          [["new york", "nyc"], "p.dma_market LIKE '%New York%'"],
-          [["los angeles", "la metro"], "p.dma_market LIKE '%Los Angeles%'"],
-          [["chicago"], "p.dma_market LIKE '%Chicago%'"],
-          [["london"], "p.dma_market LIKE '%London%'"],
-          [["manchester"], "p.dma_market LIKE '%Manchester%'"],
-          [["paris"], "p.dma_market LIKE '%Paris%'"],
-          [["madrid"], "p.dma_market LIKE '%Madrid%'"],
-          [["berlin", "germany", "dach"], "p.country = 'Germany'"],
-          [["são paulo", "sao paulo", "brazil"], "p.country = 'Brazil'"],
-          [["tokyo", "japan"], "p.country = 'Japan'"],
-          [["riyadh", "saudi", "gcc"], "p.country = 'Saudi Arabia'"],
-          [["united kingdom", "britain"], "p.country = 'United Kingdom'"],
-          [["united states", "usa"], "p.country = 'United States'"],
-        ];
-        // Whole-word match only. A bare "us" must never match, or every query
-        // containing `lifetime_spend_usd` silently becomes United States only.
-        for (const [tokens, clause] of geoTokens) {
-          if (tokens.some((t) => new RegExp(`\\b${t}\\b`, "i").test(lowerQ))) {
-            clauses.push(clause);
-            break;
-          }
-        }
-
-        // Franchise scope — only constrain when the user actually asked for it.
-        if (franchiseExplicit && targetFranchises.length === 1) {
-          clauses.push(`(p.primary_franchise = '${targetFranchises[0]}' OR '${targetFranchises[0]}' IN p.franchises_played)`);
-        } else if (franchiseExplicit && targetFranchises.length > 1) {
-          const inList = targetFranchises.map((f) => `'${f}'`).join(", ");
-          clauses.push(`p.primary_franchise IN (${inList})`);
-        }
-
-        // Churn / retention intent
-        const wantsChurn = /churn|at.?risk|lapsing|lapsed|retention|leaving|quit|drop.?off/i.test(lowerQ);
-        if (wantsChurn) clauses.push("p.churn_risk_score >= 0.70");
-
-        // Spend intent
-        const wantsWhales = /whale|high.?spend|big spender|high.?ltv|top spender/i.test(lowerQ);
-        if (spendVal !== null) {
-          clauses.push(`p.lifetime_spend_usd >= ${spendVal}`);
-        } else if (wantsWhales) {
-          clauses.push("p.lifetime_spend_usd >= 1000");
-        }
-
-        // Tilt / loss-streak intent
-        if (/tilt|loss streak|losing|gulag|wipe|defeat|frustrat/i.test(lowerQ)) {
-          clauses.push("(p.tilt_sensitivity >= 0.60 OR p.recent_loss_streak >= 2)");
-        }
-
-        // Social intent
-        if (/clan|guild|squad|social|friends/i.test(lowerQ)) {
-          clauses.push("p.primary_archetype = 'CASUAL_SOCIALIZER'");
-        }
-
-        // Dormant currency intent
-        if (/unspent|dormant|balance|points sitting|gold bars/i.test(lowerQ)) {
-          clauses.push("p.currency_balance >= 1000");
-        }
-
-        // If the request expressed no filter at all, fall back to the demo's
-        // canonical situational-friction cohort rather than returning everyone.
-        if (clauses.length === 0) {
-          clauses.push("(p.tilt_sensitivity >= 0.65 OR p.recent_loss_streak >= 2)");
-        }
-
-        targetArchetype = wantsWhales
-          ? "BLACKCELL_WHALE"
-          : /clan|guild|squad|social/i.test(lowerQ)
-          ? "CASUAL_SOCIALIZER"
-          : "COMPETITIVE_GRINDER";
-
-        const orderBy = spendVal !== null || wantsWhales ? "\nORDER BY p.lifetime_spend_usd DESC" : "";
-        generatedGql =
-          `GRAPH ABKPlayerGraph\nMATCH (p:Player)\nWHERE ${clauses.join("\n  AND ")}\n` +
-          `RETURN p.player_id, p.display_name, p.primary_franchise, p.franchises_played, p.primary_archetype, ` +
-          `p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.age, p.gender, ` +
-          `p.account_tenure_days, p.currency_balance, p.country, p.dma_market${orderBy}\nLIMIT 400;`;
-      }
-    }
-
-    // 3. Execute the query against live Spanner.
-    //
-    // There is no local fallback. A previous version quietly evaluated the
-    // predicates against a JSON file whenever Spanner was unreachable, so the
-    // UI could present confident cohort sizes that had never touched the
-    // database. A visible failure is worth far more than an invisible fiction.
-    //
-    // The engine returns the LIMIT page in `rows` and the true population size
-    // in `totalMatched`. These are deliberately distinct: `rows` drives what we
-    const renderBudget = isBo7Query ? 140 : RENDER_LIMIT;
-    const queryResult = await runSpannerGraphQuery(generatedGql, renderBudget);
-    const rows = queryResult.rows;
-    const totalMatched = queryResult.totalMatched;
-
-    const nodes: GraphNode[] = [];
-    const links: GraphLink[] = [];
-
-    // 4. Add Relevant Game Hubs with Proper Spatial Anchors
-    const hubColors: Record<string, string> = {
-      ALL: "#F59E0B",
-      COD: "#F59E0B",
-      WARZONE: "#F59E0B",
-      BLACK_OPS: "#FF5722",
-      MODERN_WARFARE: "#10B981",
-      CDL_RANKED: "#6366F1",
-      COD_MOBILE: "#06B6D4",
-    };
-
-    if (targetFranchises.length >= 2) {
-      // Multi-Title / Cross-Franchise View (e.g. Call of Duty & WoW)
-      const f1 = targetFranchises[0];
-      const f2 = targetFranchises[1];
-      const g1 = allGames.find((g: any) => g.franchise === f1 && g.is_parent_hub) || { game_id: `game-${f1.toLowerCase()}`, title: f1 };
-      const g2 = allGames.find((g: any) => g.franchise === f2 && g.is_parent_hub) || { game_id: `game-${f2.toLowerCase()}`, title: f2 };
-
-      nodes.push({
-        id: g1.game_id,
-        name: g1.title,
-        type: "GAME",
-        franchise: f1,
-        val: 36,
-        color: hubColors[f1] || "#E6FF00",
-        fx: -280,
-        fy: 0,
-      });
-
-      nodes.push({
-        id: g2.game_id,
-        name: g2.title,
-        type: "GAME",
-        franchise: f2,
-        val: 36,
-        color: hubColors[f2] || "#00F0FF",
-        fx: 280,
-        fy: 0,
-      });
-
-      // Add top offers for multi-franchise
-      const relevantOffers = allOffers.filter((o: any) => targetFranchises.includes(o.target_franchise));
-      const topOffers = relevantOffers.slice(0, 6);
-      topOffers.forEach((o: any, idx: number) => {
-        const isLeft = o.target_franchise === f1;
-        const fx = isLeft ? -460 : 460;
-        const fy = idx % 2 === 0 ? -180 : 180;
-        const isMajorDlc = o.offer_type.includes("MAJOR_DLC") || o.price_usd >= 60;
-        nodes.push({
-          id: o.offer_id,
-          name: `${o.offer_title} ($${o.price_usd})`,
-          type: "OFFER",
-          franchise: o.target_franchise,
-          spend: o.price_usd,
-          val: isMajorDlc ? 32 : 26,
-          color: isMajorDlc ? "#FFB800" : o.price_usd >= 30 ? "#A855F7" : "#EC4899",
-          offer_data: o,
-          fx,
-          fy,
-        });
-      });
-    } else {
-      // Single-title view (one ABK franchise selected)
-      const activeFranchise = targetFranchises[0] || "COD";
-
-      if (activeFranchise === "COD") {
-        // Spatial Layout for Call of Duty Warzone & Black Ops 7
-        nodes.push({
-          id: "game-cod-warzone-resurgence",
-          name: "Warzone",
-          type: "GAME",
-          franchise: "COD",
-          val: 34,
-          color: "#F59E0B",
-          fx: -10,
-          fy: -140,
-        });
-        nodes.push({
-          id: "game-cod-bo6-multiplayer",
-          name: "Black Ops 7 Ranked & CDL",
-          type: "GAME",
-          franchise: "COD",
-          val: 34,
-          color: "#F59E0B",
-          fx: -260,
-          fy: 10,
-        });
-        nodes.push({
-          id: "game-cod-zombies",
-          name: "Round-Based Zombies",
-          type: "GAME",
-          franchise: "COD",
-          val: 34,
-          color: "#F59E0B",
-          fx: -10,
-          fy: 160,
-        });
-        nodes.push({
-          id: "offer-cod-blackcell-s1",
-          name: "BlackCell Pass ($29.99)",
-          type: "OFFER",
-          franchise: "COD",
-          spend: 29.99,
-          val: 32,
-          color: "#FFB800",
-          fx: 260,
-          fy: 10,
-        });
-
-        // 5 Store Offers Around Outer Perimeter
-        nodes.push({
-          id: "offer-cod-gulag-shield",
-          name: "Gulag Loss Recovery Shield ($4.99)",
-          type: "OFFER",
-          franchise: "COD",
-          spend: 4.99,
-          val: 26,
-          color: "#FF4757",
-          fx: 160,
-          fy: -260,
-        });
-        nodes.push({
-          id: "offer-cod-points-1100",
-          name: "1,100 CoD Points Pack ($9.99)",
-          type: "OFFER",
-          franchise: "COD",
-          spend: 9.99,
-          val: 26,
-          color: "#EC4899",
-          fx: -160,
-          fy: -260,
-        });
-        nodes.push({
-          id: "offer-cod-points-2400",
-          name: "Pro Pack + 2,400 CP ($19.99)",
-          type: "OFFER",
-          franchise: "COD",
-          spend: 19.99,
-          val: 26,
-          color: "#EC4899",
-          fx: -380,
-          fy: 0,
-        });
-        nodes.push({
-          id: "offer-cod-points-5000",
-          name: "5,000 (+800) CoD Points ($39.99)",
-          type: "OFFER",
-          franchise: "COD",
-          spend: 39.99,
-          val: 28,
-          color: "#A855F7",
-          fx: -200,
-          fy: 260,
-        });
-        nodes.push({
-          id: "offer-cod-points-13000",
-          name: "13,000 CoD Points Vault ($99.99)",
-          type: "OFFER",
-          franchise: "COD",
-          spend: 99.99,
-          val: 32,
-          color: "#FFB800",
-          fx: 160,
-          fy: 260,
-        });
-      } else {
-        const primaryHub = allGames.find((g: any) => g.franchise === activeFranchise && g.is_parent_hub) || allGames.find((g: any) => g.franchise === activeFranchise);
-        if (primaryHub) {
-          nodes.push({
-            id: primaryHub.game_id,
-            name: primaryHub.title,
-            type: "GAME",
-            franchise: activeFranchise,
-            val: primaryHub.game_id === "game-cod-bo7" ? 44 : 38,
-            color: primaryHub.game_id === "game-cod-bo7" ? "#FF3D00" : (hubColors[activeFranchise] || "#00F0FF"),
-            fx: 0,
-            fy: -30,
-          });
-        }
-
-        const subGames = allGames.filter((g: any) => g.franchise === activeFranchise && !g.is_parent_hub && g.game_id !== "game-cod");
-        subGames.forEach((g: any, idx: number) => {
-          const angle = (idx / Math.max(subGames.length, 1)) * Math.PI + Math.PI * 0.25;
-          const radius = 220;
-          nodes.push({
-            id: g.game_id,
-            name: g.title,
-            type: "GAME",
-            franchise: activeFranchise,
-            val: 28,
-            color: hubColors[activeFranchise] || "#00F0FF",
-            fx: Math.round(Math.cos(angle) * radius),
-            fy: Math.round(Math.sin(angle) * radius) + 50,
-          });
-        });
-
-        const relevantOffers = allOffers.filter((o: any) => targetFranchises.includes(o.target_franchise));
-        const topOffers = relevantOffers.slice(0, 5);
-        topOffers.forEach((o: any, idx: number) => {
-          const angle = (idx / topOffers.length) * 2 * Math.PI;
-          const fx = Math.round(Math.cos(angle) * 380);
-          const fy = Math.round(Math.sin(angle) * 380);
-          const isMajorDlc = o.offer_type.includes("MAJOR_DLC") || o.price_usd >= 60;
-          nodes.push({
-            id: o.offer_id,
-            name: `${o.offer_title} ($${o.price_usd})`,
-            type: "OFFER",
-            franchise: o.target_franchise,
-            spend: o.price_usd,
-            val: isMajorDlc ? 32 : 26,
-            color: isMajorDlc ? "#FFB800" : o.price_usd >= 30 ? "#A855F7" : "#EC4899",
-            offer_data: o,
-            fx,
-            fy,
-          });
-        });
-      }
-    }
-
-    // 5. Add Matched Content Creators Orbit if applicable
-    if (matchedCreatorIds.length > 0) {
-      matchedCreatorIds.forEach((cId, cIdx) => {
-        const creatorObj = allCreators.find((c: any) => c.creator_id === cId);
-        if (creatorObj) {
-          const angle = (cIdx / matchedCreatorIds.length) * 2 * Math.PI - Math.PI / 4;
-          nodes.push({
-            id: creatorObj.creator_id,
-            // Was `creatorObj.subscribers`, a field that exists on no creator
-            // record, so every creator node rendered "Scump (undefined)".
-            name: `${creatorObj.handle} (${formatFollowers(creatorObj.followers)})`,
-            type: "CREATOR",
-            franchise: creatorObj.franchise || "COD",
-            val: 38,
-            color: hubColors[creatorObj.franchise || ""] || "#00F0FF",
-            creator_data: creatorObj,
-            fx: Math.round(Math.cos(angle) * 340),
-            fy: Math.round(Math.sin(angle) * 340),
-          });
-        }
+    const hubId = HUB_ID_BY_FRANCHISE[r.primary_franchise] || "game-nba2k27";
+    if (nodeIds.has(hubId)) {
+      links.push({
+        source: r.player_id,
+        target: hubId,
+        value: 1.2,
       });
     }
+  }
 
-    // 6. Process Player Nodes and Links
-    let totalSpend = 0;
-    let totalChurn = 0;
-    const archetypeCounts: Record<string, number> = {};
+  // Synthesize Multi-Hop Bridge Nodes & Edges (Crews, Active Teammates, 2K Account, NBA 2K26, Loyalty Offer, Creators)
+  let multiHopMetadata: MultiHopPathInfo | undefined;
+  const bridgeRows = spannerRes.bridgeRows || [];
 
-    // `rows` arrives already typed and fully mapped by the Spanner client, and
-    // is already capped at RENDER_LIMIT by the query itself. The previous
-    // `row.toJSON ? ... : row` / `p[0]` positional-index scaffolding existed
-    // because rows could be raw Spanner objects, plain objects, or arrays; that
-    // ambiguity is gone, and with it a class of silent undefined-field bugs.
-    let sampleRows = rows;
-    if (matchedCreatorIds.length > 0) {
-      const creatorMatched = rows.filter((p) =>
-        p.followed_creators.some((c) => matchedCreatorIds.includes(c))
-      );
-      // Only narrow to creator-followers when there are any; otherwise the
-      // creator mention would empty an otherwise valid cohort.
-      if (creatorMatched.length > 0) sampleRows = creatorMatched;
-    }
+  if (spannerRes.isMultiHop && bridgeRows.length > 0) {
+    const bridgeNames = new Set<string>();
 
-    for (let idx = 0; idx < sampleRows.length; idx++) {
-      const p = sampleRows[idx];
-      const pid = p.player_id;
-      const dname = p.display_name || pid;
-      const pFranchise = p.primary_franchise || targetFranchises[0] || "COD";
-      const fPlayed: string[] = p.franchises_played.length ? p.franchises_played : [pFranchise];
-      const arch = p.primary_archetype || targetArchetype || "COMPETITIVE_GRINDER";
-      const spend = p.lifetime_spend_usd;
-      const churn = p.churn_risk_score;
-      const tilt = p.tilt_sensitivity;
-      const lossStreak = p.recent_loss_streak;
-      const followedCreators = p.followed_creators;
+    for (const br of bridgeRows.slice(0, 65)) {
+      if (!nodeIds.has(br.player_id)) continue;
 
-      totalSpend += spend;
-      totalChurn += churn;
-      archetypeCounts[arch] = (archetypeCounts[arch] || 0) + 1;
-
-      const isTilt = tilt > 0.60;
-      const isWhale = arch.includes("WHALE") || spend >= 1000;
-      const isSocial = arch === "CASUAL_SOCIALIZER";
-      const isLore = arch === "LORE_SEEKER";
-
-      const nodeColor = isTilt
-        ? "#FF4757"
-        : isWhale
-        ? "#FFB800"
-        : isSocial
-        ? "#00F0FF"
-        : isLore
-        ? "#9D00FF"
-        : "#00FF88";
-
-      // Give player a randomized distributed initial offset to prevent clustering
-      const angle = (idx / sampleRows.length) * 2 * Math.PI;
-      const dist = 75 + (idx % 4) * 30;
-      const centerOffsetX = pFranchise === "BLACK_OPS" ? 180 : pFranchise === "WARZONE" ? -180 : pFranchise === "CDL_RANKED" ? 90 : 0;
-
-      nodes.push({
-        id: pid,
-        name: dname,
-        type: "PLAYER",
-        franchise: pFranchise,
-        archetype: arch,
-        spend,
-        churn_risk: churn,
-        tilt,
-        loss_streak: lossStreak,
-        // Spanner returns NULL for absent columns; GraphNode models absence as
-        // `undefined`. Coerce at this boundary rather than widening the type.
-        country: p.country ?? undefined,
-        country_code: p.country_code ?? undefined,
-        country_flag: p.country_flag ?? undefined,
-        dma_market: p.dma_market ?? undefined,
-        lat: p.lat ?? undefined,
-        lng: p.lng ?? undefined,
-        followed_creators: followedCreators,
-        primary_creator_influence: p.primary_creator_influence ?? undefined,
-        game_telemetry: p.game_telemetry,
-        purchased_items: p.purchased_items || [],
-        val: Math.max(7, Math.min(20, Math.round(spend / 100))),
-        color: nodeColor,
-        x: centerOffsetX + Math.cos(angle) * dist,
-        y: Math.sin(angle) * dist,
-      });
-
-      // Link to Primary Game Hub
-      const primHub = isBo7Query
-        ? (nodes.find((n) => n.id === "game-cod-bo7") || nodes.find((n) => n.type === "GAME" && n.franchise === pFranchise))
-        : nodes.find((n) => n.type === "GAME" && n.franchise === pFranchise);
-      if (primHub) {
+      if (br.clan_id) {
+        addNode({
+          id: br.clan_id,
+          name: `${br.clan_name || br.clan_id} (${br.clan_tier || "Crew"})`,
+          type: "CLAN",
+          franchise: "NBA2K",
+          isMultiHopBridge: true,
+          hopStep: 1,
+          val: 20,
+          color: "#19C37D",
+        });
+        bridgeNames.add(br.clan_name || br.clan_id);
         links.push({
-          source: pid,
-          target: primHub.id,
-          label: "PRIMARY_GAME",
+          source: br.player_id,
+          target: br.clan_id,
+          label: "MEMBER_OF_CLAN",
+          isMultiHopBridge: true,
+          hopStep: 1,
           value: 2,
+          color: "#19C37D",
         });
-      }
 
-      // Link to Content Creators
-      if (followedCreators.length > 0) {
-        followedCreators.forEach((cId: string) => {
-          const creatorNode = nodes.find((n) => n.id === cId && n.type === "CREATOR");
-          if (creatorNode) {
-            links.push({
-              source: pid,
-              target: creatorNode.id,
-              label: "FOLLOWS_CREATOR",
-              value: 2,
-              isTriggerStream: cId === p.primary_creator_influence,
-              color: creatorNode.color,
-            });
-          }
-        });
-      }
-
-      // Link to Secondary Game Hub (Cross-Title Migration Arcs)
-      if (fPlayed.length > 1) {
-        for (const secF of fPlayed) {
-          if (secF !== pFranchise) {
-            const secHub = nodes.find((n) => n.type === "GAME" && n.franchise === secF);
-            if (secHub) {
-              links.push({
-                source: pid,
-                target: secHub.id,
-                label: "CROSS_FRANCHISE_PLAY",
-                value: 1,
-                isTriggerStream: idx % 3 === 0,
-              });
-            }
-          }
-        }
-      }
-
-      // Link Whale to Major In-Game Purchases / DLC Wells
-      if (isWhale) {
-        const matchingOffer = nodes.find(
-          (o: any) => o.type === "OFFER" && o.franchise === pFranchise && (o.spend >= 45 || o.offer_data?.affinity_archetype === arch)
-        );
-        if (matchingOffer) {
-          links.push({
-            source: pid,
-            target: matchingOffer.id,
-            label: "MONETIZATION_GRAVITY",
-            value: 2,
-            isTriggerStream: true,
-          });
-        }
-      }
-
-      // Link Active / Tilted Player to Starter Pack or Currency In-Game Purchase (Red Streaming Particle Trails)
-      if (isTilt || lossStreak >= 2) {
-        const starterOffer = nodes.find(
-          (o: any) => o.type === "OFFER" && (o.id.includes("500") || (o.spend && o.spend <= 10)) && o.franchise === pFranchise
-        );
-        if (starterOffer) {
-          links.push({
-            source: pid,
-            target: starterOffer.id,
-            label: "STARTER_PACK_INTENT",
-            value: 2,
-            isTriggerStream: true,
-          });
-        }
-      }
-    }
-
-    // 7. Inject Multi-Hop Graph Traversal Nodes and Highlighting Edges
-    let multiHopMetadata: any = null;
-    if (queryResult.isMultiHop && queryResult.bridgeRows && queryResult.bridgeRows.length > 0) {
-      const addedNodeIds = new Set(nodes.map((n) => n.id));
-      const playerBridgeMap = new Map<string, any[]>();
-      for (const b of queryResult.bridgeRows) {
-        if (!playerBridgeMap.has(b.player_id)) {
-          playerBridgeMap.set(b.player_id, []);
-        }
-        playerBridgeMap.get(b.player_id)!.push(b);
-      }
-
-      const seenClans = new Set<string>();
-      const seenMates = new Set<string>();
-      const seenCreators = new Set<string>();
-      const seenIdentities = new Set<string>();
-      const seenTargetGames = new Set<string>();
-
-      const playerNodes = nodes.filter((n) => n.type === "PLAYER");
-      for (let i = 0; i < playerNodes.length; i++) {
-        const pNode = playerNodes[i];
-        const bridges = playerBridgeMap.get(pNode.id) || [];
-        if (bridges.length === 0) continue;
-
-        const b = bridges[0]; // primary bridge path
-
-        if (b.clan_id) {
-          // Clan Bridge
-          if (!seenClans.has(b.clan_id)) {
-            seenClans.add(b.clan_id);
-            if (!addedNodeIds.has(b.clan_id)) {
-              addedNodeIds.add(b.clan_id);
-              nodes.push({
-                id: b.clan_id,
-                name: b.clan_name || "FaZe Clan",
-                type: "CLAN",
-                franchise: "COD",
-                rank_tier: b.clan_tier || "PRO_ESPORTS",
-                val: 38,
-                color: "#00F59B", // Glowing Neon Emerald for Clan
-                isMultiHopBridge: true,
-                hopStep: 1,
-                fx: -60,
-                fy: -160,
-              });
-            }
-          }
-
-          // Hop 1: Player -> Clan
-          links.push({
-            source: pNode.id,
-            target: b.clan_id,
-            label: "1: MEMBER_OF_CLAN",
+        if (br.mate_id) {
+          addNode({
+            id: br.mate_id,
+            name: `${br.mate_tag || br.mate_id} (Active Crew Mate)`,
+            type: "SQUADMATE",
+            franchise: br.mate_franchise || "NBA2K",
             isMultiHopBridge: true,
-            hopStep: 1,
-            hopLabel: "Hop 1: Clan Membership",
-            color: "#00F59B",
-            value: 3,
+            hopStep: 2,
+            val: 11,
+            color: "#19C37D",
+          });
+          links.push({
+            source: br.clan_id,
+            target: br.mate_id,
+            label: "Active Crew Mate",
+            isMultiHopBridge: true,
+            hopStep: 2,
+            value: 1.8,
+            color: "#19C37D",
+          });
+        }
+
+        // Recommended Offer node for Play 1: $4.99 Crew Re-Up Bundle
+        const crewOfferId = "off-crew-reup-bundle";
+        addNode({
+          id: crewOfferId,
+          name: "$4.99 Crew Re-Up Bundle",
+          type: "OFFER",
+          franchise: "NBA2K",
+          label: "2K",
+          isMultiHopBridge: true,
+          hopStep: 3,
+          val: 24,
+          color: "#F5B400",
+          fx: 320,
+          fy: -120,
+        });
+        bridgeNames.add("$4.99 Crew Re-Up Bundle");
+      }
+
+      if (br.identity_id) {
+        const platHubId = `ident-hub-${(br.identity_platform || "2k-account")
+          .toLowerCase()
+          .replace(/\s+/g, "-")}`;
+        addNode({
+          id: platHubId,
+          name: br.identity_platform || "2K Account",
+          type: "IDENTITY",
+          platform: br.identity_platform || "2K Account",
+          label: "2K",
+          isMultiHopBridge: true,
+          hopStep: 1,
+          val: 28,
+          color: "#F5B400",
+          fx: 240,
+          fy: -40,
+        });
+        bridgeNames.add(br.identity_platform || "2K Account");
+        links.push({
+          source: br.player_id,
+          target: platHubId,
+          label: "HAS_IDENTITY",
+          isMultiHopBridge: true,
+          hopStep: 1,
+          value: 2,
+          color: "#F5B400",
+        });
+
+        if (br.target_game_id) {
+          const targetFranchise = br.target_game_franchise || "NBA2K26";
+          const targetLabel = (br.target_game_label as TakeTwoLabel) || "2K";
+          addNode({
+            id: br.target_game_id,
+            name: br.target_game_title || "NBA 2K26",
+            type: "GAME",
+            franchise: targetFranchise,
+            label: targetLabel,
+            isMultiHopBridge: true,
+            hopStep: 2,
+            val: 32,
+            color: FRANCHISE_COLORS[targetFranchise] || "#FF6B35",
+            fx: 380,
+            fy: 80,
+          });
+          bridgeNames.add(br.target_game_title || "NBA 2K26");
+          links.push({
+            source: platHubId,
+            target: br.target_game_id,
+            label: "PLAYS_GAME",
+            isMultiHopBridge: true,
+            hopStep: 2,
+            value: 2.2,
+            color: FRANCHISE_COLORS[targetFranchise] || "#FF6B35",
           });
 
-          // Squadmate Bridge
-          if (b.mate_id && !seenMates.has(b.mate_id)) {
-            seenMates.add(b.mate_id);
-            if (!addedNodeIds.has(b.mate_id)) {
-              addedNodeIds.add(b.mate_id);
-              nodes.push({
-                id: b.mate_id,
-                name: `@${b.mate_tag} (Squadmate)`,
-                type: "SQUADMATE",
-                franchise: b.mate_franchise || "WOW",
-                val: 26,
-                color: "#00D2FF", // Electric Cyan for Squadmate
-                isMultiHopBridge: true,
-                hopStep: 2,
-                fx: 80,
-                fy: -160,
-              });
-            }
-
-            // Hop 2: Clan -> Squadmate
-            links.push({
-              source: b.clan_id,
-              target: b.mate_id,
-              label: "2: SQUADMATE_IN_CLAN",
-              isMultiHopBridge: true,
-              hopStep: 2,
-              hopLabel: "Hop 2: Clan Squadmate",
-              color: "#00D2FF",
-              value: 2.5,
-            });
-
-            // Target Game Bridge
-            const targetGameId = b.target_game_id || "game-cod-bo6";
-            if (!seenTargetGames.has(targetGameId)) {
-              seenTargetGames.add(targetGameId);
-              if (!addedNodeIds.has(targetGameId)) {
-                addedNodeIds.add(targetGameId);
-                nodes.push({
-                  id: targetGameId,
-                  name: b.target_game_title || "Call of Duty: Black Ops 6 & Zombies",
-                  type: "GAME",
-                  franchise: b.target_game_franchise || "BLACK_OPS",
-                  val: 42,
-                  color: "#FF5722",
-                  isMultiHopBridge: true,
-                  hopStep: 3,
-                  fx: 250,
-                  fy: -160,
-                });
-              }
-            }
-
-            // Hop 3: Squadmate -> Target Game
-            links.push({
-              source: b.mate_id,
-              target: targetGameId,
-              label: "3: MIGRATED_TO_GAME",
+          if (br.target_game_id === "game-nba2k26") {
+            const loyaltyOfferId = "off-nba2k27-loyalty-upgrade";
+            const loyaltyOfferTitle =
+              "NBA 2K26 → 2K27 Hall of Fame Loyalty Upgrade + 100K VC";
+            addNode({
+              id: loyaltyOfferId,
+              name: loyaltyOfferTitle,
+              type: "OFFER",
+              franchise: "NBA2K",
+              label: "2K",
               isMultiHopBridge: true,
               hopStep: 3,
-              hopLabel: "Hop 3: Mode Migration",
-              color: "#FF5722",
-              value: 3,
+              val: 26,
+              color: "#F5B400",
+              fx: 460,
+              fy: 175,
+            });
+            bridgeNames.add(loyaltyOfferTitle);
+            links.push({
+              source: br.target_game_id,
+              target: loyaltyOfferId,
+              label: "LOYALTY_UPGRADE",
+              isMultiHopBridge: true,
+              hopStep: 3,
+              value: 2.4,
+              color: "#F5B400",
             });
           }
-
-          pNode.multiHopPath = {
-            hops: 3,
-            patternLabel: "Squad Churn Contagion",
-            summary: `Member of ${b.clan_name} → Squadmate @${b.mate_tag} migrated to ${b.target_game_title || "Call of Duty: Black Ops 6 & Zombies"}`,
-            steps: [
-              `Loss Streak: ${pNode.loss_streak || 3} consecutive Gulag defeats in Warzone`,
-              `Clan: "${b.clan_name}" (${b.clan_tier || "PRO_ESPORTS"})`,
-              `Clan squadmate @${b.mate_tag} active in ${b.target_game_title || "Black Ops 6 & Zombies"}`,
-            ],
-            targetEntity: b.target_game_title || "Call of Duty: Black Ops 6 & Zombies",
-            bridgeNodes: [b.clan_id, b.mate_id, b.target_game_id].filter(Boolean) as string[],
-          };
-        } else if (b.creator_id) {
-          // Creator Halo
-          if (!seenCreators.has(b.creator_id)) {
-            seenCreators.add(b.creator_id);
-            if (!addedNodeIds.has(b.creator_id)) {
-              addedNodeIds.add(b.creator_id);
-              nodes.push({
-                id: b.creator_id,
-                name: `@${b.creator_handle} (${b.creator_platform || "Twitch"})`,
-                type: "CREATOR",
-                franchise: b.target_game_franchise || "COD",
-                val: 40,
-                color: "#F59E0B",
-                isMultiHopBridge: true,
-                hopStep: 1,
-                fx: 0,
-                fy: -200,
-              });
-            }
-          }
-
-          links.push({
-            source: pNode.id,
-            target: b.creator_id,
-            label: "1: FOLLOWS_CREATOR",
-            isMultiHopBridge: true,
-            hopStep: 1,
-            hopLabel: "Hop 1: Creator Influence",
-            color: "#F59E0B",
-            value: 3,
-          });
-
-          pNode.multiHopPath = {
-            hops: 2,
-            patternLabel: "Creator Halo & Churn Shield",
-            summary: `Whale player follows @${b.creator_handle} (${b.creator_platform || "Twitch"}) with high churn risk`,
-            steps: [
-              `LTV Spend: $${(pNode.spend || 0).toFixed(0)} with ${(pNode.churn_risk! * 100).toFixed(0)}% churn risk`,
-              `Direct affinity with creator @${b.creator_handle}`,
-              `Target for Creator-Code Exclusive Bundle drop`,
-            ],
-            targetEntity: `@${b.creator_handle}`,
-            bridgeNodes: [b.creator_id],
-          };
-        } else if (b.identity_id) {
-          // Identity Bridge
-          if (!seenIdentities.has(b.identity_id)) {
-            seenIdentities.add(b.identity_id);
-            if (!addedNodeIds.has(b.identity_id)) {
-              addedNodeIds.add(b.identity_id);
-              nodes.push({
-                id: b.identity_id,
-                name: `${b.identity_platform}: ${b.identity_handle}`,
-                type: "IDENTITY",
-                franchise: "ALL",
-                val: 32,
-                color: "#A855F7",
-                isMultiHopBridge: true,
-                hopStep: 1,
-                fx: 0,
-                fy: 200,
-              });
-            }
-          }
-
-          links.push({
-            source: pNode.id,
-            target: b.identity_id,
-            label: "1: HAS_IDENTITY",
-            isMultiHopBridge: true,
-            hopStep: 1,
-            hopLabel: "Hop 1: Activision ID",
-            color: "#EAB308",
-            value: 3,
-          });
-
-          pNode.multiHopPath = {
-            hops: 3,
-            patternLabel: "Unified Activision ID Cross-Mode Bridge",
-            summary: `Activision ID ${b.identity_handle} linked across Warzone, Black Ops 6, and CDL Ranked Play`,
-            steps: [
-              `Multi-mode account with $${(pNode.spend || 0).toFixed(0)} total spend`,
-              `Resolved platform identity ${b.identity_platform} (${b.identity_handle})`,
-              `Active cross-mode play in Warzone and Black Ops 6`,
-            ],
-            targetEntity: "Activision ID",
-            bridgeNodes: [b.identity_id],
-          };
         }
       }
 
-      multiHopMetadata = {
-        hops: queryResult.matchPattern?.includes("mate") ? 3 : queryResult.matchPattern?.includes("HAS_IDENTITY") ? 3 : 2,
-        patternLabel: queryResult.matchPattern?.includes("mate")
-          ? "Squad Churn Contagion (3-Hop)"
-          : queryResult.matchPattern?.includes("Creator")
-          ? "Creator Halo (2-Hop)"
-          : "Unified Activision ID Bridge (3-Hop)",
-        summary: naturalLanguageSummary,
-        steps: queryResult.matchPattern?.includes("mate")
-          ? ["Player (3+ Gulag Loss Streak)", "CoD Clan (FaZe, OpTic, Task Force 141)", "Squadmate (Active in Black Ops 6)"]
-          : queryResult.matchPattern?.includes("Creator")
-          ? ["Player (High-LTV Whale)", "Creator (Scump, FaZe Swagg, TimTheTatman, Biffle)"]
-          : ["Player Account", "Activision Platform Identity", "Cross-Mode Games (Warzone + BO6)"],
-      };
+      if (br.creator_id) {
+        const cr = creatorById.get(br.creator_id);
+        addNode({
+          id: br.creator_id,
+          name: br.creator_handle || cr?.handle || br.creator_name || cr?.name || br.creator_id,
+          type: "CREATOR",
+          franchise: br.target_game_franchise || cr?.franchise || "NBA2K",
+          platform: br.creator_platform || cr?.platform,
+          creator_data: cr || {
+            creator_id: br.creator_id,
+            handle: br.creator_handle,
+            name: br.creator_name,
+            platform: br.creator_platform,
+            franchise: br.target_game_franchise || "NBA2K",
+          },
+          isMultiHopBridge: true,
+          hopStep: 1,
+          val: 22,
+          color: "#F5B400",
+        });
+        bridgeNames.add(br.creator_handle || cr?.handle || br.creator_id);
+        links.push({
+          source: br.player_id,
+          target: br.creator_id,
+          label: "FOLLOWS_CREATOR",
+          isMultiHopBridge: true,
+          hopStep: 1,
+          value: 1.8,
+          color: "#F5B400",
+        });
+      }
     }
 
-    const renderedCount = nodes.filter((n) => n.type === "PLAYER").length;
-    const agg = queryResult.aggregates;
-    const dominantArchetype = agg.dominantArchetype || targetArchetype || "COMPETITIVE_GRINDER";
+    const is2K26Bridge = matchClause.includes("game-nba2k26");
+    const isIdentityBridge = matchClause.includes("Identity");
+    multiHopMetadata = {
+      hops: isIdentityBridge ? 3 : 2,
+      patternLabel: is2K26Bridge
+        ? "Player → 2K Account → NBA 2K26 → HoF Loyalty Upgrade (+100K VC)"
+        : isIdentityBridge
+          ? "Player → 2K Account → 2K Cross-Franchise Portfolio (WWE / PGA / BL4 / Civ VII)"
+          : matchClause.includes("Clan")
+            ? "Player → Crew (MEMBER_OF_CLAN) → Active Crew Mate → $4.99 Crew Re-Up Bundle"
+            : "Player → NBA 2K Creator Squad Halo (Agent 00 / Troydan / KOT4Q / DBG)",
+      summary: explanation,
+      steps: is2K26Bridge
+        ? [
+            "NBA 2K26 Veteran & MyTEAM Spender",
+            "2K Account Identity Spine",
+            "NBA 2K26 → 2K27 Hall of Fame Loyalty Upgrade + 100K VC",
+          ]
+        : isIdentityBridge
+          ? [
+              "NBA 2K27 Core Player",
+              "2K Account Identity Spine",
+              "WWE 2K25 / PGA TOUR 2K25 / Borderlands 4 / Civ VII",
+            ]
+          : matchClause.includes("Clan")
+            ? [
+                "Stalled MyCAREER Build (<85 OVR)",
+                "Rec / Pro-Am Crew Roster",
+                "Active Crew Mate (<=3d) + $4.99 Crew Re-Up Bundle",
+              ]
+            : [
+                "High-LTV NBA 2K27 Player",
+                "FOLLOWS_CREATOR Edge",
+                "Creator Squad (Agent 00, Troydan, CashNasty, KOT4Q, DBG, Tydebo)",
+              ],
+      bridgeNodes: Array.from(bridgeNames).slice(0, 8),
+    };
+  }
 
-    // Audience size is the true count of players satisfying the predicates.
-    // It is NOT derived from how many nodes we happened to draw.
-    const avgSpend = Math.round(agg.avgSpend);
-    const avgChurn = Number(agg.avgChurn.toFixed(2));
-    const isSampled = renderedCount < totalMatched;
+  const activeConditions = parseConditionsFromWhere(spannerRes.whereClause);
 
-    const franchiseNames = targetFranchises.join(" & ");
-
-    return NextResponse.json({
-      query,
-      generated_gql: generatedGql,
-      translator,
-      spanner_source: queryResult.source,
-      is_live_spanner: queryResult.isLive,
-      is_multi_hop: !!queryResult.isMultiHop,
+  return {
+    nodes,
+    links,
+    natural_language_summary:
+      explanation ||
+      `Matched ${spannerRes.totalMatched.toLocaleString()} players on ${GRAPH_NAME}.`,
+    generated_gql: spannerRes.gqlExecuted,
+    where_clause: spannerRes.whereClause,
+    conditions: activeConditions,
+    model_used: modelUsed,
+    translate_ms: translateMs,
+    execution_ms: spannerRes.executionTimeMs,
+    aggregate_metrics: {
+      matched_count: spannerRes.totalMatched,
+      rendered_count: spannerRes.rows.length,
+      is_sampled: spannerRes.totalMatched > spannerRes.rows.length,
+      estimated_total: spannerRes.totalMatched,
+      dominant_archetype: spannerRes.aggregates.dominantArchetype,
+      avg_spend_usd: Number(spannerRes.aggregates.avgSpend.toFixed(2)),
+      avg_churn_risk: Number(spannerRes.aggregates.avgChurn.toFixed(2)),
+      avg_tilt: Number(spannerRes.aggregates.avgTilt.toFixed(2)),
+      high_churn_count: spannerRes.aggregates.highChurnCount,
+      archetype_histogram: spannerRes.aggregates.archetypeHistogram,
+      is_live: true,
+      spanner_source: spannerRes.source,
+      is_multi_hop: spannerRes.isMultiHop,
       multi_hop_metadata: multiHopMetadata,
-      execution_time_ms: queryResult.executionTimeMs,
-      where_clause: queryResult.whereClause,
-      gql_executed: queryResult.gqlExecuted,
-      natural_language_summary:
-        naturalLanguageSummary ||
-        (totalMatched === 0
-          ? `Executed against live Cloud Spanner across ${franchiseNames}. No players matched these predicates — try relaxing a threshold.`
-          : `Executed against live Cloud Spanner across ${franchiseNames}. ${totalMatched.toLocaleString()} players match${
-              isSampled ? `, rendering a ${renderedCount}-node sample` : ""
-            }. Average lifetime spend $${avgSpend.toLocaleString()}, average churn risk ${(avgChurn * 100).toFixed(
-              0
-            )}%, with ${agg.highChurnCount.toLocaleString()} players above the 70% churn threshold.`),
-      matched_count: totalMatched,
-      rendered_count: renderedCount,
-      is_sampled: isSampled,
-      nodes,
-      links,
-      aggregate_metrics: {
-        matched_count: totalMatched,
-        rendered_count: renderedCount,
-        is_sampled: isSampled,
-        avg_spend_usd: avgSpend,
-        avg_churn_risk: avgChurn,
-        avg_tilt: agg.avgTilt,
-        high_churn_count: agg.highChurnCount,
-        dominant_archetype: dominantArchetype,
-        archetype_histogram: agg.archetypeHistogram,
-        country_histogram: agg.countryHistogram,
-        franchise_histogram: agg.franchiseHistogram,
-        spanner_source: queryResult.source,
-        is_live: queryResult.isLive,
-        is_multi_hop: !!queryResult.isMultiHop,
-        multi_hop_metadata: multiHopMetadata,
-      },
-    });
-  } catch (error: any) {
-    // A Spanner outage is reported distinctly from a bug in this route, and
-    // carries the failing clause so it is diagnosable on stage rather than
-    // showing up as an opaque "something went wrong".
-    if (error instanceof SpannerUnavailableError) {
-      console.error("[NL Query] Spanner unavailable:", error.message);
+    },
+  };
+}
+
+export async function POST(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const wantStream = searchParams.get("stream") === "1";
+
+  try {
+    const body = await request.json();
+    const query = String(body?.query || "").trim();
+    const franchise = String(body?.franchise || "ALL").trim();
+    const excludeConditions: string[] = Array.isArray(body?.excludeConditions)
+      ? body.excludeConditions.map(String)
+      : [];
+
+    if (!query) {
       return NextResponse.json(
-        {
-          error: error.message,
-          error_kind: "SPANNER_UNAVAILABLE",
-          is_live_spanner: false,
-        },
-        { status: 503 }
+        { error: "Please provide a natural language audience query." },
+        { status: 400 }
       );
     }
-    console.error("NL Query error:", error);
+
+    if (!wantStream) {
+      const result = await executeAudienceQuery(query, franchise, excludeConditions);
+      return NextResponse.json(result);
+    }
+
+    // SSE mode (?stream=1): stream GQL lines first, then final result payload
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        try {
+          const result = await executeAudienceQuery(query, franchise, excludeConditions);
+          const gqlLines = (result.generated_gql || "").split("\n");
+          for (const line of gqlLines) {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({ type: "gql_delta", delta: line + "\n" })}\n\n`
+              )
+            );
+          }
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ type: "result", payload: result })}\n\n`)
+          );
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        } catch (err) {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                type: "error",
+                error: err instanceof Error ? err.message : String(err),
+              })}\n\n`
+            )
+          );
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+      },
+    });
+  } catch (err) {
+    if (err instanceof SpannerUnavailableError) {
+      return NextResponse.json({ error: err.message, is_live: false }, { status: 503 });
+    }
+    if (err instanceof GqlTranslationError) {
+      return NextResponse.json(
+        {
+          error: err.message,
+          service: "Vertex AI Gemini",
+          model_used: err.modelUsed,
+          raw_output: err.rawOutput,
+          is_live: false,
+        },
+        { status: 502 }
+      );
+    }
     return NextResponse.json(
-      { error: error.message, error_kind: "INTERNAL" },
-      { status: 500 }
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 400 }
     );
   }
 }

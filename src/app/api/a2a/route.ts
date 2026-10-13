@@ -1,106 +1,98 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleOfficialA2ARequest, getAgentCard } from "@/lib/a2a/official-server";
-import { A2AMessageType } from "@/lib/types";
+import { listActivations } from "@/lib/gcp/bigquery-client";
+import { A2AMessageType, ActivationRecord } from "@/lib/types";
 
-// Message feed for UI Inspector
-let liveA2AEvents: A2AMessageType[] = [
-  {
-    message_id: "msg-mb-sim-001",
-    correlation_id: "corr-cod-warzone-preflight",
-    sender: "MediaBuyingAgent",
-    recipient: "Jamie_DeepSonaAgent",
-    timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-    intent: "SIMULATE_PERSONA_REACTION",
+export const dynamic = "force-dynamic";
+
+const sessionA2AEvents: A2AMessageType[] = [];
+
+function mapActivationToA2AMessage(act: ActivationRecord): A2AMessageType {
+  return {
+    message_id: act.pubsub_message_id
+      ? `msg-pubsub-${act.pubsub_message_id}`
+      : `msg-${act.activation_id}`,
+    correlation_id: act.audience_id || act.activation_id,
+    sender: "Courtside_AudienceAgent",
+    recipient: `Courtside_ChannelAgent (${act.channel})`,
+    timestamp: act.published_at,
+    intent: "DISPATCH_ACTIVATION_EVENT",
     payload: {
-      campaign_id: "camp-cod-warzone-retention",
-      franchise: "Call of Duty: Warzone",
-      creative_title: "Warzone Resurgence Gulag Retention & BlackCell Tilt Shield",
-      proposed_spend: 120000.0,
-      target_roas: 2.45,
-      archetypes: ["COMPETITIVE_GRINDER", "BLACKCELL_WHALE", "CASUAL_SOCIALIZER", "LORE_SEEKER"],
+      activation_id: act.activation_id,
+      audience_id: act.audience_id,
+      channel: act.channel,
+      pubsub_message_id: act.pubsub_message_id,
+      ...act.payload,
     },
     status: "PROCESSED",
-  },
-  {
-    message_id: "msg-ds-ack-002",
-    correlation_id: "corr-cod-warzone-preflight",
-    sender: "Jamie_DeepSonaAgent",
-    recipient: "MediaBuyingAgent",
-    timestamp: new Date(Date.now() - 1000 * 60 * 4).toISOString(),
-    intent: "ACK_SIMULATE_PERSONA_REACTION",
-    payload: {
-      predicted_conversion_lift: 28.4,
-      churn_mitigation_lift: 24.8,
-      authenticity_rating: 0.95,
-      consensus: "Strong positive resonance (95% authenticity). Warzone Gulag loss-mitigation shields reduced rage-quit churn by +24.8%.",
-    },
-    status: "DELIVERED",
-  },
-  {
-    message_id: "msg-ab-out-003",
-    correlation_id: "corr-cod-creative-handoff",
-    sender: "Jamie_DeepSonaAgent",
-    recipient: "Curtis_CreativeStudioAgent",
-    timestamp: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
-    intent: "EMIT_AUDIENCE_BRIEF",
-    payload: {
-      friction_point: "Warzone Resurgence 3+ Gulag Elimination Tilt",
-      target_archetype: "COMPETITIVE_GRINDER",
-      urgency: "HIGH",
-      suggested_hook: "Lead with 2s action killcam hook featuring Ghost Mastery Camo and BlackCell re-entry shield.",
-    },
-    status: "PROCESSED",
-  },
-];
+  };
+}
 
 export async function GET() {
-  return NextResponse.json({
-    jsonrpc: "2.0",
-    result: {
-      agent_card: getAgentCard(),
-      messages: liveA2AEvents,
-    },
-  });
+  try {
+    const activations = await listActivations(15);
+    const messages = [
+      ...sessionA2AEvents,
+      ...activations.map(mapActivationToA2AMessage),
+    ];
+
+    return NextResponse.json({
+      jsonrpc: "2.0",
+      result: {
+        agent_card: getAgentCard(),
+        messages,
+      },
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      {
+        error: `BigQuery activation_log query failed: ${error?.message || String(error)}`,
+        service: "BigQuery",
+        is_live: false,
+      },
+      { status: 503 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // 1. Process via Official A2A JSON-RPC 2.0 Engine (@a2a-js/sdk)
+    // 1. Process via Official A2A JSON-RPC 2.0 Engine
     if (body.jsonrpc === "2.0") {
-      const response = handleOfficialA2ARequest(body);
+      const response = await handleOfficialA2ARequest(body);
 
       // Record in UI feed
       const params = body.params || {};
       const newEvent: A2AMessageType = {
         message_id: `msg-${Math.random().toString(36).substring(2, 9)}`,
         correlation_id: params.task_id || `task-${Date.now()}`,
-        sender: params.sender || "Jamie_DeepSonaAgent",
-        recipient: params.recipient || "Curtis_CreativeStudioAgent",
+        sender: params.sender || "Courtside_AudienceAgent",
+        recipient: params.recipient || "Courtside_ChannelAgent",
         timestamp: new Date().toISOString(),
         intent: params.intent || body.method,
-        payload: params.payload || (params.message?.parts?.[0]?.data) || {},
+        payload: params.payload || params.message?.parts?.[0]?.data || {},
         status: "PROCESSED",
       };
-      liveA2AEvents.unshift(newEvent);
+      sessionA2AEvents.unshift(newEvent);
 
       return NextResponse.json(response);
     }
 
-    // 2. Direct REST Fallback
+    // 2. Direct REST dispatch
     const newMsg: A2AMessageType = {
       message_id: body.message_id || `msg-${Math.random().toString(36).substring(2, 9)}`,
       correlation_id: body.correlation_id || `corr-${Math.random().toString(36).substring(2, 9)}`,
-      sender: body.sender || "Jamie_DeepSonaAgent",
-      recipient: body.recipient || "Curtis_CreativeStudioAgent",
+      sender: body.sender || "Courtside_AudienceAgent",
+      recipient: body.recipient || "Courtside_ChannelAgent",
       timestamp: new Date().toISOString(),
       intent: body.intent || "EMIT_AUDIENCE_BRIEF",
       payload: body.payload || {},
       status: "PROCESSED",
     };
 
-    liveA2AEvents.unshift(newMsg);
+    sessionA2AEvents.unshift(newMsg);
 
     return NextResponse.json({
       status: "SUCCESS",

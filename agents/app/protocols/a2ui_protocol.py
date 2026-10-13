@@ -4,7 +4,7 @@ from typing import Dict, List, Any
 
 
 class A2UIProtocolGenerator:
-    """Generates A2UI structured component payloads for Gemini Enterprise Command Center."""
+    """Generates A2UI structured component payloads for 2K Courtside Command Center."""
 
     @staticmethod
     def create_metric_card(
@@ -13,7 +13,7 @@ class A2UIProtocolGenerator:
         value: str,
         delta: str,
         trend: str = "UP",
-        accent_color: str = "CYAN",
+        accent_color: str = "GREEN",
     ) -> Dict[str, Any]:
         return {
             "type": "a2ui-metric-card",

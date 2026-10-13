@@ -1,0 +1,17 @@
+{
+  "customer_name": "2K Games / Take-Two Interactive",
+  "customer_url": "https://2k.com",
+  "secondary_urls": [
+    "https://nba.2k.com",
+    "https://www.take2games.com"
+  ],
+  "audience_titles": [
+    "Chief Marketing Officer (2K)",
+    "SVP Consumer Insights & Growth Marketing (Take-Two Interactive)",
+    "VP Live Services & Monetization (Visual Concepts / NBA 2K)",
+    "VP Data Engineering & Player Analytics (Take-Two)"
+  ],
+  "business_problem": "Eliminate the 14-day NBA 2K27 Season 1 -> Season 2 retention cliff (sub-85 OVR MyCAREER churn), unlock cross-label player identity gravity between 2K (NBA 2K27, WWE 2K25, Civilization VII, Borderlands 4), Rockstar Games (GTA Online -> GTA VI pre-orders), and Zynga, and pre-test VC / MyTEAM pack pricing with grounded 20-persona synthetic focus groups before shipping offers to The City.",
+  "repo_path": "/Users/jlpourt/CCAI/ea-audiences",
+  "ebc_date": "2026-10-16"
+}

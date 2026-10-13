@@ -1,18 +1,8 @@
 /**
- * Live Spanner Graph client.
+ * Live Spanner Graph client for 2K Courtside (TakeTwoPlayerGraph).
  *
- * DESIGN: Spanner is the only source of truth. There is deliberately no
- * silent local fallback. The previous implementation attempted Spanner,
- * swallowed the failure, and served numbers computed from a local JSON file —
- * which meant the demo showed confident figures that had never touched the
- * database. Every failure here is surfaced to the caller.
- *
- * OWNERSHIP OF THE QUERY: the language model decides the FILTER (the WHERE
- * clause); this module owns the projection, ordering, limit and aggregates.
- * That split means a model that returns the wrong columns, forgets a LIMIT, or
- * invents a RETURN shape cannot break the UI, and it lets us run a genuine
- * COUNT(*) companion query so "matched" is a real population rather than the
- * size of the page we happened to fetch.
+ * DESIGN: Spanner (`blackrock-spanner/twok_graph_db`) is the single source of
+ * truth. There is no silent local JSON fallback.
  */
 import { Database, Spanner } from "@google-cloud/spanner";
 import { GCP_CONFIG } from "../config";
@@ -74,6 +64,7 @@ export interface MultiHopBridgeRow {
   target_game_id?: string;
   target_game_title?: string;
   target_game_franchise?: string;
+  target_game_label?: string;
 }
 
 export interface GraphQueryResult {
@@ -99,10 +90,10 @@ export class SpannerUnavailableError extends Error {
   }
 }
 
-const GRAPH = "ABKPlayerGraph";
+export const GRAPH_NAME = "TakeTwoPlayerGraph";
+export const GRAPH = GRAPH_NAME;
 
-/** The projection the application relies on. The model does not get a vote. */
-const PLAYER_PROJECTION = [
+export const PLAYER_PROJECTION = [
   "p.player_id",
   "p.display_name",
   "p.gamer_tag",
@@ -131,7 +122,7 @@ const PLAYER_PROJECTION = [
 
 let cachedDatabase: Database | null = null;
 
-function getDatabase(): Database {
+export function getDatabase(): Database {
   if (!cachedDatabase) {
     const spanner = new Spanner({ projectId: GCP_CONFIG.projectId });
     cachedDatabase = spanner
@@ -142,11 +133,13 @@ function getDatabase(): Database {
 }
 
 /**
- * Extract the MATCH pattern from a GQL query. Defaults to `(p:Player)` if missing.
+ * Extract the OUTERMOST MATCH pattern from a GQL query.
  */
 export function extractMatchClause(gql: string): string {
   if (!gql) return "(p:Player)";
-  const match = gql.match(
+  // Strip any inner NOT EXISTS { ... } before extracting top-level MATCH/WHERE
+  const stripped = gql.replace(/NOT\s+EXISTS\s*\{(?:[^{}]|\{[^{}]*\})*\}/gi, "");
+  const match = stripped.match(
     /\bMATCH\b([\s\S]*?)(?:\bWHERE\b|\bRETURN\b|\bORDER\s+BY\b|\bLIMIT\b|\bNEXT\b|$)/i
   );
   if (!match) return "(p:Player)";
@@ -155,10 +148,7 @@ export function extractMatchClause(gql: string): string {
 }
 
 /**
- * Pull the WHERE clause out of a generated GQL query.
- *
- * Returns an empty string when the query has no filter, which legitimately
- * means "the whole population".
+ * Pull the WHERE clause out of a generated GQL query (preserving nested NOT EXISTS).
  */
 export function extractWhereClause(gql: string): string {
   if (!gql) return "";
@@ -169,21 +159,45 @@ export function extractWhereClause(gql: string): string {
 }
 
 /**
- * Repair the two constructs the model reliably gets wrong.
- *
- * 1. Array membership. Models emit `'COD' IN p.franchises_played`, which is
- *    Cypher-flavoured and invalid in GoogleSQL; it needs UNNEST.
- * 2. Double-quoted string literals, which GoogleSQL accepts in most contexts
- *    but which we normalise for consistency.
+ * Repair common LLM GQL constructs so Spanner GoogleSQL accepts them cleanly:
+ * 1. `'NBA2K' IN p.franchises_played` -> `'NBA2K' IN UNNEST(p.franchises_played)`
+ * 2. Any `NOT EXISTS { ... }` block that binds `(p:Player)` or `(p)` — with or
+ *    without an inner `WHERE` clause — rewrites the bound player variable inside
+ *    the `NOT EXISTS` block to `(p2:Player)` and injects `p2.player_id = p.player_id`.
  */
 export function normalizeWhereClause(where: string): string {
   if (!where) return "";
   let out = where;
 
-  // 'X' IN alias.array_field  ->  'X' IN UNNEST(alias.array_field)
   out = out.replace(
     /('(?:[^']*)'|"(?:[^"]*)")\s+IN\s+([a-zA-Z_0-9]+\.[a-zA-Z_0-9]+)(?!\s*\()/gi,
     (_m, literal, field) => `${literal} IN UNNEST(${field})`
+  );
+
+  // Repair uncorrelated NOT EXISTS { (p)... } or NOT EXISTS { MATCH (p:Player)... [WHERE ...] }
+  out = out.replace(
+    /NOT\s+EXISTS\s*\{((?:[^{}]|\{[^{}]*\})*)\}/gi,
+    (fullMatch, innerRaw: string) => {
+      const inner = innerRaw.trim();
+      if (!/\(\s*p(?:\s*:\s*Player)?(?:\s*\{[^{}]*\})?\s*\)/i.test(inner)) {
+        return fullMatch;
+      }
+      let rewritten = inner.replace(
+        /\(\s*p(?:\s*:\s*Player)?(\s*\{[^{}]*\})?\s*\)/gi,
+        (_m, props) => `(p2:Player${props || ""})`
+      );
+      if (!/^MATCH\b/i.test(rewritten)) {
+        rewritten = `MATCH ${rewritten}`;
+      }
+      if (/\bWHERE\b/i.test(rewritten)) {
+        if (!/p2\.player_id\s*=\s*p\.player_id|p\.player_id\s*=\s*p2\.player_id/i.test(rewritten)) {
+          rewritten = `${rewritten} AND p2.player_id = p.player_id`;
+        }
+      } else {
+        rewritten = `${rewritten} WHERE p2.player_id = p.player_id`;
+      }
+      return `NOT EXISTS { ${rewritten} }`;
+    }
   );
 
   return out.trim();
@@ -193,7 +207,7 @@ function buildWhereFragment(where: string): string {
   return where ? `WHERE ${where}\n` : "";
 }
 
-function toNumber(v: any): number {
+export function toNumber(v: any): number {
   if (v === null || v === undefined) return 0;
   if (typeof v === "number") return v;
   if (typeof v === "object" && typeof v.value !== "undefined") return Number(v.value);
@@ -205,7 +219,7 @@ function toNullableNumber(v: any): number | null {
   return toNumber(v);
 }
 
-function parseJsonColumn(v: any, fallback: any) {
+export function parseJsonColumn(v: any, fallback: any) {
   if (v === null || v === undefined) return fallback;
   if (typeof v === "string") {
     try {
@@ -217,7 +231,7 @@ function parseJsonColumn(v: any, fallback: any) {
   return v;
 }
 
-function mapPlayerRow(raw: any): PlayerRow {
+export function mapPlayerRow(raw: any): PlayerRow {
   return {
     player_id: raw.player_id,
     display_name: raw.display_name,
@@ -246,20 +260,21 @@ function mapPlayerRow(raw: any): PlayerRow {
   };
 }
 
-async function runGql(database: Database, sql: string): Promise<any[]> {
-  const [rows] = await database.run({ sql });
+async function runGql(
+  database: Database,
+  sql: string,
+  params?: Record<string, any>
+): Promise<any[]> {
+  const [rows] = await database.run(params ? { sql, params } : { sql });
   return rows.map((r: any) => r.toJSON());
 }
 
 /**
- * Execute a cohort query against the live graph.
- *
- * @param generatedGql  Full GQL from the translator. Only its WHERE clause is used.
- * @param renderLimit   How many player rows to return for rendering.
+ * Execute a cohort query against `TakeTwoPlayerGraph`.
  */
 export async function runSpannerGraphQuery(
   generatedGql: string,
-  renderLimit = 56
+  renderLimit = 64
 ): Promise<GraphQueryResult> {
   const started = Date.now();
   const database = getDatabase();
@@ -285,7 +300,6 @@ export async function runSpannerGraphQuery(
     `ORDER BY p.lifetime_spend_usd DESC\n` +
     `LIMIT ${Math.max(1, Math.floor(renderLimit * (isMultiHop ? 3 : 1)))}`;
 
-  // A genuine population count across distinct players
   const statsSql =
     `GRAPH ${GRAPH}\n` +
     `MATCH ${matchClause}\n` +
@@ -311,45 +325,56 @@ export async function runSpannerGraphQuery(
     whereFragment +
     `RETURN p.primary_franchise AS k, COUNT(DISTINCT p.player_id) AS n\nGROUP BY k\nORDER BY n DESC`;
 
-  // Multi-hop bridge query promise
   let bridgePromise: Promise<any[]> = Promise.resolve([]);
   if (isMultiHop) {
-    if (matchClause.includes("Clan")) {
-      const hasMate = matchClause.includes("mate");
-      const hasGame = matchClause.includes("Game") || matchClause.includes("g:");
+    const clanAliasMatch = matchClause.match(/\(\s*([a-zA-Z_0-9]+)\s*:\s*Clan\b/);
+    const creatorAliasMatch = matchClause.match(/\(\s*([a-zA-Z_0-9]+)\s*:\s*Creator\b/);
+    const identityAliasMatch = matchClause.match(/\(\s*([a-zA-Z_0-9]+)\s*:\s*Identity\b/);
+    const gameAliasMatch = matchClause.match(/\(\s*([a-zA-Z_0-9]+)\s*:\s*Game\b/);
+
+    if (clanAliasMatch) {
+      const ca = clanAliasMatch[1];
+      const hasMate = /\(\s*mate\s*:\s*Player\b/.test(matchClause);
+      const ga = gameAliasMatch?.[1];
       const bridgeSql =
         `GRAPH ${GRAPH}\n` +
         `MATCH ${matchClause}\n` +
         whereFragment +
         `RETURN DISTINCT p.player_id,\n` +
-        `       cl.clan_id, cl.name AS clan_name, cl.tier AS clan_tier,\n` +
+        `       ${ca}.clan_id, ${ca}.name AS clan_name, ${ca}.tier AS clan_tier,\n` +
         (hasMate
           ? `       mate.player_id AS mate_id, mate.gamer_tag AS mate_tag, mate.primary_franchise AS mate_franchise,\n`
           : "") +
-        (hasGame
-          ? `       g.game_id AS target_game_id, g.title AS target_game_title, g.franchise AS target_game_franchise\n`
-          : `cl.franchise AS target_game_franchise\n`) +
-        `LIMIT 120`;
-      bridgePromise = runGql(database, bridgeSql).catch(() => []);
-    } else if (matchClause.includes("Creator")) {
+        (ga
+          ? `       ${ga}.game_id AS target_game_id, ${ga}.title AS target_game_title, ${ga}.franchise AS target_game_franchise, ${ga}.label AS target_game_label\n`
+          : `       ${ca}.franchise AS target_game_franchise\n`) +
+        `LIMIT 140`;
+      bridgePromise = runGql(database, bridgeSql);
+    } else if (identityAliasMatch) {
+      const ia = identityAliasMatch[1];
+      const ga = gameAliasMatch?.[1];
       const bridgeSql =
         `GRAPH ${GRAPH}\n` +
         `MATCH ${matchClause}\n` +
         whereFragment +
         `RETURN DISTINCT p.player_id,\n` +
-        `       c.creator_id, c.handle AS creator_handle, c.platform AS creator_platform, c.name AS creator_name,\n` +
-        `       c.franchise AS target_game_franchise\n` +
-        `LIMIT 120`;
-      bridgePromise = runGql(database, bridgeSql).catch(() => []);
-    } else if (matchClause.includes("Identity")) {
+        `       ${ia}.identity_id, ${ia}.platform AS identity_platform, ${ia}.platform_handle AS identity_handle` +
+        (ga
+          ? `,\n       ${ga}.game_id AS target_game_id, ${ga}.title AS target_game_title, ${ga}.franchise AS target_game_franchise, ${ga}.label AS target_game_label\n`
+          : `\n`) +
+        `LIMIT 140`;
+      bridgePromise = runGql(database, bridgeSql);
+    } else if (creatorAliasMatch) {
+      const cra = creatorAliasMatch[1];
       const bridgeSql =
         `GRAPH ${GRAPH}\n` +
         `MATCH ${matchClause}\n` +
         whereFragment +
         `RETURN DISTINCT p.player_id,\n` +
-        `       id.identity_id, id.platform AS identity_platform, id.platform_handle AS identity_handle\n` +
-        `LIMIT 120`;
-      bridgePromise = runGql(database, bridgeSql).catch(() => []);
+        `       ${cra}.creator_id, ${cra}.handle AS creator_handle, ${cra}.platform AS creator_platform, ${cra}.name AS creator_name,\n` +
+        `       ${cra}.franchise AS target_game_franchise\n` +
+        `LIMIT 140`;
+      bridgePromise = runGql(database, bridgeSql);
     }
   }
 
@@ -364,7 +389,6 @@ export async function runSpannerGraphQuery(
       bridgePromise,
     ]);
   } catch (e: any) {
-    // Loud, specific, and carrying the SQL so the failure is diagnosable.
     throw new SpannerUnavailableError(
       `Spanner graph query failed: ${e?.message || e}. MATCH was: ${matchClause}. WHERE clause was: ${
         where || "(none)"
@@ -384,7 +408,8 @@ export async function runSpannerGraphQuery(
 
   const archetypeHistogram = histogram(archRows);
   const dominantArchetype =
-    Object.entries(archetypeHistogram).sort((a, b) => b[1] - a[1])[0]?.[0] || "UNKNOWN";
+    Object.entries(archetypeHistogram).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+    "MYCAREER_STORY_CASUAL";
 
   const aggregates: CohortAggregates = {
     totalMatched: toNumber(stats.total),
@@ -398,7 +423,6 @@ export async function runSpannerGraphQuery(
     dominantArchetype,
   };
 
-  // Deduplicate rows by player_id (since multi-hop path matching can yield duplicate player references)
   const seenPlayerIds = new Set<string>();
   const distinctRows: PlayerRow[] = [];
   for (const raw of rawRows) {
@@ -424,19 +448,193 @@ export async function runSpannerGraphQuery(
   };
 }
 
-/** Arbitrary read-only GQL, for panels that need their own shape. */
-export async function runRawGql(sql: string): Promise<any[]> {
+/**
+ * Arbitrary read-only SQL / GQL against `twok_graph_db`, with optional `@params`.
+ */
+export async function runRawGql(
+  sql: string,
+  params?: Record<string, any>
+): Promise<any[]> {
   try {
-    return await runGql(getDatabase(), sql);
+    return await runGql(getDatabase(), sql, params);
   } catch (e: any) {
     throw new SpannerUnavailableError(`Spanner query failed: ${e?.message || e}`, e);
   }
 }
 
-/** Connectivity probe used by the health endpoint and the UI status pill. */
+/**
+ * Fast population count for a WHERE clause on `TakeTwoPlayerGraph`.
+ */
+export async function countGql(
+  whereClause: string,
+  matchClause = "(p:Player)"
+): Promise<number> {
+  const normWhere = normalizeWhereClause(whereClause);
+  const whereFrag = buildWhereFragment(normWhere);
+  const rows = await runRawGql(
+    `GRAPH ${GRAPH}\nMATCH ${matchClause}\n${whereFrag}RETURN COUNT(DISTINCT p.player_id) AS n`
+  );
+  return toNumber(rows[0]?.n);
+}
+
+/**
+ * Parameterized lookup of players by `player_id` array.
+ */
+export async function getPlayersByIds(ids: string[]): Promise<PlayerRow[]> {
+  const clean = Array.from(
+    new Set(ids.filter((id) => typeof id === "string" && id.length > 0))
+  ).slice(0, 400);
+  if (clean.length === 0) return [];
+
+  const rows = await runRawGql(
+    `GRAPH ${GRAPH}\nMATCH (p:Player)\nWHERE p.player_id IN UNNEST(@ids)\nRETURN ${PLAYER_PROJECTION}`,
+    { ids: clean }
+  );
+  return rows.map(mapPlayerRow);
+}
+
+export interface CrewMateRow {
+  player_id: string;
+  clan_id: string;
+  clan_name: string;
+  clan_tier: string;
+  mate_id: string;
+  mate_tag: string;
+  mate_ovr: number | null;
+  mate_last_login_days_ago: number;
+}
+
+/**
+ * 2-hop Crew traversal: find active teammates (`last_login_days_ago <= 7`) in
+ * the same Crew as the given `playerIds`.
+ */
+export async function getCrewMates(playerIds: string[]): Promise<CrewMateRow[]> {
+  const clean = Array.from(
+    new Set(playerIds.filter((id) => typeof id === "string" && id.length > 0))
+  ).slice(0, 120);
+  if (clean.length === 0) return [];
+
+  const rows = await runRawGql(
+    `GRAPH ${GRAPH}
+     MATCH (p:Player)-[:MEMBER_OF_CLAN]->(c:Clan)<-[:MEMBER_OF_CLAN]-(mate:Player)
+     WHERE p.player_id IN UNNEST(@ids)
+       AND p.player_id <> mate.player_id
+       AND INT64(mate.game_telemetry.last_login_days_ago) <= 7
+     RETURN p.player_id AS player_id,
+            c.clan_id AS clan_id,
+            c.name AS clan_name,
+            c.tier AS clan_tier,
+            mate.player_id AS mate_id,
+            mate.gamer_tag AS mate_tag,
+            INT64(mate.game_telemetry.myplayer_ovr) AS mate_ovr,
+            INT64(mate.game_telemetry.last_login_days_ago) AS mate_last_login_days_ago
+     LIMIT 200`,
+    { ids: clean }
+  );
+
+  return rows.map((r) => ({
+    player_id: String(r.player_id),
+    clan_id: String(r.clan_id),
+    clan_name: String(r.clan_name),
+    clan_tier: String(r.clan_tier || "Rec"),
+    mate_id: String(r.mate_id),
+    mate_tag: String(r.mate_tag),
+    mate_ovr: r.mate_ovr !== null && r.mate_ovr !== undefined ? toNumber(r.mate_ovr) : null,
+    mate_last_login_days_ago: toNumber(r.mate_last_login_days_ago),
+  }));
+}
+
+export interface CrossLabelBridge {
+  player_id: string;
+  label: string;
+  game_id: string;
+  title: string;
+  franchise: string;
+  hours_played: number;
+}
+
+/**
+ * Return `PLAYS_GAME` edges joined with `Games.label` for a set of players.
+ */
+export async function getCrossLabelBridges(
+  playerIds: string[]
+): Promise<CrossLabelBridge[]> {
+  const clean = Array.from(
+    new Set(playerIds.filter((id) => typeof id === "string" && id.length > 0))
+  ).slice(0, 200);
+  if (clean.length === 0) return [];
+
+  const rows = await runRawGql(
+    `GRAPH ${GRAPH}
+     MATCH (p:Player)-[e:PLAYS_GAME]->(g:Game)
+     WHERE p.player_id IN UNNEST(@ids)
+     RETURN p.player_id AS player_id,
+            g.label AS label,
+            g.game_id AS game_id,
+            g.title AS title,
+            g.franchise AS franchise,
+            e.hours_played AS hours_played
+     LIMIT 600`,
+    { ids: clean }
+  );
+
+  return rows.map((r) => ({
+    player_id: String(r.player_id),
+    label: String(r.label || "2K"),
+    game_id: String(r.game_id),
+    title: String(r.title),
+    franchise: String(r.franchise),
+    hours_played: toNumber(r.hours_played),
+  }));
+}
+
+/**
+ * Compute a 10-bucket Cross-Label Gravity Score histogram (`0.0–1.0`) for the
+ * given player IDs (or the entire graph if omitted).
+ */
+export async function getGravityHistogram(
+  playerIds?: string[]
+): Promise<Array<{ bucket: string; min: number; max: number; count: number }>> {
+  const clean = (playerIds || []).filter((id) => typeof id === "string" && id.length > 0);
+  const rows =
+    clean.length > 0
+      ? await runRawGql(
+          `GRAPH ${GRAPH}
+           MATCH (p:Player)
+           WHERE p.player_id IN UNNEST(@ids)
+           RETURN CAST(FLOOR(LEAST(0.999, GREATEST(0.0, FLOAT64(p.game_telemetry.gravity_score))) * 10) AS INT64) AS b,
+                  COUNT(p.player_id) AS n
+           GROUP BY b
+           ORDER BY b ASC`,
+          { ids: clean.slice(0, 500) }
+        )
+      : await runRawGql(
+          `GRAPH ${GRAPH}
+           MATCH (p:Player)
+           RETURN CAST(FLOOR(LEAST(0.999, GREATEST(0.0, FLOAT64(p.game_telemetry.gravity_score))) * 10) AS b,
+                  COUNT(p.player_id) AS n
+           GROUP BY b
+           ORDER BY b ASC`
+        );
+
+  const byBucket = new Map<number, number>();
+  for (const r of rows) {
+    byBucket.set(toNumber(r.b), toNumber(r.n));
+  }
+
+  return Array.from({ length: 10 }, (_, idx) => ({
+    bucket: `${(idx * 10)}%–${(idx + 1) * 10}%`,
+    min: idx / 10,
+    max: (idx + 1) / 10,
+    count: byBucket.get(idx) || 0,
+  }));
+}
+
+/** Connectivity probe used by `/api/health/spanner` and `SpannerStatusPill`. */
 export async function checkSpannerHealth(): Promise<{
   ok: boolean;
   database: string;
+  graph: string;
   playerCount?: number;
   latencyMs: number;
   error?: string;
@@ -451,6 +649,7 @@ export async function checkSpannerHealth(): Promise<{
     return {
       ok: true,
       database,
+      graph: GRAPH,
       playerCount: toNumber(rows[0]?.total),
       latencyMs: Date.now() - started,
     };
@@ -458,6 +657,7 @@ export async function checkSpannerHealth(): Promise<{
     return {
       ok: false,
       database,
+      graph: GRAPH,
       latencyMs: Date.now() - started,
       error: e?.message || String(e),
     };

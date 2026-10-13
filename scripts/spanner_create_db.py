@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 """
-Create the abk_graph_db Spanner database and apply the property-graph schema.
+Create the twok_graph_db Spanner database (2K Courtside — Take-Two identity
+graph) and apply the TakeTwoPlayerGraph property-graph schema.
 
 Uses Application Default Credentials directly against the Spanner Admin REST
 API so it does not depend on the gcloud CLI being installed.
 
 Usage:
     python3 scripts/spanner_create_db.py [--recreate]
+
+Environment overrides: GCP_PROJECT_ID, SPANNER_INSTANCE_ID, SPANNER_DATABASE_ID,
+SPANNER_DDL_PATH, GOOGLE_APPLICATION_CREDENTIALS.
 """
 import json
+import os
 import re
 import sys
 import time
@@ -16,11 +21,14 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-PROJECT = "jamie-bq-test"
-INSTANCE = "blackrock-spanner"
-DATABASE = "abk_graph_db"
-DDL_PATH = "schema/abk_graph_db.ddl"
-ADC = "/Users/jlpourt/.config/gcloud/application_default_credentials.json"
+PROJECT = os.environ.get("GCP_PROJECT_ID", "jamie-bq-test")
+INSTANCE = os.environ.get("SPANNER_INSTANCE_ID", "blackrock-spanner")
+DATABASE = os.environ.get("SPANNER_DATABASE_ID", "twok_graph_db")
+DDL_PATH = os.environ.get("SPANNER_DDL_PATH", "schema/twok_graph_db.ddl")
+ADC = os.environ.get(
+    "GOOGLE_APPLICATION_CREDENTIALS",
+    os.path.expanduser("~/.config/gcloud/application_default_credentials.json"),
+)
 
 BASE = f"https://spanner.googleapis.com/v1/projects/{PROJECT}/instances/{INSTANCE}"
 
@@ -137,7 +145,7 @@ def main():
         if s.strip().upper().startswith("CREATE TABLE")
     ]
     graphs = [
-        s.split()[-1] if False else re.search(r"PROPERTY GRAPH (\w+)", s).group(1)
+        re.search(r"PROPERTY GRAPH (\w+)", s).group(1)
         for s in ddl.get("statements", [])
         if "PROPERTY GRAPH" in s
     ]

@@ -1,13 +1,47 @@
 export type NodeType = "PLAYER" | "IDENTITY" | "GAME" | "CLAN" | "OFFER" | "CREATOR" | "SQUADMATE";
 
+/**
+ * Franchise filter values. These are the canonical `franchise` ids stored on
+ * `Games.franchise` and `Players.primary_franchise` in `twok_graph_db`.
+ * Focused strictly on 2K brands: NBA 2K27 · NBA 2K26 · NBA 2K Mobile · 2K Sports
+ * (WWE 2K25 / PGA TOUR 2K25 / TopSpin 2K25) · 2K Core (Borderlands 4 / Civ VII / Mafia).
+ */
 export type GameFranchise =
   | "ALL"
-  | "COD"
-  | "WARZONE"
-  | "BLACK_OPS"
-  | "MODERN_WARFARE"
-  | "CDL_RANKED"
-  | "COD_MOBILE";
+  | "NBA2K"
+  | "NBA2K26"
+  | "NBA2KMOBILE"
+  | "WWE2K"
+  | "PGA2K"
+  | "TOPSPIN"
+  | "CIV7"
+  | "BL4"
+  | "MAFIA";
+
+/** 2K publishing division label. Stored on `Games.label`; drives cluster colour. */
+export type TakeTwoLabel = "2K" | "2K_SPORTS" | "2K_CORE";
+
+/** Franchise groups as rendered by the segmented control. */
+export const FRANCHISE_GROUPS: Array<{ id: string; label: string; franchises: GameFranchise[] }> = [
+  { id: "nba2k27", label: "NBA 2K27", franchises: ["NBA2K"] },
+  { id: "nba2k26", label: "NBA 2K26", franchises: ["NBA2K26"] },
+  { id: "nba2k-mobile", label: "NBA 2K Mobile", franchises: ["NBA2KMOBILE"] },
+  { id: "2k-sports", label: "WWE & PGA 2K", franchises: ["WWE2K", "PGA2K", "TOPSPIN"] },
+  { id: "2k-core", label: "Borderlands & Civ VII", franchises: ["BL4", "CIV7", "MAFIA"] },
+  { id: "all", label: "All 2K Titles", franchises: ["ALL"] },
+];
+
+export const LABEL_BY_FRANCHISE: Record<Exclude<GameFranchise, "ALL">, TakeTwoLabel> = {
+  NBA2K: "2K",
+  NBA2K26: "2K",
+  NBA2KMOBILE: "2K",
+  WWE2K: "2K_SPORTS",
+  PGA2K: "2K_SPORTS",
+  TOPSPIN: "2K_SPORTS",
+  CIV7: "2K_CORE",
+  BL4: "2K_CORE",
+  MAFIA: "2K_CORE",
+};
 
 // Archetype identity lives in one place: src/lib/archetypes.ts. Imported for
 // local use and re-exported so existing `import { Archetype } from "@/lib/types"`
@@ -23,6 +57,59 @@ export type ContextualViewType =
   | "cross-franchise"
   | "social-clans";
 
+/** Season Pass editions as stored in `game_telemetry.season_pass_edition`. */
+export type SeasonPassEdition = "NONE" | "PRO" | "HALL_OF_FAME";
+
+/**
+ * The NBA 2K-specific portion of `Players.game_telemetry` (Spanner JSON).
+ *
+ * Every player row carries every key. Players who have never touched NBA 2K27
+ * carry `null` for the MyPLAYER / MyTEAM / Park fields so numeric predicates
+ * (`INT64(p.game_telemetry.myplayer_ovr) < 85`) exclude them rather than
+ * matching a fabricated zero. Cross-label fields are always populated.
+ *
+ * UI naming: `tilt_sensitivity` (top-level column) is shown as "Rage-Quit
+ * Index"; `recent_loss_streak` as "Park loss streak".
+ */
+export interface NBA2KTelemetry {
+  myplayer_ovr: number | null;
+  myplayer_build: string | null;
+  position: string | null;
+  rep_tier: string | null;
+  badges_count: number | null;
+  cap_breakers_unlocked: number | null;
+  vc_balance: number;
+  vc_spend_90d: number;
+  season_pass_tier: number;
+  season_pass_edition: SeasonPassEdition;
+  myteam_rating: number | null;
+  myteam_galaxy_opal_count: number;
+  myteam_packs_opened_30d: number;
+  myteam_vc_spend_90d: number;
+  park_win_pct: number | null;
+  rec_games_30d: number;
+  crew_id: string | null;
+  loss_streak: number;
+  rage_quits_7d: number;
+  favorite_team: string;
+  favorite_player: string;
+  hours_played: number;
+  last_login_days_ago: number;
+  platform: string;
+  nba2k26_veteran?: boolean;
+  nba2k26_spend_usd?: number;
+  nba2k26_ovr?: number | null;
+  migrated_to_2k27?: boolean;
+  cross_2k_titles?: number;
+  rockstar_linked?: boolean;
+  gta_online_spend_usd?: number;
+  gta6_preorder?: boolean;
+  zynga_linked?: boolean;
+  zynga_daily_streak?: number;
+  /** 0–1 likelihood to upgrade from NBA 2K26 or cross-pollinate across 2K titles. */
+  gravity_score: number;
+}
+
 export interface MultiHopPathInfo {
   hops: number;
   patternLabel: string;
@@ -37,11 +124,15 @@ export interface GraphNode {
   name: string;
   type: NodeType;
   franchise?: GameFranchise | string;
+  /** Take-Two label for GAME nodes and for cross-label cluster colouring. */
+  label?: TakeTwoLabel;
   archetype?: Archetype | string;
   spend?: number;
   churn_risk?: number;
   tilt?: number;
   loss_streak?: number;
+  /** 0–1 likelihood to adopt a sibling-label title (Play 2). */
+  gravity_score?: number;
   squad_ovr?: number;
   rank_tier?: string;
   kd_ratio?: number;
@@ -58,7 +149,7 @@ export interface GraphNode {
   primary_creator_influence?: string;
   clan_id?: string;
   clan_name?: string;
-  game_telemetry?: Record<string, any>;
+  game_telemetry?: Partial<NBA2KTelemetry> & Record<string, any>;
   /**
    * `offer_id` makes a purchase joinable back to the catalogue SKU. Without it
    * a purchase was just a display string and could not be linked in the graph.
@@ -71,9 +162,9 @@ export interface GraphNode {
     category: string;
     type?: string;
   }>;
-  /** GAME nodes only: LIVE | LEGACY | UPCOMING | SUNSET. */
+  /** GAME nodes only: LIVE | LEGACY | PRE_LAUNCH | SUNSET. */
   lifecycle_status?: string;
-  /** GAME nodes only, e.g. "Season 6: The Haunting". */
+  /** GAME nodes only, e.g. "Season 1". */
   current_season?: string;
   country?: string;
   country_code?: string;
@@ -134,22 +225,33 @@ export interface MasterPlayer {
   linked_identities?: PlayerIdentity[];
   franchises_played?: string[];
   total_play_hours?: number;
-  game_telemetry?: Record<string, any>;
+  game_telemetry?: Partial<NBA2KTelemetry> & Record<string, any>;
   last_active_at?: string;
 }
+
+/** Event types emitted by the NBA 2K27 telemetry stream. */
+export type TelemetryEventType =
+  | "PARK_GAME_COMPLETE"
+  | "REC_GAME_COMPLETE"
+  | "MYTEAM_PACK_OPENED"
+  | "SEASON_PASS_LEVEL_UP"
+  | "RAGE_QUIT"
+  | "VC_PURCHASE"
+  | "CREW_INVITE_SENT"
+  | "DAILY_LOGIN";
 
 export interface TelemetryEvent {
   event_id: string;
   player_id: string;
   game_id: string;
-  session_id: string;
+  event_type: TelemetryEventType | string;
   event_timestamp: string;
-  event_type: "MATCH_COMPLETE" | "PURCHASE" | "RAGE_QUIT" | "SQUAD_JOIN" | "TIER_UNLOCK";
-  match_outcome?: "VICTORY" | "DEFEAT" | "CRUSHING_LOSS" | "STALEMATE";
-  loss_streak_count?: number;
-  session_duration_minutes?: number;
-  frustration_score?: number;
+  consecutive_losses?: number;
   tilt_index?: number;
+  triggered_offer_id?: string | null;
+  session_id?: string;
+  match_outcome?: "WIN" | "LOSS" | "BLOWOUT_LOSS" | "QUIT";
+  session_duration_minutes?: number;
   spend_amount_usd?: number;
   metadata_json?: Record<string, any>;
 }
@@ -184,7 +286,8 @@ export interface SituationalTrigger {
   timestamp: string;
 }
 
-export interface DeepSonaReaction {
+/** One synthetic persona's reaction inside a Courtside Focus Group session. */
+export interface FocusGroupReaction {
   archetype: Archetype | string;
   gamer_tag?: string;
   player_id?: string;
@@ -256,14 +359,15 @@ export interface CohortContext {
   dynamicFinding?: DynamicCohortFinding;
 }
 
-export interface DeepSonaResult {
+/** Full Courtside Focus Group result for one creative / offer. */
+export interface FocusGroupResult {
   campaign_id: string;
   franchise: string;
   creative_title: string;
   target_cohort_query?: string;
   proposed_spend: number;
   target_roas: number;
-  reactions: DeepSonaReaction[];
+  reactions: FocusGroupReaction[];
   consensus_summary: string;
   predicted_conversion_lift: number;
   sentiment_decay_index: number;
@@ -279,7 +383,8 @@ export interface CampaignBrief {
   target_segment: string;
   audience_size: number;
   trigger_rules: string[];
-  deepsona_consensus: string;
+  /** Consensus line from the Courtside Focus Group session. */
+  focus_group_consensus: string;
   predicted_conversion_lift: number;
   projected_roi: number;
   recommended_action: string;
@@ -302,4 +407,44 @@ export interface A2AMessageType {
   intent: string;
   payload: Record<string, any>;
   status: string;
+}
+
+// ---------------------------------------------------------------------------
+// BigQuery-backed audience library (dataset `twok_marketing_intelligence`)
+// ---------------------------------------------------------------------------
+
+export type ActivationChannel =
+  | "2K_ACCOUNT_EMAIL"
+  | "IN_GAME_INBOX"
+  | "PUSH_2K_MOBILE"
+  | "ROCKSTAR_NEWSWIRE"
+  | "PAID_SOCIAL"
+  | "ZYNGA_CROSS_PROMO";
+
+export type SavedAudienceStatus = "DRAFT" | "SAVED" | "ACTIVATED" | "ARCHIVED";
+
+/** Row shape of `twok_marketing_intelligence.saved_audiences`. */
+export interface SavedAudience {
+  audience_id: string;
+  name: string;
+  nl_query: string;
+  gql: string;
+  matched_count: number;
+  created_at: string;
+  created_by: string;
+  channels: ActivationChannel[] | string[];
+  status: SavedAudienceStatus | string;
+  franchise?: string | null;
+  dominant_archetype?: string | null;
+  avg_spend?: number | null;
+}
+
+/** Row shape of `twok_marketing_intelligence.activation_log`. */
+export interface ActivationRecord {
+  activation_id: string;
+  audience_id: string;
+  channel: ActivationChannel | string;
+  payload: Record<string, any>;
+  published_at: string;
+  pubsub_message_id: string | null;
 }

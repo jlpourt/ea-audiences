@@ -1,71 +1,75 @@
 "use client";
 
 import React, { useState } from "react";
-import { Sparkles, Code, ArrowRight, CheckCircle, Users, Loader2, X, RefreshCw, AlertTriangle } from "lucide-react";
+import {
+  Code,
+  ArrowRight,
+  Users,
+  Loader2,
+  X,
+  AlertTriangle,
+  Target,
+} from "lucide-react";
 import { GraphData, GameFranchise } from "@/lib/types";
+import { TabularNumber } from "@/components/brand";
 
 interface NLSearchBarProps {
   selectedGame?: GameFranchise;
-  onSearchResults: (graphData: GraphData, summary: string, gql: string, metrics: any, queryPrompt?: string) => void;
-  onLaunchDeepSona: () => void;
+  onSearchResults: (
+    graphData: GraphData,
+    summary: string,
+    gql: string,
+    metrics: any,
+    queryPrompt?: string,
+    rawResponse?: any
+  ) => void;
+  onLaunchFocusGroup: () => void;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
-  isDeepSonaLoading?: boolean;
+  isFocusGroupLoading?: boolean;
+  isInspectorOpen?: boolean;
   onResetToMacro?: () => void;
 }
 
-const SAMPLE_PROMPTS_BY_GAME: Record<GameFranchise, string[]> = {
-  ALL: [
-    "Warzone players on 3+ Gulag loss streaks whose COD clanmates migrated to Black Ops 6",
-    "High-LTV whales at risk of churn following Scump or FaZe Swagg",
-    "Activision accounts linked across Warzone and Black Ops 6",
-    "Cross-mode whales with spend over $2,500 across Warzone, Black Ops 6, and MWIII",
-  ],
-  COD: [
-    "Warzone players on 3+ Gulag loss streaks whose COD clanmates migrated to Black Ops 6",
-    "Whale players ($500+ spend) at risk of churn following Scump or FaZe Swagg",
-    "Warzone Resurgence players with 3+ Gulag losses & high tilt in Los Angeles",
-    "BlackCell whales who bought the Season 6 pass ($1,500+ spend)",
-  ],
-  WARZONE: [
-    "Warzone players on 3+ Gulag loss streaks with tilt over 0.70 in Los Angeles",
-    "Whale players ($500+ spend) following TimTheTatman, Biffle, or FaZe Swagg",
-    "Rebirth Island Resurgence veterans with 2.0+ K/D and unspent CoD Points",
-    "DMZ extraction players with 3-plate stealth vests and high tenure",
-  ],
-  BLACK_OPS: [
-    "Black Ops 6 Terminus & Liberty Falls players with 15+ rounds and BlackCell pass",
-    "Omnimovement grinders with Dark Matter camo unlocked and high SPM",
-    "Zombies players who purchased GobbleGum Ultra Mega Packs",
-    "Black Ops 6 Vault Edition owners with active battle pass progression",
-  ],
-  MODERN_WARFARE: [
-    "Modern Warfare III Search & Destroy players on 3+ match defeat streaks",
-    "Interstellar mastery camo grinders in Hardcore Shipment 24/7",
-    "Mastercraft blueprint collectors with spend over $800 in MWIII",
-    "Task Force 141 milsim clan members in London Metro",
-  ],
-  CDL_RANKED: [
-    "CDL Ranked players on 3+ consecutive demotion losses in Crimson or Iridescent",
-    "Competitive 4v4 Hardpoint & S&D grinders supporting OpTic Texas or FaZe",
-    "Top 250 aspirants with 1,500+ hours in CDL competitive playlists",
-    "Ranked players experiencing severe SR loss and tilt sensitivity > 0.75",
-  ],
-  COD_MOBILE: [
-    "CoD Mobile players with 2,000+ unspent CP during Mythic Weapon events",
-    "Warzone Mobile Verdansk players on iPad Pro with Backbone controllers",
-    "CODM Legendary ranked players who purchase Mythic lucky draws",
-    "Touchpad claw players with 3+ win streaks in Mobile Battle Royale",
-  ],
-};
+const GOLDEN_PLAY_PRESETS: Array<{
+  tag: string;
+  label: string;
+  query: string;
+}> = [
+  {
+    tag: "01",
+    label: "2K26 Holdouts w/ 2K27 Crew",
+    query:
+      "High-spend NBA 2K26 veterans who haven't migrated to NBA 2K27 yet and have Crew mates active in NBA 2K27",
+  },
+  {
+    tag: "02",
+    label: "S2 Sub-85 OVR Build Cliff",
+    query:
+      "NBA 2K27 MyCAREER builds below 85 OVR who spent $50+ on VC, haven't logged in for 7 days, and are in a Crew with active teammates",
+  },
+  {
+    tag: "03",
+    label: "MyTEAM 10+ Opal Whales",
+    query:
+      "NBA 2K27 MyTEAM whales with 10+ Galaxy Opals and Hall of Fame Season Pass",
+  },
+  {
+    tag: "04",
+    label: "Multi-Title 2K Cross-Play",
+    query:
+      "Multi-franchise 2K players linked via 2K Account playing NBA 2K27 alongside WWE 2K25, PGA TOUR 2K25, Borderlands 4, or Civilization VII",
+  },
+];
 
 export default function NLSearchBar({
   selectedGame = "ALL",
   onSearchResults,
-  onLaunchDeepSona,
+  onLaunchFocusGroup,
   isLoading,
   setIsLoading,
-  isDeepSonaLoading = false,
+  isFocusGroupLoading = false,
+  isInspectorOpen = false,
   onResetToMacro,
 }: NLSearchBarProps) {
   const [query, setQuery] = useState<string>("");
@@ -73,14 +77,16 @@ export default function NLSearchBar({
   const [currentGql, setCurrentGql] = useState<string>("");
   const [summaryText, setSummaryText] = useState<string>("");
   const [metrics, setMetrics] = useState<any>(null);
-  // A failed query previously fell through the `if (res.ok)` with no else,
-  // leaving the last successful cohort on screen. The presenter had no way to
-  // tell a stale result from a fresh one.
+  const [conditions, setConditions] = useState<any[]>([]);
+  const [excludedIds, setExcludedIds] = useState<string[]>([]);
+  const [modelUsed, setModelUsed] = useState<string>("live-telemetry-eval");
+  const [executionMs, setExecutionMs] = useState<number>(0);
   const [errorText, setErrorText] = useState<string>("");
 
-  const currentPrompts = SAMPLE_PROMPTS_BY_GAME[selectedGame] || SAMPLE_PROMPTS_BY_GAME.ALL;
-
-  const handleSearch = async (searchPrompt?: string) => {
+  const handleSearch = async (
+    searchPrompt?: string,
+    excludeList: string[] = []
+  ) => {
     const q = searchPrompt || query;
     if (!q.trim()) return;
 
@@ -90,7 +96,11 @@ export default function NLSearchBar({
       const res = await fetch("/api/audiences/nl-query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: q, game: selectedGame }),
+        body: JSON.stringify({
+          query: q,
+          franchise: selectedGame,
+          excludeConditions: excludeList,
+        }),
       });
 
       const data = await res.json();
@@ -98,26 +108,26 @@ export default function NLSearchBar({
       if (!res.ok) {
         setSummaryText("");
         setMetrics(null);
-        setErrorText(
-          data?.error_kind === "SPANNER_UNAVAILABLE"
-            ? `Cloud Spanner is unreachable — no results shown rather than estimated ones. ${data.error ?? ""}`
-            : data?.error || `Query failed (HTTP ${res.status}).`
-        );
+        setErrorText(data?.error || `Query failed (HTTP ${res.status}).`);
         return;
       }
 
       setCurrentGql(data.generated_gql);
       setSummaryText(data.natural_language_summary);
       setMetrics(data.aggregate_metrics);
+      setConditions(data.conditions || []);
+      setModelUsed(data.model_used || "live-telemetry-eval");
+      setExecutionMs(data.execution_ms || 0);
+
       onSearchResults(
         { nodes: data.nodes, links: data.links },
         data.natural_language_summary,
         data.generated_gql,
         data.aggregate_metrics,
-        q
+        q,
+        data
       );
     } catch (e: any) {
-      console.error("NL Query error:", e);
       setSummaryText("");
       setMetrics(null);
       setErrorText(e?.message || "Could not reach the query service.");
@@ -126,100 +136,118 @@ export default function NLSearchBar({
     }
   };
 
+  const handleRemoveCondition = (id: string) => {
+    const next = [...excludedIds, id];
+    setExcludedIds(next);
+    handleSearch(query, next);
+  };
+
   const handleClear = () => {
     setQuery("");
     setSummaryText("");
     setCurrentGql("");
     setMetrics(null);
+    setConditions([]);
+    setExcludedIds([]);
     if (onResetToMacro) {
       onResetToMacro();
     }
   };
 
+  const visibleConditions = conditions.filter(
+    (c) => !excludedIds.includes(c.id)
+  );
+
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 w-[92%] max-w-2xl flex flex-col items-center gap-2 font-sans">
-      {/* Failure banner. Deliberately loud: the alternative to showing this is
-          showing numbers we cannot stand behind. */}
+    <div
+      className={`absolute bottom-4 left-1/2 ${
+        isInspectorOpen ? "lg:left-[calc(50%-190px)]" : ""
+      } -translate-x-1/2 transition-all duration-200 z-20 w-[92%] max-w-2xl flex flex-col items-center gap-1.5 font-sans`}
+    >
       {errorText && (
         <div
           role="alert"
-          className="w-full bg-red-950/80 backdrop-blur-2xl p-3 px-4 rounded-2xl border border-red-500/40 shadow-2xl flex items-start gap-3 animate-fade-in"
+          className="apple-glass-heavy w-full rounded-2xl border border-loss-red/40 p-2.5 px-3.5 flex items-start gap-2.5"
         >
-          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+          <AlertTriangle className="h-4 w-4 text-loss-red shrink-0 mt-0.5" />
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-red-200">Query could not be completed</div>
-            <div className="text-[11px] text-red-300/80 font-mono break-words mt-0.5">{errorText}</div>
+            <div className="text-xs font-semibold text-loss-red">
+              Query could not be completed
+            </div>
+            <div className="text-[11px] text-chalk-dim font-mono break-words mt-0.5">
+              {errorText}
+            </div>
           </div>
           <button
+            type="button"
             onClick={() => setErrorText("")}
             aria-label="Dismiss error"
-            className="ml-auto shrink-0 text-red-300/60 hover:text-red-200 transition-colors active:scale-90 motion-reduce:active:scale-100"
+            className="ml-auto shrink-0 text-chalk-dim hover:text-chalk"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
       )}
 
-      {/* Sleek Segment Summary Banner */}
-      {summaryText && (
-        <div className="w-full bg-black/80 backdrop-blur-2xl p-3 px-4 rounded-2xl border border-white/10 shadow-2xl flex items-center justify-between gap-4 animate-fade-in">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-            <div>
-              <div className="text-xs font-semibold text-white flex items-center gap-2">
-                <span>Cohort Isolated:</span>
-                <span className="text-emerald-400 font-mono">
-                  {(metrics?.matched_count || 0).toLocaleString()} players matched
-                  {metrics?.is_sampled ? ` • showing ${metrics?.rendered_count || 0}` : ""}
-                </span>
-                <span
-                  className={`px-1.5 py-0.5 rounded-md text-[9px] font-medium border ${
-                    metrics?.is_live
-                      ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
-                      : "bg-white/5 text-gray-400 border-white/10"
-                  }`}
-                  title={metrics?.spanner_source || ""}
-                >
-                  {metrics?.is_live ? "LIVE SPANNER" : "LOCAL ENGINE"}
-                </span>
+      {/* Compact 1-Line Segment Summary Bar */}
+      {(summaryText || metrics) && (
+        <div className="apple-glass-heavy glass-enter w-full rounded-2xl px-3.5 py-2 flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2 min-w-0 overflow-x-auto">
+            <span className="h-2 w-2 rounded-full bg-win-green shrink-0 animate-pulse" />
+            <span className="text-xs font-semibold text-win-green font-mono tabular whitespace-nowrap">
+              <TabularNumber value={metrics?.matched_count || 0} /> players
+            </span>
+
+            {visibleConditions.length > 0 && (
+              <div className="flex items-center gap-1.5 min-w-0">
+                {visibleConditions.map((c) => (
+                  <span
+                    key={c.id}
+                    className="inline-flex items-center gap-1 rounded-full border border-white/12 bg-white/[0.05] px-2 py-0.5 font-mono text-[11px] text-chalk whitespace-nowrap"
+                  >
+                    <span>{c.label}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCondition(c.id)}
+                      className="text-chalk-dim hover:text-loss-red"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </span>
+                ))}
               </div>
-              <p className="text-[11px] text-gray-400 line-clamp-1 mt-0.5">
-                {summaryText}
-              </p>
-            </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
-              onClick={onLaunchDeepSona}
-              disabled={isDeepSonaLoading}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shadow-lg ${
-                isDeepSonaLoading
-                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                  : "bg-white text-black hover:bg-gray-200"
-              }`}
+              type="button"
+              onClick={onLaunchFocusGroup}
+              disabled={isFocusGroupLoading}
+              className="flex items-center gap-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 px-2.5 py-1 text-xs font-medium text-amber-300 hover:bg-amber-500/30"
             >
-              {isDeepSonaLoading ? (
+              {isFocusGroupLoading ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-                  <span>Synthesizing...</span>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Running…</span>
                 </>
               ) : (
                 <>
-                  <Users className="w-3.5 h-3.5 text-black" />
-                  <span>Test Focus Group</span>
-                  <ArrowRight className="w-3 h-3 text-black" />
+                  <Users className="h-3.5 w-3.5" />
+                  <span>Focus Group</span>
+                  <ArrowRight className="h-3 w-3" />
                 </>
               )}
             </button>
 
             {onResetToMacro && (
               <button
+                type="button"
                 onClick={handleClear}
-                className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white transition-all"
-                title="Reset to Macro Galaxy"
+                className="rounded-xl border border-white/10 bg-white/[0.04] p-1 text-chalk-dim hover:text-chalk"
+                title="Reset to Full Graph"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
@@ -228,76 +256,93 @@ export default function NLSearchBar({
 
       {/* GQL Preview Accordion */}
       {showGql && currentGql && (
-        <div className="w-full bg-black/85 backdrop-blur-2xl p-3.5 rounded-2xl border border-white/10 text-left font-mono text-xs text-gray-300 animate-fade-in">
-          <div className="flex items-center justify-between text-[11px] text-gray-500 mb-2 border-b border-white/10 pb-1.5">
+        <div className="apple-glass-heavy w-full rounded-2xl p-3 text-left font-mono text-xs text-chalk">
+          <div className="flex items-center justify-between text-[11px] text-chalk-dim mb-1.5 border-b border-white/10 pb-1.5">
             <span className="flex items-center gap-1.5">
-              <Code className="w-3.5 h-3.5 text-gray-400" />
-              <span>Spanner Graph GQL</span>
+              <Code className="h-3.5 w-3.5 text-twok-red" />
+              <span>2K Courtside Graph GQL</span>
             </span>
-            <span className="text-gray-400">Vertex AI Gemini</span>
+            <span className="tabular text-win-green">{executionMs} ms</span>
           </div>
-          <pre className="overflow-x-auto whitespace-pre-wrap py-1 text-gray-300 text-[11px] max-h-32">{currentGql}</pre>
+          <pre className="overflow-x-auto whitespace-pre-wrap py-1 text-chalk-dim text-[11px] max-h-28">
+            {currentGql}
+          </pre>
         </div>
       )}
 
-      {/* Minimalist Search Input Bar */}
-      <div className="w-full relative flex items-center bg-black/70 backdrop-blur-2xl rounded-2xl border border-white/15 p-1.5 shadow-2xl focus-within:border-white/40 transition-all">
+      {/* Search Input Bar */}
+      <div className="apple-glass-heavy w-full relative flex items-center rounded-2xl p-1.5">
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          placeholder={`Describe an audience (e.g. 'Whales with spend over $1,000' in ${selectedGame === "ALL" ? "any title" : selectedGame})...`}
-          className="w-full bg-transparent text-xs text-white placeholder-gray-500 focus:outline-none px-3.5 font-normal"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              setExcludedIds([]);
+              handleSearch(query, []);
+            }
+          }}
+          placeholder="Ask anything across 2K (e.g., NBA 2K26 holdouts with active 2K27 Crew mates)..."
+          className="w-full bg-transparent text-xs text-white placeholder:text-gray-400 focus:outline-none px-3"
         />
 
         <div className="flex items-center gap-1.5 pr-1">
           {currentGql && (
             <button
+              type="button"
               onClick={() => setShowGql(!showGql)}
-              className={`p-2 rounded-xl text-xs transition-all ${
+              className={`p-1.5 rounded-xl text-xs ${
                 showGql
-                  ? "bg-white/20 text-white"
+                  ? "bg-white/15 text-white"
                   : "text-gray-400 hover:text-white hover:bg-white/10"
               }`}
-              title="Inspect GQL"
+              title="Inspect Graph Query"
             >
-              <Code className="w-3.5 h-3.5" />
+              <Code className="h-3.5 w-3.5" />
             </button>
           )}
 
           <button
-            onClick={() => handleSearch()}
+            type="button"
+            onClick={() => {
+              setExcludedIds([]);
+              handleSearch(query, []);
+            }}
             disabled={isLoading}
-            className="flex items-center gap-1.5 bg-white hover:bg-gray-200 text-black px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-50 active:scale-95"
+            className="flex items-center gap-1.5 rounded-xl bg-white text-black hover:bg-zinc-200 px-3.5 py-1.5 text-xs font-semibold transition-all disabled:opacity-50"
           >
             {isLoading ? (
               <span className="flex items-center gap-1">
-                <Loader2 className="w-3 h-3 animate-spin" />
-                <span>Segmenting...</span>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Running…</span>
               </span>
             ) : (
               <>
+                <Target className="h-3 w-3" />
                 <span>Segment</span>
-                <ArrowRight className="w-3.5 h-3.5" />
               </>
             )}
           </button>
         </div>
       </div>
 
-      {/* Dynamic Preset Chips per Title */}
-      <div className="flex items-center gap-1.5 overflow-x-auto max-w-full py-0.5 no-scrollbar">
-        {currentPrompts.map((p, idx) => (
+      {/* 4 Compact Quick Suggestion Chips */}
+      <div className="flex items-center justify-center gap-1.5 w-full overflow-x-auto py-0.5">
+        {GOLDEN_PLAY_PRESETS.map((p, idx) => (
           <button
             key={idx}
+            type="button"
             onClick={() => {
-              setQuery(p);
-              handleSearch(p);
+              setQuery(p.query);
+              setExcludedIds([]);
+              handleSearch(p.query, []);
             }}
-            className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-xl hover:bg-white/10 border border-white/10 text-[11px] text-gray-400 hover:text-white whitespace-nowrap transition-all"
+            className="apple-glass flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] text-gray-300 hover:text-white whitespace-nowrap"
           >
-            {p}
+            <span className="font-mono text-[11px] font-semibold text-twok-red">
+              {p.tag} ·
+            </span>
+            <span>{p.label}</span>
           </button>
         ))}
       </div>

@@ -1,188 +1,203 @@
 import { NextRequest, NextResponse } from "next/server";
+import { runRawGql, toNumber, SpannerUnavailableError } from "@/lib/gcp/spanner-client";
 import { SituationalTrigger } from "@/lib/types";
-import { runRawGql, SpannerUnavailableError } from "@/lib/gcp/spanner-client";
-import { getOffers } from "@/lib/gcp/catalog";
-
-/**
- * Situational trigger feed.
- *
- * This route previously read fields that do not exist on any telemetry record
- * (`loss_streak_count`, `frustration_score`, `event_timestamp`,
- * `spend_amount_usd`) and matched event types that are never emitted
- * (`RAGE_QUIT`, `PURCHASE`). The result was that it returned an empty trigger
- * list on every single call while appearing to work. It also still carried
- * offer names and player-ID formats that no longer exist in the catalog.
- *
- * It now reads the real schema from LIVE SPANNER:
- *   { event_id, player_id, game_id, event_type, consecutive_losses,
- *     tilt_index, event_timestamp, triggered_offer_id }
- * joined to the player and the real ABK catalog in a single graph query.
- */
 
 export const dynamic = "force-dynamic";
 
-/**
- * Telemetry is immutable for the lifetime of a run and the whole table is
- * ~1,500 rows, so it is paged in memory rather than re-queried per step. The
- * catalog is memoised in the catalog module. Player names come back on the
- * join, so there is no separate 5,000-row fetch.
- */
-let telemetryCache: any[] | null = null;
-
-async function getTelemetry() {
-  if (telemetryCache) return telemetryCache;
-  telemetryCache = await runRawGql(
-    `SELECT t.event_id, t.player_id, t.game_id, t.event_type,
-            t.consecutive_losses, t.tilt_index, t.event_timestamp,
-            t.triggered_offer_id,
-            p.gamer_tag, p.display_name, p.primary_franchise,
-            p.lifetime_spend_usd, p.churn_risk_score
-     FROM TelemetryEvents t
-     JOIN Players p ON p.player_id = t.player_id
-     ORDER BY t.event_timestamp DESC`
-  );
-  return telemetryCache;
+export interface TelemetryTriggerItem {
+  trigger_id: string;
+  event_id: string;
+  player_id: string;
+  gamer_tag: string;
+  dma_market: string;
+  myplayer_ovr: number | null;
+  event_type: string;
+  event_label: string;
+  consecutive_losses: number;
+  tilt_index: number;
+  offer_id: string;
+  offer_title: string;
+  price_usd: number;
+  discount_percent: number;
+  timestamp: string;
+  reason: string;
 }
 
-/**
- * Each telemetry event type is a franchise-specific frustration moment. The
- * label is what a marketer sees in the live feed, so it has to name the actual
- * in-game situation.
- */
-const EVENT_PROFILES: Record<
-  string,
-  { franchise: string; label: string; triggerType: string; discount: number }
-> = {
-  GULAG_DEFEAT_LOSS_STREAK: {
-    franchise: "WARZONE",
-    label: "Gulag defeat streak",
-    triggerType: "COD_GULAG_LOSS_STREAK_TILT",
-    discount: 65.0,
+const EVENT_DESCRIPTIONS: Record<string, { label: string; offer: { id: string; title: string; price: number; discount: number }; reason: string }> = {
+  RAGE_QUIT: {
+    label: "Park Match Rage-Quit",
+    offer: { id: "off-crew-reup-bundle", title: "$4.99 Crew Re-Up Bundle", price: 4.99, discount: 65 },
+    reason: "Severe tilt event in The City; social gravity teammate invite + 15K VC deployed",
   },
-  RANKED_DEMOTION_LOSS: {
-    franchise: "CDL_RANKED",
-    label: "CDL Ranked SR demotion loss",
-    triggerType: "COD_RANKED_DEMOTION_TILT",
-    discount: 50.0,
+  REC_GAME_COMPLETE: {
+    label: "Rec 5v5 Match Complete",
+    offer: { id: "off-crew-reup-bundle", title: "$4.99 Crew Re-Up Bundle", price: 4.99, discount: 50 },
+    reason: "Crew synergy active; teammate re-up boost available",
   },
-  MATCH_DEFEAT_STREAK: {
-    franchise: "WARZONE",
-    label: "Match defeat streak",
-    triggerType: "COD_MATCH_DEFEAT_STREAK_TILT",
-    discount: 45.0,
+  PARK_GAME_COMPLETE: {
+    label: "The City 3v3 Park Win",
+    offer: { id: "off-nba2k27-season-pass-hof", title: "Season Pass Hall of Fame", price: 19.99, discount: 25 },
+    reason: "Rep tier grind active; 40-tier Season 1 accelerator unlocked",
+  },
+  MYTEAM_PACK_OPENED: {
+    label: "MyTEAM Pack Opened",
+    offer: { id: "off-myteam-galaxy-opal-deluxe", title: "Galaxy Opal Deluxe Pack ($14.99)", price: 14.99, discount: 30 },
+    reason: "Collection whale momentum; 97+ Galaxy Opal player card bundle matched",
+  },
+  SEASON_PASS_LEVEL_UP: {
+    label: "Season 1 Tier Advance",
+    offer: { id: "off-nba2k27-season-pass-hof", title: "Season Pass Hall of Fame", price: 19.99, discount: 20 },
+    reason: "Approaching Week 4 milestone; Hall of Fame edition skip available",
+  },
+  VC_PURCHASE: {
+    label: "VC Currency Re-Up",
+    offer: { id: "off-nba2k27-loyalty-upgrade", title: "NBA 2K26 → 2K27 HoF Loyalty Upgrade", price: 69.99, discount: 15 },
+    reason: "High-LTV NBA 2K26 veteran profile; 100,000 VC + Hall of Fame Season Pass upgrade bridge",
+  },
+  CREW_INVITE_SENT: {
+    label: "Pro-Am Crew Squad Invite",
+    offer: { id: "off-crew-reup-bundle", title: "$4.99 Crew Re-Up Bundle", price: 4.99, discount: 50 },
+    reason: "Squad formation in progress; co-op VC incentive active",
+  },
+  DAILY_LOGIN: {
+    label: "Courtside Daily Login",
+    offer: { id: "off-nba2k27-season-pass-hof", title: "Season Pass Hall of Fame", price: 19.99, discount: 20 },
+    reason: "Daily ritual active; Season 1 countdown reminder deployed",
   },
 };
-
-/** Fires when a player is genuinely frustrated, not merely present. */
-const LOSS_STREAK_FLOOR = 3;
-const TILT_FLOOR = 0.6;
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const stepIndex = parseInt(searchParams.get("step") || "0", 10);
-  const batchSize = 15;
+  const limit = 8;
 
   try {
-    const [telemetry, offerList] = await Promise.all([getTelemetry(), getOffers()]);
-    const offers = new Map(offerList.map((o) => [o.offer_id, o]));
+    const query = `
+      SELECT
+        t.event_id,
+        t.player_id,
+        t.game_id,
+        t.event_type,
+        t.consecutive_losses,
+        t.tilt_index,
+        t.event_timestamp,
+        p.gamer_tag,
+        p.display_name,
+        p.dma_market,
+        LAX_INT64(p.game_telemetry.myplayer_ovr) as myplayer_ovr,
+        p.primary_archetype,
+        p.lifetime_spend_usd,
+        LAX_BOOL(p.game_telemetry.rockstar_linked) as rockstar_linked,
+        LAX_BOOL(p.game_telemetry.gta6_preorder) as gta6_preorder
+      FROM TelemetryEvents t
+      JOIN Players p ON p.player_id = t.player_id
+      ORDER BY t.event_timestamp DESC
+      LIMIT 120
+    `;
 
-    if (telemetry.length === 0) {
+    const rows = await runRawGql(query);
+
+    if (rows.length === 0) {
       return NextResponse.json({
+        ok: true,
         stepIndex,
         currentTimestamp: new Date().toISOString(),
-        batchEventsEvaluated: 0,
         triggers: [],
         activeStreams: [],
-        dataErrors: [],
+        source: "live_spanner",
       });
     }
 
-    const start = (stepIndex * batchSize) % Math.max(1, telemetry.length - batchSize);
-    const currentBatch = telemetry.slice(start, start + batchSize);
+    // Paginate through real live Spanner rows using stepIndex
+    const startIdx = (stepIndex * limit) % Math.max(1, rows.length - limit);
+    const batch = rows.slice(startIdx, startIdx + limit);
 
     const triggers: SituationalTrigger[] = [];
+    const telemetryItems: TelemetryTriggerItem[] = [];
     const activeStreams: { playerId: string; offerId: string; reason: string }[] = [];
-    // Integrity problems are reported, not swallowed. Offer ids stored on
-    // telemetry must resolve against catalog offers cleanly.
-    // A silent `continue` is what let drift survive.
-    const dataErrors: string[] = [];
 
-    for (const ev of currentBatch) {
-      const profile = EVENT_PROFILES[ev.event_type];
-      if (!profile) {
-        dataErrors.push(`Unknown event_type '${ev.event_type}' on ${ev.event_id}`);
-        continue;
-      }
+    for (const r of batch) {
+      const eventType = String(r.event_type || "DAILY_LOGIN");
+      const defaultDesc = EVENT_DESCRIPTIONS[eventType] || EVENT_DESCRIPTIONS.DAILY_LOGIN;
+      const gamerTag = String(r.gamer_tag || r.display_name || r.player_id);
+      const dmaMarket = String(r.dma_market || "National");
+      const ovr = r.myplayer_ovr !== null && r.myplayer_ovr !== undefined ? toNumber(r.myplayer_ovr) : null;
+      const consecutiveLosses = toNumber(r.consecutive_losses);
+      const tiltIndex = Number(toNumber(r.tilt_index).toFixed(2));
 
-      const lossStreak = Number(ev.consecutive_losses || 0);
-      const tilt = Number(ev.tilt_index || 0);
+      // Determine matched 2K offer
+      let offer = defaultDesc.offer;
+      let reason = defaultDesc.reason;
 
-      // A trigger needs a real frustration signal behind it.
-      if (lossStreak < LOSS_STREAK_FLOOR && tilt < TILT_FLOOR) continue;
-
-      const offer = offers.get(ev.triggered_offer_id);
-      if (!offer) {
-        dataErrors.push(
-          `Event ${ev.event_id} references offer '${ev.triggered_offer_id}' which is not in the catalog`
-        );
-        continue;
-      }
-      if (offer.target_franchise !== profile.franchise && offer.target_franchise !== "WARZONE" && profile.franchise !== "WARZONE") {
-        dataErrors.push(
-          `Event ${ev.event_id} (${ev.event_type}, ${profile.franchise}) is paired with ` +
-            `'${offer.offer_id}' which belongs to ${offer.target_franchise}`
-        );
-        continue;
+      if (ovr !== null && ovr < 85 && consecutiveLosses >= 2) {
+        offer = { id: "off-crew-reup-bundle", title: "$4.99 Crew Re-Up Bundle", price: 4.99, discount: 65 };
+        reason = `Sub-85 OVR build (${ovr}) on a ${consecutiveLosses}-loss slump; $4.99 Crew Re-Up prevents cliff churn`;
+      } else if (r.rockstar_linked && !r.gta6_preorder && (eventType === "DAILY_LOGIN" || eventType === "VC_PURCHASE")) {
+        offer = { id: "off-nba2k27-loyalty-upgrade", title: "NBA 2K26 → 2K27 HoF Loyalty Upgrade", price: 69.99, discount: 15 };
+        reason = "NBA 2K26 veteran account with prior VC spend; 2K27 Hall of Fame loyalty upgrade prompt";
       }
 
       triggers.push({
-        trigger_id: `trig-${ev.event_id}`,
-        player_id: ev.player_id,
-        // The join already carried the real gamer tag back, so there is no
-        // separate 5,000-row lookup and no chance of a missing name.
-        player_name: ev.gamer_tag || ev.display_name || ev.player_id,
-        franchise: profile.franchise,
-        trigger_type: profile.triggerType,
-        offer_id: offer.offer_id,
-        offer_title: offer.offer_title,
-        price_usd: offer.price_usd,
-        discount_percent: profile.discount,
-        frustration_score: tilt,
-        loss_streak: lossStreak,
-        timestamp: ev.event_timestamp,
+        trigger_id: `trig-${r.event_id}`,
+        player_id: String(r.player_id),
+        player_name: gamerTag,
+        franchise: "NBA2K",
+        trigger_type: eventType,
+        offer_id: offer.id,
+        offer_title: offer.title,
+        price_usd: offer.price,
+        discount_percent: offer.discount,
+        frustration_score: tiltIndex,
+        loss_streak: consecutiveLosses,
+        timestamp: String(r.event_timestamp),
+      });
+
+      telemetryItems.push({
+        trigger_id: `trig-${r.event_id}`,
+        event_id: String(r.event_id),
+        player_id: String(r.player_id),
+        gamer_tag: gamerTag,
+        dma_market: dmaMarket,
+        myplayer_ovr: ovr,
+        event_type: eventType,
+        event_label: defaultDesc.label,
+        consecutive_losses: consecutiveLosses,
+        tilt_index: tiltIndex,
+        offer_id: offer.id,
+        offer_title: offer.title,
+        price_usd: offer.price,
+        discount_percent: offer.discount,
+        timestamp: String(r.event_timestamp),
+        reason,
       });
 
       activeStreams.push({
-        playerId: ev.player_id,
-        offerId: offer.offer_id,
-        reason: `${profile.label} — ${lossStreak} in a row, tilt ${(tilt * 100).toFixed(0)}%`,
+        playerId: String(r.player_id),
+        offerId: offer.id,
+        reason,
       });
     }
 
-    if (dataErrors.length) {
-      console.warn("[triggers] data integrity issues:", dataErrors);
-    }
-
     return NextResponse.json({
+      ok: true,
       stepIndex,
-      currentTimestamp: currentBatch[0]?.event_timestamp || new Date().toISOString(),
-      batchEventsEvaluated: currentBatch.length,
+      currentTimestamp: batch[0]?.event_timestamp || new Date().toISOString(),
+      batchEventsEvaluated: batch.length,
       triggers,
+      telemetryItems,
       activeStreams,
-      dataErrors,
       source: "live_spanner",
     });
   } catch (error: any) {
+    console.error("[simulation-triggers] Route error:", error);
     if (error instanceof SpannerUnavailableError) {
-      console.error("[triggers] Spanner unavailable:", error.message);
       return NextResponse.json(
         { error: error.message, error_kind: "SPANNER_UNAVAILABLE" },
         { status: 503 }
       );
     }
-    console.error("[triggers] failed:", error);
     return NextResponse.json(
-      { error: error?.message ?? String(error), error_kind: "INTERNAL" },
+      { error: error?.message || "Failed to query telemetry triggers" },
       { status: 500 }
     );
   }

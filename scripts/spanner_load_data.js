@@ -1,16 +1,8 @@
 #!/usr/bin/env node
 /**
- * Load the ABK dataset into the live Spanner graph database.
+ * Load the 2K Courtside (Take-Two Identity Graph) dataset into Spanner.
  *
  * Run with:  node scripts/spanner_load_data.js [--truncate]
- *
- * Type handling is explicit for every column because the client's inference
- * gets three things wrong in ways that fail only at commit time:
- *   - INT64 needs Spanner.int(); a bare JS number is inferred as FLOAT64.
- *   - FLOAT64 needs Spanner.float(); an integral JS number (30.0 -> 30) is
- *     inferred as INT64 and rejected.
- *   - Spanner.json() DOES NOT EXIST. JSON columns take a stringified value;
- *     a plain JS array is rejected outright.
  */
 const fs = require("fs");
 const path = require("path");
@@ -18,39 +10,16 @@ const { Spanner } = require("@google-cloud/spanner");
 
 const PROJECT = process.env.GCP_PROJECT_ID || "jamie-bq-test";
 const INSTANCE = process.env.SPANNER_INSTANCE_ID || "blackrock-spanner";
-const DATABASE = process.env.SPANNER_DATABASE_ID || "abk_graph_db";
+const DATABASE = process.env.SPANNER_DATABASE_ID || "twok_graph_db";
 
 const DATA = (f) => JSON.parse(fs.readFileSync(path.join("data", f), "utf-8"));
 
 const int = (v) => (v === null || v === undefined ? null : Spanner.int(Math.round(Number(v))));
-// A JS number that happens to be integral (30.0 parses to 30) is inferred as
-// INT64, which a FLOAT64 column rejects. Wrap every float explicitly.
 const num = (v) => (v === null || v === undefined ? null : Spanner.float(Number(v)));
 const str = (v) => (v === null || v === undefined ? null : String(v));
-// Spanner rejects a JS array for a JSON column outright ("Convert the value to
-// a JSON string"). Objects are tolerated, but both are serialised here so the
-// two behave the same way.
 const json = (v) => (v === null || v === undefined ? null : JSON.stringify(v));
 const bool = (v) => (v === null || v === undefined ? null : Boolean(v));
 
-/**
- * Game ids were normalised so that every franchise hub is `game-<franchise>`
- * in lower case. The old ids disagreed with what the application derived,
- * which meant Diablo, Overwatch and Candy Crush players were never joined to
- * their franchise hub at all. Edge files written against the old ids are
- * remapped here rather than being left to fail the referential check below.
- */
-const LEGACY_GAME_ID_REMAP = {
-  "game-diablo": "game-diablo4",
-  "game-ow2": "game-overwatch2",
-  "game-candy": "game-candycrush",
-};
-const remapGameId = (id) =>
-  id === null || id === undefined
-    ? null
-    : LEGACY_GAME_ID_REMAP[String(id)] || String(id);
-
-/** Commit in chunks: Spanner caps mutations per transaction. */
 async function insertAll(database, tableName, rows, chunkSize = 400) {
   if (!rows.length) {
     console.log(`  ${tableName}: nothing to insert`);
@@ -73,8 +42,7 @@ async function main() {
   const database = spanner.instance(INSTANCE).database(DATABASE);
 
   if (truncate) {
-    console.log("Truncating existing rows...");
-    // Children first so referential intent stays obvious to a reader.
+    console.log(`Truncating existing rows in ${DATABASE}...`);
     for (const t of [
       "PlaysGame",
       "FollowsCreator",
@@ -101,31 +69,32 @@ async function main() {
   const gamesData = DATA("games.json");
   const offersData = DATA("marketing_offers.json");
 
-  // Validate the catalog BEFORE writing. Each of these conditions previously
-  // failed silently at runtime: a missing is_parent_hub rendered a macro graph
-  // with no franchise hubs, and a string expected_conversion_boost became NULL.
   const gameIds = new Set(gamesData.map((g) => g.game_id));
   const hubs = gamesData.filter((g) => g.is_parent_hub);
   const REQUIRED_HUBS = [
-    "game-cod",
-    "game-cod-warzone",
-    "game-cod-bo6",
-    "game-cod-mw3",
-    "game-cod-cdl",
-    "game-cod-mobile",
+    "game-nba2k27",
+    "game-nba2k26",
+    "game-nba2k-mobile",
+    "game-wwe2k25",
+    "game-pga2k25",
+    "game-topspin2k25",
+    "game-civ7",
+    "game-bl4",
+    "game-mafia-toc",
   ];
   const CANONICAL_ARCHETYPES = new Set([
-    "BLACKCELL_WHALE",
-    "VERDANSK_OG",
-    "CDL_RANKED_SWEAT",
-    "CAMO_COMPLETIONIST",
-    "ROUND_BASED_ZOMBIES_SLAYER",
-    "SEARCH_AND_DESTROY_SPECIALIST",
-    "CASUAL_WARZONE_WARRIOR",
-    "MOBILE_TOUCHPAD_PRODIGY",
-    "DMZ_EXTRACTION_SURVIVOR",
-    "GULAG_TILT_RISK",
+    "MYTEAM_PACK_WHALE",
+    "PARK_REP_GRINDER",
+    "REC_CREW_CAPTAIN",
+    "MYCAREER_STORY_CASUAL",
+    "MYNBA_FRANCHISE_SIM",
+    "BUILD_LAB_THEORYCRAFTER",
+    "THE_W_LOYALIST",
+    "CROSS_LABEL_NOMAD",
+    "MOBILE_DAILY_RITUALIST",
+    "RAGE_QUIT_TILT_RISK",
   ]);
+  const VALID_LABELS = new Set(["2K", "2K_SPORTS", "2K_CORE"]);
 
   const problems = [];
   for (const id of REQUIRED_HUBS) {
@@ -134,6 +103,9 @@ async function main() {
     }
   }
   for (const g of gamesData) {
+    if (!VALID_LABELS.has(g.label)) {
+      problems.push(`game '${g.game_id}' has invalid label '${g.label}'`);
+    }
     if (g.parent_game_id && !gameIds.has(g.parent_game_id)) {
       problems.push(`game '${g.game_id}' has unresolvable parent '${g.parent_game_id}'`);
     }
@@ -164,6 +136,7 @@ async function main() {
       game_id: str(g.game_id),
       title: str(g.title),
       franchise: str(g.franchise),
+      label: str(g.label),
       genre: str(g.genre),
       active_players: int(g.active_players),
       is_parent_hub: bool(g.is_parent_hub),
@@ -271,15 +244,11 @@ async function main() {
 
   console.log("\nLoading edges...");
 
-  // Resolve every PlaysGame edge against the catalog. An unresolvable edge is
-  // not a warning: the player simply disappears from that franchise in the
-  // graph, which is the exact failure mode that hid three franchises' worth of
-  // hub connections until now.
   const playsRaw = DATA("played_game_edges.json");
   const unresolved = new Map();
   const playsRows = [];
   for (const e of playsRaw) {
-    const gid = remapGameId(e.game_id);
+    const gid = String(e.game_id);
     if (!gameIds.has(gid)) {
       unresolved.set(gid, (unresolved.get(gid) || 0) + 1);
       continue;
@@ -296,8 +265,7 @@ async function main() {
       "PlaysGame edges reference games that do not exist:\n  - " +
         [...unresolved.entries()]
           .map(([g, n]) => `${g} (${n} edges)`)
-          .join("\n  - ") +
-        "\nAdd the game to data/games.json or extend LEGACY_GAME_ID_REMAP."
+          .join("\n  - ")
     );
   }
   await insertAll(database, "PlaysGame", playsRows);
@@ -322,9 +290,6 @@ async function main() {
     }))
   );
 
-  // FollowsCreator is derived: the player table carries the creator references,
-  // there is no separate edge file. Note that `followed_creators` holds
-  // creator_ids (not handles) — matching on handle silently produced zero edges.
   const creators = DATA("creators.json");
   const byKey = new Map();
   for (const c of creators) {
@@ -353,9 +318,7 @@ async function main() {
     }
   }
   if (!followEdges.length) {
-    throw new Error(
-      "FollowsCreator derived zero edges — creator reference format has changed."
-    );
+    throw new Error("FollowsCreator derived zero edges.");
   }
   await insertAll(database, "FollowsCreator", followEdges);
 
@@ -365,7 +328,7 @@ async function main() {
     DATA("telemetry_match_events.json").map((e) => ({
       event_id: str(e.event_id),
       player_id: str(e.player_id),
-      game_id: str(remapGameId(e.game_id)),
+      game_id: str(e.game_id),
       event_type: str(e.event_type),
       consecutive_losses: int(e.consecutive_losses),
       tilt_index: num(e.tilt_index),
@@ -391,6 +354,53 @@ async function main() {
     const [rows] = await database.run({ sql: `SELECT COUNT(*) AS n FROM ${t}` });
     console.log(`  ${t.padEnd(18)} ${rows[0].toJSON().n}`);
   }
+
+  console.log("\nVerifying TakeTwoPlayerGraph & Golden Plays via GQL...");
+  const [gCount] = await database.run({
+    sql: `GRAPH TakeTwoPlayerGraph MATCH (p:Player) RETURN COUNT(p) AS total_players`,
+  });
+  console.log(`  Total Graph Players: ${gCount[0].toJSON().total_players}`);
+
+  const [labelRows] = await database.run({
+    sql: `SELECT label, COUNT(*) AS games_count FROM Games GROUP BY label ORDER BY label`,
+  });
+  for (const r of labelRows) {
+    const j = r.toJSON();
+    console.log(`  Label ${j.label.padEnd(10)}: ${j.games_count} games`);
+  }
+
+  const [play1] = await database.run({
+    sql: `GRAPH TakeTwoPlayerGraph
+          MATCH (p:Player)-[:MEMBER_OF_CLAN]->(c:Clan)<-[:MEMBER_OF_CLAN]-(mate:Player)
+          WHERE p.primary_franchise = 'NBA2K'
+            AND INT64(p.game_telemetry.myplayer_ovr) < 85
+            AND FLOAT64(p.game_telemetry.vc_spend_90d) >= 50
+            AND INT64(p.game_telemetry.last_login_days_ago) >= 7
+            AND INT64(mate.game_telemetry.last_login_days_ago) <= 3
+            AND p.player_id <> mate.player_id
+          RETURN COUNT(DISTINCT p.player_id) AS n`,
+  });
+  console.log(`  Play 1 (Season 2 Cliff w/ active crew mate): ${play1[0].toJSON().n}`);
+
+  const [play2] = await database.run({
+    sql: `GRAPH TakeTwoPlayerGraph
+          MATCH (p:Player)-[:HAS_IDENTITY]->(i:Identity {platform: '2K Account'}),
+                (p)-[:PLAYS_GAME]->(g:Game {game_id: 'game-nba2k26'})
+          WHERE FLOAT64(p.game_telemetry.myteam_vc_spend_90d) > 0
+            AND FLOAT64(p.game_telemetry.nba2k26_spend_usd) > 0
+            AND BOOL(p.game_telemetry.migrated_to_2k27) = false
+          RETURN COUNT(DISTINCT p.player_id) AS n`,
+  });
+  console.log(`  Play 2 (NBA 2K26 -> 2K27 Upgrade Bridge):    ${play2[0].toJSON().n}`);
+
+  const [play3] = await database.run({
+    sql: `GRAPH TakeTwoPlayerGraph
+          MATCH (p:Player)
+          WHERE INT64(p.game_telemetry.myteam_galaxy_opal_count) >= 10
+            AND STRING(p.game_telemetry.season_pass_edition) = 'HALL_OF_FAME'
+          RETURN COUNT(p.player_id) AS n`,
+  });
+  console.log(`  Play 3 (MyTEAM Pack Whales):                 ${play3[0].toJSON().n}`);
 
   await database.close();
   console.log("\nLoad complete.");

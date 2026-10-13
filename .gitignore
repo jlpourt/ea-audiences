@@ -40,3 +40,6 @@ venv/
 .venv/
 env/
 .pytest_cache/
+
+# Model smoke outputs
+scripts/.smoke/

@@ -1,11 +1,11 @@
 {
-  "name": "Jamie_AudienceIntelligenceAgent",
-  "description": "Activision Blizzard King Audience Intelligence & DeepSona Synthetic Focus Group Engine (Google Cloud EBC Act 1)",
-  "url": "http://localhost:3000/api/a2a",
+  "name": "Courtside_AudienceAgent",
+  "description": "2K Courtside — Audience Builder & Segmentation Engine for NBA 2K and Take-Two Interactive (Google Cloud Vertex AI & Spanner Graph)",
+  "url": "http://127.0.0.1:3005/api/a2a",
   "version": "1.0.0",
   "protocol_version": "0.2.0",
   "provider": {
-    "organization": "Activision Blizzard King / Google Cloud CCAI",
+    "organization": "Take-Two Interactive / 2K Games / Google Cloud",
     "url": "https://cloud.google.com/spanner"
   },
   "capabilities": {
@@ -16,8 +16,8 @@
   "skills": [
     {
       "id": "query_spanner_graph",
-      "name": "Query Spanner Property Graph",
-      "description": "Translates natural language to Spanner GQL and queries 5,000+ ABK master players and 7,700+ linked identities across Call of Duty, World of Warcraft, Diablo IV, Overwatch 2, and Candy Crush.",
+      "name": "Query TakeTwoPlayerGraph",
+      "description": "Translates natural language to Spanner GQL and queries Take-Two player graph with multi-hop crew and cross-label identity resolution across NBA 2K27, WWE 2K25, GTA Online, GTA VI, and Zynga titles.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -27,9 +27,9 @@
       }
     },
     {
-      "id": "simulate_deepsona_focus_group",
-      "name": "DeepSona Synthetic Focus Group Simulation",
-      "description": "Simulates 4 authentic BARE gamer personas with FSM states, willingness-to-pay, and lift estimation before launch.",
+      "id": "simulate_focus_group",
+      "name": "Courtside Focus Group Simulation",
+      "description": "Pressure-tests 2K campaigns across representative NBA 2K personas grounded on live community sentiment.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -44,8 +44,8 @@
     },
     {
       "id": "emit_audience_brief",
-      "name": "Emit Executive Campaign Brief",
-      "description": "Compiles Spanner Graph segment insights into a structured brief and emits outbound A2A contract to Act 2 (Curtis Creative Studio) and Act 4 (Surya Commerce Media).",
+      "name": "Emit Campaign Brief",
+      "description": "Synthesizes cohort telemetry and focus group consensus into a structured campaign brief for multimodal creative generation and channel activation.",
       "input_schema": {
         "type": "object",
         "properties": {

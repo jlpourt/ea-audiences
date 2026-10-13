@@ -3,7 +3,7 @@
 import React from "react";
 import { ContextualViewType, GameFranchise } from "@/lib/types";
 
-interface GraphControlsProps {
+export interface GraphControlsProps {
   currentView: ContextualViewType;
   onViewChange: (view: ContextualViewType) => void;
   selectedGame: GameFranchise;
@@ -12,75 +12,39 @@ interface GraphControlsProps {
   onArchetypeChange: (archetype: string) => void;
   is3D: boolean;
   onToggle3D: () => void;
+  clusterByLabel?: boolean;
+  onToggleClusterByLabel?: () => void;
+  highlightBridges?: boolean;
+  onToggleHighlightBridges?: () => void;
+  isInspectorOpen?: boolean;
   nodeCount: number;
   edgeCount: number;
 }
 
-const GAME_OPTIONS: { id: GameFranchise; label: string; icon: string }[] = [
-  { id: "ALL", label: "All CoD Modes", icon: "🌐" },
-  { id: "WARZONE", label: "Warzone & Resurgence", icon: "🪂" },
-  { id: "BLACK_OPS", label: "Black Ops 7 & Zombies", icon: "🧟" },
-  { id: "MODERN_WARFARE", label: "Modern Warfare III", icon: "🎯" },
-  { id: "CDL_RANKED", label: "CDL & Ranked Play", icon: "🏆" },
-  { id: "COD_MOBILE", label: "CoD Mobile", icon: "📱" },
+const GAME_OPTIONS: { id: GameFranchise; label: string }[] = [
+  { id: "ALL", label: "All 2K" },
+  { id: "NBA2K", label: "NBA 2K27" },
+  { id: "NBA2K26", label: "NBA 2K26" },
+  { id: "NBA2KMOBILE", label: "2K Mobile" },
+  { id: "WWE2K", label: "WWE 2K25" },
+  { id: "PGA2K", label: "PGA 2K25" },
+  { id: "BL4", label: "Borderlands 4" },
+  { id: "CIV7", label: "Civ VII" },
 ];
 
-const COHORT_FILTERS_BY_GAME: Record<GameFranchise, { value: string; label: string }[]> = {
-  ALL: [
-    { value: "ALL", label: "All Call of Duty Players" },
-    { value: "BLACKCELL_WHALE", label: "BlackCell Pass Whales" },
-    { value: "VERDANSK_OG", label: "Verdansk OG Veterans" },
-    { value: "CDL_RANKED_SWEAT", label: "CDL Ranked Sweats" },
-    { value: "CAMO_COMPLETIONIST", label: "Mastery Camo Grinders" },
-    { value: "ROUND_BASED_ZOMBIES_SLAYER", label: "Zombies Easter Egg Slayers" },
-    { value: "SEARCH_AND_DESTROY_SPECIALIST", label: "S&D Clutch Specialists" },
-    { value: "CASUAL_WARZONE_WARRIOR", label: "Casual Weekend Squads" },
-    { value: "MOBILE_TOUCHPAD_PRODIGY", label: "CoD Mobile Touchpad Prodigies" },
-    { value: "DMZ_EXTRACTION_SURVIVOR", label: "DMZ Extraction Survivors" },
-    { value: "GULAG_TILT_RISK", label: "Gulag Tilt & Loss Risk" },
-  ],
-  COD: [
-    { value: "ALL", label: "All Call of Duty Cohorts" },
-    { value: "BLACKCELL_WHALE", label: "BlackCell Pass Whales" },
-    { value: "VERDANSK_OG", label: "Verdansk OG Veterans" },
-    { value: "CDL_RANKED_SWEAT", label: "CDL Ranked Sweats" },
-    { value: "CAMO_COMPLETIONIST", label: "Mastery Camo Grinders" },
-    { value: "GULAG_TILT_RISK", label: "Gulag Tilt Risk" },
-  ],
-  WARZONE: [
-    { value: "ALL", label: "All Warzone Cohorts" },
-    { value: "VERDANSK_OG", label: "Verdansk OG Veterans" },
-    { value: "BLACKCELL_WHALE", label: "BlackCell Pass Whales" },
-    { value: "CASUAL_WARZONE_WARRIOR", label: "Casual Resurgence Squads" },
-    { value: "DMZ_EXTRACTION_SURVIVOR", label: "DMZ Extraction Survivors" },
-    { value: "GULAG_TILT_RISK", label: "Gulag Tilt & Loss Risk" },
-  ],
-  BLACK_OPS: [
-    { value: "ALL", label: "All Black Ops 7 Cohorts" },
-    { value: "ROUND_BASED_ZOMBIES_SLAYER", label: "Terminus & Liberty Falls Slayers" },
-    { value: "CAMO_COMPLETIONIST", label: "Dark Matter Camo Grinders" },
-    { value: "BLACKCELL_WHALE", label: "Vault Edition Whales" },
-    { value: "CASUAL_WARZONE_WARRIOR", label: "Casual MP Warriors" },
-  ],
-  MODERN_WARFARE: [
-    { value: "ALL", label: "All Modern Warfare III Cohorts" },
-    { value: "SEARCH_AND_DESTROY_SPECIALIST", label: "Search & Destroy Specialists" },
-    { value: "CAMO_COMPLETIONIST", label: "Interstellar Camo Grinders" },
-    { value: "BLACKCELL_WHALE", label: "Mastercraft Bundle Whales" },
-    { value: "CASUAL_WARZONE_WARRIOR", label: "Casual Pub Stompers" },
-  ],
-  CDL_RANKED: [
-    { value: "ALL", label: "All CDL Ranked Cohorts" },
-    { value: "CDL_RANKED_SWEAT", label: "Top 250 & Iridescent Sweats" },
-    { value: "GULAG_TILT_RISK", label: "Demotion Loss Streaks" },
-    { value: "SEARCH_AND_DESTROY_SPECIALIST", label: "S&D Clutch Players" },
-  ],
-  COD_MOBILE: [
-    { value: "ALL", label: "All Mobile Cohorts" },
-    { value: "MOBILE_TOUCHPAD_PRODIGY", label: "Touchpad & Mythic Draw Whales" },
-    { value: "CASUAL_WARZONE_WARRIOR", label: "Mobile Casuals" },
-  ],
-};
+const COHORT_OPTIONS: { value: string; label: string }[] = [
+  { value: "ALL", label: "All Cohorts" },
+  { value: "MYTEAM_PACK_WHALE", label: "MyTEAM Whales" },
+  { value: "PARK_REP_GRINDER", label: "Park Grinders" },
+  { value: "CROSS_LABEL_NOMAD", label: "2K26 Bridge" },
+  { value: "REC_CREW_CAPTAIN", label: "Crew Captains" },
+  { value: "MYCAREER_STORY_CASUAL", label: "MyCAREER Casuals" },
+  { value: "BUILD_LAB_THEORYCRAFTER", label: "Build Lab" },
+  { value: "MYNBA_FRANCHISE_SIM", label: "MyNBA Sim" },
+  { value: "THE_W_LOYALIST", label: "The W Loyalists" },
+  { value: "MOBILE_DAILY_RITUALIST", label: "2K Mobile Ritualists" },
+  { value: "RAGE_QUIT_TILT_RISK", label: "Rage-Quit Risk" },
+];
 
 export default function GraphControls({
   currentView,
@@ -95,26 +59,33 @@ export default function GraphControls({
   edgeCount,
 }: GraphControlsProps) {
   const views: { id: ContextualViewType; label: string }[] = [
-    { id: "audience-cohorts", label: "Cohorts Graph" },
-    { id: "marketing-journey", label: "Marketing Journeys (Sankey)" },
-    { id: "geo-map", label: "Geographic DMA Map" },
+    { id: "audience-cohorts", label: "Cohorts" },
+    { id: "marketing-journey", label: "Journeys" },
+    { id: "geo-map", label: "Markets" },
   ];
 
-  const currentFilters = COHORT_FILTERS_BY_GAME[selectedGame] || COHORT_FILTERS_BY_GAME.ALL;
+  const isGraphCanvasView =
+    currentView === "audience-cohorts" ||
+    currentView === "cross-franchise" ||
+    currentView === "social-clans" ||
+    currentView === "single-identity";
 
   return (
-    <div className="absolute top-4 left-6 z-20 flex flex-wrap items-center gap-2.5 font-sans">
-      {/* 1. Apple-Style Segmented Control: 2-Way View Switcher */}
-      <div className="flex items-center bg-black/50 backdrop-blur-2xl p-1 rounded-xl border border-white/10 shadow-lg">
+    <div className="flex items-center gap-2 font-sans min-w-0">
+      {/* 1. Primary View Switcher */}
+      <div className="flex items-center rounded-xl bg-white/[0.04] border border-white/[0.08] p-0.5">
         {views.map((v) => {
-          const isActive = currentView === v.id;
+          const isActive =
+            currentView === v.id ||
+            (v.id === "audience-cohorts" && isGraphCanvasView);
           return (
             <button
               key={v.id}
+              type="button"
               onClick={() => onViewChange(v.id)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
                 isActive
-                  ? "bg-white/20 text-white shadow-sm font-semibold"
+                  ? "bg-white/15 text-white font-semibold shadow-sm"
                   : "text-gray-400 hover:text-white hover:bg-white/5"
               }`}
             >
@@ -124,36 +95,48 @@ export default function GraphControls({
         })}
       </div>
 
-      {/* 2. Sleek Game Franchise Selector */}
-      <div className="flex items-center bg-black/50 backdrop-blur-2xl px-3 py-1.5 rounded-xl border border-white/10 text-xs">
-        <span className="text-gray-500 mr-2 text-[11px]">Title:</span>
-        <select
-          value={selectedGame}
-          onChange={(e) => {
-            onGameChange(e.target.value as GameFranchise);
-            onArchetypeChange("ALL");
-          }}
-          className="bg-transparent text-xs text-white font-medium focus:outline-none cursor-pointer"
-        >
-          {GAME_OPTIONS.map((g) => (
-            <option key={g.id} value={g.id} className="bg-[#121212] text-white">
-              {g.icon} {g.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* 3. Dynamic Cohort Filters Dropdown (Adapts to Selected Title) */}
-      {currentView === "audience-cohorts" && (
-        <div className="flex items-center bg-black/50 backdrop-blur-2xl px-3 py-1.5 rounded-xl border border-white/10 text-xs">
-          <span className="text-gray-500 mr-2 text-[11px]">Cohort:</span>
+      {/* 2. Title Selector (when on graph view) */}
+      {isGraphCanvasView && (
+        <div className="flex items-center px-2.5 py-1 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs">
+          <span className="text-gray-400 mr-1.5 text-[11px]">Title</span>
           <select
+            aria-label="Filter by 2K title"
+            value={selectedGame}
+            onChange={(e) => {
+              onGameChange(e.target.value as GameFranchise);
+              onArchetypeChange("ALL");
+            }}
+            className="bg-transparent text-xs text-white font-medium focus:outline-none cursor-pointer"
+          >
+            {GAME_OPTIONS.map((g) => (
+              <option
+                key={g.id}
+                value={g.id}
+                className="bg-[#0E1117] text-white"
+              >
+                {g.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* 3. Cohort Archetype Dropdown (when on graph view) */}
+      {isGraphCanvasView && (
+        <div className="flex items-center px-2.5 py-1 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs">
+          <span className="text-gray-400 mr-1.5 text-[11px]">Cohort</span>
+          <select
+            aria-label="Filter by player cohort archetype"
             value={archetypeFilter}
             onChange={(e) => onArchetypeChange(e.target.value)}
             className="bg-transparent text-xs text-white font-medium focus:outline-none cursor-pointer"
           >
-            {currentFilters.map((f) => (
-              <option key={f.value} value={f.value} className="bg-[#121212] text-white">
+            {COHORT_OPTIONS.map((f) => (
+              <option
+                key={f.value}
+                value={f.value}
+                className="bg-[#0E1117] text-white"
+              >
                 {f.label}
               </option>
             ))}
@@ -161,32 +144,29 @@ export default function GraphControls({
         </div>
       )}
 
-      {/* 4. 2D / 3D Switcher */}
-      {currentView === "audience-cohorts" && (
+      {/* 4. 2D / 3D Toggle Button */}
+      {isGraphCanvasView && (
         <button
+          type="button"
           onClick={onToggle3D}
-          className={`px-3 py-1.5 rounded-xl text-xs font-medium backdrop-blur-2xl border transition-all ${
+          className={`px-2.5 py-1 rounded-xl text-xs font-medium transition-all ${
             is3D
-              ? "bg-white text-black border-white font-semibold"
-              : "bg-black/50 text-gray-400 border-white/10 hover:text-white"
+              ? "bg-white text-black border border-white font-semibold"
+              : "bg-white/[0.04] border border-white/[0.08] text-gray-300 hover:text-white"
           }`}
         >
           {is3D ? "3D" : "2D"}
         </button>
       )}
 
-      {/* 5. Clean Telemetry Counter */}
-      <div className="flex items-center gap-1.5 bg-black/40 backdrop-blur-2xl px-3 py-1.5 rounded-xl border border-white/10 text-[11px] text-gray-400 font-mono">
-        {currentView === "geo-map" ? (
-          <span>12 Global DMAs Connected</span>
-        ) : (
-          <>
-            <span>{nodeCount} Nodes</span>
-            <span className="text-gray-600">•</span>
-            <span>{edgeCount} Edges</span>
-          </>
-        )}
-      </div>
+      {/* 5. Nodes · Edges Counter Pill */}
+      {isGraphCanvasView && (
+        <div className="hidden xl:flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/[0.03] border border-white/[0.07] text-[11px] text-gray-300 font-mono tabular">
+          <span>{nodeCount}N</span>
+          <span className="text-gray-500">·</span>
+          <span>{edgeCount}E</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,74 +1,386 @@
 [
   {
-    "clan_id": "clan-optic",
-    "name": "OpTic Gaming (Green Wall)",
-    "franchise": "CDL_RANKED",
-    "region": "us-dfw",
-    "member_count": 14500,
-    "tier": "PRO_CHAMPIONS"
+    "clan_id": "crew-001",
+    "name": "Bucket Getters",
+    "franchise": "NBA2K",
+    "region": "Dallas / Fort Worth DMA",
+    "tier": "Rec",
+    "member_count": 50
   },
   {
-    "clan_id": "clan-faze",
-    "name": "FaZe Clan",
-    "franchise": "WARZONE",
-    "region": "us-lax",
-    "member_count": 16200,
-    "tier": "PRO_CHAMPIONS"
+    "clan_id": "crew-002",
+    "name": "Rim Runners Rec",
+    "franchise": "NBA2K",
+    "region": "Washington DC DMA",
+    "tier": "Rec",
+    "member_count": 40
   },
   {
-    "clan_id": "clan-thieves",
-    "name": "100 Thieves (LA Thieves)",
-    "franchise": "CDL_RANKED",
-    "region": "us-lax",
-    "member_count": 9800,
-    "tier": "PRO_ESPORTS"
+    "clan_id": "crew-003",
+    "name": "Dimers Only",
+    "franchise": "NBA2K",
+    "region": "Cleveland DMA",
+    "tier": "Rec",
+    "member_count": 61
   },
   {
-    "clan_id": "clan-falcons",
-    "name": "Team Falcons (WSOW Champions)",
-    "franchise": "WARZONE",
-    "region": "sa-ruh",
-    "member_count": 7200,
-    "tier": "WORLD_SERIES_CHAMPS"
+    "clan_id": "crew-004",
+    "name": "No Fly Zone",
+    "franchise": "NBA2K",
+    "region": "Atlanta DMA",
+    "tier": "Rec",
+    "member_count": 40
   },
   {
-    "clan_id": "clan-subliners",
-    "name": "New York Subliners",
-    "franchise": "CDL_RANKED",
-    "region": "us-nyc",
-    "member_count": 8100,
-    "tier": "PRO_ESPORTS"
+    "clan_id": "crew-005",
+    "name": "Paint Beasts",
+    "franchise": "NBA2K",
+    "region": "Oklahoma City DMA",
+    "tier": "Rec",
+    "member_count": 41
   },
   {
-    "clan_id": "clan-ultra",
-    "name": "Toronto Ultra",
-    "franchise": "CDL_RANKED",
-    "region": "us-nyc",
-    "member_count": 6400,
-    "tier": "PRO_ESPORTS"
+    "clan_id": "crew-006",
+    "name": "Glass Cleaners",
+    "franchise": "NBA2K",
+    "region": "Sacramento DMA",
+    "tier": "Rec",
+    "member_count": 43
   },
   {
-    "clan_id": "clan-taskforce141",
-    "name": "Task Force 141 Milsim",
-    "franchise": "MODERN_WARFARE",
-    "region": "uk-lon",
-    "member_count": 5200,
-    "tier": "COMMUNITY_MILSIM"
+    "clan_id": "crew-007",
+    "name": "Green Machine",
+    "franchise": "NBA2K",
+    "region": "Indianapolis DMA",
+    "tier": "Rec",
+    "member_count": 43
   },
   {
-    "clan_id": "clan-rebirth-demons",
-    "name": "Rebirth Island Demons",
-    "franchise": "WARZONE",
-    "region": "us-chi",
-    "member_count": 11400,
-    "tier": "RESURGENCE_ELITE"
+    "clan_id": "crew-008",
+    "name": "Splash Bros Rec",
+    "franchise": "NBA2K",
+    "region": "Sacramento DMA",
+    "tier": "Rec",
+    "member_count": 53
   },
   {
-    "clan_id": "clan-terminal-snipers",
-    "name": "Intervention Snipers Club",
-    "franchise": "MODERN_WARFARE",
-    "region": "de-ber",
-    "member_count": 4800,
-    "tier": "LEGACY_SNIPERS"
+    "clan_id": "crew-009",
+    "name": "The Rec Sweats",
+    "franchise": "NBA2K",
+    "region": "Indianapolis DMA",
+    "tier": "Rec",
+    "member_count": 38
+  },
+  {
+    "clan_id": "crew-010",
+    "name": "Lob City Legends",
+    "franchise": "NBA2K",
+    "region": "Philadelphia DMA",
+    "tier": "Rec",
+    "member_count": 62
+  },
+  {
+    "clan_id": "crew-011",
+    "name": "Iso Kings",
+    "franchise": "NBA2K",
+    "region": "Indianapolis DMA",
+    "tier": "Rec",
+    "member_count": 40
+  },
+  {
+    "clan_id": "crew-012",
+    "name": "Cheese Factory",
+    "franchise": "NBA2K",
+    "region": "Minneapolis / St. Paul DMA",
+    "tier": "Rec",
+    "member_count": 43
+  },
+  {
+    "clan_id": "crew-013",
+    "name": "Random Rec Survivors",
+    "franchise": "NBA2K",
+    "region": "New Orleans DMA",
+    "tier": "Rec",
+    "member_count": 42
+  },
+  {
+    "clan_id": "crew-014",
+    "name": "Fadeaway Family",
+    "franchise": "NBA2K",
+    "region": "Chicago DMA",
+    "tier": "Rec",
+    "member_count": 73
+  },
+  {
+    "clan_id": "crew-015",
+    "name": "Zig Zag Nation",
+    "franchise": "NBA2K",
+    "region": "Orlando DMA",
+    "tier": "Rec",
+    "member_count": 48
+  },
+  {
+    "clan_id": "crew-016",
+    "name": "Stepback Society",
+    "franchise": "NBA2K",
+    "region": "New York DMA",
+    "tier": "Rec",
+    "member_count": 47
+  },
+  {
+    "clan_id": "crew-017",
+    "name": "Lock & Load",
+    "franchise": "NBA2K",
+    "region": "Chicago DMA",
+    "tier": "Pro-Am",
+    "member_count": 34
+  },
+  {
+    "clan_id": "crew-018",
+    "name": "Stage Sharks",
+    "franchise": "NBA2K",
+    "region": "Milwaukee DMA",
+    "tier": "Pro-Am",
+    "member_count": 26
+  },
+  {
+    "clan_id": "crew-019",
+    "name": "Pro-Am Prophets",
+    "franchise": "NBA2K",
+    "region": "Milwaukee DMA",
+    "tier": "Pro-Am",
+    "member_count": 43
+  },
+  {
+    "clan_id": "crew-020",
+    "name": "Clamp Gods",
+    "franchise": "NBA2K",
+    "region": "Toronto DMA",
+    "tier": "Pro-Am",
+    "member_count": 34
+  },
+  {
+    "clan_id": "crew-021",
+    "name": "Five Out Faithful",
+    "franchise": "NBA2K",
+    "region": "Manila DMA",
+    "tier": "Pro-Am",
+    "member_count": 26
+  },
+  {
+    "clan_id": "crew-022",
+    "name": "Pick & Pop Co.",
+    "franchise": "NBA2K",
+    "region": "Memphis DMA",
+    "tier": "Pro-Am",
+    "member_count": 37
+  },
+  {
+    "clan_id": "crew-023",
+    "name": "Bully Ball Union",
+    "franchise": "NBA2K",
+    "region": "Houston DMA",
+    "tier": "Pro-Am",
+    "member_count": 30
+  },
+  {
+    "clan_id": "crew-024",
+    "name": "Court Vision Collective",
+    "franchise": "NBA2K",
+    "region": "Orlando DMA",
+    "tier": "Pro-Am",
+    "member_count": 32
+  },
+  {
+    "clan_id": "crew-025",
+    "name": "Hoop Dreams Pro-Am",
+    "franchise": "NBA2K",
+    "region": "Philadelphia DMA",
+    "tier": "Pro-Am",
+    "member_count": 24
+  },
+  {
+    "clan_id": "crew-026",
+    "name": "Dunk Meter Mafia",
+    "franchise": "NBA2K",
+    "region": "Memphis DMA",
+    "tier": "Pro-Am",
+    "member_count": 19
+  },
+  {
+    "clan_id": "crew-027",
+    "name": "Takeover Tribe",
+    "franchise": "NBA2K",
+    "region": "Sacramento DMA",
+    "tier": "Pro-Am",
+    "member_count": 30
+  },
+  {
+    "clan_id": "crew-028",
+    "name": "The W Collective",
+    "franchise": "NBA2K",
+    "region": "Washington DC DMA",
+    "tier": "Pro-Am",
+    "member_count": 34
+  },
+  {
+    "clan_id": "crew-029",
+    "name": "Comp Stage Elite",
+    "franchise": "NBA2K",
+    "region": "Portland DMA",
+    "tier": "Comp",
+    "member_count": 22
+  },
+  {
+    "clan_id": "crew-030",
+    "name": "Legend Rep Syndicate",
+    "franchise": "NBA2K",
+    "region": "Houston DMA",
+    "tier": "Comp",
+    "member_count": 16
+  },
+  {
+    "clan_id": "crew-031",
+    "name": "Ankle Breakers Comp",
+    "franchise": "NBA2K",
+    "region": "Washington DC DMA",
+    "tier": "Comp",
+    "member_count": 26
+  },
+  {
+    "clan_id": "crew-032",
+    "name": "Dark Matter Dynasty",
+    "franchise": "NBA2K",
+    "region": "Phoenix DMA",
+    "tier": "Comp",
+    "member_count": 33
+  },
+  {
+    "clan_id": "crew-033",
+    "name": "99 OVR Only",
+    "franchise": "NBA2K",
+    "region": "Oklahoma City DMA",
+    "tier": "Comp",
+    "member_count": 23
+  },
+  {
+    "clan_id": "crew-034",
+    "name": "Posterize Pros",
+    "franchise": "NBA2K",
+    "region": "Denver DMA",
+    "tier": "Comp",
+    "member_count": 21
+  },
+  {
+    "clan_id": "crew-035",
+    "name": "Cap Breaker Crew",
+    "franchise": "NBA2K",
+    "region": "Los Angeles – Inglewood DMA",
+    "tier": "Comp",
+    "member_count": 19
+  },
+  {
+    "clan_id": "crew-036",
+    "name": "Full Court Press Comp",
+    "franchise": "NBA2K",
+    "region": "Charlotte DMA",
+    "tier": "Comp",
+    "member_count": 23
+  },
+  {
+    "clan_id": "crew-037",
+    "name": "2K26 Park Oldheads",
+    "franchise": "NBA2K26",
+    "region": "Oklahoma City DMA",
+    "tier": "Rec",
+    "member_count": 40
+  },
+  {
+    "clan_id": "crew-038",
+    "name": "2K26 Sunset Legends",
+    "franchise": "NBA2K26",
+    "region": "London DMA",
+    "tier": "Pro-Am",
+    "member_count": 32
+  },
+  {
+    "clan_id": "crew-039",
+    "name": "2K26 Holdout Hoopers",
+    "franchise": "NBA2K26",
+    "region": "Milwaukee DMA",
+    "tier": "Rec",
+    "member_count": 35
+  },
+  {
+    "clan_id": "crew-040",
+    "name": "Prior Gen Grinding Squad",
+    "franchise": "NBA2K26",
+    "region": "São Paulo DMA",
+    "tier": "Pro-Am",
+    "member_count": 42
+  },
+  {
+    "clan_id": "crew-041",
+    "name": "2K26 Stage Holdouts",
+    "franchise": "NBA2K26",
+    "region": "Dallas / Fort Worth DMA",
+    "tier": "Comp",
+    "member_count": 32
+  },
+  {
+    "clan_id": "crew-042",
+    "name": "2K26 MyTEAM Vault",
+    "franchise": "NBA2K26",
+    "region": "Minneapolis / St. Paul DMA",
+    "tier": "Rec",
+    "member_count": 31
+  },
+  {
+    "clan_id": "crew-043",
+    "name": "2K26 Rec Captains",
+    "franchise": "NBA2K26",
+    "region": "San Antonio DMA",
+    "tier": "Pro-Am",
+    "member_count": 25
+  },
+  {
+    "clan_id": "crew-044",
+    "name": "2K26 Hall of Fame Crew",
+    "franchise": "NBA2K26",
+    "region": "Portland DMA",
+    "tier": "Comp",
+    "member_count": 34
+  },
+  {
+    "clan_id": "crew-045",
+    "name": "The Bloodline Faction",
+    "franchise": "WWE2K",
+    "region": "Cleveland DMA",
+    "tier": "Comp",
+    "member_count": 26
+  },
+  {
+    "clan_id": "crew-046",
+    "name": "Judgment Day Faction",
+    "franchise": "WWE2K",
+    "region": "Indianapolis DMA",
+    "tier": "Pro-Am",
+    "member_count": 22
+  },
+  {
+    "clan_id": "crew-047",
+    "name": "Attitude Era Revivalists",
+    "franchise": "WWE2K",
+    "region": "Minneapolis / St. Paul DMA",
+    "tier": "Rec",
+    "member_count": 21
+  },
+  {
+    "clan_id": "crew-048",
+    "name": "Wyatt Sicks Society",
+    "franchise": "WWE2K",
+    "region": "Chicago DMA",
+    "tier": "Rec",
+    "member_count": 33
   }
 ]

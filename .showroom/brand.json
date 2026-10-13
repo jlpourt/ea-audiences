@@ -1,0 +1,160 @@
+{
+  "customer": {
+    "name": "2K Games / Take-Two Interactive",
+    "slug": "2k-games-take-two-interactive",
+    "domain": "2k.com",
+    "publicUrl": "https://2k.com",
+    "secondaryUrls": [
+      "https://nba.2k.com",
+      "https://www.take2games.com"
+    ],
+    "pageTitleObserved": "2K Games – Official Website for 2K | Basketball Video Games | NBA 2K",
+    "extractedAt": "2026-10-12",
+    "notice": "Internal Google Cloud EBC demonstration use only. Extracted from public web properties (https://2k.com, https://nba.2k.com, https://www.take2games.com) and repository design system (DESIGN_SYSTEM.md, src/app/globals.css, tailwind.config.js)."
+  },
+  "logos": {
+    "svg_source": "wikimedia_commons",
+    "svg_url": "https://upload.wikimedia.org/wikipedia/commons/6/6a/2K_Sports_Logo.svg",
+    "svg_title": "File:2K Sports Logo.svg",
+    "svg_bytes": "7325",
+    "svg_path": "/Users/jlpourt/CCAI/ea-audiences/.showroom/logos/2k-games-take-two-interactive-company-logo.svg",
+    "png_source": "wikimedia_commons_512px_png",
+    "png_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6a/2K_Sports_Logo.svg/960px-2K_Sports_Logo.svg.png",
+    "png_path": "/Users/jlpourt/CCAI/ea-audiences/.showroom/logos/2k-games-take-two-interactive-disc-logo.png",
+    "repoBrandAssets": {
+      "directory": "/Users/jlpourt/CCAI/ea-audiences/public/brands/2k",
+      "primaryLockup": "/brands/2k/2k-logo.svg",
+      "primaryMarkWhite": "/brands/2k/2k-mark-white.svg",
+      "nba2kVector": "/brands/2k/nba2k-logo.svg",
+      "nba2kWordmarkWhitePng": "/brands/2k/nba2k-wordmark-white.png",
+      "rockstarLogo": "/brands/2k/rockstar-logo.svg",
+      "rockstarSocialClub": "/brands/2k/rockstar-social-club.svg",
+      "takeTwoLogo": "/brands/2k/take-two-logo.svg",
+      "takeTwoLogoWhite": "/brands/2k/take-two-logo-white.svg",
+      "zyngaLogo": "/brands/2k/zynga-logo.svg",
+      "hardwoodTexture": "/brands/2k/art/hardwood-texture.webp",
+      "heroArenaNight": "/brands/2k/art/hero-arena-night.webp"
+    }
+  },
+  "colors": {
+    "primary": "#EA2228",
+    "primaryHover": "#AD171C",
+    "secondary": "#C8905A",
+    "accent": "#F5B400",
+    "background": "#0A0A0C",
+    "surface": "#121216",
+    "surfaceRaised": "#1A1A20",
+    "card": "#121216",
+    "textPrimary": "#F4F1EA",
+    "textMuted": "#979591",
+    "border": "#26262A",
+    "borderHairline": "rgba(255, 255, 255, 0.08)",
+    "semantic": {
+      "success": "#19C37D",
+      "warning": "#F5B400",
+      "danger": "#FF4D5E"
+    },
+    "publishingLabels": {
+      "twokRed": "#EA2228",
+      "twokRedDeep": "#AD171C",
+      "rockstarGold": "#FCAF17",
+      "zyngaBlue": "#2F6FED",
+      "vcGold": "#F5B400",
+      "hardwood": "#C8905A",
+      "hardwoodDeep": "#7A4B24"
+    },
+    "publicWebTokensObserved": {
+      "2kComThemeColor": "#EB1C26",
+      "2kComAccentPrimary": "#E61F27",
+      "2kComAccentSecondary": "#A0000C",
+      "2kComBgPrimary": "#000000",
+      "2kComBgSecondary": "#1A1A1A",
+      "2kComBgElevated": "#1F1F1F",
+      "2kComElevatedBorder": "#333333",
+      "nba2kComThemeColor": "#EC1C23",
+      "take2ComThemeColor": "#1A1A1A"
+    },
+    "auditNotes": [
+      "Primary 2K red token (--twok-red: #EA2228) is extracted directly from public/brands/2k/2k-logo.svg and aligns with 2k.com (--av-accent-primary: #E61F27 / meta theme-color #EB1C26) and nba.2k.com (#EC1C23).",
+      "Minor token drift detected in 4 component files (SeasonJourneySankey.tsx, ActivationDAG.tsx, LiveTelemetryTicker.tsx, NBAMarketMap.tsx) which hardcode #E4002B instead of referencing var(--twok-red) / text-twok-red (#EA2228)."
+    ]
+  },
+  "typography": {
+    "headingFont": "'Inter Tight', 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif",
+    "bodyFont": "'Inter', 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif",
+    "monoFont": "'JetBrains Mono', 'Geist Mono', ui-monospace, SFMono-Regular, monospace",
+    "googleFontsUrl": "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap",
+    "publicWebFontsObserved": {
+      "2k.com": "Montserrat (700 display/titles/labels, 500 body)",
+      "take2games.com": "Gotham SSm (400 Book, 700 Bold)"
+    },
+    "headingWeight": "600",
+    "tracking": "-0.02em (display), -0.012em (title), 0 (body), +0.06em (uppercase captions)",
+    "lineHeight": "1.05 (display), 1.20 (title), 1.50 (body), 1.30 (caption)",
+    "numericDiscipline": "font-variant-numeric: tabular-nums mandatory on all live counts, VC figures, latencies, and countdowns (.tabular, .font-mono)"
+  },
+  "geometry": {
+    "cornerRadius": {
+      "button": "8px",
+      "card": "12px",
+      "input": "8px",
+      "badge": "9999px"
+    },
+    "spacingDensity": "broadcast-arena-dense (14px-16px panel padding, 16px-24px section gap, full-viewport workspace with floating glass drawers)",
+    "containerMaxWidth": "1280px (landing max-w-7xl) / 100vw (graph workspace)",
+    "shadowStyle": "0 24px 60px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.04) inset",
+    "borderWidth": "1px solid rgba(255, 255, 255, 0.08) with 1px top specular highlight gradient"
+  },
+  "patterns": {
+    "buttonStyle": "Solid 2K Red (#EA2228) primary CTA with uppercase JetBrains Mono tracking-wider 600 weight, scale(0.97) on :active (120ms cubic-bezier(0.23, 1, 0.32, 1)), zero neon drop-shadow glow; HoldToConfirm 1.4s linear clip-path fill for live campaign dispatch",
+    "navPattern": "Top broadcast bar with BrandLockup (/brands/2k/2k-logo.svg + Courtside + NBA 2K27 badge) on left, segmented workspace view switcher center, live TakeTwoPlayerGraph status pill and action triggers right",
+    "photoStyle": "Dark broadcast NBA arena at night, maple hardwood court grain at 7% screen blend (/brands/2k/art/hardwood-texture.webp), authentic NBA 2K27 MyTEAM Galaxy Opal pack key art, Crew Re-Up courtside photography, and Vice City / hardwood cross-label key visuals",
+    "logoUsage": "Official vector 2K mark (/brands/2k/2k-logo.svg) in a subtle 2K Red tinted badge container, paired with Take-Two label chips (2K #EA2228, Rockstar #FCAF17, Zynga #2F6FED)",
+    "surfacePosture": "Dark-first arena broadcast mode (--court-black #0A0A0C canvas, --court-ink #121216 elevated panels, .glass backdrop-blur(20px) and .glass-heavy backdrop-blur(28px), never stacking two .glass layers directly)"
+  },
+  "cssVariables": ":root[data-brand=\"2k\"], :root {\n  --brand-primary: #EA2228;\n  --brand-primary-hover: #AD171C;\n  --brand-secondary: #C8905A;\n  --brand-accent: #F5B400;\n  --brand-bg: #0A0A0C;\n  --brand-surface: #121216;\n  --brand-text: #F4F1EA;\n  --brand-text-muted: rgba(244, 241, 234, 0.62);\n  --brand-border: rgba(255, 255, 255, 0.08);\n  --brand-font-heading: var(--font-inter-tight), 'Inter Tight', 'Montserrat', sans-serif;\n  --brand-font-body: var(--font-inter), 'Inter', 'Montserrat', sans-serif;\n  --brand-radius-card: 12px;\n  --brand-radius-btn: 8px;\n  --court-black: #0A0A0C;\n  --court-ink: #121216;\n  --court-line: rgba(255, 255, 255, 0.08);\n  --chalk: #F4F1EA;\n  --chalk-dim: rgba(244, 241, 234, 0.62);\n  --twok-red: #EA2228;\n  --twok-red-deep: #AD171C;\n  --hardwood: #C8905A;\n  --hardwood-deep: #7A4B24;\n  --vc-gold: #F5B400;\n  --rockstar-gold: #FCAF17;\n  --zynga-blue: #2F6FED;\n  --win-green: #19C37D;\n  --loss-red: #FF4D5E;\n}",
+  "tailwindConfig": {
+    "theme": {
+      "extend": {
+        "colors": {
+          "background": "var(--court-black)",
+          "foreground": "var(--chalk)",
+          "surface": "var(--court-ink)",
+          "surface-raised": "#1A1A20",
+          "surface-border": "rgba(255, 255, 255, 0.08)",
+          "court-black": "#0A0A0C",
+          "court-ink": "#121216",
+          "court-line": "rgba(255, 255, 255, 0.08)",
+          "chalk": "#F4F1EA",
+          "chalk-dim": "rgba(244, 241, 234, 0.62)",
+          "twok-red": "#EA2228",
+          "twok-red-deep": "#AD171C",
+          "hardwood": "#C8905A",
+          "hardwood-deep": "#7A4B24",
+          "vc-gold": "#F5B400",
+          "rockstar-gold": "#FCAF17",
+          "zynga-blue": "#2F6FED",
+          "win-green": "#19C37D",
+          "loss-red": "#FF4D5E",
+          "brand": {
+            "primary": "#EA2228",
+            "secondary": "#C8905A",
+            "accent": "#F5B400",
+            "bg": "#0A0A0C",
+            "surface": "#121216",
+            "border": "rgba(255, 255, 255, 0.08)"
+          }
+        },
+        "fontFamily": {
+          "display": ["var(--font-display)", "Inter Tight", "Inter", "sans-serif"],
+          "sans": ["var(--font-sans)", "Inter", "sans-serif"],
+          "mono": ["var(--font-mono)", "JetBrains Mono", "monospace"]
+        },
+        "borderRadius": {
+          "brand-card": "12px",
+          "brand-btn": "8px"
+        }
+      }
+    }
+  }
+}

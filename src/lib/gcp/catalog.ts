@@ -15,11 +15,14 @@
  * cached — they must reflect the database on every request.
  */
 import { runRawGql, SpannerUnavailableError } from "./spanner-client";
+import type { TakeTwoLabel } from "../types";
 
 export interface GameRow {
   game_id: string;
   title: string;
   franchise: string;
+  /** Take-Two publishing label: 2K | ROCKSTAR | ZYNGA. */
+  label: TakeTwoLabel;
   genre: string | null;
   active_players: number | null;
   is_parent_hub: boolean;
@@ -58,11 +61,13 @@ export interface CreatorRow {
   avatar: string | null;
 }
 
+/** A Crew (table name stays `Clans` for schema compatibility). */
 export interface ClanRow {
   clan_id: string;
   name: string;
   franchise: string;
   region: string | null;
+  /** Rec | Pro-Am | Comp */
   tier: string | null;
   member_count: number | null;
 }
@@ -74,33 +79,55 @@ export interface IdentityRow {
   confidence_score: number;
 }
 
+/** The property graph name declared in schema/twok_graph_db.ddl. */
+export const GRAPH_NAME = "TakeTwoPlayerGraph";
+
 /**
- * The Call of Duty mode roots / hubs (4 relevant frontline titles).
+ * Franchise root / hub game ids (one per franchise, `is_parent_hub = true`).
  *
  * Deliberately a lookup table rather than `game-${franchise.toLowerCase()}`.
- * The ids are normalised AND the derivation is explicit, so any rename fails loudly
- * here instead of quietly dropping edges.
+ * The ids are canonical in the Codex AND the derivation is explicit, so any
+ * rename fails loudly here instead of quietly dropping edges.
  */
 export const HUB_ID_BY_FRANCHISE: Record<string, string> = {
-  ALL: "game-cod-warzone",
-  COD: "game-cod-warzone",
-  WARZONE: "game-cod-warzone",
-  BLACK_OPS: "game-cod-bo7",
-  BO7: "game-cod-bo7",
-  MODERN_WARFARE: "game-cod-mw3",
-  CDL_RANKED: "game-cod-cdl",
-  COD_MOBILE: "game-cod-mobile",
+  ALL: "game-nba2k27",
+  NBA2K: "game-nba2k27",
+  NBA2K26: "game-nba2k26",
+  NBA2KMOBILE: "game-nba2k-mobile",
+  WWE2K: "game-wwe2k25",
+  PGA2K: "game-pga2k25",
+  TOPSPIN: "game-topspin2k25",
+  CIV7: "game-civ7",
+  BL4: "game-bl4",
+  MAFIA: "game-mafia-toc",
 };
 
+/** Franchise accents (2K Courtside). Hex because they paint canvas / WebGL nodes. */
 export const FRANCHISE_COLORS: Record<string, string> = {
-  ALL: "#F59E0B",
-  COD: "#F59E0B",
-  WARZONE: "#F59E0B",
-  BLACK_OPS: "#FF5722",
-  MODERN_WARFARE: "#10B981",
-  CDL_RANKED: "#6366F1",
-  COD_MOBILE: "#06B6D4",
+  ALL: "#E4002B", // --twok-red
+  NBA2K: "#E4002B", // --twok-red (NBA 2K27)
+  NBA2K26: "#FF6B35", // NBA 2K26 Holdout / Veteran Bridge Amber-Orange
+  NBA2KMOBILE: "#00D2FF", // NBA 2K Mobile Electric Cyan
+  WWE2K: "#F5B400", // WWE 2K25 Championship Gold
+  PGA2K: "#10B981", // PGA TOUR 2K25 Emerald Green
+  TOPSPIN: "#1FA8A0", // TopSpin 2K25 Court Teal
+  CIV7: "#A855F7", // Civilization VII Imperial Violet
+  BL4: "#F28C28", // Borderlands 4 Vault Orange
+  MAFIA: "#8C6E4A", // Mafia Bronze
 };
+
+/** Division cluster colours for the cross-franchise graph view. */
+export const LABEL_COLORS: Record<TakeTwoLabel, string> = {
+  "2K": "#E4002B",
+  "2K_SPORTS": "#F5B400",
+  "2K_CORE": "#00D2FF",
+};
+
+const VALID_LABELS: readonly TakeTwoLabel[] = ["2K", "2K_SPORTS", "2K_CORE"];
+
+function toLabel(v: any): TakeTwoLabel {
+  return VALID_LABELS.includes(v) ? (v as TakeTwoLabel) : "2K";
+}
 
 function num(v: any): number {
   if (v === null || v === undefined) return 0;
@@ -123,7 +150,7 @@ let creatorsCache: CreatorRow[] | null = null;
 export async function getGames(): Promise<GameRow[]> {
   if (gamesCache && process.env.NODE_ENV !== "development") return gamesCache;
   const rows = await runRawGql(
-    `SELECT game_id, title, franchise, genre, active_players, is_parent_hub,
+    `SELECT game_id, title, franchise, label, genre, active_players, is_parent_hub,
             parent_game_id, release_date, lifecycle_status, monetization_model,
             current_season
      FROM Games ORDER BY is_parent_hub DESC, release_date DESC`
@@ -132,6 +159,7 @@ export async function getGames(): Promise<GameRow[]> {
     game_id: r.game_id,
     title: r.title,
     franchise: r.franchise,
+    label: toLabel(r.label),
     genre: r.genre ?? null,
     active_players: nullableNum(r.active_players),
     is_parent_hub: r.is_parent_hub === true,
@@ -142,6 +170,12 @@ export async function getGames(): Promise<GameRow[]> {
     current_season: r.current_season ?? null,
   }));
   return gamesCache;
+}
+
+/** Games published under one Take-Two label (2K / ROCKSTAR / ZYNGA). */
+export async function getGamesByLabel(label: TakeTwoLabel): Promise<GameRow[]> {
+  const games = await getGames();
+  return games.filter((g) => g.label === label);
 }
 
 export async function getOffers(): Promise<OfferRow[]> {
@@ -193,21 +227,16 @@ export async function getCreators(): Promise<CreatorRow[]> {
 
 let clansCache: ClanRow[] | null = null;
 
+/**
+ * Crews. There is deliberately no local fallback here: a Spanner failure must
+ * surface as an error rather than as a plausible-looking invented roster.
+ */
 export async function getClans(): Promise<ClanRow[]> {
   if (clansCache) return clansCache;
   const rows = await runRawGql(
     `SELECT clan_id, name, franchise, region, tier, member_count
      FROM Clans ORDER BY member_count DESC`
-  ).catch(() => {
-    // Fallback if Spanner query times out
-    return [
-      { clan_id: "clan-optic", name: "OpTic Gaming (Green Wall)", franchise: "CDL_RANKED", region: "us-dfw", member_count: 14500, tier: "PRO_CHAMPIONS" },
-      { clan_id: "clan-faze", name: "FaZe Clan", franchise: "WARZONE", region: "us-lax", member_count: 16200, tier: "PRO_CHAMPIONS" },
-      { clan_id: "clan-thieves", name: "100 Thieves (LA Thieves)", franchise: "CDL_RANKED", region: "us-lax", member_count: 9800, tier: "PRO_ESPORTS" },
-      { clan_id: "clan-taskforce141", name: "Task Force 141 Milsim", franchise: "MODERN_WARFARE", region: "uk-lon", member_count: 5200, tier: "COMMUNITY_MILSIM" },
-      { clan_id: "clan-rebirth-demons", name: "Rebirth Island Demons", franchise: "WARZONE", region: "us-chi", member_count: 11400, tier: "RESURGENCE_ELITE" },
-    ];
-  });
+  );
   clansCache = rows.map((r: any) => ({
     clan_id: r.clan_id,
     name: r.name,
@@ -288,9 +317,10 @@ export function mapPlayer(r: any) {
  * Players for the macro/cohort canvas.
  *
  * `franchise` matches players for whom the title is primary OR merely played —
- * a marketer asking for "WoW players" means everyone who plays WoW, and
- * restricting to `primary_franchise` would exclude exactly the cross-title
- * Battle.net accounts the whole story depends on.
+ * a marketer asking for "GTA Online players" means everyone who plays GTA
+ * Online, and restricting to `primary_franchise` would exclude exactly the
+ * cross-label 2K Account ↔ Rockstar Social Club players the whole story
+ * depends on.
  */
 export async function getPlayersForView(opts: {
   franchise?: string;
@@ -299,20 +329,25 @@ export async function getPlayersForView(opts: {
 }) {
   const { franchise, archetype, limit = 450 } = opts;
   const where: string[] = [];
+  const params: Record<string, any> = {
+    limit: Math.max(1, Math.floor(limit)),
+  };
 
   if (franchise && franchise !== "ALL") {
-    const f = franchise.replace(/'/g, "");
-    where.push(`(primary_franchise = '${f}' OR '${f}' IN UNNEST(franchises_played))`);
+    where.push(`(primary_franchise = @franchise OR @franchise IN UNNEST(franchises_played))`);
+    params.franchise = franchise;
   }
   if (archetype && archetype !== "ALL") {
-    where.push(`primary_archetype = '${archetype.replace(/'/g, "")}'`);
+    where.push(`primary_archetype = @archetype`);
+    params.archetype = archetype;
   }
 
   const rows = await runRawGql(
     `SELECT ${PLAYER_COLUMNS} FROM Players
      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
      ORDER BY player_id ASC
-     LIMIT ${Math.max(1, Math.floor(limit))}`
+     LIMIT @limit`,
+    params
   );
   return rows.map(mapPlayer);
 }
@@ -320,7 +355,8 @@ export async function getPlayersForView(opts: {
 export async function getPlayerById(playerId: string) {
   const rows = await runRawGql(
     `SELECT ${PLAYER_COLUMNS} FROM Players
-     WHERE player_id = '${playerId.replace(/'/g, "")}' LIMIT 1`
+     WHERE player_id = @playerId LIMIT 1`,
+    { playerId }
   );
   return rows.length ? mapPlayer(rows[0]) : null;
 }
@@ -330,13 +366,14 @@ export async function getIdentitiesForPlayer(
   playerId: string
 ): Promise<IdentityRow[]> {
   const rows = await runRawGql(
-    `GRAPH ABKPlayerGraph
+    `GRAPH ${GRAPH_NAME}
      MATCH (p:Player)-[h:HAS_IDENTITY]->(i:Identity)
-     WHERE p.player_id = '${playerId.replace(/'/g, "")}'
+     WHERE p.player_id = @playerId
      RETURN i.identity_id AS identity_id, i.platform AS platform,
             i.platform_handle AS platform_handle,
             h.confidence_score AS confidence_score
-     ORDER BY confidence_score DESC`
+     ORDER BY confidence_score DESC`,
+    { playerId }
   );
   return rows.map((r: any) => ({
     identity_id: r.identity_id,
