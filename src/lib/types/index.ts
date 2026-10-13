@@ -286,7 +286,30 @@ export interface SituationalTrigger {
   timestamp: string;
 }
 
-export type ContagionDriver = "CREW_CAPTAIN" | "CREATOR_STREAM" | "COUNTERFACTUAL" | "NONE";
+export type FSMState =
+  | "PURCHASED"
+  | "ENGAGED_FREE"
+  | "EVALUATING"
+  | "ABANDONED"
+  | "BOYCOTT";
+
+export type ContagionDriver =
+  | "CREW_CAPTAIN"
+  | "CREATOR_STREAM"
+  | "REDDIT_THREAD"
+  | "COUNTERFACTUAL"
+  | "NONE";
+
+export interface RedditEchoItem {
+  subreddit: string;
+  title: string;
+  url?: string;
+  sentiment: "BULLISH" | "MIXED" | "BACKLASH";
+  score: number;
+  snippet: string;
+  swarm_echo_count?: number;
+  r2_flips_driven?: number;
+}
 
 export interface CreatorBroadcast {
   creator_id: string;
@@ -305,11 +328,15 @@ export interface SwarmCrowdAgent {
   myplayer_ovr: number;
   crew_name: string;
   creator_handle: string;
-  round1_state: "PURCHASED" | "ENGAGED_FREE" | "EVALUATING" | "ABANDONED" | "BOYCOTT";
-  final_fsm_state: "PURCHASED" | "ENGAGED_FREE" | "EVALUATING" | "ABANDONED" | "BOYCOTT";
+  round1_state: FSMState;
+  final_fsm_state: FSMState;
+  round3_state?: FSMState;
+  round3_flipped?: boolean;
+  verbatim_quote?: string;
   willingness_to_pay_usd: number;
   contagion_flipped: boolean;
   contagion_driver: ContagionDriver;
+  contagion_source_tag?: string;
 }
 
 export interface MigrationCurvePoint {
@@ -323,19 +350,26 @@ export interface FocusGroupReaction {
   archetype: Archetype | string;
   gamer_tag?: string;
   player_id?: string;
+  myplayer_ovr?: number;
   crew_name?: string;
   crew_tier?: string;
   crew_role?: string;
   creator_handle?: string;
   willingness_to_pay_usd: number;
   churn_risk_score: number;
-  final_fsm_state: "PURCHASED" | "ENGAGED_FREE" | "EVALUATING" | "ABANDONED" | "BOYCOTT";
-  round1_fsm_state?: "PURCHASED" | "ENGAGED_FREE" | "EVALUATING" | "ABANDONED" | "BOYCOTT";
+  final_fsm_state: FSMState;
+  round1_fsm_state?: FSMState;
   round1_quote?: string;
   round1_wtp_usd?: number;
   contagion_flipped?: boolean;
   contagion_driver?: ContagionDriver;
   contagion_source?: string;
+  contagion_source_tag?: string;
+  contagion_source_snippet?: string;
+  round3_fsm_state?: FSMState;
+  round3_quote?: string;
+  round3_wtp_usd?: number;
+  round3_flipped?: boolean;
   authenticity_rating: number;
   verbatim_quote: string;
   sentiment_score: number;

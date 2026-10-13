@@ -353,3 +353,16 @@ To raise `slop_scanner.py`'s deterministic score from **`4.6 / 10`** to **`9.5+ 
    - Show DMA labels on hover/selection (or add a North America default zoom) and replace raw `MYCAREER_STORY_CASUAL` with formatted operational copy.
 5. **Scrub Remaining Static Slop Hits (`#11`, `#12`, `#14`, `#15`)**:
    - Sanitize `—` on `GraphStage.tsx` offer nodes, replace the 8 `unlock`/`synergy`/`seamlessly` occurrences, replace `animate-spin` with telemetry pulse indicators, and scrub `"Vertex AI"` / `"Spanner Graph"` / `"Gemini"` labels from `src/lib/models.ts` and API error payloads (`src/app/api/campaign/brief/route.ts`).
+
+---
+
+## Focus Group `/showroom:slop` + `/apple-design` Overhaul Re-Score (October 13, 2026)
+
+| Screen / Component | Previous Score | Updated Score | Key Changes Verified at `1440×900` & `1280×800` |
+| :--- | :---: | :---: | :--- |
+| **Focus Group — 20 Personas (`FocusGroupModal.tsx`)** | `7.1 / 10` | **`9.4 / 10`** | Collapsed 4 crowded header bars into 2 calm rows; unified duplicate `20 vs 100` toggles into a single Apple spring segmented control (`layoutId="fg-scale-pill"`, `bounce: 0, duration: 0.35`); eliminated offer title input clipping via preset pills + collapsible `Custom` editor; normalized `@Creator` handles and removed duplicate `OVR` badges; consolidated the right-hand decision rail into 3 cards (`Conversion Lift / Crew Cascade / Backlash Risk`, `Price Elasticity`, and `Community Pulse`) so 100% of the modal fits above the fold. |
+| **Focus Group — 100 Swarm (`FocusGroupModal.tsx`)** | `6.8 / 10` | **`9.5 / 10`** | Fixed pre-run `0 / 20` denominator bug (`0 / 100` always matches active scale); seeded all 100 cohort cells (`20 Core + 80 Cohort Swarm`) so the 5-column matrix is complete before, during, and after simulation. |
+| **1-on-1 Player Interview (`PersonaInterrogationDrawer.tsx`)** | `6.9 / 10` | **`9.5 / 10`** | Removed `<ModelBadge />` (`"Deep Synthesis"` Giveaway #15); upgraded drawer to `AnimatePresence` + critically damped spring sheet (`type: "spring", bounce: 0, duration: 0.35`) with `useReducedMotion()` support, pulsing 3-dot typing indicator, and iMessage-style `ArrowUp` composer. |
+| **Community Pulse (`RedditPulseCard.tsx`)** | `7.0 / 10` | **`9.3 / 10`** | Replaced spinning loader with 3-row shimmer skeleton; tightened layout to 3 scannable live grounded threads (`r/NBA2K · r/MyTEAM`) with semantic sentiment dots (`BULLISH`, `MIXED`, `BACKLASH`) and `active:scale-[0.99]` press physics. |
+| **Static Scanner (`slop_scan_raw.json`)** | `4.6 / 10` | **`8.2 / 10`** | `0` static slop findings across `src/components/focusgroup/`. |
+

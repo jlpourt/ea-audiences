@@ -243,8 +243,8 @@ How do you react to this offer at $${priceUsd.toFixed(2)} in Round 1 (before see
 }
 
 /**
- * Builds the prompt for the 3 flagship 2K Creator Megaphone broadcasts (@Agent00, @Troydan, @DBG)
- * reacting to the proposed offer and any active Counterfactual injection.
+ * Builds the prompt for the 3 flagship 2K Creator Megaphone broadcasts grounded in
+ * `TakeTwoPlayerGraph` (`FOLLOWS_CREATOR` edges) reacting to the proposed offer.
  */
 export function buildCreatorBroadcastPrompt(
   offerTitle: string,
@@ -252,9 +252,45 @@ export function buildCreatorBroadcastPrompt(
   franchise: string,
   r1BuyCount: number,
   r1BoycottCount: number,
-  counterfactualEvent?: string | null
+  counterfactualEvent?: string | null,
+  liveCreators?: Array<{
+    creator_id: string;
+    handle: string;
+    name: string;
+    platform: string;
+    followers: number;
+  }>
 ): { system: string; prompt: string } {
-  const system = `You simulate live stream and YouTube reactions from top NBA 2K & 2K catalog creators (@Agent00, @Troydan, @DBG) reacting to a new in-game 2K offer.
+  const creators =
+    liveCreators && liveCreators.length >= 3
+      ? liveCreators.slice(0, 3)
+      : [
+          {
+            creator_id: "creator-agent00",
+            handle: "@Agent00",
+            name: "Agent 00",
+            platform: "Twitch & YouTube",
+            followers: 2600000,
+          },
+          {
+            creator_id: "creator-chrissmoove",
+            handle: "@ChrisSmoove",
+            name: "Chris Smoove",
+            platform: "YouTube",
+            followers: 3100000,
+          },
+          {
+            creator_id: "creator-kot4q",
+            handle: "@KOT4Q",
+            name: "Kenny Beecham",
+            platform: "YouTube",
+            followers: 1850000,
+          },
+        ];
+
+  const system = `You simulate live stream and YouTube reactions from top NBA 2K & 2K catalog creators (${creators
+    .map((c) => c.handle)
+    .join(", ")}) queried from TakeTwoPlayerGraph reacting to a new in-game 2K offer.
 Keep every headline punchy (max 14 words), authentic to 2K community culture (Park, Rec, MyTEAM pack odds, Cap Breakers, 2K26 to 2K27 upgrade value), and free of em-dashes.`;
 
   const prompt = `Offer under live stream review:
@@ -264,41 +300,30 @@ Franchise: ${franchise}
 Round 1 Community Pulse: ${r1BuyCount}/20 buying, ${r1BoycottCount}/20 boycotting.
 ${counterfactualEvent ? `Live Event / Patch Injection: "${counterfactualEvent}"` : "No counterfactual bonus active."}
 
-Generate strict JSON for 3 creators:
-1. creator-agent00 (@Agent00 · Agent 00 · Twitch & YouTube · 2.6M followers · Park & Crew focus)
-2. creator-troydan (@Troydan · Troydan · YouTube · 3.1M followers · MyTEAM pack openings)
-3. creator-dbg (@DBG · DBG · YouTube · 1.85M followers · Build Lab & VC value math)
+Generate strict JSON for these 3 Spanner Graph creators:
+${creators
+  .map(
+    (c, idx) =>
+      `${idx + 1}. ${c.creator_id} (${c.handle} · ${c.name} · ${c.platform} · ${c.followers.toLocaleString()} reach)`
+  )
+  .join("\n")}
 
 Output strict JSON:
 {
   "broadcasts": [
-    {
-      "creator_id": "creator-agent00",
-      "handle": "@Agent00",
-      "name": "Agent 00",
-      "platform": "Twitch",
+${creators
+  .map(
+    (c) => `    {
+      "creator_id": "${c.creator_id}",
+      "handle": "${c.handle}",
+      "name": "${c.name}",
+      "platform": "${c.platform}",
       "stance": "ENDORSE" | "MIXED" | "CALLOUT",
       "headline": "<max 14 words authentic stream reaction>",
-      "influence_reach": 2600000
-    },
-    {
-      "creator_id": "creator-troydan",
-      "handle": "@Troydan",
-      "name": "Troydan",
-      "platform": "YouTube",
-      "stance": "ENDORSE" | "MIXED" | "CALLOUT",
-      "headline": "<max 14 words authentic stream reaction>",
-      "influence_reach": 3100000
-    },
-    {
-      "creator_id": "creator-dbg",
-      "handle": "@DBG",
-      "name": "DBG",
-      "platform": "YouTube",
-      "stance": "ENDORSE" | "MIXED" | "CALLOUT",
-      "headline": "<max 14 words authentic stream reaction>",
-      "influence_reach": 1850000
-    }
+      "influence_reach": ${c.followers}
+    }`
+  )
+  .join(",\n")}
   ]
 }`;
 
@@ -306,9 +331,11 @@ Output strict JSON:
 }
 
 /**
- * Builds the Round 2 Social Contagion prompt where the 20 Core Personas see
- * what their Crew Captain (`MEMBER_OF_CLAN`) and Followed 2K Creator (`FOLLOWS_CREATOR`)
- * did in Round 1, plus any God's-Eye Counterfactual Injection, and update their verdict.
+ * Builds the Round 2 Dual-Platform Social Contagion prompt where the 20 Core Personas see:
+ * 1. Their exact Crew Captain's Round 1 verdict and verbatim quote (`MEMBER_OF_CLAN` edge)
+ * 2. Their followed 2K Creator's live stream broadcast (`FOLLOWS_CREATOR` edge)
+ * 3. Live community threads on `r/NBA2K` / `r/MyTEAM` (`REDDIT_THREAD` dual-platform interplay)
+ * 4. Any active Counterfactual Injection
  */
 export function buildContagionRound2Prompt(
   personasWithR1: Array<{
@@ -325,39 +352,70 @@ export function buildContagionRound2Prompt(
     round1_state: string;
     round1_wtp: number;
     round1_quote: string;
+    peer_captain_tag?: string;
+    peer_captain_r1_state?: string;
+    peer_captain_r1_quote?: string;
+    followed_creator_broadcast?: {
+      handle: string;
+      stance: string;
+      headline: string;
+    };
   }>,
   offerTitle: string,
   priceUsd: number,
   franchise: string,
   creatorBroadcasts: Array<{ handle: string; stance: string; headline: string }>,
   crewCaptainActionSummary: string,
-  counterfactualEvent?: string | null
+  counterfactualEvent?: string | null,
+  redditThreads?: Array<{
+    subreddit: string;
+    title: string;
+    sentiment: string;
+    score: number;
+    snippet: string;
+  }>
 ): { system: string; prompt: string } {
-  const system = `You are the 2K Courtside Social Contagion Engine modeling Round 2 peer & creator influence across TakeTwoPlayerGraph edges (MEMBER_OF_CLAN and FOLLOWS_CREATOR).
-In NBA 2K, players do not make isolated decisions:
-1. If a player's Rec/Pro-Am Crew Captain upgrades to NBA 2K27 or buys a Crew Re-Up bundle (or if a Squad VC bonus is injected), hesitant EVALUATING/ABANDONED squadmates experience strong FOMO ("can't leave my 5-stack behind in 2K26 or sub-85 Rec") and flip to PURCHASED (3.1x Crew Contagion Multiplier).
-2. Conversely, if an offer is an overpriced pack ($19.99+ without guaranteed odds) and @Troydan or @DBG calls out the pack odds on stream, EVALUATING players cascade into BOYCOTT or ABANDONED.
-3. If a Counterfactual Live Event is injected (e.g. +15K VC Squad Bonus, Guaranteed Opal Topper, Creator Co-Stream Drop, or 2K26 Cap Breaker Carryover), players whose friction point was solved flip toward PURCHASED or EVALUATING.
+  const system = `You are the 2K Courtside Dual-Platform Social Contagion Engine modeling Round 2 peer, creator, and Reddit community influence across TakeTwoPlayerGraph edges (MEMBER_OF_CLAN and FOLLOWS_CREATOR) and live r/NBA2K & r/MyTEAM threads.
+In NBA 2K, players react to three distinct social channels between Round 1 and Round 2:
+1. CREW_CAPTAIN (MEMBER_OF_CLAN peer edge): Each persona sees their own Crew Captain's exact Round 1 state and verbatim quote (peer_captain_tag, peer_captain_r1_state, peer_captain_r1_quote). If their Captain locked in PURCHASED (or rallied the 5-stack Rec/Pro-Am roster), hesitant EVALUATING or ABANDONED squadmates feel FOMO ("can't leave my 5-stack behind") and organically flip to PURCHASED. Conversely, if their Captain boycotted, wavering squadmates may hold back.
+2. CREATOR_STREAM (FOLLOWS_CREATOR edge): Each persona watches their followed 2K Creator's stream broadcast (followed_creator_broadcast). Strong ENDORSE or CALLOUT headlines sway followers whose archetype aligns with that creator.
+3. REDDIT_THREAD (r/NBA2K & r/MyTEAM Topic Community): High-upvote Reddit threads exposing pack odds, VC value math, or celebrating loyalty upgrade value can push theorycrafters, tilt-risk players, and casuals into BOYCOTT, EVALUATING, or PURCHASED.
+4. COUNTERFACTUAL: If a live event / patch sweetener is active, players whose specific friction point is solved flip organically.
 
-Keep quotes concise (1 sentence, max 18 words, zero em-dashes) and explicitly reference their Crew, Captain, Creator handle, or the injected live event when a player flips!`;
+Evaluate each of the 20 personas organically based on their archetype, telemetry, Round 1 state, and specific social graph inputs. Do NOT force a fixed quota of flips.
+Keep quotes concise (1 sentence, max 18 words, zero em-dashes) and explicitly reference their Crew Captain (@tag), Creator handle (@handle), or Reddit thread (r/NBA2K or r/MyTEAM) when a persona flips!`;
+
+  const redditSection =
+    redditThreads && redditThreads.length > 0
+      ? redditThreads
+          .map(
+            (t, idx) =>
+              `${idx + 1}. [${t.subreddit} · ${t.sentiment} · ▲${t.score}] "${t.title}" — ${t.snippet}`
+          )
+          .join("\n")
+      : "No live Reddit threads active.";
 
   const prompt = `Offer: "${offerTitle}" at $${priceUsd.toFixed(2)} (${franchise})
 ${counterfactualEvent ? `ACTIVE COUNTERFACTUAL INJECTION: "${counterfactualEvent}"` : "Counterfactual Injection: None (Baseline)"}
 
-Live Creator Megaphone Broadcasts:
+World 1 — Live Creator Stream Megaphone Broadcasts (FOLLOWS_CREATOR):
 ${creatorBroadcasts.map((c) => `- ${c.handle} [${c.stance}]: "${c.headline}"`).join("\n")}
 
-Crew Captain & Squad Signal (Round 1):
+World 2 — Live Reddit Community Pulse (r/NBA2K & r/MyTEAM):
+${redditSection}
+
+Crew Captain & Squad Signal Summary (MEMBER_OF_CLAN):
 ${crewCaptainActionSummary}
 
-Here are the 20 Core Personas and their Round 1 isolated verdicts:
+Here are the 20 Core Personas with their Round 1 isolated verdicts AND their exact 1-hop Crew Captain R1 quote & Followed Creator stream:
 ${JSON.stringify(personasWithR1, null, 2)}
 
-Simulate Round 2 (Social Contagion Pass) for all 20 personas. Realistic contagion rules:
-- Between 4 and 9 personas should flip their state in Round 2 due to Crew Captain peer pressure, Creator stream callouts/endorsements, or the active Counterfactual Injection.
+Simulate Round 2 (Dual-Platform Social Contagion Pass) for all 20 personas:
+- Determine organically which personas flip their state from round1_state based on their peer_captain_r1_quote, followed_creator_broadcast, live Reddit threads, or counterfactual event.
 - Set "contagion_flipped": true ONLY if final_fsm_state changed from round1_state.
-- Set "contagion_driver" to "CREW_CAPTAIN", "CREATOR_STREAM", "COUNTERFACTUAL", or "NONE".
-- Set "contagion_source" to the specific Crew name (e.g. "Bucket Getters Captain"), Creator handle (e.g. "@Agent00"), or Counterfactual label that drove the shift.
+- Set "contagion_driver" to "CREW_CAPTAIN", "CREATOR_STREAM", "REDDIT_THREAD", "COUNTERFACTUAL", or "NONE" (use "NONE" if contagion_flipped is false).
+- Set "contagion_source_tag" to the exact handle or subreddit that drove the flip (e.g. "@DimeDropper_HQ", "@Agent00", "r/NBA2K", "r/MyTEAM", or "" if not flipped).
+- Set "contagion_source_snippet" to a short verbatim snippet (max 12 words) of the Captain quote, Creator headline, or Reddit thread that caused the flip (or "" if not flipped).
 
 Return strict JSON:
 {
@@ -366,11 +424,12 @@ Return strict JSON:
       "index": 0,
       "final_fsm_state": "PURCHASED" | "ENGAGED_FREE" | "EVALUATING" | "ABANDONED" | "BOYCOTT",
       "willingness_to_pay_usd": <number>,
-      "verbatim_quote": "<1 concise sentence referencing Crew/Creator/Event if flipped>",
+      "verbatim_quote": "<1 concise sentence referencing @Captain, @Creator, or r/NBA2K if flipped>",
       "sentiment_score": <number -1.0 to 1.0>,
       "contagion_flipped": <boolean>,
-      "contagion_driver": "CREW_CAPTAIN" | "CREATOR_STREAM" | "COUNTERFACTUAL" | "NONE",
-      "contagion_source": "<string>"
+      "contagion_driver": "CREW_CAPTAIN" | "CREATOR_STREAM" | "REDDIT_THREAD" | "COUNTERFACTUAL" | "NONE",
+      "contagion_source_tag": "<string>",
+      "contagion_source_snippet": "<string>"
     }
   ]
 }`;
@@ -380,7 +439,7 @@ Return strict JSON:
 
 /**
  * Builds the fast micro-batch prompt for 20 Crowd Swarm Agents (`gemini-3.5-flash-lite`)
- * to scale the Focus Group from N=20 to N=100 Swarm Scale.
+ * to scale the Focus Group from N=20 to N=100 Swarm Scale with dual-platform contagion and verbatim quotes.
  */
 export function buildCrowdSwarmBatchPrompt(
   batchPlayers: Array<{
@@ -396,18 +455,20 @@ export function buildCrowdSwarmBatchPrompt(
   priceUsd: number,
   franchise: string,
   creatorStanceSummary: string,
-  counterfactualEvent?: string | null
+  counterfactualEvent?: string | null,
+  redditSummary?: string
 ): { system: string; prompt: string } {
-  const system = `You evaluate a batch of 20 live NBA 2K / 2K catalog players from TakeTwoPlayerGraph for both Round 1 (isolated) and Round 2 (after Crew & Creator contagion). Output compact, strict JSON.`;
+  const system = `You evaluate a batch of 20 live NBA 2K / 2K catalog players from TakeTwoPlayerGraph for both Round 1 (isolated) and Round 2 (after Crew Captain, Creator stream, and r/NBA2K Reddit thread contagion). Output compact, strict JSON.`;
 
   const prompt = `Offer: "${offerTitle}" at $${priceUsd.toFixed(2)} (${franchise})
 Creator & Crew Contagion Context: ${creatorStanceSummary}
+${redditSummary ? `Live Reddit Pulse (r/NBA2K & r/MyTEAM): ${redditSummary}` : ""}
 ${counterfactualEvent ? `Active Counterfactual Event: "${counterfactualEvent}"` : ""}
 
 Players (${batchPlayers.length}):
 ${JSON.stringify(batchPlayers)}
 
-For each player in the exact same order, return their Round 1 state, Round 2 final_fsm_state, WTP, and whether Crew/Creator/Counterfactual contagion flipped them:
+For each player in the exact same order, return their Round 1 state, Round 2 final_fsm_state, WTP, whether Crew/Creator/Reddit/Counterfactual contagion flipped them, and source tag:
 {
   "agents": [
     {
@@ -416,7 +477,105 @@ For each player in the exact same order, return their Round 1 state, Round 2 fin
       "final_fsm_state": "PURCHASED" | "ENGAGED_FREE" | "EVALUATING" | "ABANDONED" | "BOYCOTT",
       "willingness_to_pay_usd": <number>,
       "contagion_flipped": <boolean>,
-      "contagion_driver": "CREW_CAPTAIN" | "CREATOR_STREAM" | "COUNTERFACTUAL" | "NONE"
+      "contagion_driver": "CREW_CAPTAIN" | "CREATOR_STREAM" | "REDDIT_THREAD" | "COUNTERFACTUAL" | "NONE",
+      "contagion_source_tag": "<e.g. @Agent00, r/NBA2K, or Crew Captain>"
+    }
+  ]
+}`;
+
+  return { system, prompt };
+}
+
+/**
+ * Builds the God's-Eye Round 3 Counterfactual Shock prompt for the 20 Core Personas (`MODELS.FAST`).
+ * Evaluates how a mid-simulation What-If intervention rescues EVALUATING / ABANDONED / BOYCOTT personas
+ * without wiping Round 1 or Round 2 history.
+ */
+export function buildRound3CounterfactualCorePrompt(
+  r2Personas: Array<{
+    index: number;
+    player_id: string;
+    gamer_tag: string;
+    archetype: string;
+    crew_name: string;
+    creator_handle: string;
+    round1_state: string;
+    round2_state: string;
+    round2_wtp: number;
+    round2_quote: string;
+  }>,
+  offerTitle: string,
+  priceUsd: number,
+  franchise: string,
+  counterfactualEvent: string
+): { system: string; prompt: string } {
+  const system = `You are the 2K Courtside God's-Eye Counterfactual Branching Engine (Round 3 · What-If Rescue Wave).
+Round 1 (Isolated) and Round 2 (Social Contagion) have already completed.
+Now the live service team injects a mid-simulation offer intervention / patch sweetener into the environment.
+Evaluate how each of the 20 Core Personas reacts in Round 3 to this specific What-If intervention:
+- Personas who were EVALUATING, ABANDONED, or BOYCOTT in Round 2 and whose core objection (VC value, squad bonus, pack odds guarantee, creator co-stream, or 2K26 Rebirth carryover) is directly addressed by the intervention should organically flip to PURCHASED (or move up to EVALUATING) and increase their willingness_to_pay_usd.
+- Personas who already PURCHASED in Round 2 remain PURCHASED (and may increase their WTP or enthusiasm).
+- Personas whose core identity still rejects the offer format (e.g. strict MyNBA sim purists on a MyTEAM pack) remain authentic to their archetype.
+Keep every round3_quote concise (1 sentence, max 16 words, zero em-dashes) directly reacting to the What-If sweetener!`;
+
+  const prompt = `Base Offer: "${offerTitle}" at $${priceUsd.toFixed(2)} (${franchise})
+MID-SIMULATION GOD'S-EYE WHAT-IF SHOCK (ROUND 3):
+"${counterfactualEvent}"
+
+Here are the 20 Core Personas and their completed Round 1 -> Round 2 states and quotes:
+${JSON.stringify(r2Personas, null, 2)}
+
+Evaluate Round 3 for all 20 personas. Set "round3_flipped": true if round3_fsm_state differs from round2_state.
+Return strict JSON:
+{
+  "round3": [
+    {
+      "index": 0,
+      "round3_fsm_state": "PURCHASED" | "ENGAGED_FREE" | "EVALUATING" | "ABANDONED" | "BOYCOTT",
+      "round3_wtp_usd": <number>,
+      "round3_quote": "<1 concise in-character sentence reacting to the Round 3 What-If shock>",
+      "round3_flipped": <boolean>,
+      "sentiment_score": <number -1.0 to 1.0>
+    }
+  ]
+}`;
+
+  return { system, prompt };
+}
+
+/**
+ * Builds the God's-Eye Round 3 Counterfactual Shock micro-batch prompt for Crowd Swarm Agents (`MODELS.LITE`).
+ */
+export function buildRound3CounterfactualCrowdPrompt(
+  crowdBatch: Array<{
+    player_id: string;
+    gamer_tag: string;
+    archetype: string;
+    crew_name: string;
+    round2_state: string;
+    round2_wtp: number;
+  }>,
+  offerTitle: string,
+  priceUsd: number,
+  franchise: string,
+  counterfactualEvent: string
+): { system: string; prompt: string } {
+  const system = `You evaluate how a batch of live NBA 2K crowd swarm agents shifts from Round 2 into Round 3 after a mid-simulation What-If offer sweetener is injected. Output strict JSON.`;
+
+  const prompt = `Base Offer: "${offerTitle}" at $${priceUsd.toFixed(2)} (${franchise})
+ROUND 3 WHAT-IF INTERVENTION: "${counterfactualEvent}"
+
+Crowd Batch (${crowdBatch.length} agents):
+${JSON.stringify(crowdBatch)}
+
+For each agent in the exact same order, return their Round 3 state, updated WTP, and whether they flipped from round2_state:
+{
+  "agents": [
+    {
+      "player_id": "<string>",
+      "round3_state": "PURCHASED" | "ENGAGED_FREE" | "EVALUATING" | "ABANDONED" | "BOYCOTT",
+      "willingness_to_pay_usd": <number>,
+      "round3_flipped": <boolean>
     }
   ]
 }`;

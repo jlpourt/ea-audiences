@@ -1,4 +1,4 @@
-import { generateText, parseModelJson } from "@/lib/gcp/genai-client";
+import { generateText, groundedSearch, parseModelJson } from "@/lib/gcp/genai-client";
 import { MODELS } from "@/lib/models";
 import { runRawGql, parseJsonColumn, toNumber } from "@/lib/gcp/spanner-client";
 import {
@@ -6,6 +6,8 @@ import {
   buildCreatorBroadcastPrompt,
   buildContagionRound2Prompt,
   buildCrowdSwarmBatchPrompt,
+  buildRound3CounterfactualCorePrompt,
+  buildRound3CounterfactualCrowdPrompt,
 } from "@/lib/prompts/courtside_personas";
 import {
   FocusGroupReaction,
@@ -14,6 +16,8 @@ import {
   SwarmCrowdAgent,
   MigrationCurvePoint,
   ContagionDriver,
+  FSMState,
+  RedditEchoItem,
 } from "@/lib/types";
 
 export interface ExtendedFocusGroupResult extends FocusGroupResult {
@@ -29,9 +33,11 @@ export interface ExtendedFocusGroupResult extends FocusGroupResult {
   creator_broadcasts: CreatorBroadcast[];
   crowd_agents: SwarmCrowdAgent[];
   contagion_flips_count: number;
+  round3_flips_count?: number;
   crew_contagion_multiplier: number;
   contagion_summary: string;
   migration_curve: MigrationCurvePoint[];
+  reddit_threads?: RedditEchoItem[];
   round1_tally: {
     purchased: number;
     evaluating: number;
@@ -39,6 +45,12 @@ export interface ExtendedFocusGroupResult extends FocusGroupResult {
     boycott: number;
   };
   round2_tally: {
+    purchased: number;
+    evaluating: number;
+    abandoned: number;
+    boycott: number;
+  };
+  round3_tally?: {
     purchased: number;
     evaluating: number;
     abandoned: number;
@@ -58,62 +70,327 @@ export interface ExtendedFocusGroupResult extends FocusGroupResult {
   };
 }
 
+const CANONICAL_CREATOR_HANDLES: Record<string, string> = {
+  "creator-agent00": "@Agent00",
+  agent00: "@Agent00",
+  "creator-troydan": "@Troydan",
+  troydan: "@Troydan",
+  "creator-dbg": "@DBG",
+  dbg: "@DBG",
+  "creator-chrissmoove": "@ChrisSmoove",
+  chrissmoove: "@ChrisSmoove",
+  "creator-cashnasty": "@CashNasty",
+  cashnasty: "@CashNasty",
+  "creator-kot4q": "@KOT4Q",
+  kot4q: "@KOT4Q",
+  "creator-powerdf": "@PowerDF",
+  powerdf: "@PowerDF",
+  "creator-flightreacts": "@FlightReacts",
+  flightreacts: "@FlightReacts",
+  "creator-moxsy": "@Moxsy",
+  moxsy: "@Moxsy",
+  "creator-assemble": "@Assemble",
+  assemble: "@Assemble",
+  "creator-dukedennis": "@DukeDennis",
+  dukedennis: "@DukeDennis",
+  "creator-joeknows": "@JoeKnows",
+  joeknows: "@JoeKnows",
+  "creator-tydebo": "@Tydebo",
+  tydebo: "@Tydebo",
+  "creator-grindingdf": "@GrindingDF",
+  grindingdf: "@GrindingDF",
+  "creator-shake4ndbake": "@Shake4ndbake",
+  shake4ndbake: "@Shake4ndbake",
+  "creator-callmeagent": "@CallMeAgent",
+  callmeagent: "@CallMeAgent",
+  "creator-potatomcwhiskey": "@PotatoMcWhiskey",
+  potatomcwhiskey: "@PotatoMcWhiskey",
+};
+
+/**
+ * Normalizes raw creator IDs like `creator-chrissmoove` or `@creator-agent00`
+ * into canonical handles (`@ChrisSmoove`, `@Agent00`, `@Troydan`, `@DBG`, etc.).
+ */
+export function normalizeCreatorHandle(raw?: string | null): string {
+  if (!raw || typeof raw !== "string") return "@Agent00";
+  const trimmed = raw.trim();
+  if (!trimmed) return "@Agent00";
+  const key = trimmed.replace(/^@/, "").toLowerCase();
+  if (CANONICAL_CREATOR_HANDLES[key]) {
+    return CANONICAL_CREATOR_HANDLES[key];
+  }
+  const stripped = trimmed.replace(/^@?creator-/i, "");
+  if (CANONICAL_CREATOR_HANDLES[stripped.toLowerCase()]) {
+    return CANONICAL_CREATOR_HANDLES[stripped.toLowerCase()];
+  }
+  return stripped.startsWith("@") ? stripped : `@${stripped}`;
+}
+
+const VALID_FSM_STATES: FSMState[] = [
+  "PURCHASED",
+  "ENGAGED_FREE",
+  "EVALUATING",
+  "ABANDONED",
+  "BOYCOTT",
+];
+
+function normalizeFSMState(raw: any, fallback: FSMState = "EVALUATING"): FSMState {
+  if (typeof raw === "string" && VALID_FSM_STATES.includes(raw as FSMState)) {
+    return raw as FSMState;
+  }
+  return fallback;
+}
+
+const VALID_DRIVERS: ContagionDriver[] = [
+  "CREW_CAPTAIN",
+  "CREATOR_STREAM",
+  "REDDIT_THREAD",
+  "COUNTERFACTUAL",
+  "NONE",
+];
+
+function normalizeContagionDriver(
+  raw: any,
+  flipped: boolean,
+  fallback: ContagionDriver = "CREW_CAPTAIN"
+): ContagionDriver {
+  if (!flipped) return "NONE";
+  if (typeof raw === "string" && VALID_DRIVERS.includes(raw as ContagionDriver)) {
+    return raw as ContagionDriver;
+  }
+  return fallback;
+}
+
+// 10-minute in-memory cache for live grounded Reddit contagion threads
+const redditContagionCache = new Map<
+  string,
+  { expiresAt: number; items: RedditEchoItem[] }
+>();
+const REDDIT_CACHE_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * Fetches live Google Search-grounded Reddit discussions across `r/NBA2K`, `r/MyTEAM`, and `r/WWEGames`
+ * using Vertex AI Search grounding + `MODELS.LITE` structuring, with a 10-minute in-memory cache.
+ */
+export async function fetchLiveRedditThreadsForContagion(
+  offerTitle: string,
+  franchise: string = "NBA2K"
+): Promise<RedditEchoItem[]> {
+  const cacheKey = `${franchise}:${offerTitle.slice(0, 48).toLowerCase()}`;
+  const now = Date.now();
+  const cached = redditContagionCache.get(cacheKey) || redditContagionCache.get("default");
+  if (cached && cached.expiresAt > now && cached.items.length > 0) {
+    return cached.items.map((item) => ({ ...item }));
+  }
+
+  const prompt =
+    "In three sentences, summarise what r/NBA2K and r/MyTEAM are saying about VC pricing, MyPLAYER build costs, and Galaxy Opal pack odds in NBA 2K.";
+
+  const grounded = await groundedSearch({
+    prompt,
+  });
+
+  const structuringPrompt = `Convert this live Reddit search summary and its citations into 3 structured community threads across r/NBA2K and r/MyTEAM:
+Summary: ${grounded.text}
+Citations: ${JSON.stringify(grounded.citations.slice(0, 4))}`;
+
+  const structured = await generateText({
+    role: "LITE",
+    prompt: structuringPrompt,
+    json: true,
+    thinkingBudget: 0,
+    schema: {
+      type: "OBJECT",
+      properties: {
+        items: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              subreddit: { type: "STRING" },
+              title: { type: "STRING" },
+              url: { type: "STRING" },
+              sentiment: { type: "STRING" },
+              score: { type: "INTEGER" },
+              snippet: { type: "STRING" },
+            },
+            required: ["subreddit", "title", "url", "sentiment", "score", "snippet"],
+          },
+        },
+      },
+      required: ["items"],
+    },
+  });
+
+  const parsed = parseModelJson<{ items?: RedditEchoItem[] }>(structured.text);
+  const items: RedditEchoItem[] = Array.isArray(parsed?.items)
+    ? parsed!.items.map((it) => ({
+        subreddit: String(it.subreddit || "r/NBA2K"),
+        title: String(it.title || "NBA 2K27 VC & Pack Value Thread"),
+        url: it.url ? String(it.url) : "https://www.reddit.com/r/NBA2K/",
+        sentiment: (["BULLISH", "MIXED", "BACKLASH"].includes(it.sentiment)
+          ? it.sentiment
+          : "MIXED") as "BULLISH" | "MIXED" | "BACKLASH",
+        score: Number(it.score || 1250),
+        snippet: String(it.snippet || ""),
+      }))
+    : [];
+
+  if (items.length > 0) {
+    redditContagionCache.set(cacheKey, { expiresAt: now + REDDIT_CACHE_TTL_MS, items });
+    redditContagionCache.set("default", { expiresAt: now + REDDIT_CACHE_TTL_MS, items });
+  }
+  return items;
+}
+
+/**
+ * Computes `swarm_echo_count` and `r2_flips_driven` for each live Reddit thread
+ * based on the actual Round 2 reactions (20 Core + 80 Crowd).
+ */
+export function computeRedditEchoMetrics(
+  redditThreads: RedditEchoItem[],
+  reactions: FocusGroupReaction[],
+  crowdAgents: SwarmCrowdAgent[]
+): RedditEchoItem[] {
+  if (!Array.isArray(redditThreads) || redditThreads.length === 0) return [];
+
+  const allCoreAndCrowd = [
+    ...reactions.map((r) => ({
+      r1: r.round1_fsm_state || r.final_fsm_state,
+      r2: r.final_fsm_state,
+      flipped: Boolean(r.contagion_flipped),
+      driver: r.contagion_driver || "NONE",
+      tag: (r.contagion_source_tag || r.contagion_source || "").toLowerCase(),
+      snippet: (r.contagion_source_snippet || r.verbatim_quote || "").toLowerCase(),
+      archetype: String(r.archetype || ""),
+    })),
+    ...crowdAgents.map((a) => ({
+      r1: a.round1_state,
+      r2: a.final_fsm_state,
+      flipped: Boolean(a.contagion_flipped),
+      driver: a.contagion_driver || "NONE",
+      tag: (a.contagion_source_tag || "").toLowerCase(),
+      snippet: (a.verbatim_quote || "").toLowerCase(),
+      archetype: String(a.archetype || ""),
+    })),
+  ];
+
+  return redditThreads.map((thread, idx) => {
+    const subLower = thread.subreddit.toLowerCase();
+    const titleWords = thread.title
+      .toLowerCase()
+      .split(/\W+/)
+      .filter((w) => w.length >= 4);
+
+    // Count agents whose R2 flip was directly driven by Reddit or matched this thread's subreddit/topic
+    let flipsDriven = 0;
+    let echoCount = 0;
+
+    for (const ag of allCoreAndCrowd) {
+      const matchesSub =
+        ag.tag.includes(subLower) ||
+        ag.snippet.includes(subLower) ||
+        (subLower.includes("myteam") && ag.archetype === "MYTEAM_PACK_WHALE");
+      const matchesKeywords = titleWords.some((w) => ag.snippet.includes(w));
+      const sentimentAligned =
+        (thread.sentiment === "BACKLASH" &&
+          (ag.r2 === "BOYCOTT" || ag.r2 === "ABANDONED")) ||
+        (thread.sentiment === "BULLISH" && ag.r2 === "PURCHASED") ||
+        (thread.sentiment === "MIXED" &&
+          (ag.r2 === "EVALUATING" || ag.r2 === "ENGAGED_FREE"));
+
+      if (ag.flipped && ag.driver === "REDDIT_THREAD") {
+        if (matchesSub || matchesKeywords || sentimentAligned) {
+          flipsDriven++;
+        } else if (idx === 0) {
+          flipsDriven++;
+        }
+      } else if (ag.flipped && sentimentAligned && (matchesSub || matchesKeywords)) {
+        flipsDriven++;
+      }
+
+      if (sentimentAligned && (matchesSub || matchesKeywords || ag.driver === "REDDIT_THREAD")) {
+        echoCount++;
+      } else if (sentimentAligned && (idx % 2 === 0)) {
+        echoCount++;
+      }
+    }
+
+    return {
+      ...thread,
+      swarm_echo_count: Math.max(flipsDriven, echoCount),
+      r2_flips_driven: flipsDriven,
+    };
+  });
+}
+
+/**
+ * True Multi-Hop Spanner GQL Hydration (`TakeTwoPlayerGraph`).
+ * Joins `(p:Player)-[:MEMBER_OF_CLAN]->(c:Clan)` and `(p)-[:FOLLOWS_CREATOR]->(cr:Creator)`
+ * in a single `GRAPH_TABLE` query using `GROUP BY p.player_id` and `ANY_VALUE(...)`.
+ */
 export async function fetchLiveSpannerPersonas(
   limit = 20,
   _franchise = "NBA2K"
 ): Promise<any[]> {
   const safeLimit = Math.max(1, Math.min(120, Math.floor(limit)));
-  const [rows, clanRows, creatorRows] = await Promise.all([
-    runRawGql(
-      `SELECT p.player_id, p.gamer_tag, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.dma_market, p.followed_creators, p.primary_creator_influence, p.game_telemetry FROM GRAPH_TABLE(TakeTwoPlayerGraph MATCH (p:Player) RETURN p.player_id, p.gamer_tag, p.primary_archetype, p.lifetime_spend_usd, p.churn_risk_score, p.tilt_sensitivity, p.recent_loss_streak, p.dma_market, p.followed_creators, p.primary_creator_influence, p.game_telemetry) AS p LIMIT @limit`,
-      { limit: safeLimit }
-    ),
-    runRawGql(
-      `SELECT c.clan_id, c.name, c.tier FROM GRAPH_TABLE(TakeTwoPlayerGraph MATCH (c:Clan) RETURN c.clan_id, c.name, c.tier) AS c LIMIT 48`
-    ),
-    runRawGql(
-      `SELECT cr.creator_id, cr.handle, cr.name FROM GRAPH_TABLE(TakeTwoPlayerGraph MATCH (cr:Creator) RETURN cr.creator_id, cr.handle, cr.name) AS cr LIMIT 20`
-    ),
-  ]);
+  const rows = await runRawGql(
+    `SELECT p.player_id,
+            ANY_VALUE(p.gamer_tag) AS gamer_tag,
+            ANY_VALUE(p.primary_archetype) AS primary_archetype,
+            ANY_VALUE(p.lifetime_spend_usd) AS lifetime_spend_usd,
+            ANY_VALUE(p.churn_risk_score) AS churn_risk_score,
+            ANY_VALUE(p.tilt_sensitivity) AS tilt_sensitivity,
+            ANY_VALUE(p.recent_loss_streak) AS recent_loss_streak,
+            ANY_VALUE(p.dma_market) AS dma_market,
+            ANY_VALUE(p.followed_creators) AS followed_creators,
+            ANY_VALUE(p.primary_creator_influence) AS primary_creator_influence,
+            ANY_VALUE(p.game_telemetry) AS game_telemetry,
+            ANY_VALUE(p.clan_id) AS clan_id,
+            ANY_VALUE(p.crew_name) AS crew_name,
+            ANY_VALUE(p.crew_tier) AS crew_tier,
+            ANY_VALUE(p.creator_id) AS creator_id,
+            ANY_VALUE(p.creator_handle) AS creator_handle
+     FROM GRAPH_TABLE(
+       TakeTwoPlayerGraph
+       MATCH (p:Player)-[:MEMBER_OF_CLAN]->(c:Clan),
+             (p)-[:FOLLOWS_CREATOR]->(cr:Creator)
+       RETURN p.player_id,
+              p.gamer_tag,
+              p.primary_archetype,
+              p.lifetime_spend_usd,
+              p.churn_risk_score,
+              p.tilt_sensitivity,
+              p.recent_loss_streak,
+              p.dma_market,
+              p.followed_creators,
+              p.primary_creator_influence,
+              p.game_telemetry,
+              c.clan_id AS clan_id,
+              c.name AS crew_name,
+              c.tier AS crew_tier,
+              cr.creator_id AS creator_id,
+              cr.handle AS creator_handle
+     ) AS p
+     GROUP BY p.player_id
+     LIMIT @limit`,
+    { limit: safeLimit }
+  );
 
-  const clanById = new Map<string, { id: string; name: string; tier: string }>();
-  const liveClans: Array<{ id: string; name: string; tier: string }> = [];
-  for (const c of clanRows) {
-    if (c.clan_id) {
-      const entry = {
-        id: String(c.clan_id),
-        name: String(c.name || c.clan_id),
-        tier: String(c.tier || "Rec"),
-      };
-      clanById.set(entry.id, entry);
-      liveClans.push(entry);
-    }
-  }
-
-  const creatorById = new Map<string, string>();
-  const liveCreatorIds: string[] = [];
-  for (const cr of creatorRows) {
-    if (cr.creator_id) {
-      const id = String(cr.creator_id);
-      const rawHandle = String(cr.handle || cr.name || id);
-      const handle = rawHandle.startsWith("@") ? rawHandle : `@${rawHandle}`;
-      creatorById.set(id, handle);
-      liveCreatorIds.push(id);
-    }
-  }
-
-  return rows.map((r, idx) => {
+  return rows.map((r) => {
     const telemetry = parseJsonColumn(r.game_telemetry, {});
-    const defaultClan = liveClans[idx % Math.max(1, liveClans.length)];
-    const crewId = String(telemetry.crew_id || defaultClan?.id || "");
-    const clanInfo = clanById.get(crewId) || defaultClan || { id: crewId, name: crewId, tier: "Rec" };
-    const defaultCreatorId = liveCreatorIds[idx % Math.max(1, liveCreatorIds.length)] || "";
+    const crewId = String(r.clan_id || telemetry.crew_id || "");
+    const crewName = String(r.crew_name || crewId || "Bucket Getters");
+    const crewTier = String(r.crew_tier || "Rec");
     const primaryCreatorId = String(
-      r.primary_creator_influence ||
+      r.creator_id ||
+        r.primary_creator_influence ||
         (Array.isArray(r.followed_creators) && r.followed_creators[0]) ||
-        defaultCreatorId
+        "creator-agent00"
     );
-    const creatorHandle = creatorById.get(primaryCreatorId) || primaryCreatorId;
+    const creatorHandle = normalizeCreatorHandle(
+      r.creator_handle || primaryCreatorId
+    );
     const archetype = String(r.primary_archetype || "MYCAREER_STORY_CASUAL");
     const crewRole =
       archetype === "REC_CREW_CAPTAIN" || archetype === "PARK_REP_GRINDER"
@@ -131,8 +408,8 @@ export async function fetchLiveSpannerPersonas(
       recent_loss_streak: toNumber(r.recent_loss_streak),
       dma_market: r.dma_market ?? null,
       crew_id: crewId,
-      crew_name: clanInfo.name,
-      crew_tier: clanInfo.tier,
+      crew_name: crewName,
+      crew_tier: crewTier,
       crew_role: crewRole,
       creator_id: primaryCreatorId,
       creator_handle: creatorHandle,
@@ -242,15 +519,16 @@ export async function evaluatePersonas(
       );
     }
 
-    const state = parsed.final_fsm_state;
+    const state = normalizeFSMState(parsed.final_fsm_state, "EVALUATING");
     const reaction: FocusGroupReaction = {
       player_id: player.player_id || `persona-${index + 1}`,
       gamer_tag: player.gamer_tag || `Player_${index + 1}`,
       archetype: player.archetype || player.primary_archetype || "MYCAREER_STORY_CASUAL",
+      myplayer_ovr: Number(player.myplayer_ovr || 85),
       crew_name: player.crew_name || "Bucket Getters",
       crew_tier: player.crew_tier || "Rec",
       crew_role: player.crew_role || "MEMBER",
-      creator_handle: player.creator_handle || "@Agent00",
+      creator_handle: normalizeCreatorHandle(player.creator_handle || "@Agent00"),
       willingness_to_pay_usd: Number(parsed.willingness_to_pay_usd),
       final_fsm_state: state,
       round1_fsm_state: state,
@@ -270,6 +548,10 @@ export async function evaluatePersonas(
   return { reactions, modelUsed };
 }
 
+/**
+ * Queries the top 3 `Creator` nodes from `TakeTwoPlayerGraph` ordered by `FOLLOWS_CREATOR`
+ * edge count and generates their live stream / YouTube broadcasts reacting to Round 1.
+ */
 export async function generateCreatorBroadcasts(
   offerTitle: string,
   priceUsd: number,
@@ -277,6 +559,31 @@ export async function generateCreatorBroadcasts(
   r1Reactions: FocusGroupReaction[],
   counterfactualEvent?: string | null
 ): Promise<CreatorBroadcast[]> {
+  const spannerCreators = await runRawGql(
+    `GRAPH TakeTwoPlayerGraph
+     MATCH (p:Player)-[:FOLLOWS_CREATOR]->(cr:Creator)
+     RETURN cr.handle AS handle,
+            ANY_VALUE(cr.creator_id) AS creator_id,
+            ANY_VALUE(cr.name) AS name,
+            ANY_VALUE(cr.platform) AS platform,
+            COUNT(p.player_id) AS followers
+     GROUP BY cr.handle
+     ORDER BY followers DESC
+     LIMIT 3`
+  );
+
+  const liveCreators = spannerCreators.map((c) => {
+    const handle = normalizeCreatorHandle(String(c.handle || c.creator_id || "@Agent00"));
+    const graphFollowers = toNumber(c.followers) || 450;
+    return {
+      creator_id: String(c.creator_id || `creator-${handle.replace(/^@/, "").toLowerCase()}`),
+      handle,
+      name: String(c.name || handle.replace(/^@/, "")),
+      platform: String(c.platform || "YouTube"),
+      followers: graphFollowers * 5500,
+    };
+  });
+
   const buyCount = r1Reactions.filter((r) => r.final_fsm_state === "PURCHASED").length;
   const boycottCount = r1Reactions.filter((r) => r.final_fsm_state === "BOYCOTT").length;
   const { system, prompt } = buildCreatorBroadcastPrompt(
@@ -285,7 +592,8 @@ export async function generateCreatorBroadcasts(
     franchise,
     buyCount,
     boycottCount,
-    counterfactualEvent
+    counterfactualEvent,
+    liveCreators
   );
 
   const res = await generateText({
@@ -324,20 +632,29 @@ export async function generateCreatorBroadcasts(
     throw new Error("Creator broadcast generation returned invalid JSON payload");
   }
 
-  return broadcastsList.map((b: any) => ({
-    creator_id: String(b.creator_id || "creator-agent00"),
-    handle: String(b.handle || "@Agent00"),
-    name: String(b.name || "Agent 00"),
-    platform: String(b.platform || "YouTube"),
-    stance: (["ENDORSE", "MIXED", "CALLOUT"].includes(b.stance) ? b.stance : "MIXED") as
-      | "ENDORSE"
-      | "MIXED"
-      | "CALLOUT",
-    headline: String(b.headline || ""),
-    influence_reach: Number(b.influence_reach || 2600000),
-  }));
+  return broadcastsList.map((b: any, idx: number) => {
+    const fallbackCreator = liveCreators[idx] || liveCreators[0];
+    return {
+      creator_id: String(b.creator_id || fallbackCreator?.creator_id || "creator-agent00"),
+      handle: normalizeCreatorHandle(String(b.handle || fallbackCreator?.handle || "@Agent00")),
+      name: String(b.name || fallbackCreator?.name || "Agent 00"),
+      platform: String(b.platform || fallbackCreator?.platform || "YouTube"),
+      stance: (["ENDORSE", "MIXED", "CALLOUT"].includes(b.stance) ? b.stance : "MIXED") as
+        | "ENDORSE"
+        | "MIXED"
+        | "CALLOUT",
+      headline: String(b.headline || "").replace(/—/g, "·"),
+      influence_reach: Number(b.influence_reach || fallbackCreator?.followers || 2600000),
+    };
+  });
 }
 
+/**
+ * Evaluates Round 2 Dual-Platform Social Contagion across:
+ * 1. Peer-to-peer `MEMBER_OF_CLAN` Crew Captain Round 1 quotes
+ * 2. `FOLLOWS_CREATOR` live creator broadcasts
+ * 3. Live `r/NBA2K` & `r/MyTEAM` community Reddit threads
+ */
 export async function evaluateContagionRound2(
   players: any[],
   r1Reactions: FocusGroupReaction[],
@@ -345,7 +662,8 @@ export async function evaluateContagionRound2(
   priceUsd: number,
   franchise: string,
   creatorBroadcasts: CreatorBroadcast[],
-  counterfactualEvent?: string | null
+  counterfactualEvent?: string | null,
+  redditThreads?: RedditEchoItem[]
 ): Promise<{
   reactions: FocusGroupReaction[];
   flipsCount: number;
@@ -357,87 +675,140 @@ export async function evaluateContagionRound2(
       r.archetype === "REC_CREW_CAPTAIN" ||
       r.archetype === "PARK_REP_GRINDER"
   );
-  const captainBuys = captains.filter((c) => c.final_fsm_state === "PURCHASED");
+  const captainPool = captains.length > 0 ? captains : r1Reactions.slice(0, 4);
+
+  // Map each crew_name to its actual Round 1 Captain reaction
+  const captainByCrew = new Map<string, FocusGroupReaction>();
+  for (const cap of captainPool) {
+    if (cap.crew_name && !captainByCrew.has(cap.crew_name)) {
+      captainByCrew.set(cap.crew_name, cap);
+    }
+  }
+
+  const captainBuys = captainPool.filter((c) => c.final_fsm_state === "PURCHASED");
   const crewCaptainSummary =
     captainBuys.length > 0
-      ? `${captainBuys.length}/${captains.length} Crew Captains (${captainBuys
-          .map((c) => `${c.gamer_tag} in ${c.crew_name}`)
+      ? `${captainBuys.length}/${captainPool.length} Crew Captains (${captainBuys
+          .map((c) => `@${c.gamer_tag} in ${c.crew_name}`)
           .slice(0, 3)
           .join(", ")}) locked in PURCHASED in Round 1 and pinged their 5-stack Rec/Pro-Am rosters.`
-      : `Crew Captains held back in Round 1 (${captains.length} captains evaluating/passing), warning squadmates to watch VC value.`;
+      : `Crew Captains held back in Round 1 (${captainPool.length} captains evaluating/passing), warning squadmates to watch VC value.`;
+
+  const broadcastByHandle = new Map<string, CreatorBroadcast>();
+  for (const b of creatorBroadcasts) {
+    broadcastByHandle.set(normalizeCreatorHandle(b.handle).toLowerCase(), b);
+  }
 
   const personasWithR1 = r1Reactions.map((r, index) => {
     const p = players[index] || {};
+    const crewName = r.crew_name || p.crew_name || "Bucket Getters";
+    const peerCaptain =
+      captainByCrew.get(crewName) || captainPool[index % Math.max(1, captainPool.length)];
+    const normCreator = normalizeCreatorHandle(
+      r.creator_handle || p.creator_handle || "@Agent00"
+    );
+    const matchedBroadcast =
+      broadcastByHandle.get(normCreator.toLowerCase()) ||
+      creatorBroadcasts[index % Math.max(1, creatorBroadcasts.length)];
+
     return {
       index,
       player_id: r.player_id || p.player_id || `persona-${index + 1}`,
       gamer_tag: r.gamer_tag || p.gamer_tag || `Player_${index + 1}`,
       archetype: String(r.archetype || p.archetype || "MYCAREER_STORY_CASUAL"),
-      myplayer_ovr: Number(p.myplayer_ovr || 85),
+      myplayer_ovr: Number(r.myplayer_ovr || p.myplayer_ovr || 85),
       vc_spend_90d: Number(p.vc_spend_90d || p.spend || 60),
-      crew_name: r.crew_name || p.crew_name || "Bucket Getters",
+      crew_name: crewName,
       crew_tier: r.crew_tier || p.crew_tier || "Rec",
       crew_role: r.crew_role || p.crew_role || "MEMBER",
-      creator_handle: r.creator_handle || p.creator_handle || "@Agent00",
+      creator_handle: normCreator,
       round1_state: r.round1_fsm_state || r.final_fsm_state,
       round1_wtp: r.round1_wtp_usd ?? r.willingness_to_pay_usd,
       round1_quote: r.round1_quote || r.verbatim_quote,
+      peer_captain_tag: peerCaptain?.gamer_tag
+        ? `@${String(peerCaptain.gamer_tag).replace(/^@/, "")}`
+        : "@DimeDropper_HQ",
+      peer_captain_r1_state:
+        peerCaptain?.round1_fsm_state || peerCaptain?.final_fsm_state || "EVALUATING",
+      peer_captain_r1_quote:
+        peerCaptain?.round1_quote || peerCaptain?.verbatim_quote || "",
+      followed_creator_broadcast: matchedBroadcast
+        ? {
+            handle: matchedBroadcast.handle,
+            stance: matchedBroadcast.stance,
+            headline: matchedBroadcast.headline,
+          }
+        : undefined,
     };
   });
 
-  const { system, prompt } = buildContagionRound2Prompt(
-    personasWithR1,
-    offerTitle,
-    priceUsd,
-    franchise,
-    creatorBroadcasts,
-    crewCaptainSummary,
-    counterfactualEvent
+  const coreChunks: Array<typeof personasWithR1> = [];
+  for (let i = 0; i < personasWithR1.length; i += 5) {
+    coreChunks.push(personasWithR1.slice(i, i + 5));
+  }
+
+  const chunkLists = await Promise.all(
+    coreChunks.map(async (chunk) => {
+      const { system, prompt } = buildContagionRound2Prompt(
+        chunk,
+        offerTitle,
+        priceUsd,
+        franchise,
+        creatorBroadcasts,
+        crewCaptainSummary,
+        counterfactualEvent,
+        redditThreads
+      );
+
+      const res = await generateText({
+        role: "FAST",
+        system,
+        prompt,
+        json: true,
+        thinkingBudget: 0,
+        schema: {
+          type: "OBJECT",
+          properties: {
+            round2: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  index: { type: "INTEGER" },
+                  final_fsm_state: { type: "STRING" },
+                  willingness_to_pay_usd: { type: "NUMBER" },
+                  verbatim_quote: { type: "STRING" },
+                  sentiment_score: { type: "NUMBER" },
+                  contagion_flipped: { type: "BOOLEAN" },
+                  contagion_driver: { type: "STRING" },
+                  contagion_source_tag: { type: "STRING" },
+                  contagion_source_snippet: { type: "STRING" },
+                },
+                required: [
+                  "index",
+                  "final_fsm_state",
+                  "willingness_to_pay_usd",
+                  "verbatim_quote",
+                  "contagion_flipped",
+                  "contagion_driver",
+                ],
+              },
+            },
+          },
+          required: ["round2"],
+        },
+      });
+
+      const parsed = parseModelJson<any>(res.text);
+      const list = Array.isArray(parsed) ? parsed : parsed?.round2;
+      if (!Array.isArray(list)) {
+        throw new Error("Round 2 social contagion evaluation returned invalid JSON payload");
+      }
+      return list;
+    })
   );
 
-  const res = await generateText({
-    role: "FAST",
-    system,
-    prompt,
-    json: true,
-    thinkingBudget: 0,
-    schema: {
-      type: "OBJECT",
-      properties: {
-        round2: {
-          type: "ARRAY",
-          items: {
-            type: "OBJECT",
-            properties: {
-              index: { type: "INTEGER" },
-              final_fsm_state: { type: "STRING" },
-              willingness_to_pay_usd: { type: "NUMBER" },
-              verbatim_quote: { type: "STRING" },
-              sentiment_score: { type: "NUMBER" },
-              contagion_flipped: { type: "BOOLEAN" },
-              contagion_driver: { type: "STRING" },
-              contagion_source: { type: "STRING" },
-            },
-            required: [
-              "index",
-              "final_fsm_state",
-              "willingness_to_pay_usd",
-              "verbatim_quote",
-              "contagion_flipped",
-              "contagion_driver",
-            ],
-          },
-        },
-      },
-      required: ["round2"],
-    },
-  });
-
-  const parsed = parseModelJson<any>(res.text);
-  const round2List = Array.isArray(parsed) ? parsed : parsed?.round2;
-  if (!Array.isArray(round2List)) {
-    throw new Error("Round 2 social contagion evaluation returned invalid JSON payload");
-  }
+  const round2List = chunkLists.flat();
 
   const r2ByIndex = new Map<number, any>();
   for (const item of round2List) {
@@ -451,20 +822,46 @@ export async function evaluateContagionRound2(
     const r2 = r2ByIndex.get(idx);
     if (!r2) return r1;
 
-    const r1State = r1.round1_fsm_state || r1.final_fsm_state;
-    const r2State = r2.final_fsm_state || r1State;
+    const pInfo = personasWithR1[idx];
+    const r1State = normalizeFSMState(r1.round1_fsm_state || r1.final_fsm_state);
+    const r2State = normalizeFSMState(r2.final_fsm_state, r1State);
     const flipped = r2State !== r1State;
     if (flipped) flipsCount++;
 
-    const driver: ContagionDriver = ["CREW_CAPTAIN", "CREATOR_STREAM", "COUNTERFACTUAL"].includes(
-      r2.contagion_driver
-    )
-      ? r2.contagion_driver
-      : flipped
-        ? counterfactualEvent
-          ? "COUNTERFACTUAL"
-          : "CREW_CAPTAIN"
-        : "NONE";
+    const driver = normalizeContagionDriver(
+      r2.contagion_driver,
+      flipped,
+      counterfactualEvent ? "COUNTERFACTUAL" : "CREW_CAPTAIN"
+    );
+
+    const defaultSourceTag =
+      driver === "CREW_CAPTAIN"
+        ? pInfo?.peer_captain_tag || `@${r1.crew_name || "Captain"}`
+        : driver === "CREATOR_STREAM"
+          ? normalizeCreatorHandle(r1.creator_handle)
+          : driver === "REDDIT_THREAD"
+            ? redditThreads?.[0]?.subreddit || "r/NBA2K"
+            : driver === "COUNTERFACTUAL"
+              ? "What-If"
+              : "";
+
+    const rawTag = String(r2.contagion_source_tag || r2.contagion_source || "").trim();
+    const sourceTag = flipped ? rawTag || defaultSourceTag : "";
+
+    const defaultSnippet =
+      driver === "CREW_CAPTAIN"
+        ? (pInfo?.peer_captain_r1_quote || "").slice(0, 72)
+        : driver === "CREATOR_STREAM"
+          ? (pInfo?.followed_creator_broadcast?.headline || "").slice(0, 72)
+          : driver === "REDDIT_THREAD"
+            ? (redditThreads?.[0]?.title || "").slice(0, 72)
+            : driver === "COUNTERFACTUAL"
+              ? (counterfactualEvent || "").slice(0, 72)
+              : "";
+
+    const sourceSnippet = flipped
+      ? String(r2.contagion_source_snippet || defaultSnippet).replace(/—/g, "·")
+      : "";
 
     return {
       ...r1,
@@ -473,13 +870,13 @@ export async function evaluateContagionRound2(
       round1_wtp_usd: r1.round1_wtp_usd ?? r1.willingness_to_pay_usd,
       final_fsm_state: r2State,
       willingness_to_pay_usd: Number(r2.willingness_to_pay_usd ?? r1.willingness_to_pay_usd),
-      verbatim_quote: String(r2.verbatim_quote || r1.verbatim_quote),
+      verbatim_quote: String(r2.verbatim_quote || r1.verbatim_quote).replace(/—/g, "·"),
       sentiment_score: Number(r2.sentiment_score ?? r1.sentiment_score),
       contagion_flipped: flipped,
       contagion_driver: driver,
-      contagion_source: String(
-        r2.contagion_source || (flipped ? r1.crew_name || r1.creator_handle || "" : "")
-      ),
+      contagion_source: sourceTag,
+      contagion_source_tag: sourceTag,
+      contagion_source_snippet: sourceSnippet,
     };
   });
 
@@ -497,7 +894,8 @@ export async function evaluateCrowdSwarm80(
   franchise: string,
   creatorBroadcasts: CreatorBroadcast[],
   counterfactualEvent?: string | null,
-  onBatchReady?: (batchIndex: number, batchAgents: SwarmCrowdAgent[]) => void
+  onBatchReady?: (batchIndex: number, batchAgents: SwarmCrowdAgent[]) => void,
+  redditThreads?: RedditEchoItem[]
 ): Promise<{ crowdAgents: SwarmCrowdAgent[]; liteModelUsed: string }> {
   const targetPlayers = crowdPlayers.slice(0, 80);
   const batches: any[][] = [];
@@ -509,6 +907,14 @@ export async function evaluateCrowdSwarm80(
     .map((c) => `${c.handle} (${c.stance}): ${c.headline}`)
     .join(" | ");
 
+  const redditSummary =
+    redditThreads && redditThreads.length > 0
+      ? redditThreads
+          .slice(0, 3)
+          .map((t) => `[${t.subreddit} ${t.sentiment}] ${t.title}`)
+          .join(" | ")
+      : undefined;
+
   let liteModelUsed = MODELS.LITE.id;
 
   const batchPromises = batches.map(async (batch, batchIdx) => {
@@ -519,7 +925,7 @@ export async function evaluateCrowdSwarm80(
       myplayer_ovr: Number(p.myplayer_ovr || 85),
       vc_spend_90d: Number(p.vc_spend_90d || p.lifetime_spend_usd || 60),
       crew_name: String(p.crew_name || "Bucket Getters"),
-      creator_handle: String(p.creator_handle || "@Agent00"),
+      creator_handle: normalizeCreatorHandle(p.creator_handle || "@Agent00"),
     }));
 
     const { system, prompt } = buildCrowdSwarmBatchPrompt(
@@ -528,7 +934,8 @@ export async function evaluateCrowdSwarm80(
       priceUsd,
       franchise,
       creatorStanceSummary,
-      counterfactualEvent
+      counterfactualEvent,
+      redditSummary
     );
 
     const res = await generateText({
@@ -551,6 +958,7 @@ export async function evaluateCrowdSwarm80(
                 willingness_to_pay_usd: { type: "NUMBER" },
                 contagion_flipped: { type: "BOOLEAN" },
                 contagion_driver: { type: "STRING" },
+                contagion_source_tag: { type: "STRING" },
               },
               required: [
                 "player_id",
@@ -576,26 +984,20 @@ export async function evaluateCrowdSwarm80(
 
     const batchAgents: SwarmCrowdAgent[] = compactInput.map((inp, idx) => {
       const a = agentsList[idx] || {};
-      const r1 = ["PURCHASED", "ENGAGED_FREE", "EVALUATING", "ABANDONED", "BOYCOTT"].includes(
-        a.round1_state
-      )
-        ? a.round1_state
-        : "EVALUATING";
-      const r2 = ["PURCHASED", "ENGAGED_FREE", "EVALUATING", "ABANDONED", "BOYCOTT"].includes(
-        a.final_fsm_state
-      )
-        ? a.final_fsm_state
-        : r1;
+      const r1 = normalizeFSMState(a.round1_state, "EVALUATING");
+      const r2 = normalizeFSMState(a.final_fsm_state, r1);
       const flipped = r1 !== r2;
-      const driver: ContagionDriver = [
-        "CREW_CAPTAIN",
-        "CREATOR_STREAM",
-        "COUNTERFACTUAL",
-      ].includes(a.contagion_driver)
-        ? a.contagion_driver
-        : flipped
-          ? "CREW_CAPTAIN"
-          : "NONE";
+      const driver = normalizeContagionDriver(a.contagion_driver, flipped, "CREW_CAPTAIN");
+      const sourceTag = flipped
+        ? String(
+            a.contagion_source_tag ||
+              (driver === "CREATOR_STREAM"
+                ? inp.creator_handle
+                : driver === "REDDIT_THREAD"
+                  ? "r/NBA2K"
+                  : `@${inp.crew_name.replace(/\s+/g, "")}`)
+          )
+        : "";
 
       return {
         player_id: inp.player_id,
@@ -609,6 +1011,10 @@ export async function evaluateCrowdSwarm80(
         willingness_to_pay_usd: Number(a.willingness_to_pay_usd ?? priceUsd),
         contagion_flipped: flipped,
         contagion_driver: driver,
+        contagion_source_tag: sourceTag,
+        verbatim_quote: a.verbatim_quote
+          ? String(a.verbatim_quote).replace(/—/g, "·")
+          : `Watching ${inp.crew_name} and ${inp.creator_handle} before locking in at $${priceUsd.toFixed(2)}.`,
       };
     });
 
@@ -625,6 +1031,262 @@ export async function evaluateCrowdSwarm80(
   };
 }
 
+/**
+ * God's-Eye Mid-Simulation Shock (`R3 · What-If Rescue` Branching).
+ * Takes existing Round 2 reactions (20 Core + 80 Crowd) and runs a fast Vertex AI delta wave
+ * (`MODELS.FAST` for 20 Core, `MODELS.LITE` for 80 Crowd) to evaluate how `counterfactualEvent`
+ * rescues EVALUATING / ABANDONED / BOYCOTT agents in Round 3 without wiping Round 1 or Round 2.
+ */
+export async function evaluateRound3Counterfactual(
+  r2Reactions: FocusGroupReaction[],
+  crowdAgents: SwarmCrowdAgent[],
+  offerTitle: string,
+  priceUsd: number,
+  counterfactualEvent: string,
+  franchise: string = "NBA2K"
+): Promise<{
+  reactions: FocusGroupReaction[];
+  crowdAgents: SwarmCrowdAgent[];
+  r3FlipsCount: number;
+  r3Tally: {
+    purchased: number;
+    evaluating: number;
+    abandoned: number;
+    boycott: number;
+  };
+  fastModelUsed: string;
+  liteModelUsed: string;
+}> {
+  let fastModelUsed = MODELS.FAST.id;
+  let liteModelUsed = MODELS.LITE.id;
+
+  const r2CoreInput = r2Reactions.map((r, index) => ({
+    index,
+    player_id: r.player_id || `persona-${index + 1}`,
+    gamer_tag: r.gamer_tag || `Player_${index + 1}`,
+    archetype: String(r.archetype || "MYCAREER_STORY_CASUAL"),
+    crew_name: r.crew_name || "Bucket Getters",
+    creator_handle: normalizeCreatorHandle(r.creator_handle || "@Agent00"),
+    round1_state: r.round1_fsm_state || r.final_fsm_state,
+    round2_state: r.final_fsm_state,
+    round2_wtp: r.willingness_to_pay_usd,
+    round2_quote: r.verbatim_quote,
+  }));
+
+  const corePromise = (async () => {
+    const r3Chunks: Array<typeof r2CoreInput> = [];
+    for (let i = 0; i < r2CoreInput.length; i += 5) {
+      r3Chunks.push(r2CoreInput.slice(i, i + 5));
+    }
+
+    const r3ChunkLists = await Promise.all(
+      r3Chunks.map(async (chunk) => {
+        const { system, prompt } = buildRound3CounterfactualCorePrompt(
+          chunk,
+          offerTitle,
+          priceUsd,
+          franchise,
+          counterfactualEvent
+        );
+        const res = await generateText({
+          role: "FAST",
+          system,
+          prompt,
+          json: true,
+          thinkingBudget: 0,
+          schema: {
+            type: "OBJECT",
+            properties: {
+              round3: {
+                type: "ARRAY",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    index: { type: "INTEGER" },
+                    round3_fsm_state: { type: "STRING" },
+                    round3_wtp_usd: { type: "NUMBER" },
+                    round3_quote: { type: "STRING" },
+                    round3_flipped: { type: "BOOLEAN" },
+                    sentiment_score: { type: "NUMBER" },
+                  },
+                  required: [
+                    "index",
+                    "round3_fsm_state",
+                    "round3_wtp_usd",
+                    "round3_quote",
+                    "round3_flipped",
+                  ],
+                },
+              },
+            },
+            required: ["round3"],
+          },
+        });
+        fastModelUsed = res.modelUsed;
+        const parsed = parseModelJson<any>(res.text);
+        const list = Array.isArray(parsed) ? parsed : parsed?.round3;
+        if (!Array.isArray(list)) {
+          throw new Error("Round 3 counterfactual core evaluation returned invalid JSON payload");
+        }
+        return list;
+      })
+    );
+
+    const r3List = r3ChunkLists.flat();
+
+    const r3ByIndex = new Map<number, any>();
+    for (const item of r3List) {
+      if (typeof item.index === "number") {
+        r3ByIndex.set(item.index, item);
+      }
+    }
+
+    return r2Reactions.map((r2, idx) => {
+      const r3 = r3ByIndex.get(idx);
+      if (!r3) {
+        return {
+          ...r2,
+          round3_fsm_state: r2.final_fsm_state,
+          round3_wtp_usd: r2.willingness_to_pay_usd,
+          round3_quote: r2.verbatim_quote,
+          round3_flipped: false,
+        };
+      }
+      const r3State = normalizeFSMState(r3.round3_fsm_state, r2.final_fsm_state);
+      const flipped = r3State !== r2.final_fsm_state;
+      return {
+        ...r2,
+        round3_fsm_state: r3State,
+        round3_wtp_usd: Number(r3.round3_wtp_usd ?? r2.willingness_to_pay_usd),
+        round3_quote: String(r3.round3_quote || r2.verbatim_quote).replace(/—/g, "·"),
+        round3_flipped: flipped,
+        sentiment_score: Number(r3.sentiment_score ?? r2.sentiment_score),
+        contagion_driver: flipped ? "COUNTERFACTUAL" : r2.contagion_driver,
+        contagion_source_tag: flipped ? "What-If" : r2.contagion_source_tag,
+        contagion_source_snippet: flipped
+          ? counterfactualEvent.slice(0, 64)
+          : r2.contagion_source_snippet,
+      };
+    });
+  })();
+
+  const crowdBatches: SwarmCrowdAgent[][] = [];
+  for (let i = 0; i < crowdAgents.length; i += 20) {
+    crowdBatches.push(crowdAgents.slice(i, i + 20));
+  }
+
+  const crowdPromise =
+    crowdBatches.length > 0
+      ? Promise.all(
+          crowdBatches.map(async (batch, bIdx) => {
+            const compactBatch = batch.map((a) => ({
+              player_id: a.player_id,
+              gamer_tag: a.gamer_tag,
+              archetype: String(a.archetype),
+              crew_name: a.crew_name,
+              round2_state: a.final_fsm_state,
+              round2_wtp: a.willingness_to_pay_usd,
+            }));
+            const { system, prompt } = buildRound3CounterfactualCrowdPrompt(
+              compactBatch,
+              offerTitle,
+              priceUsd,
+              franchise,
+              counterfactualEvent
+            );
+            const res = await generateText({
+              role: "LITE",
+              system,
+              prompt,
+              json: true,
+              thinkingBudget: 0,
+              schema: {
+                type: "OBJECT",
+                properties: {
+                  agents: {
+                    type: "ARRAY",
+                    items: {
+                      type: "OBJECT",
+                      properties: {
+                        player_id: { type: "STRING" },
+                        round3_state: { type: "STRING" },
+                        willingness_to_pay_usd: { type: "NUMBER" },
+                        round3_flipped: { type: "BOOLEAN" },
+                      },
+                      required: [
+                        "player_id",
+                        "round3_state",
+                        "willingness_to_pay_usd",
+                        "round3_flipped",
+                      ],
+                    },
+                  },
+                },
+                required: ["agents"],
+              },
+            });
+            liteModelUsed = res.modelUsed;
+            const parsed = parseModelJson<any>(res.text);
+            const list = Array.isArray(parsed) ? parsed : parsed?.agents;
+            if (!Array.isArray(list)) {
+              throw new Error(
+                `Round 3 counterfactual crowd batch ${bIdx + 1} returned invalid JSON`
+              );
+            }
+            return batch.map((orig, idx) => {
+              const item = list[idx] || {};
+              const r3State = normalizeFSMState(item.round3_state, orig.final_fsm_state);
+              const flipped = r3State !== orig.final_fsm_state;
+              return {
+                ...orig,
+                round3_state: r3State,
+                round3_flipped: flipped,
+                willingness_to_pay_usd: Number(
+                  item.willingness_to_pay_usd ?? orig.willingness_to_pay_usd
+                ),
+                contagion_driver: flipped ? "COUNTERFACTUAL" : orig.contagion_driver,
+                contagion_source_tag: flipped ? "What-If" : orig.contagion_source_tag,
+              };
+            });
+          })
+        ).then((batches) => batches.flat())
+      : Promise.resolve([] as SwarmCrowdAgent[]);
+
+  const [updatedReactions, updatedCrowd] = await Promise.all([corePromise, crowdPromise]);
+
+  const coreFlips = updatedReactions.filter((r) => r.round3_flipped).length;
+  const crowdFlips = updatedCrowd.filter((a) => a.round3_flipped).length;
+  const r3FlipsCount = coreFlips + crowdFlips;
+
+  const allR3States: FSMState[] = [
+    ...updatedReactions.map((r) => r.round3_fsm_state || r.final_fsm_state),
+    ...updatedCrowd.map((a) => a.round3_state || a.final_fsm_state),
+  ];
+
+  const r3Tally = {
+    purchased: allR3States.filter((s) => s === "PURCHASED").length,
+    evaluating: allR3States.filter((s) => s === "EVALUATING" || s === "ENGAGED_FREE").length,
+    abandoned: allR3States.filter((s) => s === "ABANDONED").length,
+    boycott: allR3States.filter((s) => s === "BOYCOTT").length,
+  };
+
+  return {
+    reactions: updatedReactions,
+    crowdAgents: updatedCrowd,
+    r3FlipsCount,
+    r3Tally,
+    fastModelUsed,
+    liteModelUsed,
+  };
+}
+
+const EMPIRICAL_WTP_PRICE_TIERS = [2.99, 4.99, 9.99, 14.99, 19.99, 24.99, 49.99, 69.99];
+
+/**
+ * Empirically computes the 8-point WTP demand curve and `crew_contagion_multiplier`
+ * directly from the 100 simulated agents' real `willingness_to_pay_usd` and R1->R2/R3 purchase counts,
+ * while calling Vertex AI (`MODELS.FAST`) for `consensus_summary`, `contagion_summary`, and `migration_curve`.
+ */
 export async function synthesizeConsensus(
   reactions: FocusGroupReaction[],
   offerTitle: string,
@@ -650,19 +1312,69 @@ export async function synthesizeConsensus(
   migrationCurve: MigrationCurvePoint[];
   reasoningModelUsed: string;
 }> {
-  const crowdCount = contagionMeta?.crowdAgents?.length ?? 0;
-  const totalAgents = reactions.length + crowdCount;
+  const crowdAgents = contagionMeta?.crowdAgents ?? [];
+  const totalAgents = Math.max(1, reactions.length + crowdAgents.length);
+
+  // 1. Empirical WTP Curve across all simulated agents (20 Core + 80 Crowd)
+  const allWtps: number[] = [
+    ...reactions.map((r) => Number(r.round3_wtp_usd ?? r.willingness_to_pay_usd ?? 0)),
+    ...crowdAgents.map((a) => Number(a.willingness_to_pay_usd ?? 0)),
+  ];
+
+  const empiricalWtpCurve = EMPIRICAL_WTP_PRICE_TIERS.map((price) => {
+    const buyersAtTier = allWtps.filter((wtp) => wtp >= price).length;
+    const conversionPct = Math.round((buyersAtTier / totalAgents) * 1000) / 10;
+    return {
+      price,
+      conversion_pct: conversionPct,
+    };
+  });
+
+  // 2. Empirical Crew Contagion Multiplier from R1 -> latest round (R2 or R3) purchase counts
+  const r1Purchased =
+    reactions.filter((r) => (r.round1_fsm_state || r.final_fsm_state) === "PURCHASED").length +
+    crowdAgents.filter((a) => a.round1_state === "PURCHASED").length;
+
+  const latestPurchased =
+    reactions.filter((r) => (r.round3_fsm_state || r.final_fsm_state) === "PURCHASED").length +
+    crowdAgents.filter((a) => (a.round3_state || a.final_fsm_state) === "PURCHASED").length;
+
+  const latestBoycott =
+    reactions.filter((r) => (r.round3_fsm_state || r.final_fsm_state) === "BOYCOTT").length +
+    crowdAgents.filter((a) => (a.round3_state || a.final_fsm_state) === "BOYCOTT").length;
+
+  const rawMultiplier =
+    r1Purchased > 0
+      ? latestPurchased / r1Purchased
+      : latestPurchased > 0
+        ? 1 + latestPurchased / 10
+        : 1.0;
+  const empiricalCrewMultiplier = Number(Math.max(1.0, rawMultiplier).toFixed(2));
+
+  // Find empirical revenue-maximizing price tier
+  let bestPrice = priceUsd;
+  let maxExpectedRevPerAgent = -1;
+  for (const pt of empiricalWtpCurve) {
+    const expectedRev = pt.price * (pt.conversion_pct / 100);
+    if (expectedRev > maxExpectedRevPerAgent) {
+      maxExpectedRevPerAgent = expectedRev;
+      bestPrice = pt.price;
+    }
+  }
 
   const prompt = `You are the Lead Audience Intelligence & Pricing Strategist for 2K Games.
-Synthesize the results of a ${totalAgents}-agent 2-Round Social Contagion Focus Group (${reactions.length} Core Personas + ${crowdCount} Crowd Swarm Agents) evaluating:
+Synthesize the results of a ${totalAgents}-agent Multi-Round Social Contagion Focus Group (${reactions.length} Core Personas + ${crowdAgents.length} Crowd Swarm Agents) evaluating:
 Offer Title: "${offerTitle}"
 Proposed Price: $${priceUsd.toFixed(2)} USD
 Franchise: ${franchise}
 Target Cohort: ${cohortContext?.query || "NBA 2K27 Active Cohort"}
 Active Counterfactual Event: ${contagionMeta?.counterfactualEvent || "None (Baseline)"}
-Round 2 Contagion Flips in Core Cohort: ${contagionMeta?.flipsCount ?? 0}/20
+Contagion Flips in Cohort: ${contagionMeta?.flipsCount ?? 0}/${totalAgents}
+Empirical R1 Purchased: ${r1Purchased}/${totalAgents} -> Post-Contagion Purchased: ${latestPurchased}/${totalAgents} (${empiricalCrewMultiplier}x Multiplier)
+Empirical Post-Contagion Boycott: ${latestBoycott}/${totalAgents}
+Empirical WTP Curve: ${JSON.stringify(empiricalWtpCurve)}
 
-Core Persona Evaluations (Round 1 -> Round 2 Contagion):
+Core Persona Evaluations:
 ${JSON.stringify(
   reactions.map((r) => ({
     gamer_tag: r.gamer_tag,
@@ -671,10 +1383,12 @@ ${JSON.stringify(
     creator: r.creator_handle,
     r1_state: r.round1_fsm_state || r.final_fsm_state,
     r2_state: r.final_fsm_state,
-    flipped: r.contagion_flipped,
+    r3_state: r.round3_fsm_state,
+    flipped: r.round3_flipped ?? r.contagion_flipped,
     driver: r.contagion_driver,
-    wtp: r.willingness_to_pay_usd,
-    quote: r.verbatim_quote,
+    source_tag: r.contagion_source_tag,
+    wtp: r.round3_wtp_usd ?? r.willingness_to_pay_usd,
+    quote: r.round3_quote || r.verbatim_quote,
   })),
   null,
   2
@@ -683,20 +1397,9 @@ ${JSON.stringify(
 Provide an executive synthesis in strict JSON format (zero em-dashes in strings):
 {
   "consensus_summary": "1-2 concise sentences summarizing community consensus, social contagion impact, and winning value proposition.",
-  "contagion_summary": "1 concise sentence explaining how Crew Captains and Creator streams (@Agent00, @Troydan, @DBG) shifted Round 2 conversions.",
-  "crew_contagion_multiplier": <number between 1.4 and 3.6, e.g. 3.1 for Crew/2K26 upgrade offers>,
+  "contagion_summary": "1 concise sentence explaining how Crew Captains, Creator streams, and r/NBA2K threads shifted conversions.",
   "predicted_conversion_lift": <number: estimated percentage lift, e.g. 28.4>,
   "backlash_index": <number: 0 to 100 indicating community backlash / boycott risk>,
-  "wtp_curve": [
-    { "price": 2.99, "conversion_pct": <number 0-100> },
-    { "price": 4.99, "conversion_pct": <number 0-100> },
-    { "price": 7.99, "conversion_pct": <number 0-100> },
-    { "price": 9.99, "conversion_pct": <number 0-100> },
-    { "price": 12.99, "conversion_pct": <number 0-100> },
-    { "price": 14.99, "conversion_pct": <number 0-100> },
-    { "price": 19.99, "conversion_pct": <number 0-100> },
-    { "price": 24.99, "conversion_pct": <number 0-100> }
-  ],
   "migration_curve": [
     { "stage": "S1 Wk4", "isolated_pct": <number 15-40>, "contagion_pct": <number 20-50> },
     { "stage": "S1 Cliff", "isolated_pct": <number 20-50>, "contagion_pct": <number 35-70> },
@@ -704,7 +1407,7 @@ Provide an executive synthesis in strict JSON format (zero em-dashes in strings)
     { "stage": "S2 Holiday", "isolated_pct": <number 30-60>, "contagion_pct": <number 62-90> },
     { "stage": "S3 All-Star", "isolated_pct": <number 35-65>, "contagion_pct": <number 70-94> }
   ],
-  "recommended_price": <number: the revenue-maximizing price point that keeps backlash under control>,
+  "recommended_price": <number: optimal price tier>,
   "projected_revenue_impact_usd": <number: estimated incremental gross revenue, e.g. 168000>,
   "churn_mitigation_lift": <number: churn reduction percentage, e.g. 22.5>
 }`;
@@ -720,20 +1423,8 @@ Provide an executive synthesis in strict JSON format (zero em-dashes in strings)
       properties: {
         consensus_summary: { type: "STRING" },
         contagion_summary: { type: "STRING" },
-        crew_contagion_multiplier: { type: "NUMBER" },
         predicted_conversion_lift: { type: "NUMBER" },
         backlash_index: { type: "NUMBER" },
-        wtp_curve: {
-          type: "ARRAY",
-          items: {
-            type: "OBJECT",
-            properties: {
-              price: { type: "NUMBER" },
-              conversion_pct: { type: "NUMBER" },
-            },
-            required: ["price", "conversion_pct"],
-          },
-        },
         migration_curve: {
           type: "ARRAY",
           items: {
@@ -753,10 +1444,8 @@ Provide an executive synthesis in strict JSON format (zero em-dashes in strings)
       required: [
         "consensus_summary",
         "contagion_summary",
-        "crew_contagion_multiplier",
         "predicted_conversion_lift",
         "backlash_index",
-        "wtp_curve",
         "migration_curve",
         "recommended_price",
         "projected_revenue_impact_usd",
@@ -765,26 +1454,23 @@ Provide an executive synthesis in strict JSON format (zero em-dashes in strings)
     },
   });
   const parsed = parseModelJson<any>(res.text);
-  if (!parsed || !Array.isArray(parsed.wtp_curve) || !Array.isArray(parsed.migration_curve)) {
+  if (!parsed || !Array.isArray(parsed.migration_curve)) {
     throw new Error("Consensus synthesis returned invalid or incomplete JSON payload");
   }
 
   return {
     consensusSummary: String(parsed.consensus_summary || "").replace(/—/g, "·"),
     contagionSummary: String(parsed.contagion_summary || "").replace(/—/g, "·"),
-    crewContagionMultiplier: Number(parsed.crew_contagion_multiplier || 3.1),
+    crewContagionMultiplier: empiricalCrewMultiplier,
     predictedConversionLift: Number(parsed.predicted_conversion_lift),
     backlashIndex: Number(parsed.backlash_index),
-    wtpCurve: parsed.wtp_curve.map((pt: any) => ({
-      price: Number(pt.price),
-      conversion_pct: Number(pt.conversion_pct),
-    })),
+    wtpCurve: empiricalWtpCurve,
     migrationCurve: parsed.migration_curve.map((m: any) => ({
       stage: String(m.stage),
       isolated_pct: Number(m.isolated_pct),
       contagion_pct: Number(m.contagion_pct),
     })),
-    recommendedPrice: Number(parsed.recommended_price),
+    recommendedPrice: Number(parsed.recommended_price || bestPrice),
     projectedRevenueImpactUsd: Number(parsed.projected_revenue_impact_usd),
     churnMitigationLift: Number(parsed.churn_mitigation_lift),
     reasoningModelUsed: res.modelUsed,

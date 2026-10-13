@@ -494,6 +494,7 @@ export default function CourtsideLanding({
   onRunBuilderQuery,
   onOpenWorkspaceView,
   onOpenActivationFeed,
+  onOpenFocusGroup,
   isSearching = false,
   errorMessage,
 }: CourtsideLandingProps) {
@@ -714,6 +715,18 @@ export default function CourtsideLanding({
             <Globe className="w-3.5 h-3.5 text-cyan-400" />
             <span>Markets</span>
           </button>
+
+          {onOpenFocusGroup && (
+            <button
+              type="button"
+              onClick={onOpenFocusGroup}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-gray-300 hover:text-white text-xs font-medium transition-all active:scale-95 disabled:opacity-50"
+            >
+              <Users className="w-3.5 h-3.5 text-amber-400" />
+              <span>Focus Group</span>
+            </button>
+          )}
 
           <button
             type="button"
