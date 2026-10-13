@@ -300,6 +300,67 @@ export type ContagionDriver =
   | "COUNTERFACTUAL"
   | "NONE";
 
+export type UpliftQuadrant =
+  | "PERSUADABLE"
+  | "SURE_THING"
+  | "LOST_CAUSE"
+  | "SLEEPING_DOG";
+
+export interface CausalUpliftSummary {
+  persuadables_count: number;
+  sure_things_count: number;
+  lost_causes_count: number;
+  sleeping_dogs_count: number;
+  persuadables_pct: number;
+  sure_things_pct: number;
+  lost_causes_pct: number;
+  sleeping_dogs_pct: number;
+  cate_lift_pct: number;
+  margin_saved_usd: number;
+  backlash_avoided_pts: number;
+  takeaway: string;
+}
+
+export interface SurvivalCurvePoint {
+  day: number;
+  baseline_survival_pct: number;
+  treated_survival_pct: number;
+}
+
+export interface SurvivalAnalysisSummary {
+  baseline_t50_days: number;
+  treated_t50_days: number;
+  days_gained: number;
+  crew_hazard_reduction_pct: number;
+  build_wall_hazard_ratio: number;
+  curve: SurvivalCurvePoint[];
+}
+
+export interface TimesFmForecastPoint {
+  horizon_label: string;
+  baseline_bookings_usd: number;
+  treated_bookings_usd: number;
+  ci_10_usd: number;
+  ci_90_usd: number;
+}
+
+export interface CreatorMroasItem {
+  handle: string;
+  platform: string;
+  mroas: number;
+  attributed_flips: number;
+  optimal_budget_pct: number;
+}
+
+export interface TimesFmForecastSummary {
+  projected_30d_bookings_usd: number;
+  ci_10_usd: number;
+  ci_90_usd: number;
+  whale_decay_offset_pct: number;
+  points: TimesFmForecastPoint[];
+  creator_mroas: CreatorMroasItem[];
+}
+
 export interface RedditEchoItem {
   subreddit: string;
   title: string;
@@ -337,6 +398,7 @@ export interface SwarmCrowdAgent {
   contagion_flipped: boolean;
   contagion_driver: ContagionDriver;
   contagion_source_tag?: string;
+  uplift_quadrant?: UpliftQuadrant;
 }
 
 export interface MigrationCurvePoint {
@@ -370,6 +432,7 @@ export interface FocusGroupReaction {
   round3_quote?: string;
   round3_wtp_usd?: number;
   round3_flipped?: boolean;
+  uplift_quadrant?: UpliftQuadrant;
   authenticity_rating: number;
   verbatim_quote: string;
   sentiment_score: number;
@@ -449,6 +512,9 @@ export interface FocusGroupResult {
   sentiment_decay_index: number;
   churn_mitigation_lift: number;
   projected_revenue_impact_usd: number;
+  causal_uplift?: CausalUpliftSummary;
+  survival_analysis?: SurvivalAnalysisSummary;
+  timesfm_forecast?: TimesFmForecastSummary;
   a2ui_components?: any[];
 }
 

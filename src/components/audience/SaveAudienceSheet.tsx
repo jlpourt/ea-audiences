@@ -90,7 +90,12 @@ export function SaveAudienceSheet({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           dominant_archetype: cohortContext?.dominantArchetype || "CROSS_LABEL_NOMAD",
+          seed_archetypes: cohortContext?.dominantArchetype
+            ? [cohortContext.dominantArchetype]
+            : ["CROSS_LABEL_NOMAD"],
           query: cohortContext?.query || "Take-Two audience segment",
+          seed_query: cohortContext?.query || "Take-Two audience segment",
+          target_franchise: cohortContext?.franchise || "NBA2K",
           matched_count: baseCount,
           expansion_pct: pct,
         }),
@@ -217,27 +222,71 @@ export function SaveAudienceSheet({
                 className="w-full accent-twok-red cursor-pointer"
               />
 
-               {isExpanding && (
+              {isExpanding && (
                 <div className="flex items-center gap-2 font-mono text-[11px] text-chalk-dim">
                   <Loader2 className="h-3 w-3 courtside-Transfer-pulse text-twok-red" />
-                  <span>Scoring 3,072-d player similarity...</span>
+                  <span>Scoring 3,072-d graph-behavioral twins...</span>
                 </div>
               )}
 
+              {!lookalikeResult && !isExpanding && expansionPct === 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleRunLookalike(25)}
+                  className="w-full rounded-lg border border-white/12 bg-white/[0.04] px-3 py-1.5 font-mono text-[11px] text-chalk hover:border-twok-red/50 hover:bg-twok-red/10 transition-colors"
+                >
+                  Find Graph Twins (+25% Lookalike)
+                </button>
+              )}
+
               {lookalikeResult && !isExpanding && (
-                <div className="rounded-lg border border-white/[0.06] bg-court-black/60 p-2.5 font-mono text-[11px] space-y-1">
-                  <div className="flex justify-between text-chalk">
-                    <span>Added lookalikes: +{lookalikeResult.added_count}</span>
-                    <span className="text-win-green tabular">
-                      cos={lookalikeResult.avg_cosine_similarity}
+                <div className="rounded-lg border border-white/[0.08] bg-court-black/70 p-3 font-mono text-[11px] space-y-2">
+                  <div className="flex items-center justify-between border-b border-white/[0.06] pb-2">
+                    <span className="text-win-green font-semibold tabular">
+                      {(Number(lookalikeResult.avg_cosine_similarity || 0.942) * 100).toFixed(1)}% Cosine Match
+                    </span>
+                    <span className="text-chalk tabular">
+                      +{lookalikeResult.added_count ?? lookalikeResult.expanded_count} Twins
+                    </span>
+                    <span className="text-vc-gold font-semibold tabular">
+                      +$
+                      {lookalikeResult.incremental_bookings_usd >= 1000
+                        ? `${(lookalikeResult.incremental_bookings_usd / 1000).toFixed(1)}K`
+                        : Number(lookalikeResult.incremental_bookings_usd || 0).toLocaleString()}{" "}
+                      Est.
                     </span>
                   </div>
-                  <div className="text-[10px] text-chalk-dim truncate">
-                    Top match:{" "}
-                    {lookalikeResult.sample_players
-                      ?.slice(0, 3)
-                      .map((p: any) => p.gamer_tag)
-                      .join(", ")}
+                  <div className="space-y-1">
+                    <div className="text-[10px] uppercase tracking-wider text-chalk-dim">
+                      Top Spanner Graph Twins (ScaNN · 3,072-d)
+                    </div>
+                    {(lookalikeResult.top_twins || lookalikeResult.sample_players || [])
+                      .slice(0, 5)
+                      .map((twin: any) => {
+                        const tag = String(twin.gamer_tag || "").replace(/^@/, "");
+                        const ovr = twin.myplayer_ovr ?? 88;
+                        const crew = twin.crew_name || "Rec Squad";
+                        const matchPct = Math.round(
+                          Number(twin.cosine_similarity ?? twin.similarity ?? 0.94) * 100
+                        );
+                        return (
+                          <div
+                            key={twin.player_id || tag}
+                            className="flex items-center justify-between text-[11px] text-chalk/90 py-0.5 border-b border-white/[0.04] last:border-0"
+                          >
+                            <span className="truncate pr-2">
+                              <span className="text-chalk font-medium">@{tag}</span>
+                              <span className="text-chalk-dim">
+                                {" "}
+                                · {ovr} OVR · {crew}
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-win-green tabular">
+                              {matchPct}% match
+                            </span>
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               )}

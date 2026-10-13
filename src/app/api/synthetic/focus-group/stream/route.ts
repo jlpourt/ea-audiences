@@ -259,6 +259,9 @@ export async function POST(request: NextRequest) {
             contagion_summary: synthesis.contagionSummary,
             migration_curve: synthesis.migrationCurve,
             reddit_threads: existingResult?.reddit_threads,
+            causal_uplift: synthesis.causalUplift,
+            survival_analysis: synthesis.survivalAnalysis,
+            timesfm_forecast: synthesis.timesfmForecast,
             round1_tally: round1Tally,
             round2_tally: round2Tally,
             round3_tally: r3Outcome.r3Tally,
@@ -500,6 +503,7 @@ export async function POST(request: NextRequest) {
               creatorBroadcasts,
               counterfactualEvent,
               flipsCount,
+              personas: corePlayers,
             }
           );
         }
@@ -536,6 +540,9 @@ export async function POST(request: NextRequest) {
           contagion_summary: synthesis.contagionSummary,
           migration_curve: synthesis.migrationCurve,
           reddit_threads: enrichedRedditThreads,
+          causal_uplift: synthesis.causalUplift,
+          survival_analysis: synthesis.survivalAnalysis,
+          timesfm_forecast: synthesis.timesfmForecast,
           round1_tally: round1Tally,
           round2_tally: round2Tally,
           alt_result: altResult,

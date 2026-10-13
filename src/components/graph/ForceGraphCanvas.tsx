@@ -125,6 +125,43 @@ export default function ForceGraphCanvas({
     return (data.links || []).filter((l: any) => Boolean(l.isMultiHopBridge)).length;
   }, [data.links]);
 
+  // Idea 3: Compute Keystone Crew Captains (REC_CREW_CAPTAIN, PARK_REP_GRINDER, or >= 3 social edges)
+  const keystoneCaptainIds = useMemo(() => {
+    const socialDegree = new Map<string, number>();
+    (data.links || []).forEach((l: any) => {
+      const sId = typeof l.source === "object" ? l.source.id : String(l.source);
+      const tId = typeof l.target === "object" ? l.target.id : String(l.target);
+      const lbl = String(l.label || "");
+      if (
+        lbl === "MEMBER_OF_CLAN" ||
+        lbl === "PLAYED_WITH" ||
+        Boolean(l.isMultiHopBridge) ||
+        sId.startsWith("clan-") ||
+        tId.startsWith("clan-") ||
+        sId.startsWith("mate-") ||
+        tId.startsWith("mate-")
+      ) {
+        socialDegree.set(sId, (socialDegree.get(sId) || 0) + 1);
+        socialDegree.set(tId, (socialDegree.get(tId) || 0) + 1);
+      }
+    });
+
+    const captains = new Set<string>();
+    (data.nodes || []).forEach((n: GraphNode) => {
+      if (n.type !== "PLAYER") return;
+      const arch = String(n.archetype || "");
+      const deg = socialDegree.get(n.id) || 0;
+      if (
+        arch === "REC_CREW_CAPTAIN" ||
+        arch === "PARK_REP_GRINDER" ||
+        deg >= 3
+      ) {
+        captains.add(n.id);
+      }
+    });
+    return captains;
+  }, [data.nodes, data.links]);
+
   // Directional Particle Streams (5 directional hop particles)
   const getLinkParticles = useCallback(
     (link: any) => {
@@ -177,6 +214,11 @@ export default function ForceGraphCanvas({
       const isWhale =
         (node.archetype && String(node.archetype).includes("WHALE")) ||
         (node.spend && node.spend >= 1000);
+      const isKeystoneCaptain =
+        node.type === "PLAYER" &&
+        (keystoneCaptainIds.has(node.id) ||
+          node.archetype === "REC_CREW_CAPTAIN" ||
+          node.archetype === "PARK_REP_GRINDER");
 
       const baseRadius = isAnchor
         ? 18
@@ -188,6 +230,8 @@ export default function ForceGraphCanvas({
         ? 8
         : isWhale
         ? 7
+        : isKeystoneCaptain
+        ? 6.2
         : 5;
       const radius = isSelected ? baseRadius * 1.35 : isHovered ? baseRadius * 1.2 : baseRadius;
 
@@ -335,6 +379,20 @@ export default function ForceGraphCanvas({
         ctx.fill();
       } else {
         // Player Nodes
+        if (isKeystoneCaptain) {
+          // Idea 3: Championship-gold outer keystone ring for Crew Captains & high-degree bridges
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, radius + 5.8, 0, 2 * Math.PI, false);
+          ctx.fillStyle = "rgba(245, 180, 0, 0.14)";
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, radius + 3.6, 0, 2 * Math.PI, false);
+          ctx.strokeStyle = "rgba(245, 180, 0, 0.45)";
+          ctx.lineWidth = 1.8;
+          ctx.stroke();
+        }
+
         ctx.beginPath();
         ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
         ctx.fillStyle = node.color || "#00FF88";
@@ -465,7 +523,7 @@ export default function ForceGraphCanvas({
         ctx.fillText(text, node.x, textY);
       }
     },
-    [selectedNode, hoveredNode]
+    [selectedNode, hoveredNode, keystoneCaptainIds]
   );
 
   // Custom 2D Link Renderer (High-Clarity Interactive Constellation Trails)
@@ -625,6 +683,10 @@ export default function ForceGraphCanvas({
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-[#F5B400]" />
           <span>MyTEAM Whale</span>
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full border border-[#F5B400]/80 bg-[#00FF88]/80" />
+          <span>Keystone Captain</span>
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-[#FF6B35]" />

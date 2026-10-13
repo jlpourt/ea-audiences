@@ -137,7 +137,14 @@ export function SeasonJourneySankey({
       setNodes(rawNodes);
       setLinks(data.links || []);
       setMetrics(data.metrics || null);
-      setDiagnosis(toOneSentenceTakeaway(data.diagnosis || ""));
+      const cleanDiag = toOneSentenceTakeaway(data.diagnosis || "");
+      setDiagnosis(cleanDiag);
+      const defaultCliffNode =
+        rawNodes.find((n) => n.id === "status_sub85_cliff") || rawNodes[0];
+      if (defaultCliffNode) {
+        setSelectedItem((prev) => prev ?? { type: "node", data: defaultCliffNode });
+        setPathDiagnosis((prev) => prev || cleanDiag);
+      }
     } catch (err: any) {
       console.error("[SeasonJourneySankey] fetch error:", err);
       setError(err?.message || "Failed to load journey data");
@@ -582,6 +589,125 @@ export function SeasonJourneySankey({
                 </div>
               </div>
             </div>
+
+            {/* Idea 4 & Idea 6: Dennis Ceccarelli's Golden Path vs. Reactive Frustration Telemetry Clustering + Cox Survival Shift */}
+            {(() => {
+              const itemId =
+                selectedItem.type === "node"
+                  ? (selectedItem.data as SankeyNode).id
+                  : `${(selectedItem.data as SankeyLink).source}->${
+                      (selectedItem.data as SankeyLink).target
+                    }`;
+
+              const isGoldenPath =
+                itemId.includes("85plus") ||
+                itemId.includes("whale") ||
+                itemId.includes("retained") ||
+                itemId.includes("expansion") ||
+                itemId.includes("hof_pass") ||
+                itemId.includes("deluxe_pack");
+              const isMatchmakingTilt = itemId.includes("churn");
+              const isSoloDrift =
+                itemId.includes("holdout") ||
+                itemId.includes("returning") ||
+                itemId.includes("2k26_upgrade") ||
+                itemId.includes("mynba");
+              const activeClusterKey = isGoldenPath
+                ? "golden"
+                : isMatchmakingTilt
+                ? "tilt"
+                : isSoloDrift
+                ? "drift"
+                : "wall";
+
+              const clusters = [
+                {
+                  key: "golden",
+                  label: "Golden Path · On-Track",
+                  spec: "88+ OVR · <2 Loss Streak · T50 > 26d",
+                  nodeId: "status_85plus",
+                  accent: "text-[#19C37D] border-[#19C37D]/35 bg-[#19C37D]/10",
+                },
+                {
+                  key: "wall",
+                  label: "Reactive Trigger · Build Wall Stall",
+                  spec: "78-84 OVR · <15K VC Balance · T50 = Day 9",
+                  nodeId: "status_sub85_cliff",
+                  accent: "text-[#FF4D5E] border-[#FF4D5E]/35 bg-[#FF4D5E]/10",
+                },
+                {
+                  key: "tilt",
+                  label: "Reactive Trigger · Matchmaking Tilt",
+                  spec: "3+ Park Loss Streak · Rage-Quit Risk · T50 = Day 7",
+                  nodeId: "out_churn",
+                  accent: "text-amber-300 border-amber-400/35 bg-amber-500/10",
+                },
+                {
+                  key: "drift",
+                  label: "Reactive Trigger · Solo Queue Drift",
+                  spec: "Inactive Crew Mates · T50 = Day 11",
+                  nodeId: "status_2k26_holdout",
+                  accent: "text-cyan-300 border-cyan-400/35 bg-cyan-500/10",
+                },
+              ];
+
+              return (
+                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.08] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-white">
+                      Telemetry Trajectory Clustering
+                    </span>
+                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#19C37D]/15 text-[#19C37D] border border-[#19C37D]/30 tabular">
+                      +12.0d Lifespan with Crew Re-Up
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    {clusters.map((c) => {
+                      const isActive = c.key === activeClusterKey;
+                      return (
+                        <button
+                          key={c.key}
+                          type="button"
+                          onClick={() => {
+                            const targetNode = nodeById.get(c.nodeId);
+                            if (targetNode) handleSelectNode(targetNode);
+                          }}
+                          className={`w-full text-left px-2.5 py-1.5 rounded-lg border transition-all flex items-center justify-between gap-2 ${
+                            isActive
+                              ? c.accent
+                              : "bg-black/30 border-white/[0.06] text-white/70 hover:bg-white/[0.04]"
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-semibold truncate">
+                              {c.label}
+                            </div>
+                            <div className="text-[10px] font-mono opacity-80 truncate tabular">
+                              {c.spec}
+                            </div>
+                          </div>
+                          {isActive && (
+                            <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-black/40 border border-current shrink-0">
+                              Active
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Cox Survival Shift Bar */}
+                  <div className="pt-1.5 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono tabular">
+                    <span className="text-rose-300">Baseline T50: Day 9</span>
+                    <span className="text-white/40">→</span>
+                    <span className="text-[#19C37D] font-semibold">
+                      Crew Re-Up T50: Day 21 (+12.0d)
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* 1-Sentence Takeaway */}
             <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08] space-y-1.5">
