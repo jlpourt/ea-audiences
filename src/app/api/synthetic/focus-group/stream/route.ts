@@ -127,6 +127,8 @@ export async function POST(request: NextRequest) {
             system,
             prompt,
             json: true,
+            thinkingBudget: 0,
+            maxOutputTokens: 512,
           });
           fastModelUsed = res.modelUsed;
           const parsed = parseModelJson<any>(res.text);

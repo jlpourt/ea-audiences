@@ -220,6 +220,8 @@ export async function evaluatePersonas(
       system,
       prompt,
       json: true,
+      thinkingBudget: 0,
+      maxOutputTokens: 512,
     });
     modelUsed = res.modelUsed;
     const parsed = parseModelJson<any>(res.text);
@@ -281,14 +283,37 @@ export async function generateCreatorBroadcasts(
     prompt,
     json: true,
     thinkingBudget: 0,
+    schema: {
+      type: "OBJECT",
+      properties: {
+        broadcasts: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              creator_id: { type: "STRING" },
+              handle: { type: "STRING" },
+              name: { type: "STRING" },
+              platform: { type: "STRING" },
+              stance: { type: "STRING" },
+              headline: { type: "STRING" },
+              influence_reach: { type: "NUMBER" },
+            },
+            required: ["creator_id", "handle", "name", "platform", "stance", "headline"],
+          },
+        },
+      },
+      required: ["broadcasts"],
+    },
   });
 
   const parsed = parseModelJson<any>(res.text);
-  if (!parsed || !Array.isArray(parsed.broadcasts)) {
+  const broadcastsList = Array.isArray(parsed) ? parsed : parsed?.broadcasts;
+  if (!Array.isArray(broadcastsList)) {
     throw new Error("Creator broadcast generation returned invalid JSON payload");
   }
 
-  return parsed.broadcasts.map((b: any) => ({
+  return broadcastsList.map((b: any) => ({
     creator_id: String(b.creator_id || "creator-agent00"),
     handle: String(b.handle || "@Agent00"),
     name: String(b.name || "Agent 00"),
@@ -365,15 +390,46 @@ export async function evaluateContagionRound2(
     prompt,
     json: true,
     thinkingBudget: 0,
+    schema: {
+      type: "OBJECT",
+      properties: {
+        round2: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              index: { type: "INTEGER" },
+              final_fsm_state: { type: "STRING" },
+              willingness_to_pay_usd: { type: "NUMBER" },
+              verbatim_quote: { type: "STRING" },
+              sentiment_score: { type: "NUMBER" },
+              contagion_flipped: { type: "BOOLEAN" },
+              contagion_driver: { type: "STRING" },
+              contagion_source: { type: "STRING" },
+            },
+            required: [
+              "index",
+              "final_fsm_state",
+              "willingness_to_pay_usd",
+              "verbatim_quote",
+              "contagion_flipped",
+              "contagion_driver",
+            ],
+          },
+        },
+      },
+      required: ["round2"],
+    },
   });
 
   const parsed = parseModelJson<any>(res.text);
-  if (!parsed || !Array.isArray(parsed.round2)) {
+  const round2List = Array.isArray(parsed) ? parsed : parsed?.round2;
+  if (!Array.isArray(round2List)) {
     throw new Error("Round 2 social contagion evaluation returned invalid JSON payload");
   }
 
   const r2ByIndex = new Map<number, any>();
-  for (const item of parsed.round2) {
+  for (const item of round2List) {
     if (typeof item.index === "number") {
       r2ByIndex.set(item.index, item);
     }
@@ -470,16 +526,45 @@ export async function evaluateCrowdSwarm80(
       prompt,
       json: true,
       thinkingBudget: 0,
+      schema: {
+        type: "OBJECT",
+        properties: {
+          agents: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                player_id: { type: "STRING" },
+                round1_state: { type: "STRING" },
+                final_fsm_state: { type: "STRING" },
+                willingness_to_pay_usd: { type: "NUMBER" },
+                contagion_flipped: { type: "BOOLEAN" },
+                contagion_driver: { type: "STRING" },
+              },
+              required: [
+                "player_id",
+                "round1_state",
+                "final_fsm_state",
+                "willingness_to_pay_usd",
+                "contagion_flipped",
+                "contagion_driver",
+              ],
+            },
+          },
+        },
+        required: ["agents"],
+      },
     });
     liteModelUsed = res.modelUsed;
 
     const parsed = parseModelJson<any>(res.text);
-    if (!parsed || !Array.isArray(parsed.agents)) {
+    const agentsList = Array.isArray(parsed) ? parsed : parsed?.agents;
+    if (!Array.isArray(agentsList)) {
       throw new Error(`Swarm batch ${batchIdx + 1} returned invalid JSON payload`);
     }
 
     const batchAgents: SwarmCrowdAgent[] = compactInput.map((inp, idx) => {
-      const a = parsed.agents[idx] || {};
+      const a = agentsList[idx] || {};
       const r1 = ["PURCHASED", "ENGAGED_FREE", "EVALUATING", "ABANDONED", "BOYCOTT"].includes(
         a.round1_state
       )
@@ -614,10 +699,11 @@ Provide an executive synthesis in strict JSON format (zero em-dashes in strings)
 }`;
 
   const res = await generateText({
-    role: "REASONING",
+    role: "FAST",
     prompt,
     system: "You are an expert game monetization and social contagion economist at 2K Games.",
     json: true,
+    thinkingBudget: 0,
   });
   const parsed = parseModelJson<any>(res.text);
   if (!parsed || !Array.isArray(parsed.wtp_curve)) {
