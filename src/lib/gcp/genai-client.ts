@@ -11,6 +11,7 @@
  * unavailable (404/403). Content errors, safety blocks, and empty responses
  * are never papered over with canned output.
  */
+import dns from "node:dns";
 import {
   GoogleGenAI,
   type Candidate,
@@ -20,6 +21,13 @@ import {
   type Part,
 } from "@google/genai";
 import { GoogleAuth } from "google-auth-library";
+
+// Force IPv4-first DNS resolution so Node 22 on macOS never hangs on broken IPv6 routes to oauth2.googleapis.com
+try {
+  dns.setDefaultResultOrder("ipv4first");
+} catch {
+  // ignore in edge environments
+}
 import { GCP_CONFIG } from "../config";
 import {
   EMBED_DIMENSIONS,
@@ -97,18 +105,23 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+function isTransientNetworkError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return /ETIMEDOUT|ECONNRESET|EAI_AGAIN|oauth2\.googleapis\.com\/token|fetch failed/i.test(msg);
+}
+
 async function withRetry<T>(modelId: string, fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
   } catch (e) {
     const status = statusOf(e);
-    if (status !== undefined && RETRYABLE.has(status)) {
-      await sleep(400 + Math.random() * 600);
+    if ((status !== undefined && RETRYABLE.has(status)) || isTransientNetworkError(e)) {
+      await sleep(350 + Math.random() * 500);
       try {
         return await fn();
       } catch (e2) {
         throw new GenAIError(
-          `Model ${modelId} still unavailable after retry (${statusOf(e2) ?? "unknown"}).`,
+          `Model ${modelId} still unavailable after retry (${statusOf(e2) ?? "network"}).`,
           statusOf(e2),
           modelId,
           e2
