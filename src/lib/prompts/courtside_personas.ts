@@ -725,7 +725,7 @@ export const SYNTHETIC_FALLBACK_PERSONAS: Array<{
 ];
 
 /**
- * Builds the personalized prompt for an individual persona evaluating an offer.
+ * Builds the personalized prompt for an individual persona evaluating an offer (Round 1 Isolated Gut Reaction).
  */
 export function buildPersonaPrompt(
   player: {
@@ -747,21 +747,26 @@ export function buildPersonaPrompt(
     gta6_preorder?: boolean | null;
     gravity_score?: number | null;
     favorite_team?: string | null;
+    crew_name?: string | null;
+    crew_tier?: string | null;
+    crew_role?: string | null;
+    creator_handle?: string | null;
   },
   offerTitle: string,
   priceUsd: number,
-  franchise: string = "NBA2K"
+  franchise: string = "NBA2K",
+  counterfactualEvent?: string | null
 ): { system: string; prompt: string } {
   const archetypeId = (player.archetype as ArchetypeId) || "MYCAREER_STORY_CASUAL";
   const def = COURTSIDE_PERSONA_PROMPTS[archetypeId] || COURTSIDE_PERSONA_PROMPTS.MYCAREER_STORY_CASUAL;
 
   const system = `${def.systemPrompt}
 
-You are evaluating a proposed commercial in-game offer for 2K Courtside (Take-Two Interactive).
+You are evaluating a proposed commercial in-game offer for 2K Courtside (2K Games).
 Your persona name is "${player.display_name || def.name}" (gamer tag: "${player.gamer_tag || def.gamer_tag}").
 Franchise context: ${franchise}.
 
-Respond in authentic gamer voice using authentic NBA 2K27, NBA 2K26, WWE 2K25, PGA TOUR 2K25, and Borderlands 4 terminology (VC, Cap Breakers, The City, Park, Rec, MyTEAM Galaxy Opal, Season Pass HoF, Rep tiers, Rebirth builds, 2K26 holdouts). Zero corporate buzzwords. Never reference outside franchises or competitor games.
+Respond in authentic gamer voice using authentic NBA 2K27, NBA 2K26, WWE 2K25, PGA TOUR 2K25, and Borderlands 4 terminology (VC, Cap Breakers, The City, Park, Rec, Pro-Am Crews, MyTEAM Galaxy Opal, Season Pass HoF, Rep tiers, Rebirth builds, 2K26 holdouts). Zero corporate buzzwords. Never reference outside franchises or competitor games.
 
 Evaluate the offer strictly from your persona's financial willingness to pay, gameplay needs, and community backlash sensitivity.
 Output strict JSON with:
@@ -774,10 +779,14 @@ Output strict JSON with:
   "churn_risk_score": <number between 0.0 and 1.0>
 }`;
 
+  const cfBlock = counterfactualEvent
+    ? `\nLIVE EVENT / PATCH INJECTION ACTIVE: "${counterfactualEvent}"\nFactor this live offer adjustment directly into your initial reaction.`
+    : "";
+
   const prompt = `Proposed Marketing Offer:
 Title: "${offerTitle}"
 Price: $${priceUsd.toFixed(2)} USD
-Franchise: ${franchise}
+Franchise: ${franchise}${cfBlock}
 
 Your Current In-Game Telemetry:
 - Archetype: ${archetypeLabel(archetypeId)} (${archetypeDescription(archetypeId)})
@@ -789,11 +798,195 @@ Your Current In-Game Telemetry:
 - Park Win Pct: ${((player.park_win_pct ?? 0.5) * 100).toFixed(0)}%
 - Park Loss Streak: ${player.loss_streak ?? 0}
 - Rage-Quits (7d): ${player.rage_quits_7d ?? 0}
+- Crew Affiliation: ${player.crew_name || "Bucket Getters"} (${player.crew_tier || "Rec"} · ${player.crew_role || "MEMBER"})
+- Followed 2K Creator: ${player.creator_handle || "@Agent00"}
 - NBA 2K26 Veteran Account: ${player.rockstar_linked ? "YES" : "NO"} (NBA 2K26 Prior Spend: $${player.gta_online_spend_usd ?? 0}, Migrated to 2K27 HoF: ${player.gta6_preorder ? "YES" : "NO"})
 - 2K Cross-Franchise Gravity Score: ${((player.gravity_score ?? 0.5) * 100).toFixed(0)}%
 - Favorite NBA Team: ${player.favorite_team ?? "Los Angeles Lakers"}
 
-How do you react to this offer at $${priceUsd.toFixed(2)}? Provide your verdict in strict JSON.`;
+How do you react to this offer at $${priceUsd.toFixed(2)} in Round 1 (before seeing your Crew or Creator streams)? Provide your verdict in strict JSON.`;
+
+  return { system, prompt };
+}
+
+/**
+ * Builds the prompt for the 3 flagship 2K Creator Megaphone broadcasts (@Agent00, @Troydan, @DBG)
+ * reacting to the proposed offer and any active Counterfactual injection.
+ */
+export function buildCreatorBroadcastPrompt(
+  offerTitle: string,
+  priceUsd: number,
+  franchise: string,
+  r1BuyCount: number,
+  r1BoycottCount: number,
+  counterfactualEvent?: string | null
+): { system: string; prompt: string } {
+  const system = `You simulate live stream and YouTube reactions from top NBA 2K & 2K ecosystem creators (@Agent00, @Troydan, @DBG) reacting to a new in-game 2K offer.
+Keep every headline punchy (max 14 words), authentic to 2K community culture (Park, Rec, MyTEAM pack odds, Cap Breakers, 2K26 to 2K27 upgrade value), and free of em-dashes.`;
+
+  const prompt = `Offer under live stream review:
+Title: "${offerTitle}"
+Price: $${priceUsd.toFixed(2)} USD
+Franchise: ${franchise}
+Round 1 Community Pulse: ${r1BuyCount}/20 buying, ${r1BoycottCount}/20 boycotting.
+${counterfactualEvent ? `Live Event / Patch Injection: "${counterfactualEvent}"` : "No counterfactual bonus active."}
+
+Generate strict JSON for 3 creators:
+1. creator-agent00 (@Agent00 · Agent 00 · Twitch & YouTube · 2.6M followers · Park & Crew focus)
+2. creator-troydan (@Troydan · Troydan · YouTube · 3.1M followers · MyTEAM pack openings)
+3. creator-dbg (@DBG · DBG · YouTube · 1.85M followers · Build Lab & VC value math)
+
+Output strict JSON:
+{
+  "broadcasts": [
+    {
+      "creator_id": "creator-agent00",
+      "handle": "@Agent00",
+      "name": "Agent 00",
+      "platform": "Twitch",
+      "stance": "ENDORSE" | "MIXED" | "CALLOUT",
+      "headline": "<max 14 words authentic stream reaction>",
+      "influence_reach": 2600000
+    },
+    {
+      "creator_id": "creator-troydan",
+      "handle": "@Troydan",
+      "name": "Troydan",
+      "platform": "YouTube",
+      "stance": "ENDORSE" | "MIXED" | "CALLOUT",
+      "headline": "<max 14 words authentic stream reaction>",
+      "influence_reach": 3100000
+    },
+    {
+      "creator_id": "creator-dbg",
+      "handle": "@DBG",
+      "name": "DBG",
+      "platform": "YouTube",
+      "stance": "ENDORSE" | "MIXED" | "CALLOUT",
+      "headline": "<max 14 words authentic stream reaction>",
+      "influence_reach": 1850000
+    }
+  ]
+}`;
+
+  return { system, prompt };
+}
+
+/**
+ * Builds the Round 2 Social Contagion prompt where the 20 Core Personas see
+ * what their Crew Captain (`MEMBER_OF_CLAN`) and Followed 2K Creator (`FOLLOWS_CREATOR`)
+ * did in Round 1, plus any God's-Eye Counterfactual Injection, and update their verdict.
+ */
+export function buildContagionRound2Prompt(
+  personasWithR1: Array<{
+    index: number;
+    player_id: string;
+    gamer_tag: string;
+    archetype: string;
+    myplayer_ovr: number;
+    vc_spend_90d: number;
+    crew_name: string;
+    crew_tier: string;
+    crew_role: string;
+    creator_handle: string;
+    round1_state: string;
+    round1_wtp: number;
+    round1_quote: string;
+  }>,
+  offerTitle: string,
+  priceUsd: number,
+  franchise: string,
+  creatorBroadcasts: Array<{ handle: string; stance: string; headline: string }>,
+  crewCaptainActionSummary: string,
+  counterfactualEvent?: string | null
+): { system: string; prompt: string } {
+  const system = `You are the 2K Courtside Social Contagion Engine modeling Round 2 peer & creator influence across TakeTwoPlayerGraph edges (MEMBER_OF_CLAN and FOLLOWS_CREATOR).
+In NBA 2K, players do not make isolated decisions:
+1. If a player's Rec/Pro-Am Crew Captain upgrades to NBA 2K27 or buys a Crew Re-Up bundle (or if a Squad VC bonus is injected), hesitant EVALUATING/ABANDONED squadmates experience strong FOMO ("can't leave my 5-stack behind in 2K26 or sub-85 Rec") and flip to PURCHASED (3.1x Crew Contagion Multiplier).
+2. Conversely, if an offer is an overpriced pack ($19.99+ without guaranteed odds) and @Troydan or @DBG calls out the pack odds on stream, EVALUATING players cascade into BOYCOTT or ABANDONED.
+3. If a Counterfactual Live Event is injected (e.g. +15K VC Squad Bonus, Guaranteed Opal Topper, Creator Co-Stream Drop, or 2K26 Cap Breaker Carryover), players whose friction point was solved flip toward PURCHASED or EVALUATING.
+
+Keep quotes concise (1 sentence, max 18 words, zero em-dashes) and explicitly reference their Crew, Captain, Creator handle, or the injected live event when a player flips!`;
+
+  const prompt = `Offer: "${offerTitle}" at $${priceUsd.toFixed(2)} (${franchise})
+${counterfactualEvent ? `ACTIVE COUNTERFACTUAL INJECTION: "${counterfactualEvent}"` : "Counterfactual Injection: None (Baseline)"}
+
+Live Creator Megaphone Broadcasts:
+${creatorBroadcasts.map((c) => `- ${c.handle} [${c.stance}]: "${c.headline}"`).join("\n")}
+
+Crew Captain & Squad Signal (Round 1):
+${crewCaptainActionSummary}
+
+Here are the 20 Core Personas and their Round 1 isolated verdicts:
+${JSON.stringify(personasWithR1, null, 2)}
+
+Simulate Round 2 (Social Contagion Pass) for all 20 personas. Realistic contagion rules:
+- Between 4 and 9 personas should flip their state in Round 2 due to Crew Captain peer pressure, Creator stream callouts/endorsements, or the active Counterfactual Injection.
+- Set "contagion_flipped": true ONLY if final_fsm_state changed from round1_state.
+- Set "contagion_driver" to "CREW_CAPTAIN", "CREATOR_STREAM", "COUNTERFACTUAL", or "NONE".
+- Set "contagion_source" to the specific Crew name (e.g. "Bucket Getters Captain"), Creator handle (e.g. "@Agent00"), or Counterfactual label that drove the shift.
+
+Return strict JSON:
+{
+  "round2": [
+    {
+      "index": 0,
+      "final_fsm_state": "PURCHASED" | "ENGAGED_FREE" | "EVALUATING" | "ABANDONED" | "BOYCOTT",
+      "willingness_to_pay_usd": <number>,
+      "verbatim_quote": "<1 concise sentence referencing Crew/Creator/Event if flipped>",
+      "sentiment_score": <number -1.0 to 1.0>,
+      "contagion_flipped": <boolean>,
+      "contagion_driver": "CREW_CAPTAIN" | "CREATOR_STREAM" | "COUNTERFACTUAL" | "NONE",
+      "contagion_source": "<string>"
+    }
+  ]
+}`;
+
+  return { system, prompt };
+}
+
+/**
+ * Builds the fast micro-batch prompt for 20 Crowd Swarm Agents (`gemini-3.5-flash-lite`)
+ * to scale the Focus Group from N=20 to N=100 Swarm Scale.
+ */
+export function buildCrowdSwarmBatchPrompt(
+  batchPlayers: Array<{
+    player_id: string;
+    gamer_tag: string;
+    archetype: string;
+    myplayer_ovr: number;
+    vc_spend_90d: number;
+    crew_name: string;
+    creator_handle: string;
+  }>,
+  offerTitle: string,
+  priceUsd: number,
+  franchise: string,
+  creatorStanceSummary: string,
+  counterfactualEvent?: string | null
+): { system: string; prompt: string } {
+  const system = `You evaluate a batch of 20 live NBA 2K / 2K ecosystem players from TakeTwoPlayerGraph for both Round 1 (isolated) and Round 2 (after Crew & Creator contagion). Output compact, strict JSON.`;
+
+  const prompt = `Offer: "${offerTitle}" at $${priceUsd.toFixed(2)} (${franchise})
+Creator & Crew Contagion Context: ${creatorStanceSummary}
+${counterfactualEvent ? `Active Counterfactual Event: "${counterfactualEvent}"` : ""}
+
+Players (${batchPlayers.length}):
+${JSON.stringify(batchPlayers)}
+
+For each player in the exact same order, return their Round 1 state, Round 2 final_fsm_state, WTP, and whether Crew/Creator/Counterfactual contagion flipped them:
+{
+  "agents": [
+    {
+      "player_id": "<string>",
+      "round1_state": "PURCHASED" | "ENGAGED_FREE" | "EVALUATING" | "ABANDONED" | "BOYCOTT",
+      "final_fsm_state": "PURCHASED" | "ENGAGED_FREE" | "EVALUATING" | "ABANDONED" | "BOYCOTT",
+      "willingness_to_pay_usd": <number>,
+      "contagion_flipped": <boolean>,
+      "contagion_driver": "CREW_CAPTAIN" | "CREATOR_STREAM" | "COUNTERFACTUAL" | "NONE"
+    }
+  ]
+}`;
 
   return { system, prompt };
 }

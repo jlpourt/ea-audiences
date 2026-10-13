@@ -286,14 +286,56 @@ export interface SituationalTrigger {
   timestamp: string;
 }
 
+export type ContagionDriver = "CREW_CAPTAIN" | "CREATOR_STREAM" | "COUNTERFACTUAL" | "NONE";
+
+export interface CreatorBroadcast {
+  creator_id: string;
+  handle: string;
+  name: string;
+  platform: string;
+  stance: "ENDORSE" | "MIXED" | "CALLOUT";
+  headline: string;
+  influence_reach: number;
+}
+
+export interface SwarmCrowdAgent {
+  player_id: string;
+  gamer_tag: string;
+  archetype: Archetype | string;
+  myplayer_ovr: number;
+  crew_name: string;
+  creator_handle: string;
+  round1_state: "PURCHASED" | "ENGAGED_FREE" | "EVALUATING" | "ABANDONED" | "BOYCOTT";
+  final_fsm_state: "PURCHASED" | "ENGAGED_FREE" | "EVALUATING" | "ABANDONED" | "BOYCOTT";
+  willingness_to_pay_usd: number;
+  contagion_flipped: boolean;
+  contagion_driver: ContagionDriver;
+}
+
+export interface MigrationCurvePoint {
+  stage: string;
+  isolated_pct: number;
+  contagion_pct: number;
+}
+
 /** One synthetic persona's reaction inside a Courtside Focus Group session. */
 export interface FocusGroupReaction {
   archetype: Archetype | string;
   gamer_tag?: string;
   player_id?: string;
+  crew_name?: string;
+  crew_tier?: string;
+  crew_role?: string;
+  creator_handle?: string;
   willingness_to_pay_usd: number;
   churn_risk_score: number;
   final_fsm_state: "PURCHASED" | "ENGAGED_FREE" | "EVALUATING" | "ABANDONED" | "BOYCOTT";
+  round1_fsm_state?: "PURCHASED" | "ENGAGED_FREE" | "EVALUATING" | "ABANDONED" | "BOYCOTT";
+  round1_quote?: string;
+  round1_wtp_usd?: number;
+  contagion_flipped?: boolean;
+  contagion_driver?: ContagionDriver;
+  contagion_source?: string;
   authenticity_rating: number;
   verbatim_quote: string;
   sentiment_score: number;
