@@ -32,51 +32,28 @@ interface NLSearchBarProps {
 }
 
 const GOLDEN_PLAY_PRESETS: Array<{
-  tag: string;
   label: string;
   query: string;
 }> = [
   {
-    tag: "01",
     label: "2K26 Holdouts",
     query:
-      "High-spend NBA 2K26 veterans who haven't migrated to NBA 2K27 yet and have Crew mates active in NBA 2K27",
+      "NBA 2K26 holdout veterans at the Concordia Crew tipping point with active NBA 2K27 Crew mates",
   },
   {
-    tag: "02",
     label: "S2 Build Cliff",
     query:
       "NBA 2K27 MyCAREER builds below 85 OVR who spent $50+ on VC, haven't logged in for 7 days, and are in a Crew with active teammates",
   },
   {
-    tag: "03",
-    label: "Crew Tipping Point",
-    query:
-      "NBA 2K26 holdout veterans at the Concordia Crew tipping point with active NBA 2K27 Crew mates",
-  },
-  {
-    tag: "04",
-    label: "Whale Velocity Decay",
+    label: "Whale Velocity",
     query:
       "High-LTV NBA 2K27 whales showing mid-season spending velocity decay for TimesFM 3.0 intervention",
   },
   {
-    tag: "05",
-    label: "D2C Web Store Arbitrage",
+    label: "D2C & Cross-Play",
     query:
       "High-velocity 2K Account VC spenders eligible for Direct-to-Consumer (D2C) Web Store margin arbitrage",
-  },
-  {
-    tag: "06",
-    label: "Build-Meta Rebirth",
-    query:
-      "Sub-86 OVR NBA 2K27 builds with sunk VC experiencing reactive frustration and loss streaks",
-  },
-  {
-    tag: "07",
-    label: "2K Cross-Play",
-    query:
-      "Multi-franchise 2K players linked via 2K Account playing NBA 2K27 alongside WWE 2K25, PGA TOUR 2K25, Borderlands 4, or Civilization VII",
   },
 ];
 
@@ -180,7 +157,7 @@ export default function NLSearchBar({
     <div
       className={`absolute bottom-4 left-1/2 ${
         isInspectorOpen ? "lg:left-[calc(50%-190px)]" : ""
-      } -translate-x-1/2 transition-all duration-200 z-20 w-[94%] max-w-4xl flex flex-col items-center gap-1.5 font-sans`}
+      } -translate-x-1/2 transition-all duration-200 z-20 w-[92%] max-w-2xl flex flex-col items-center gap-1.5 font-sans`}
     >
       {errorText && (
         <div
@@ -207,18 +184,40 @@ export default function NLSearchBar({
         </div>
       )}
 
-      {/* Compact 1-Line Segment Summary Bar */}
+      {/* Unified 1-Line Cohort & Causal Uplift Summary Bar */}
       {(summaryText || metrics) && (
-        <div className="apple-glass-heavy glass-enter w-full rounded-2xl px-3.5 py-2 flex items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2 min-w-0 overflow-x-auto">
+        <div
+          data-testid="causal-waterfall-ribbon"
+          className="apple-glass-heavy glass-enter w-full rounded-2xl px-3.5 py-2 flex items-center justify-between gap-2.5"
+        >
+          <div className="flex items-center gap-2 min-w-0 overflow-x-auto no-scrollbar">
             <span className="h-2 w-2 rounded-full bg-win-green shrink-0 animate-pulse" />
             <span className="text-xs font-semibold text-win-green font-mono tabular whitespace-nowrap">
-              <TabularNumber value={metrics?.matched_count || 0} /> players
+              <TabularNumber value={metrics?.matched_count || 0} /> matched
             </span>
+
+            {metrics?.causal_waterfall && (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/35 px-2.5 py-0.5 font-mono text-[11px] text-emerald-300 whitespace-nowrap"
+                title={`Suppressed ${metrics.causal_waterfall.sleeping_dogs_suppressed} Sleeping Dogs · Routed ${metrics.causal_waterfall.sure_things_d2c_routed} Sure Things to 2K D2C (+$${metrics.causal_waterfall.d2c_margin_saved_usd.toLocaleString()} Margin) · Added +${metrics.causal_waterfall.scann_twins_added} ScaNN Twins`}
+              >
+                <span>
+                  →{" "}
+                  {metrics.causal_waterfall.net_activated_cohort.toLocaleString()}{" "}
+                  Net Activated
+                </span>
+                <span className="text-emerald-400/70">·</span>
+                <span className="font-semibold text-white">
+                  +$
+                  {metrics.causal_waterfall.projected_incremental_lift_usd.toLocaleString()}{" "}
+                  Lift
+                </span>
+              </span>
+            )}
 
             {visibleConditions.length > 0 && (
               <div className="flex items-center gap-1.5 min-w-0">
-                {visibleConditions.map((c) => (
+                {visibleConditions.slice(0, 2).map((c) => (
                   <span
                     key={c.id}
                     className="inline-flex items-center gap-1 rounded-full border border-white/12 bg-white/[0.05] px-2 py-0.5 font-mono text-[11px] text-chalk whitespace-nowrap"
@@ -268,63 +267,6 @@ export default function NLSearchBar({
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Causal Pruning & D2C Margin Waterfall Ribbon */}
-      {metrics?.causal_waterfall && (
-        <div
-          data-testid="causal-waterfall-ribbon"
-          className="apple-glass-heavy glass-enter w-full rounded-2xl px-3 py-1.5 flex flex-wrap items-center justify-between gap-1.5 border border-white/[0.08] font-mono text-[11px] tabular-nums"
-        >
-          <div className="flex flex-wrap items-center gap-1.5 w-full justify-between">
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] border border-white/10 px-2 py-0.5 text-zinc-200 whitespace-nowrap">
-              <span className="text-zinc-400">Raw Match:</span>
-              <span className="font-semibold text-white">
-                {metrics.causal_waterfall.raw_matched.toLocaleString()}
-              </span>
-            </span>
-
-            <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 border border-rose-500/35 px-2 py-0.5 text-rose-300 whitespace-nowrap">
-              <span>
-                → Suppress Sleeping Dogs: -
-                {metrics.causal_waterfall.sleeping_dogs_suppressed.toLocaleString()}
-              </span>
-            </span>
-
-            <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/15 border border-sky-500/35 px-2 py-0.5 text-sky-300 whitespace-nowrap">
-              <span>
-                → Route Sure Things to 2K D2C:{" "}
-                {metrics.causal_waterfall.sure_things_d2c_routed.toLocaleString()}{" "}
-                (+${metrics.causal_waterfall.d2c_margin_saved_usd.toLocaleString()}{" "}
-                Margin)
-              </span>
-            </span>
-
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/35 px-2 py-0.5 text-amber-300 whitespace-nowrap">
-              <span>
-                → Seed Crew Captains:{" "}
-                {metrics.causal_waterfall.keystone_captains_seeded.toLocaleString()}
-              </span>
-            </span>
-
-            <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/15 border border-purple-500/35 px-2 py-0.5 text-purple-300 whitespace-nowrap">
-              <span>
-                → +ScaNN Twins: +
-                {metrics.causal_waterfall.scann_twins_added.toLocaleString()}
-              </span>
-            </span>
-
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-500/45 px-2.5 py-0.5 text-emerald-300 font-semibold whitespace-nowrap">
-              <span>
-                = Net Activated:{" "}
-                {metrics.causal_waterfall.net_activated_cohort.toLocaleString()}{" "}
-                (+$
-                {metrics.causal_waterfall.projected_incremental_lift_usd.toLocaleString()}{" "}
-                Est. Lift)
-              </span>
-            </span>
           </div>
         </div>
       )}
@@ -401,8 +343,8 @@ export default function NLSearchBar({
         </div>
       </div>
 
-      {/* 4 Compact Quick Suggestion Chips */}
-      <div className="flex flex-wrap items-center justify-center gap-1.5 w-full py-0.5">
+      {/* Single-Row Consolidated Quick Presets */}
+      <div className="flex items-center justify-center gap-1.5 w-full py-0.5 overflow-x-auto no-scrollbar">
         {GOLDEN_PLAY_PRESETS.map((p, idx) => (
           <button
             key={idx}
@@ -412,11 +354,9 @@ export default function NLSearchBar({
               setExcludedIds([]);
               handleSearch(p.query, []);
             }}
-            className="apple-glass flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] text-gray-300 hover:text-white whitespace-nowrap"
+            className="apple-glass flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] text-gray-300 hover:text-white hover:border-white/25 transition-all whitespace-nowrap"
           >
-            <span className="font-mono text-[11px] font-semibold text-twok-red">
-              {p.tag} ·
-            </span>
+            <span className="h-1.5 w-1.5 rounded-full bg-twok-red/80 shrink-0" />
             <span>{p.label}</span>
           </button>
         ))}

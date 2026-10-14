@@ -662,45 +662,49 @@ export default function HomePage() {
           />
         </div>
 
-        {/* Right: Telemetry & Action Controls */}
+        {/* Right: Telemetry & Consolidated Action Group */}
         <div className="flex items-center gap-2 shrink-0">
           <SpannerStatusPill />
 
-          <button
-            type="button"
-            onClick={() => setIsSavedDrawerOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.10] border border-white/[0.08] text-xs font-medium text-gray-200 hover:text-white transition-all"
-          >
-            <Database className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Saved ({savedAudiencesCount})</span>
-          </button>
+          <div className="flex items-center rounded-xl bg-white/[0.04] border border-white/[0.08] p-0.5 gap-0.5">
+            <button
+              type="button"
+              onClick={() => setIsSavedDrawerOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-white/[0.06] transition-all"
+            >
+              <Database className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Saved ({savedAudiencesCount})</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setIsFocusGroupOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 transition-all"
-          >
-            <Users className="w-3.5 h-3.5 text-amber-300" />
-            <span>Focus Group</span>
-          </button>
+            <span className="h-3.5 w-px bg-white/10" />
 
-          <button
-            type="button"
-            onClick={() => setIsCreativeStudioOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 transition-all"
-          >
-            <Palette className="w-3.5 h-3.5 text-cyan-300" />
-            <span>Studio</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsFocusGroupOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-amber-300 hover:bg-amber-500/15 transition-all"
+            >
+              <Users className="w-3.5 h-3.5 text-amber-300" />
+              <span>Focus Group</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setIsActivationFeedOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 transition-all"
-          >
-            <Radio className="w-3.5 h-3.5 text-rose-300" />
-            <span>Activate</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsCreativeStudioOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-white/[0.06] transition-all"
+            >
+              <Palette className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Studio</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsActivationFeedOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-white/[0.06] transition-all"
+            >
+              <Radio className="w-3.5 h-3.5 text-rose-400" />
+              <span>Activate</span>
+            </button>
+          </div>
         </div>
       </header>
 

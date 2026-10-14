@@ -31,7 +31,7 @@ const LENS_OPTIONS: { id: SegmentationLens; label: string }[] = [
 ];
 
 const GAME_OPTIONS: { id: GameFranchise; label: string }[] = [
-  { id: "ALL", label: "All 2K" },
+  { id: "ALL", label: "All 2K Titles" },
   { id: "NBA2K", label: "NBA 2K27" },
   { id: "NBA2K26", label: "NBA 2K26" },
   { id: "NBA2KMOBILE", label: "2K Mobile" },
@@ -41,33 +41,16 @@ const GAME_OPTIONS: { id: GameFranchise; label: string }[] = [
   { id: "CIV7", label: "Civ VII" },
 ];
 
-const COHORT_OPTIONS: { value: string; label: string }[] = [
-  { value: "ALL", label: "All Cohorts" },
-  { value: "MYTEAM_PACK_WHALE", label: "MyTEAM Whales" },
-  { value: "PARK_REP_GRINDER", label: "Park Grinders" },
-  { value: "CROSS_LABEL_NOMAD", label: "2K26 Bridge" },
-  { value: "REC_CREW_CAPTAIN", label: "Crew Captains" },
-  { value: "MYCAREER_STORY_CASUAL", label: "MyCAREER Casuals" },
-  { value: "BUILD_LAB_THEORYCRAFTER", label: "Build Lab" },
-  { value: "MYNBA_FRANCHISE_SIM", label: "MyNBA Sim" },
-  { value: "THE_W_LOYALIST", label: "The W Loyalists" },
-  { value: "MOBILE_DAILY_RITUALIST", label: "2K Mobile Ritualists" },
-  { value: "RAGE_QUIT_TILT_RISK", label: "Rage-Quit Risk" },
-];
-
 export default function GraphControls({
   currentView,
   onViewChange,
   selectedGame,
   onGameChange,
-  archetypeFilter,
   onArchetypeChange,
   segmentationLens = "FRANCHISE",
   onLensChange,
   is3D,
   onToggle3D,
-  nodeCount,
-  edgeCount,
 }: GraphControlsProps) {
   const views: { id: ContextualViewType; label: string }[] = [
     { id: "audience-cohorts", label: "Cohorts" },
@@ -106,10 +89,9 @@ export default function GraphControls({
         })}
       </div>
 
-      {/* 2. Title Selector (when on graph view) */}
+      {/* 2. Consolidated Graph Scope & Lens Control Pill (when on graph view) */}
       {isGraphCanvasView && (
-        <div className="flex items-center px-2 py-1 rounded-xl bg-white/[0.04] border border-white/[0.08] text-[11px]">
-          <span className="text-gray-400 mr-1.5 text-[11px]">Title</span>
+        <div className="flex items-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] px-2.5 py-1 text-[11px]">
           <select
             aria-label="Filter by 2K title"
             value={selectedGame}
@@ -129,83 +111,45 @@ export default function GraphControls({
               </option>
             ))}
           </select>
-        </div>
-      )}
 
-      {/* 3. Cohort Archetype Dropdown (when on graph view) */}
-      {isGraphCanvasView && (
-        <div className="flex items-center px-2 py-1 rounded-xl bg-white/[0.04] border border-white/[0.08] text-[11px]">
-          <span className="text-gray-400 mr-1.5 text-[11px]">Cohort</span>
-          <select
-            aria-label="Filter by player cohort archetype"
-            value={archetypeFilter}
-            onChange={(e) => onArchetypeChange(e.target.value)}
-            className="bg-transparent text-[11px] text-white font-medium focus:outline-none cursor-pointer"
+          {onLensChange && (
+            <>
+              <span className="h-3 w-px bg-white/15 mx-0.5" />
+              <span className="text-gray-400 text-[11px]">Lens</span>
+              <select
+                aria-label="Segmentation Lens Switcher"
+                value={segmentationLens}
+                onChange={(e) =>
+                  onLensChange(e.target.value as SegmentationLens)
+                }
+                className="bg-transparent text-[11px] text-emerald-300 font-semibold focus:outline-none cursor-pointer"
+              >
+                {LENS_OPTIONS.map((opt) => (
+                  <option
+                    key={opt.id}
+                    value={opt.id}
+                    className="bg-[#0E1117] text-white"
+                  >
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+
+          <span className="h-3 w-px bg-white/15 mx-0.5" />
+          <button
+            type="button"
+            onClick={onToggle3D}
+            className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-semibold transition-all ${
+              is3D
+                ? "bg-white text-black"
+                : "text-gray-300 hover:text-white hover:bg-white/10"
+            }`}
+            title="Toggle 2D / 3D Graph Projection"
           >
-            {COHORT_OPTIONS.map((f) => (
-              <option
-                key={f.value}
-                value={f.value}
-                className="bg-[#0E1117] text-white"
-              >
-                {f.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* 4. Segmentation Lens Switcher (when on graph view) */}
-      {isGraphCanvasView && onLensChange && (
-        <div
-          className="flex items-center rounded-xl bg-white/[0.04] border border-white/[0.08] p-0.5 pl-2 gap-0.5 shrink-0"
-          role="group"
-          aria-label="Segmentation Lens Switcher"
-        >
-          <span className="text-[10px] font-mono uppercase tracking-wider text-gray-400 mr-1">
-            Lens:
-          </span>
-          {LENS_OPTIONS.map((opt) => {
-            const active = segmentationLens === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => onLensChange(opt.id)}
-                className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap ${
-                  active
-                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/35 font-semibold shadow-sm"
-                    : "text-gray-400 hover:text-white hover:bg-white/5 border border-transparent"
-                }`}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* 5. 2D / 3D Toggle Button */}
-      {isGraphCanvasView && (
-        <button
-          type="button"
-          onClick={onToggle3D}
-          className={`px-2 py-1 rounded-xl text-[11px] font-medium transition-all ${
-            is3D
-              ? "bg-white text-black border border-white font-semibold"
-              : "bg-white/[0.04] border border-white/[0.08] text-gray-300 hover:text-white"
-          }`}
-        >
-          {is3D ? "3D" : "2D"}
-        </button>
-      )}
-
-      {/* 6. Nodes · Edges Counter Pill */}
-      {isGraphCanvasView && (
-        <div className="hidden 2xl:flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/[0.03] border border-white/[0.07] text-[11px] text-gray-300 font-mono tabular">
-          <span>{nodeCount}N</span>
-          <span className="text-gray-500">·</span>
-          <span>{edgeCount}E</span>
+            {is3D ? "3D" : "2D"}
+          </button>
         </div>
       )}
     </div>
