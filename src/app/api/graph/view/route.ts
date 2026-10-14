@@ -24,7 +24,7 @@ import { getCrewMates, getCrossLabelBridges } from "@/lib/gcp/spanner-client";
 export const dynamic = "force-dynamic";
 
 /** Cap on drawn player nodes. A rendering budget, never an audience size. */
-const RENDER_LIMIT = 420;
+const RENDER_LIMIT = 1050;
 
 const PLATFORM_COLORS: Record<string, string> = {
   "2K Account": "#E4002B",
@@ -285,7 +285,7 @@ export async function GET(request: NextRequest) {
   const isExpandOverlay = searchParams.get("expand") === "1";
   const customLimit = Number(searchParams.get("limit") || 0);
   const effectiveRenderLimit =
-    customLimit >= 100 && customLimit <= 1400 ? customLimit : RENDER_LIMIT;
+    customLimit >= 100 && customLimit <= 2000 ? customLimit : RENDER_LIMIT;
 
   try {
     const nodes: GraphNode[] = [];
@@ -816,7 +816,7 @@ export async function GET(request: NextRequest) {
 
       const crewIds = new Set(topCrews.map((c) => c.clan_id));
       const creatorIds = new Set(MACRO_CREATOR_ANCHORS.map((c) => c.id));
-      const crewPlayers = players.slice(0, 520);
+      const crewPlayers = players.slice(0, 750);
 
       crewPlayers.forEach((p: any, idx: number) => {
         const assignedCrewId =
@@ -1131,9 +1131,9 @@ export async function GET(request: NextRequest) {
       }
 
       // ------------------------------------------------------------------
-      // EDGE 2 (MAX 1): Cross-Franchise / 2K26->2K27 Migration Bridge Edge (ONLY in cross-franchise view)
+      // EDGE 2 (MAX 1): Cross-Franchise / 2K26->2K27 Migration Bridge Edge (value: 1)
       // ------------------------------------------------------------------
-      if (gameFilter === "ALL" && view === "cross-franchise") {
+      if (gameFilter === "ALL") {
         let bridgeHubId: string | null = null;
 
         if (primaryHubId === "game-nba2k26") {
@@ -1155,13 +1155,15 @@ export async function GET(request: NextRequest) {
         }
 
         if (bridgeHubId && drawnIds.has(bridgeHubId)) {
+          const isCrossView = view === "cross-franchise";
           links.push({
             source: p.player_id,
             target: bridgeHubId,
             label: "CROSS_FRANCHISE_PLAY",
             value: 1,
-            isMultiHopBridge: i % 4 === 0,
-            hopStep: 2,
+            isMultiHopBridge: isCrossView && i % 4 === 0,
+            hopStep: isCrossView ? 2 : undefined,
+            isTriggerStream: i % 10 === 0,
           });
         }
       }
@@ -1182,6 +1184,7 @@ export async function GET(request: NextRequest) {
             target: matchedCreator.id,
             label: "FOLLOWS_CREATOR",
             value: 1.5,
+            isTriggerStream: i % 15 === 0,
           });
           addedPerimeterEdge = true;
         }
@@ -1198,6 +1201,7 @@ export async function GET(request: NextRequest) {
             target: matchedClan.id,
             label: "MEMBER_OF_CLAN",
             value: 1.6,
+            isTriggerStream: i % 13 === 0,
           });
           addedPerimeterEdge = true;
         }

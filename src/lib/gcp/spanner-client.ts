@@ -281,7 +281,7 @@ async function runGql(
  */
 export async function runSpannerGraphQuery(
   generatedGql: string,
-  renderLimit = 220
+  renderLimit = 520
 ): Promise<GraphQueryResult> {
   const started = Date.now();
   const database = getDatabase();

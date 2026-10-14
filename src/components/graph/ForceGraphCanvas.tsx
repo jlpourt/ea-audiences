@@ -452,7 +452,10 @@ export default function ForceGraphCanvas({
       const tId = typeof link.target === "object" ? link.target.id : link.target;
       const isHighlighted = highlightLinks.has(`${sId}->${tId}`);
 
-      return isHighlighted ? 4 : 0;
+      if (isHighlighted) return 5;
+      if (link.isMultiHopBridge) return 5;
+      if (link.isTriggerStream) return 2;
+      return 0;
     },
     [highlightLinks]
   );
@@ -471,9 +474,11 @@ export default function ForceGraphCanvas({
       if (link.hopStep === 3) return "#FF5722"; // Hop 3: Target 2K Title Orange-Red
       return "#00F59B";
     }
-    if (link.isTriggerStream) return "#FF4757";
     if (link.label === "MONETIZATION_GRAVITY" || link.label === "OWNS_SKU") return "#FFB800";
-    if (link.label === "CROSS_FRANCHISE_PLAY") return "#00F0FF";
+    if (link.label === "MEMBER_OF_CLAN") return "#00F59B";
+    if (link.label === "FOLLOWS_CREATOR") return "#00F0FF";
+    if (link.label === "CROSS_FRANCHISE_PLAY") return "#00D2FF";
+    if (link.isTriggerStream) return "#FF4757";
     return "#00FF88";
   }, []);
 
@@ -917,9 +922,28 @@ export default function ForceGraphCanvas({
           ctx.lineWidth = 0.4;
         }
       } else {
-        // Natural resting state - ultra-clean, subtle constellation trails (bright lines only appear on hover/select)
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
-        ctx.lineWidth = 0.5;
+        // Natural resting state - ultra-clean, lightweight constellation trails
+        if (isMultiHop) {
+          ctx.strokeStyle =
+            link.hopStep === 1
+              ? "rgba(0, 245, 155, 0.50)"
+              : link.hopStep === 2
+              ? "rgba(0, 210, 255, 0.50)"
+              : "rgba(255, 87, 34, 0.50)";
+          ctx.lineWidth = 1.3;
+        } else if (isTrigger) {
+          ctx.strokeStyle = "rgba(255, 71, 87, 0.30)";
+          ctx.lineWidth = 0.9;
+        } else if (isMonetization) {
+          ctx.strokeStyle = "rgba(255, 184, 0, 0.20)";
+          ctx.lineWidth = 0.75;
+        } else if (isCrossGame) {
+          ctx.strokeStyle = "rgba(0, 240, 255, 0.14)";
+          ctx.lineWidth = 0.65;
+        } else {
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.07)";
+          ctx.lineWidth = 0.55;
+        }
       }
 
       ctx.stroke();
@@ -1098,8 +1122,9 @@ export default function ForceGraphCanvas({
           onRenderFramePre={paintLensGuides2D}
           nodeCanvasObject={paintNode2D}
           nodeCanvasObjectMode={() => "replace"}
+          linkColor={() => "rgba(0,0,0,0)"}
           linkCanvasObject={paintLink2D}
-          linkCanvasObjectMode={() => "replace"}
+          linkCanvasObjectMode={() => "after"}
           linkDirectionalParticles={getLinkParticles}
           linkDirectionalParticleSpeed={getLinkParticleSpeed}
           linkDirectionalParticleColor={getLinkParticleColor}

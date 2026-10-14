@@ -541,7 +541,7 @@ User Request: "${query}"`,
     throw new Error(safety.reason || "Invalid GQL query.");
   }
 
-  const spannerRes = await runSpannerGraphQuery(gqlQuery, 220);
+  const spannerRes = await runSpannerGraphQuery(gqlQuery, 520);
   const { games, creators } = await getCatalog();
   const gameById = new Map(games.map((g) => [g.game_id, g]));
   const creatorById = new Map(creators.map((c) => [c.creator_id, c]));

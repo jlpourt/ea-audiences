@@ -327,7 +327,7 @@ export async function getPlayersForView(opts: {
   archetype?: string;
   limit?: number;
 }) {
-  const { franchise, archetype, limit = 780 } = opts;
+  const { franchise, archetype, limit = 1050 } = opts;
   const where: string[] = [];
   const params: Record<string, any> = {
     limit: Math.max(1, Math.floor(limit)),
