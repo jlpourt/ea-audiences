@@ -13,9 +13,14 @@ export interface GraphTwinMatch {
   archetype: string;
   myplayer_ovr: number;
   crew_name: string;
+  crew_tier?: string;
   creator_handle: string;
   cosine_similarity: number;
   est_ltv_usd: number;
+  lifetime_spend_usd?: number;
+  churn_risk_score?: number;
+  recent_loss_streak?: number;
+  gravity_score?: number;
   /** Backwards-compatible aliases used by older UI callers */
   franchise?: string;
   spend_usd?: number;
@@ -326,9 +331,14 @@ export async function POST(request: NextRequest) {
           archetype: c.archetype,
           myplayer_ovr: c.myplayer_ovr,
           crew_name: c.crew_name,
+          crew_tier: c.crew_tier,
           creator_handle: c.creator_handle,
           cosine_similarity: hybridCosine,
           est_ltv_usd: estLtvUsd,
+          lifetime_spend_usd: c.lifetime_spend_usd,
+          churn_risk_score: c.churn_risk_score,
+          recent_loss_streak: c.recent_loss_streak,
+          gravity_score: c.gravity_score,
           franchise: c.primary_franchise,
           spend_usd: estLtvUsd,
           similarity: hybridCosine,
@@ -346,6 +356,178 @@ export async function POST(request: NextRequest) {
 
     const addedCount = Math.round((baseCount * expansionPct) / 100);
     const expandedTotal = baseCount + addedCount;
+
+    // Build a rich GraphData subgraph of the matched Graph Twins + Seed Buyers + Shared Crew/Creator Bridges
+    const twinGraphNodes: any[] = [];
+    const twinGraphLinks: any[] = [];
+    const seenNodeIds = new Set<string>();
+    const addGraphNode = (n: any) => {
+      if (seenNodeIds.has(n.id)) return;
+      seenNodeIds.add(n.id);
+      twinGraphNodes.push(n);
+    };
+
+    // 1. Central Flagship Hub
+    const hubId = targetFranchise === "NBA2K26" ? "game-nba2k26" : "game-nba2k27";
+    addGraphNode({
+      id: hubId,
+      name: targetFranchise === "NBA2K26" ? "NBA 2K26" : "NBA 2K27",
+      type: "GAME",
+      franchise: targetFranchise === "ALL" ? "NBA2K" : targetFranchise,
+      label: "2K",
+      val: 34,
+      color: "#E4002B",
+      fx: 0,
+      fy: -140,
+    });
+
+    // 2. Add Representative Seed Buyers (Gold Keystone Ring)
+    representativeSeeds.forEach((seed, idx) => {
+      addGraphNode({
+        id: seed.player_id,
+        name: `${seed.gamer_tag} (Seed Buyer)`,
+        type: "PLAYER",
+        franchise: seed.primary_franchise,
+        label: "2K",
+        archetype: seed.archetype,
+        spend: seed.lifetime_spend_usd,
+        churn_risk: seed.churn_risk_score,
+        loss_streak: seed.recent_loss_streak,
+        gravity_score: seed.gravity_score,
+        game_telemetry: {
+          myplayer_ovr: seed.myplayer_ovr,
+          myplayer_build: seed.myplayer_build,
+          vc_spend_90d: seed.vc_spend_90d,
+          vc_balance: seed.vc_balance,
+          park_win_pct: seed.park_win_pct,
+          myteam_galaxy_opal_count: seed.galaxy_opals,
+          nba2k26_veteran: seed.nba2k26_veteran,
+        },
+        val: 14,
+        color: "#F5B400",
+      });
+      twinGraphLinks.push({
+        source: seed.player_id,
+        target: hubId,
+        label: "PLAYS_GAME",
+        value: 1.5,
+      });
+
+      const crewId = `clan-twin-${seed.crew_name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+      addGraphNode({
+        id: crewId,
+        name: `${seed.crew_name} (${seed.crew_tier} Crew)`,
+        type: "CLAN",
+        franchise: "NBA2K",
+        isMultiHopBridge: true,
+        hopStep: 1,
+        val: 20,
+        color: "#00F59B",
+        fx: (idx - 1.5) * 160,
+        fy: 20,
+      });
+      twinGraphLinks.push({
+        source: seed.player_id,
+        target: crewId,
+        label: "MEMBER_OF_CLAN",
+        isMultiHopBridge: true,
+        hopStep: 1,
+        value: 2,
+        color: "#00F59B",
+      });
+    });
+
+    // 3. Add Top ScaNN Graph Twins + remaining hydrated lookalike candidates (up to 48 players)
+    const allTwinPlayers = [
+      ...scoredCandidates,
+      ...hydratedPlayers
+        .filter(
+          (p) =>
+            !seedSelectedIds.has(p.player_id) &&
+            !scoredCandidates.some((sc) => sc.player_id === p.player_id)
+        )
+        .slice(0, 30)
+        .map((c) => ({
+          player_id: c.player_id,
+          gamer_tag: c.gamer_tag,
+          archetype: c.archetype,
+          myplayer_ovr: c.myplayer_ovr,
+          crew_name: c.crew_name,
+          crew_tier: c.crew_tier,
+          creator_handle: c.creator_handle,
+          cosine_similarity: 0.895,
+          est_ltv_usd: Math.round(Math.max(65, c.lifetime_spend_usd * 0.25)),
+          lifetime_spend_usd: c.lifetime_spend_usd,
+          churn_risk_score: c.churn_risk_score,
+          recent_loss_streak: c.recent_loss_streak,
+          gravity_score: c.gravity_score,
+          franchise: c.primary_franchise,
+        })),
+    ];
+
+    allTwinPlayers.forEach((tw) => {
+      addGraphNode({
+        id: tw.player_id,
+        name: `${tw.gamer_tag} (${Math.round(tw.cosine_similarity * 100)}% Twin)`,
+        type: "PLAYER",
+        franchise: tw.franchise || "NBA2K",
+        label: "2K",
+        archetype: tw.archetype,
+        spend: tw.lifetime_spend_usd || tw.est_ltv_usd * 3,
+        churn_risk: tw.churn_risk_score ?? 0.28,
+        loss_streak: tw.recent_loss_streak ?? 0,
+        gravity_score: tw.gravity_score ?? tw.cosine_similarity,
+        game_telemetry: {
+          myplayer_ovr: tw.myplayer_ovr,
+          vc_spend_90d: tw.est_ltv_usd,
+          cosine_similarity: tw.cosine_similarity,
+        },
+        val: 11,
+        color: "#00D2FF",
+      });
+
+      const crewId = `clan-twin-${tw.crew_name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+      addGraphNode({
+        id: crewId,
+        name: `${tw.crew_name} (${(tw as any).crew_tier || "Rec"} Crew)`,
+        type: "CLAN",
+        franchise: "NBA2K",
+        isMultiHopBridge: true,
+        hopStep: 1,
+        val: 18,
+        color: "#00F59B",
+      });
+      twinGraphLinks.push({
+        source: crewId,
+        target: tw.player_id,
+        label: "SCANN_GRAPH_TWIN",
+        isMultiHopBridge: true,
+        hopStep: 2,
+        value: 2,
+        color: "#00D2FF",
+      });
+
+      const creatorId = `cr-twin-${tw.creator_handle.toLowerCase().replace(/[^a-z0-9]+/g, "")}`;
+      addGraphNode({
+        id: creatorId,
+        name: tw.creator_handle,
+        type: "CREATOR",
+        franchise: "NBA2K",
+        isMultiHopBridge: true,
+        hopStep: 1,
+        val: 20,
+        color: "#F5B400",
+      });
+      twinGraphLinks.push({
+        source: tw.player_id,
+        target: creatorId,
+        label: "FOLLOWS_CREATOR",
+        isMultiHopBridge: true,
+        hopStep: 1,
+        value: 1.6,
+        color: "#F5B400",
+      });
+    });
 
     // Estimate incremental bookings from matched twins' LTV & conversion propensity
     const avgTwinLtv =
@@ -395,6 +577,10 @@ export async function POST(request: NextRequest) {
       top_twins: topTwins,
       sample_players: topTwins,
       lookalike_archetypes: lookalikeArchetypes,
+      graph_data: {
+        nodes: twinGraphNodes,
+        links: twinGraphLinks,
+      },
       query_embedding_Preview: queryEmbeddingPreview,
       query_embedding_preview: queryEmbeddingPreview,
       latency_ms: Date.now() - started,

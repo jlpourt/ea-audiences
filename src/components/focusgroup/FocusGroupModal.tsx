@@ -392,6 +392,7 @@ export interface FocusGroupModalProps {
   isGeneratingBrief?: boolean;
   onGenerateBrief: (res: FocusGroupResult) => void;
   onOpenCreativeStudio?: (offerTitle: string) => void;
+  onOpenGraphTwins?: (twinsPayload: any, selectPlayerId?: string) => void;
   offerPreset?: { title: string; priceUsd: number; altPriceUsd?: number } | null;
 }
 
@@ -483,6 +484,7 @@ export function FocusGroupModal({
   isGeneratingBrief = false,
   onGenerateBrief,
   onOpenCreativeStudio,
+  onOpenGraphTwins,
   offerPreset,
 }: FocusGroupModalProps) {
   const prefersReducedMotion = Boolean(useReducedMotion());
@@ -545,6 +547,7 @@ export function FocusGroupModal({
     avg_cosine_similarity: number;
     added_count: number;
     incremental_bookings_usd: number;
+    rawPayload?: any;
     top_twins: Array<{
       player_id: string;
       gamer_tag: string;
@@ -1342,12 +1345,17 @@ export function FocusGroupModal({
       if (!res.ok || !data.ok) {
         throw new Error(data.error || `Twin Finder failed (HTTP ${res.status})`);
       }
+      const topTwinsList = Array.isArray(data.top_twins) ? data.top_twins : [];
       setTwinsResult({
         avg_cosine_similarity: Number(data.avg_cosine_similarity || 0.942),
         added_count: Number(data.added_count || data.expanded_count || 185),
         incremental_bookings_usd: Number(data.incremental_bookings_usd || 12400),
-        top_twins: Array.isArray(data.top_twins) ? data.top_twins : [],
+        rawPayload: data,
+        top_twins: topTwinsList,
       });
+      if (onOpenGraphTwins && data.graph_data?.nodes?.length) {
+        onOpenGraphTwins(data, topTwinsList[0]?.player_id);
+      }
     } catch (err: any) {
       console.error("[Find Graph Twins Error]:", err);
       setTwinsError(err?.message || "Failed to compute graph twins");
@@ -2905,26 +2913,48 @@ export function FocusGroupModal({
                 <span className="text-white/30">·</span>
                 <div className="flex items-center gap-1 flex-wrap">
                   {twinsResult.top_twins.slice(0, 4).map((tw) => (
-                    <span
+                    <button
                       key={tw.player_id}
-                      className="px-1.5 py-0.5 rounded bg-white/[0.05] border border-white/[0.08] text-[10px] text-white/80"
+                      type="button"
+                      onClick={() => {
+                        if (onOpenGraphTwins && twinsResult.rawPayload) {
+                          onOpenGraphTwins(twinsResult.rawPayload, tw.player_id);
+                        }
+                      }}
+                      className="px-1.5 py-0.5 rounded bg-white/[0.05] hover:bg-cyan-500/20 border border-white/[0.08] hover:border-cyan-400/40 text-[10px] text-white/80 hover:text-white transition-colors"
                     >
                       @{tw.gamer_tag.replace(/^@/, "")} ({tw.myplayer_ovr} OVR)
-                    </span>
+                    </button>
                   ))}
                 </div>
               </div>
             ) : null}
-            <button
-              type="button"
-              onClick={() => {
-                setTwinsResult(null);
-                setTwinsError(null);
-              }}
-              className="text-[10px] font-mono text-white/45 hover:text-white uppercase"
-            >
-              Dismiss
-            </button>
+            <div className="flex items-center gap-2">
+              {twinsResult?.rawPayload && onOpenGraphTwins && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onOpenGraphTwins(
+                      twinsResult.rawPayload,
+                      twinsResult.top_twins[0]?.player_id
+                    )
+                  }
+                  className="px-2.5 py-1 rounded-md bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-[11px] font-mono font-semibold text-cyan-300 transition-colors"
+                >
+                  Open Twins in Graph →
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setTwinsResult(null);
+                  setTwinsError(null);
+                }}
+                className="text-[10px] font-mono text-white/45 hover:text-white uppercase"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
 

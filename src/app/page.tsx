@@ -913,6 +913,73 @@ export default function HomePage() {
           setIsFocusGroupOpen(false);
           setIsCreativeStudioOpen(true);
         }}
+        onOpenGraphTwins={(twinsPayload, selectPlayerId) => {
+          if (twinsPayload?.graph_data?.nodes?.length) {
+            const nextGraph = {
+              nodes: twinsPayload.graph_data.nodes,
+              links: twinsPayload.graph_data.links || [],
+            };
+            setGraphData(nextGraph);
+            setBaseGraphData(nextGraph);
+            setShowLanding(false);
+            setCurrentView("audience-cohorts");
+            setIsSegmentedView(true);
+            setHighlightBridges(true);
+            setIsInspectorOpen(true);
+            const addedCount = Number(
+              twinsPayload.added_count || twinsPayload.expanded_count || 185
+            );
+            const expandedTotal = Number(
+              twinsPayload.expanded_total ||
+                (cohortContext?.matchedCount || 681) + addedCount
+            );
+            const avgSimPct = (
+              Number(twinsPayload.avg_cosine_similarity || 0.942) * 100
+            ).toFixed(1);
+            setCohortContext({
+              query: `ScaNN Graph Twins (+${addedCount} Twins · ${avgSimPct}% Cosine Match)`,
+              franchise: selectedGame,
+              matchedCount: expandedTotal,
+              renderedCount: nextGraph.nodes.filter((n: any) => n.type === "PLAYER")
+                .length,
+              estimatedTotal: expandedTotal,
+              dominantArchetype:
+                twinsPayload.top_twins?.[0]?.archetype ||
+                cohortContext?.dominantArchetype ||
+                "REC_CREW_CAPTAIN",
+              avgSpend: cohortContext?.avgSpend || 245,
+              avgChurn: cohortContext?.avgChurn || 0.34,
+              avgTilt: cohortContext?.avgTilt || 0.36,
+              highChurnCount: cohortContext?.highChurnCount || 48,
+              isLive: true,
+              isMultiHop: true,
+              multiHopMetadata: {
+                hops: 2,
+                patternLabel: `Seed Buyers → Shared Crew / Creator Halo → +${addedCount} ScaNN Graph Twins (${avgSimPct}% Match)`,
+                summary: `Expanded high-uplift Focus Group buyers via Vertex AI gemini-embedding-001 (3,072-d) + 1-hop Crew/Creator overlap (+$${Math.round(
+                  Number(twinsPayload.incremental_bookings_usd || 12400) / 1000
+                )}K Est. Bookings).`,
+                steps: [
+                  "Focus Group High-Uplift Buyers",
+                  "1-Hop Shared Crew & Creator Halo",
+                  `+${addedCount} ScaNN 3,072-d Graph Twins`,
+                ],
+                bridgeNodes: (twinsPayload.top_twins || [])
+                  .slice(0, 6)
+                  .map((t: any) => `@${String(t.gamer_tag).replace(/^@/, "")}`),
+              },
+            });
+            if (selectPlayerId) {
+              const found = nextGraph.nodes.find(
+                (n: any) => n.id === selectPlayerId
+              );
+              if (found) setSelectedNode(found);
+            } else {
+              setSelectedNode(null);
+            }
+            setIsFocusGroupOpen(false);
+          }
+        }}
         offerPreset={offerPreset}
       />
 
