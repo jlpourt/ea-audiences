@@ -16,6 +16,9 @@ import CourtsideLanding from "@/components/landing/CourtsideLanding";
 import { SaveAudienceSheet } from "@/components/audience/SaveAudienceSheet";
 import { SavedAudiencesDrawer } from "@/components/audience/SavedAudiencesDrawer";
 import SpannerStatusPill from "@/components/common/SpannerStatusPill";
+import EnterpriseArchitectureModal, {
+  EnterpriseArchitectureButton,
+} from "@/components/common/EnterpriseArchitectureModal";
 import {
   GraphData,
   GraphNode,
@@ -58,6 +61,7 @@ export default function HomePage() {
   });
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(true);
+  const [isArchModalOpen, setIsArchModalOpen] = useState<boolean>(false);
 
   // Audience Builder / NL Search state
   const [isSearching, setIsSearching] = useState<boolean>(false);
@@ -923,6 +927,8 @@ export default function HomePage() {
               <span>Activate</span>
             </button>
           </div>
+
+          <EnterpriseArchitectureButton onClick={() => setIsArchModalOpen(true)} />
         </div>
       </header>
 
@@ -1290,6 +1296,11 @@ export default function HomePage() {
           "PUSH_2K_MOBILE",
         ]}
         nlQuery={cohortContext?.query}
+      />
+
+      <EnterpriseArchitectureModal
+        isOpen={isArchModalOpen}
+        onClose={() => setIsArchModalOpen(false)}
       />
     </main>
   );

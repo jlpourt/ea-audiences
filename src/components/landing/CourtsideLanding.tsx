@@ -20,6 +20,9 @@ import {
 } from "lucide-react";
 import { GameFranchise, DynamicCohortFinding } from "@/lib/types";
 import SpannerStatusPill from "@/components/common/SpannerStatusPill";
+import EnterpriseArchitectureModal, {
+  EnterpriseArchitectureButton,
+} from "@/components/common/EnterpriseArchitectureModal";
 
 export interface ConditionChip {
   id: string;
@@ -510,6 +513,7 @@ export default function CourtsideLanding({
     null
   );
   const [isBriefModalOpen, setIsBriefModalOpen] = useState<boolean>(false);
+  const [isArchModalOpen, setIsArchModalOpen] = useState<boolean>(false);
   const [footerStats, setFooterStats] = useState<{
     players: number;
     crews: number;
@@ -798,6 +802,8 @@ export default function CourtsideLanding({
             <Database className="w-3.5 h-3.5 text-black" />
             <span>Explore Graph</span>
           </button>
+
+          <EnterpriseArchitectureButton onClick={() => setIsArchModalOpen(true)} />
         </div>
       </header>
 
@@ -1192,6 +1198,11 @@ export default function CourtsideLanding({
           </div>
         </div>
       )}
+
+      <EnterpriseArchitectureModal
+        isOpen={isArchModalOpen}
+        onClose={() => setIsArchModalOpen(false)}
+      />
     </div>
   );
 }

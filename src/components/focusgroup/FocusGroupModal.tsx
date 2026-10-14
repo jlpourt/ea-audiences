@@ -44,6 +44,9 @@ import { TabularNumber } from "@/components/brand/TabularNumber";
 import { RedditPulseCard } from "./RedditPulseCard";
 import { PersonaInterrogationDrawer } from "./PersonaInterrogationDrawer";
 import MiroFishNeuralFlow, { type SyntheticAudienceScale } from "./MiroFishNeuralFlow";
+import EnterpriseArchitectureModal, {
+  EnterpriseArchitectureButton,
+} from "@/components/common/EnterpriseArchitectureModal";
 import type { ExtendedFocusGroupResult } from "@/lib/focus-group-eval";
 
 /**
@@ -546,6 +549,7 @@ export function FocusGroupModal({
 
   // Dynamic Right Analytics Shelf (default CLOSED so Neural Flow is the full-stage mainstay)
   const [isRightShelfOpen, setIsRightShelfOpen] = useState<boolean>(false);
+  const [isArchModalOpen, setIsArchModalOpen] = useState<boolean>(false);
 
   // Right-Hand Analytics Shelf Tab ("all" | "forecast_survival" | "price_uplift" | "reddit_pulse")
   const [analyticsTab, setAnalyticsTab] = useState<
@@ -1679,6 +1683,11 @@ export function FocusGroupModal({
                   </>
                 )}
               </button>
+
+              <EnterpriseArchitectureButton
+                compact
+                onClick={() => setIsArchModalOpen(true)}
+              />
 
               <button
                 type="button"
@@ -3158,6 +3167,11 @@ export function FocusGroupModal({
             : (sampledPersonas as FocusGroupReaction[])
         }
         counterfactualEvent={counterfactualEvent}
+      />
+
+      <EnterpriseArchitectureModal
+        isOpen={isArchModalOpen}
+        onClose={() => setIsArchModalOpen(false)}
       />
     </div>
   );
