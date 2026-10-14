@@ -420,11 +420,12 @@ export default function MiroFishNeuralFlow({
     boycottCount,
   ]);
 
-  const denom = Math.max(1, buyCount + evalCount + passCount + boycottCount);
-  const buyPct = Math.round((buyCount / denom) * 100);
-  const evalPct = Math.round((evalCount / denom) * 100);
-  const passPct = Math.round((passCount / denom) * 100);
-  const boycottPct = Math.max(0, 100 - buyPct - evalPct - passPct);
+  const totalEvaluated = buyCount + evalCount + passCount + boycottCount;
+  const buyPct = totalEvaluated > 0 ? Math.round((buyCount / totalEvaluated) * 100) : 0;
+  const evalPct = totalEvaluated > 0 ? Math.round((evalCount / totalEvaluated) * 100) : 0;
+  const passPct = totalEvaluated > 0 ? Math.round((passCount / totalEvaluated) * 100) : 0;
+  const boycottPct =
+    totalEvaluated > 0 ? Math.max(0, 100 - buyPct - evalPct - passPct) : 0;
 
   const isR1Active =
     activeStage === "r1_firing" ||
@@ -861,7 +862,7 @@ export default function MiroFishNeuralFlow({
               scale: activeStage === "r1_firing" ? 1.02 : 1,
             }}
             transition={{ type: "spring", bounce: 0.2, duration: 0.35 }}
-            className={`group relative rounded-2xl px-4 py-2.5 transition-all text-left border backdrop-blur-xl w-full max-w-2xl ${
+            className={`group relative rounded-2xl px-4 py-2.5 transition-all text-left border backdrop-blur-xl w-full max-w-3xl ${
               selectedNodeId === "r1" || activeRound === 1
                 ? "bg-[#111528]/95 border-[#669DF6]/75 shadow-[0_0_36px_rgba(66,133,244,0.3)]"
                 : "bg-[#0B0D16]/90 border-white/[0.12] hover:border-[#669DF6]/50 shadow-[0_0_20px_rgba(66,133,244,0.12)]"
@@ -923,7 +924,7 @@ export default function MiroFishNeuralFlow({
         </div>
 
         {/* LAYER 3: 3 PARALLEL CONTAGION SIGNAL NODES (CREATORS · CREW CAPTAINS · REDDIT) */}
-        <div className="grid grid-cols-3 gap-2.5 max-w-4xl w-full mx-auto">
+        <div className="grid grid-cols-3 gap-3 max-w-5xl w-full mx-auto">
           {/* Node 3A: Creator Co-Streams */}
           <motion.button
             type="button"
@@ -1054,7 +1055,7 @@ export default function MiroFishNeuralFlow({
             }}
             transition={{ type: "spring", bounce: 0.2, duration: 0.38 }}
             className={`group relative rounded-2xl px-4 py-2.5 text-left border backdrop-blur-xl transition-all ${
-              hasRound3 ? "w-full sm:w-[440px]" : "w-full max-w-2xl"
+              hasRound3 ? "w-full sm:w-[480px]" : "w-full max-w-3xl"
             } ${
               selectedNodeId === "r2" || (activeRound === 2 && !hasRound3)
                 ? "bg-[#151226]/95 border-[#9B72CB]/85 shadow-[0_0_40px_rgba(155,114,203,0.35)]"
@@ -1142,7 +1143,7 @@ export default function MiroFishNeuralFlow({
         </div>
 
         {/* LAYER 5: 4 FINAL VERDICT OUTPUT TERMINALS (BUY / EVAL / PASS / BOYCOTT) */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-w-4xl w-full mx-auto">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-5xl w-full mx-auto">
           {[
             {
               id: "verdict_buy" as const,

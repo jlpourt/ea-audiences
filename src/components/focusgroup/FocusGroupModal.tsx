@@ -17,6 +17,11 @@ import {
   ChevronUp,
   Send,
   Sparkles,
+  PanelRightOpen,
+  PanelRightClose,
+  BarChart3,
+  TrendingUp,
+  Layers,
 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
@@ -539,10 +544,13 @@ export function FocusGroupModal({
   // Main Stage Mode: Default to Gemini Dark Neural Flow Diagram ("neural" | "personas" | "swarm")
   const [stageMode, setStageMode] = useState<"neural" | "personas" | "swarm">("neural");
 
-  // Right-Hand Analytics Column: 3-Tab Segmented Control (only 1 card shown at a time)
+  // Dynamic Right Analytics Shelf (default CLOSED so Neural Flow is the full-stage mainstay)
+  const [isRightShelfOpen, setIsRightShelfOpen] = useState<boolean>(false);
+
+  // Right-Hand Analytics Shelf Tab ("all" | "forecast_survival" | "price_uplift" | "reddit_pulse")
   const [analyticsTab, setAnalyticsTab] = useState<
-    "forecast_survival" | "price_uplift" | "reddit_pulse"
-  >("forecast_survival");
+    "all" | "forecast_survival" | "price_uplift" | "reddit_pulse"
+  >("all");
 
   // ScaNN + gemini-embedding-001 Graph Twin Finder state
   const [isFindingTwins, setIsFindingTwins] = useState(false);
@@ -1517,8 +1525,29 @@ export function FocusGroupModal({
               </button>
             </div>
 
-            {/* Right: Run Simulation CTA & Close */}
+            {/* Right: Deep Analytics Shelf Toggle + Run Simulation CTA + Close */}
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsRightShelfOpen((prev) => !prev)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all active:scale-[0.97] ${
+                  isRightShelfOpen
+                    ? "bg-[#9B72CB]/20 border-[#9B72CB]/55 text-white shadow-[0_0_20px_rgba(155,114,203,0.25)]"
+                    : "bg-white/[0.04] hover:bg-white/[0.09] border-white/[0.1] text-white/80 hover:text-white"
+                }`}
+                title="Toggle Forecast & Survival, Price & CATE Uplift, and Reddit Pulse Shelf"
+              >
+                {isRightShelfOpen ? (
+                  <PanelRightClose className="w-3.5 h-3.5 text-[#A8C7FA]" />
+                ) : (
+                  <PanelRightOpen className="w-3.5 h-3.5 text-[#A8C7FA]" />
+                )}
+                <span>Deep Telemetry</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-white/[0.1] text-[10px] font-mono text-[#00F5D4] tabular-nums">
+                  3
+                </span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleRunPressureTest}
@@ -1807,10 +1836,101 @@ export function FocusGroupModal({
           </div>
         </div>
 
-        {/* MAIN WORKSPACE: 8-Col Neural Flow / Stance Grid + 4-Col Single-Card Segmented Analytics Rail */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 px-5 py-3 overflow-hidden min-h-0">
-          {/* Left Column (8 Cols): MiroFish Neural Flow (Default) OR Creator Signal Bar + Persona/Swarm Grid */}
-          <div className="lg:col-span-8 flex flex-col h-full overflow-hidden min-h-0 gap-2.5">
+        {/* MAIN WORKSPACE: Full-Width Neural Flow Mainstay + Dynamic Right Telemetry Shelf (Default Closed) */}
+        <div className="relative flex-1 flex gap-3.5 px-5 py-3 overflow-hidden min-h-0">
+          {/* Centerpiece Stage: Expands 100% Width when Right Shelf is Closed */}
+          <div className="relative flex-1 min-w-0 flex flex-col h-full overflow-hidden min-h-0 gap-2.5">
+            {/* Floating Right-Edge Dock Launcher when Dynamic Shelf is Closed */}
+            <AnimatePresence>
+              {!isRightShelfOpen && (
+                <motion.div
+                  key="collapsed-right-shelf-dock"
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 16 }}
+                  transition={{ type: "spring", bounce: 0.18, duration: 0.32 }}
+                  className="hidden md:flex flex-col gap-1.5 absolute right-3 top-1/2 -translate-y-1/2 z-20 rounded-2xl border border-white/[0.12] bg-[#0B0D16]/90 backdrop-blur-2xl p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.75)]"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAnalyticsTab("all");
+                      setIsRightShelfOpen(true);
+                    }}
+                    className="group flex items-center justify-between gap-2.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-[#4285F4]/20 via-[#9B72CB]/20 to-[#D96570]/20 hover:from-[#4285F4]/35 hover:to-[#D96570]/35 border border-[#9B72CB]/45 text-left transition-all active:scale-[0.97]"
+                    title="Open all 3 deep analytics modules"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <PanelRightOpen className="w-3.5 h-3.5 text-[#A8C7FA] shrink-0" />
+                      <span className="text-[11px] font-semibold text-white whitespace-nowrap">
+                        Open Deep Shelf
+                      </span>
+                    </div>
+                    <span className="px-1.5 py-0.2 rounded bg-white/10 font-mono text-[9px] font-bold text-[#00F5D4]">
+                      ALL 3
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAnalyticsTab("forecast_survival");
+                      setIsRightShelfOpen(true);
+                    }}
+                    className="flex items-center justify-between gap-2.5 px-2.5 py-1.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.07] hover:border-win-green/40 text-left transition-all active:scale-[0.97]"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <TrendingUp className="w-3 h-3 text-win-green shrink-0" />
+                      <span className="text-[10px] font-medium text-white/80 whitespace-nowrap">
+                        Forecast &amp; Survival
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono font-semibold text-win-green tabular-nums">
+                      +{survivalAnalysis.days_gained.toFixed(1)}d
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAnalyticsTab("price_uplift");
+                      setIsRightShelfOpen(true);
+                    }}
+                    className="flex items-center justify-between gap-2.5 px-2.5 py-1.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.07] hover:border-vc-gold/40 text-left transition-all active:scale-[0.97]"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <BarChart3 className="w-3 h-3 text-vc-gold shrink-0" />
+                      <span className="text-[10px] font-medium text-white/80 whitespace-nowrap">
+                        Price &amp; CATE Uplift
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono font-semibold text-vc-gold tabular-nums">
+                      +{causalUplift.cate_lift_pct.toFixed(1)}%
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAnalyticsTab("reddit_pulse");
+                      setIsRightShelfOpen(true);
+                    }}
+                    className="flex items-center justify-between gap-2.5 px-2.5 py-1.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.07] hover:border-[#D96570]/45 text-left transition-all active:scale-[0.97]"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <MessageSquare className="w-3 h-3 text-[#D96570] shrink-0" />
+                      <span className="text-[10px] font-medium text-white/80 whitespace-nowrap">
+                        Reddit Pulse
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono font-semibold text-[#E9D5FF] tabular-nums">
+                      {redditThreads.length || 3}
+                    </span>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {stageMode === "neural" ? (
               <MiroFishNeuralFlow
                 isRunning={isRunning}
@@ -2503,50 +2623,78 @@ export function FocusGroupModal({
             )}
           </div>
 
-          {/* Right Column (4 Cols): Clean 3-Tab Segmented Analytics Card (Only ONE Visual Card Shown at a Time) */}
-          <div className="lg:col-span-4 flex flex-col h-full min-h-0 overflow-hidden gap-2.5">
-            {/* 3-Tab Segmented Control with layoutId Spring Indicator */}
-            <div
-              role="tablist"
-              aria-label="Executive analytics view"
-              className="grid grid-cols-3 rounded-xl bg-black/50 p-1 border border-white/[0.08] text-[11px] shrink-0"
-            >
-              {(
-                [
-                  { id: "forecast_survival" as const, label: "Forecast & Survival" },
-                  { id: "price_uplift" as const, label: "Price & CATE Uplift" },
-                  { id: "reddit_pulse" as const, label: "Reddit Pulse" },
-                ] as const
-              ).map((tab) => {
-                const active = analyticsTab === tab.id;
-                return (
+          {/* Dynamic Right Shelf (Default Closed; Slides Open to Show Forecast & Survival, Price & CATE Uplift, Reddit Pulse) */}
+          <AnimatePresence initial={false}>
+            {isRightShelfOpen && (
+              <motion.aside
+                key="dynamic-right-telemetry-shelf"
+                initial={{ opacity: 0, x: 48 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 48 }}
+                transition={{ type: "spring", bounce: 0.14, duration: 0.36 }}
+                className="w-full lg:w-[440px] xl:w-[465px] shrink-0 flex flex-col h-full min-h-0 overflow-hidden gap-2.5 rounded-2xl border border-white/[0.11] bg-[#090A10]/95 backdrop-blur-2xl p-3 shadow-[-16px_0_48px_rgba(0,0,0,0.65)]"
+              >
+                {/* Shelf Header + Close Button */}
+                <div className="flex items-center justify-between gap-2 pb-1 border-b border-white/[0.07] shrink-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Layers className="w-3.5 h-3.5 text-[#A8C7FA] shrink-0" />
+                    <span className="text-xs font-semibold text-white truncate">
+                      Deep Telemetry &amp; Causal Proof
+                    </span>
+                  </div>
                   <button
-                    key={tab.id}
-                    role="tab"
-                    aria-selected={active}
                     type="button"
-                    onClick={() => setAnalyticsTab(tab.id)}
-                    className={`relative z-10 py-1.5 px-2 rounded-lg font-medium transition-colors text-center truncate active:scale-[0.98] ${
-                      active ? "text-white font-semibold" : "text-white/50 hover:text-white/80"
-                    }`}
+                    onClick={() => setIsRightShelfOpen(false)}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/[0.05] hover:bg-white/[0.12] border border-white/[0.08] text-[10px] font-mono text-white/70 hover:text-white transition-all active:scale-[0.97]"
                   >
-                    {active && (
-                      <motion.div
-                        layoutId="fg-right-analytics-tab"
-                        transition={{ type: "spring", bounce: 0.15, duration: 0.38 }}
-                        className="absolute inset-0 rounded-lg bg-white/[0.12] border border-white/[0.14] -z-10"
-                      />
-                    )}
-                    {tab.label}
+                    <span>Collapse</span>
+                    <PanelRightClose className="w-3 h-3" />
                   </button>
-                );
-              })}
-            </div>
+                </div>
 
-            {/* Active Single Analytics Card */}
-            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
-              {analyticsTab === "forecast_survival" && (
-                <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 flex-1 flex flex-col justify-between gap-3">
+                {/* 4-Way Segmented Control: All 3 Stacked OR Individual Module */}
+                <div
+                  role="tablist"
+                  aria-label="Executive analytics view"
+                  className="grid grid-cols-4 rounded-xl bg-black/60 p-1 border border-white/[0.08] text-[10px] shrink-0"
+                >
+                  {(
+                    [
+                      { id: "all" as const, label: "All 3" },
+                      { id: "forecast_survival" as const, label: "Forecast & Surv" },
+                      { id: "price_uplift" as const, label: "Price & CATE" },
+                      { id: "reddit_pulse" as const, label: "Reddit Pulse" },
+                    ] as const
+                  ).map((tab) => {
+                    const active = analyticsTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        role="tab"
+                        aria-selected={active}
+                        type="button"
+                        onClick={() => setAnalyticsTab(tab.id)}
+                        className={`relative z-10 py-1.5 px-1.5 rounded-lg font-medium transition-colors text-center truncate active:scale-[0.98] ${
+                          active ? "text-white font-semibold" : "text-white/50 hover:text-white/80"
+                        }`}
+                      >
+                        {active && (
+                          <motion.div
+                            layoutId="fg-right-analytics-tab"
+                            transition={{ type: "spring", bounce: 0.15, duration: 0.38 }}
+                            className="absolute inset-0 rounded-lg bg-white/[0.12] border border-white/[0.14] -z-10"
+                          />
+                        )}
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Scrollable Analytics Shelf Content */}
+                <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3 pr-0.5">
+                  {(analyticsTab === "all" || analyticsTab === "forecast_survival") && (
+                    <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 flex flex-col justify-between gap-3 shrink-0">
                   {/* Section A: Cox/Weibull 30-Day Survival Curve (Self-Drawing SVG) */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
@@ -2760,8 +2908,8 @@ export function FocusGroupModal({
                 </div>
               )}
 
-              {analyticsTab === "price_uplift" && (
-                <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 flex-1 flex flex-col justify-between gap-3">
+                  {(analyticsTab === "all" || analyticsTab === "price_uplift") && (
+                    <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 flex flex-col justify-between gap-3 shrink-0">
                   {/* Section A: Self-Drawing WTP Price Elasticity Curve */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
@@ -2955,17 +3103,21 @@ export function FocusGroupModal({
                 </div>
               )}
 
-              {analyticsTab === "reddit_pulse" && (
-                <RedditPulseCard
-                  echoThreads={
-                    currentResult?.reddit_threads && currentResult.reddit_threads.length > 0
-                      ? currentResult.reddit_threads
-                      : redditThreads
-                  }
-                />
-              )}
-            </div>
-          </div>
+                  {(analyticsTab === "all" || analyticsTab === "reddit_pulse") && (
+                    <div className="shrink-0">
+                      <RedditPulseCard
+                        echoThreads={
+                          currentResult?.reddit_threads && currentResult.reddit_threads.length > 0
+                            ? currentResult.reddit_threads
+                            : redditThreads
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+              </motion.aside>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* FOOTER: Calm Status + Creative Studio & Campaign Brief Handoff */}
