@@ -1,14 +1,16 @@
 {
-  "scannedAt": "2026-10-13",
+  "scannedAt": "2026-10-14",
   "repoRoot": "/Users/jlpourt/CCAI/ea-audiences",
   "summary": {
-    "totalStaticFindings": 10,
-    "emDashTotal": 52,
+    "totalStaticFindings": 26,
+    "emDashTotal": 65,
     "metricCardTotal": 0,
     "uniqueGiveawaysTriggered": [
+      2,
+      14,
       15
     ],
-    "preliminaryAntiSlopScore": 8.2,
+    "preliminaryAntiSlopScore": 4.9,
     "screensCapturedCount": 0
   },
   "screens": [],
@@ -16,10 +18,127 @@
     {
       "giveawayId": 15,
       "category": "Exposed Google Cloud / AI model & service badges in customer UI",
+      "file": "src/app/page.tsx",
+      "line": 616,
+      "matched": "Vertex AI",
+      "snippet": "summary: `Expanded seed cohort via Vertex AI gemini-embedding-001 (3,072-d) + 1-hop Crew/Creator overlap (+$${Math.round(",
+      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
+    },
+    {
+      "giveawayId": 15,
+      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
+      "file": "src/app/page.tsx",
+      "line": 1189,
+      "matched": "Vertex AI",
+      "snippet": "summary: `Expanded high-uplift Focus Group buyers via Vertex AI gemini-embedding-001 (3,072-d) + 1-hop Crew/Creator overlap (+$${Math.round(",
+      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
+    },
+    {
+      "giveawayId": 15,
+      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
+      "file": "src/app/api/graph/view/route.ts",
+      "line": 314,
+      "matched": "in Spanner",
+      "snippet": "{ error: \"No players found in Spanner for social-hops view.\" },",
+      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
+    },
+    {
+      "giveawayId": 2,
+      "category": "Sparkle / magic-wand icons",
+      "file": "src/components/sidebar/EntityInspector.tsx",
+      "line": 28,
+      "matched": "Sparkles",
+      "snippet": "Sparkles,",
+      "fix": "Remove sparkle/magic-wand icon; use a domain-specific operational icon or clean typographic badge."
+    },
+    {
+      "giveawayId": 15,
+      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
+      "file": "src/components/sidebar/EntityInspector.tsx",
+      "line": 1582,
+      "matched": "(Spanner)",
+      "snippet": "<span>Next-Best Decision (Spanner)</span>",
+      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
+    },
+    {
+      "giveawayId": 14,
+      "category": "Loading spinners with no streaming/progress story",
+      "file": "src/components/sidebar/EntityInspector.tsx",
+      "line": 2369,
+      "matched": "animate-spin",
+      "snippet": "<Loader2 className=\"w-3.5 h-3.5 animate-spin text-cyan-300 shrink-0\" />",
+      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
+    },
+    {
+      "giveawayId": 2,
+      "category": "Sparkle / magic-wand icons",
+      "file": "src/components/sidebar/EntityInspector.tsx",
+      "line": 2374,
+      "matched": "Sparkles",
+      "snippet": "<Sparkles className=\"w-3.5 h-3.5 text-cyan-300 shrink-0\" />",
+      "fix": "Remove sparkle/magic-wand icon; use a domain-specific operational icon or clean typographic badge."
+    },
+    {
+      "giveawayId": 2,
+      "category": "Sparkle / magic-wand icons",
+      "file": "src/components/search/NLSearchBar.tsx",
+      "line": 12,
+      "matched": "Sparkles",
+      "snippet": "Sparkles,",
+      "fix": "Remove sparkle/magic-wand icon; use a domain-specific operational icon or clean typographic badge."
+    },
+    {
+      "giveawayId": 14,
+      "category": "Loading spinners with no streaming/progress story",
+      "file": "src/components/search/NLSearchBar.tsx",
+      "line": 260,
+      "matched": "animate-spin",
+      "snippet": "<Loader2 className=\"h-3.5 w-3.5 animate-spin\" />",
+      "fix": "Replace generic spinner with step-by-step execution telemetry (e.g., querying store inventory -> streaming response tokens)."
+    },
+    {
+      "giveawayId": 2,
+      "category": "Sparkle / magic-wand icons",
+      "file": "src/components/search/NLSearchBar.tsx",
+      "line": 265,
+      "matched": "Sparkles",
+      "snippet": "<Sparkles className=\"h-3.5 w-3.5\" />",
+      "fix": "Remove sparkle/magic-wand icon; use a domain-specific operational icon or clean typographic badge."
+    },
+    {
+      "giveawayId": 2,
+      "category": "Sparkle / magic-wand icons",
+      "file": "src/components/focusgroup/PersonaInterrogationDrawer.tsx",
+      "line": 4,
+      "matched": "Sparkles",
+      "snippet": "import { X, ArrowUp, Users, MessageSquare, Sparkles } from \"lucide-react\";",
+      "fix": "Remove sparkle/magic-wand icon; use a domain-specific operational icon or clean typographic badge."
+    },
+    {
+      "giveawayId": 2,
+      "category": "Sparkle / magic-wand icons",
+      "file": "src/components/focusgroup/PersonaInterrogationDrawer.tsx",
+      "line": 624,
+      "matched": "Sparkles",
+      "snippet": "<Sparkles className=\"w-3 h-3\" />",
+      "fix": "Remove sparkle/magic-wand icon; use a domain-specific operational icon or clean typographic badge."
+    },
+    {
+      "giveawayId": 15,
+      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
+      "file": "src/components/audience/SaveAudienceSheet.tsx",
+      "line": 261,
+      "matched": "Spanner Graph",
+      "snippet": "Top Spanner Graph Twins (ScaNN \u00b7 3,072-d)",
+      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
+    },
+    {
+      "giveawayId": 15,
+      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
       "file": "src/lib/config.ts",
       "line": 23,
-      "matched": "gemini-3.5-flash",
-      "snippet": "vertexModel: process.env.VERTEX_MODEL || \"gemini-3.5-flash\",",
+      "matched": "gemini-3.8-flash",
+      "snippet": "vertexModel: process.env.VERTEX_MODEL || \"gemini-3.8-flash\",",
       "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
     },
     {
@@ -27,15 +146,15 @@
       "category": "Exposed Google Cloud / AI model & service badges in customer UI",
       "file": "src/lib/config.ts",
       "line": 27,
-      "matched": "gemini-3.5-flash",
-      "snippet": "vertexGroundedModel: process.env.VERTEX_GROUNDED_MODEL || \"gemini-3.5-flash\",",
+      "matched": "gemini-3.8-flash",
+      "snippet": "vertexGroundedModel: process.env.VERTEX_GROUNDED_MODEL || \"gemini-3.8-flash\",",
       "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
     },
     {
       "giveawayId": 15,
       "category": "Exposed Google Cloud / AI model & service badges in customer UI",
       "file": "src/lib/models.ts",
-      "line": 61,
+      "line": 65,
       "matched": "gemini-3.1-pro-preview",
       "snippet": "id: \"gemini-3.1-pro-preview\",",
       "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
@@ -44,16 +163,16 @@
       "giveawayId": 15,
       "category": "Exposed Google Cloud / AI model & service badges in customer UI",
       "file": "src/lib/models.ts",
-      "line": 67,
-      "matched": "gemini-3.5-flash",
-      "snippet": "id: \"gemini-3.5-flash\",",
+      "line": 71,
+      "matched": "gemini-3.8-flash",
+      "snippet": "id: \"gemini-3.8-flash\",",
       "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
     },
     {
       "giveawayId": 15,
       "category": "Exposed Google Cloud / AI model & service badges in customer UI",
       "file": "src/lib/models.ts",
-      "line": 73,
+      "line": 77,
       "matched": "gemini-3.5-flash-lite",
       "snippet": "id: \"gemini-3.5-flash-lite\",",
       "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
@@ -62,25 +181,25 @@
       "giveawayId": 15,
       "category": "Exposed Google Cloud / AI model & service badges in customer UI",
       "file": "src/lib/models.ts",
-      "line": 82,
-      "matched": "gemini-3.5-flash",
-      "snippet": "id: \"gemini-3.5-flash\",",
+      "line": 83,
+      "matched": "gemini-3.8-flash",
+      "snippet": "id: \"gemini-3.8-flash\",",
       "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
     },
     {
       "giveawayId": 15,
       "category": "Exposed Google Cloud / AI model & service badges in customer UI",
       "file": "src/lib/models.ts",
-      "line": 88,
-      "matched": "gemini-3.1-flash-image",
-      "snippet": "id: \"gemini-3.1-flash-image\",",
+      "line": 95,
+      "matched": "gemini-3.1-flash-lite-image",
+      "snippet": "id: \"gemini-3.1-flash-lite-image\",",
       "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
     },
     {
       "giveawayId": 15,
       "category": "Exposed Google Cloud / AI model & service badges in customer UI",
       "file": "src/lib/models.ts",
-      "line": 94,
+      "line": 107,
       "matched": "gemini-3.1-flash-tts-preview",
       "snippet": "id: \"gemini-3.1-flash-tts-preview\",",
       "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
@@ -89,18 +208,45 @@
       "giveawayId": 15,
       "category": "Exposed Google Cloud / AI model & service badges in customer UI",
       "file": "src/lib/gcp/genai-client.ts",
-      "line": 427,
-      "matched": "gemini-2.5-flash-image",
-      "snippet": "if (requested.id !== \"gemini-2.5-flash-image\" || requested.location !== \"us-central1\") {",
+      "line": 470,
+      "matched": "gemini-3.1-flash-lite-image",
+      "snippet": "{ id: \"gemini-3.1-flash-lite-image\", location: \"global\" },",
       "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
     },
     {
       "giveawayId": 15,
       "category": "Exposed Google Cloud / AI model & service badges in customer UI",
       "file": "src/lib/gcp/genai-client.ts",
-      "line": 428,
+      "line": 471,
+      "matched": "gemini-3.1-flash-image",
+      "snippet": "{ id: \"gemini-3.1-flash-image\", location: \"global\" },",
+      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
+    },
+    {
+      "giveawayId": 15,
+      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
+      "file": "src/lib/gcp/genai-client.ts",
+      "line": 472,
       "matched": "gemini-2.5-flash-image",
-      "snippet": "chain.push({ id: \"gemini-2.5-flash-image\", location: \"us-central1\" });",
+      "snippet": "{ id: \"gemini-2.5-flash-image\", location: \"us-central1\" },",
+      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
+    },
+    {
+      "giveawayId": 15,
+      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
+      "file": "src/lib/gcp/genai-client.ts",
+      "line": 862,
+      "matched": "gemini-3.5-flash",
+      "snippet": "{ id: \"gemini-3.5-flash\", location: \"global\" },",
+      "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
+    },
+    {
+      "giveawayId": 15,
+      "category": "Exposed Google Cloud / AI model & service badges in customer UI",
+      "file": "src/lib/prompts/courtside_personas.ts",
+      "line": 303,
+      "matched": "Spanner Graph",
+      "snippet": "Generate strict JSON for these 3 Spanner Graph creators:",
       "fix": "Remove Google Cloud / LLM model and service names from customer-facing UI pills, headers, badges, and buttons; use the customer's authentic product and domain terminology."
     }
   ]

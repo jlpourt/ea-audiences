@@ -3,7 +3,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Sparkles,
   Radio,
   Users,
   MessageSquare,
@@ -234,7 +233,7 @@ export default function MiroFishNeuralFlow({
       return {
         tag: "@IsoKing_99",
         driver: "via @Agent00 + Crew Captain",
-        quote: "Squad captain locked the bundle for Rec tonight — flipping from EVAL to BUY.",
+        quote: "Squad captain locked the bundle for Rec tonight · flipping from EVAL to BUY.",
       };
     }
     const r = pool[thoughtTickIndex % pool.length] || pool[0];
@@ -250,7 +249,7 @@ export default function MiroFishNeuralFlow({
       driver,
       quote:
         r.verbatim_quote ||
-        `Squad is running Rec tonight — flipping to ${shortStateBadge(r.final_fsm_state)}.`,
+        `Squad is running Rec tonight · flipping to ${shortStateBadge(r.final_fsm_state)}.`,
     };
   }, [flippedReactions, activeReactions, thoughtTickIndex]);
 
@@ -351,7 +350,7 @@ export default function MiroFishNeuralFlow({
       case "r3":
         return {
           title: `Layer 4B · Round 3 What-If Counterfactual Rescue (+${round3FlipsCount} Rescued)`,
-          subtitle: `Triggered "${selectedCfLabel}" — rescuing holdouts & boycotters into BUY`,
+          subtitle: `Triggered "${selectedCfLabel}" · rescuing holdouts & boycotters into BUY`,
           accent: "from-[#00F5D4] to-[#19C37D]",
           players:
             r3RescuedReactions.length > 0 ? r3RescuedReactions : allInspectableReactions,
@@ -391,7 +390,7 @@ export default function MiroFishNeuralFlow({
       case "verdict_boycott":
         return {
           title: `Layer 5 · BOYCOTT / SLEEPING DOG Cluster (${boycottCount} Agents)`,
-          subtitle: `High-backlash holdouts — suppress from standard push or rescue via R3 What-If`,
+          subtitle: `High-backlash holdouts · suppress from standard push or rescue via R3 What-If`,
           accent: "from-[#FF4D5E] to-[#D96570]",
           players: allInspectableReactions.filter(
             (r) => getRoundState(r) === "BOYCOTT"
@@ -788,23 +787,8 @@ export default function MiroFishNeuralFlow({
       </svg>
 
       {/* ================= FOREGROUND INTERACTIVE 5-LAYER NEURAL NODES ================= */}
-      <div className="relative z-10 flex-1 flex flex-col justify-between px-4 py-3 min-h-0">
-        {/* Top Micro Telemetry Header inside Canvas */}
-        <div className="flex items-center justify-between gap-2 pointer-events-none">
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/[0.03] border border-white/[0.08] backdrop-blur-md">
-            <Cpu className="w-3.5 h-3.5 text-[#669DF6]" />
-            <span className="text-[10px] font-mono uppercase tracking-wider text-white/75">
-              MiroFish Neural Contagion Graph · Gemini 3.1 Flash
-            </span>
-          </div>
-
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/[0.03] border border-white/[0.08] text-[10px] font-mono text-white/60">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00F5D4] animate-pulse" />
-            <span>Click any neural node to inspect personas &amp; signals</span>
-          </div>
-        </div>
-
-        {/* LAYER 1: SEED COHORT & OFFER INJECTION NODE */}
+      <div className="relative z-10 flex-1 flex flex-col justify-between px-6 py-5 min-h-0">
+        {/* LAYER 1: SEED COHORT & OFFER CAPSULE NODE */}
         <div className="flex justify-center">
           <motion.button
             type="button"
@@ -812,41 +796,25 @@ export default function MiroFishNeuralFlow({
               setSelectedNodeId((prev) => (prev === "seed" ? null : "seed"))
             }
             whileTap={{ scale: 0.98 }}
-            className={`group relative rounded-2xl px-4 py-2 transition-all text-left border backdrop-blur-xl max-w-xl w-full sm:w-auto ${
+            className={`group relative rounded-full px-5 py-2 transition-all text-left border backdrop-blur-xl flex items-center gap-3 ${
               selectedNodeId === "seed"
-                ? "bg-[#111526]/95 border-[#669DF6]/80 shadow-[0_0_32px_rgba(66,133,244,0.35)]"
+                ? "bg-[#111526]/95 border-[#669DF6]/85 shadow-[0_0_32px_rgba(66,133,244,0.38)]"
                 : "bg-[#0B0D16]/90 border-white/[0.12] hover:border-[#669DF6]/60 shadow-[0_0_24px_rgba(66,133,244,0.16)]"
             }`}
           >
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-[#4285F4]/30 via-[#9B72CB]/30 to-[#D96570]/30 border border-[#669DF6]/40 flex items-center justify-center shrink-0">
-                  <Sparkles className="w-3.5 h-3.5 text-[#A8C7FA]" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#A8C7FA]">
-                      L1 · Cohort &amp; Offer Seed
-                    </span>
-                    <span className="px-1.5 py-0.2 rounded bg-[#4285F4]/20 border border-[#4285F4]/40 text-[10px] font-mono font-semibold text-white tabular-nums">
-                      {totalDenominator} Agents
-                    </span>
-                  </div>
-                  <div className="text-xs font-semibold text-white truncate">
-                    {creativeTitle}{" "}
-                    <span className="font-mono text-[#00F5D4]">
-                      ${priceUsd.toFixed(2)}
-                      {isBattleMode && altPriceUsd
-                        ? ` vs $${altPriceUsd.toFixed(2)}`
-                        : ""}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <span className="text-[10px] font-mono text-white/45 group-hover:text-white/80 shrink-0 hidden sm:inline">
-                Inspect Seed →
-              </span>
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#4285F4]/35 via-[#9B72CB]/35 to-[#D96570]/35 border border-[#669DF6]/50 flex items-center justify-center shrink-0">
+              <Cpu className="w-3.5 h-3.5 text-[#A8C7FA]" />
             </div>
+            <span className="text-xs font-semibold text-white">
+              {creativeTitle}
+            </span>
+            <span className="font-mono text-xs font-semibold text-[#00F5D4] tabular-nums">
+              ${priceUsd.toFixed(2)}
+              {isBattleMode && altPriceUsd ? ` vs $${altPriceUsd.toFixed(2)}` : ""}
+            </span>
+            <span className="px-2 py-0.5 rounded-full bg-[#4285F4]/20 border border-[#4285F4]/40 text-[10px] font-mono font-semibold text-[#A8C7FA] tabular-nums">
+              {totalDenominator} Agents
+            </span>
           </motion.button>
         </div>
 
@@ -862,13 +830,13 @@ export default function MiroFishNeuralFlow({
               scale: activeStage === "r1_firing" ? 1.02 : 1,
             }}
             transition={{ type: "spring", bounce: 0.2, duration: 0.35 }}
-            className={`group relative rounded-2xl px-4 py-2.5 transition-all text-left border backdrop-blur-xl w-full max-w-3xl ${
+            className={`group relative rounded-2xl px-5 py-2.5 transition-all text-left border backdrop-blur-xl w-full max-w-xl ${
               selectedNodeId === "r1" || activeRound === 1
                 ? "bg-[#111528]/95 border-[#669DF6]/75 shadow-[0_0_36px_rgba(66,133,244,0.3)]"
                 : "bg-[#0B0D16]/90 border-white/[0.12] hover:border-[#669DF6]/50 shadow-[0_0_20px_rgba(66,133,244,0.12)]"
             }`}
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span
                   className={`w-2 h-2 rounded-full ${
@@ -878,10 +846,7 @@ export default function MiroFishNeuralFlow({
                   }`}
                 />
                 <span className="text-xs font-semibold text-white">
-                  R1 · Isolated Utility Evaluation
-                </span>
-                <span className="text-[10px] font-mono text-white/45">
-                  (Pre-Social Baseline)
+                  R1 · Isolated Baseline
                 </span>
               </div>
 
@@ -901,30 +866,26 @@ export default function MiroFishNeuralFlow({
               </div>
             </div>
 
-            {/* Live Firing 1-Line Thought Ticker */}
-            <div className="mt-1.5 pt-1.5 border-t border-white/[0.07] flex items-center justify-between gap-2 text-[11px]">
-              <div className="flex items-center gap-2 min-w-0 truncate">
-                <span className="font-mono font-semibold text-[#A8C7FA] shrink-0">
-                  {currentR1Thought.tag}
-                </span>
-                <span className="px-1.5 py-0.2 rounded bg-white/[0.06] text-[9px] font-mono text-white/75 shrink-0">
-                  R1 {currentR1Thought.state}
-                </span>
-                <span className="text-white/70 truncate italic">
-                  &ldquo;{currentR1Thought.quote}&rdquo;
+            {(isRunning || activeReactions.length > 0) && (
+              <div className="mt-1.5 pt-1.5 border-t border-white/[0.06] flex items-center justify-between gap-2 text-[11px] truncate">
+                <div className="flex items-center gap-2 min-w-0 truncate">
+                  <span className="font-mono font-semibold text-[#A8C7FA] shrink-0">
+                    {currentR1Thought.tag}
+                  </span>
+                  <span className="text-white/65 truncate">
+                    &ldquo;{currentR1Thought.quote}&rdquo;
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono text-[#A8C7FA] shrink-0 tabular-nums">
+                  {activeReactions.length}/20
                 </span>
               </div>
-              <span className="text-[10px] font-mono text-[#A8C7FA] shrink-0">
-                {activeReactions.length > 0
-                  ? `${activeReactions.length}/20 Fired`
-                  : "Ready"}
-              </span>
-            </div>
+            )}
           </motion.button>
         </div>
 
         {/* LAYER 3: 3 PARALLEL CONTAGION SIGNAL NODES (CREATORS · CREW CAPTAINS · REDDIT) */}
-        <div className="grid grid-cols-3 gap-3 max-w-5xl w-full mx-auto">
+        <div className="grid grid-cols-3 gap-3 max-w-3xl w-full mx-auto">
           {/* Node 3A: Creator Co-Streams */}
           <motion.button
             type="button"
@@ -934,41 +895,34 @@ export default function MiroFishNeuralFlow({
               )
             }
             whileTap={{ scale: 0.98 }}
-            className={`rounded-xl px-3 py-2 text-left border backdrop-blur-xl transition-all ${
+            className={`rounded-2xl px-3.5 py-2.5 text-left border backdrop-blur-xl transition-all flex items-center justify-between gap-2 ${
               selectedNodeId === "sig_creators"
                 ? "bg-[#1A1228]/95 border-[#9B72CB]/80 shadow-[0_0_26px_rgba(155,114,203,0.35)]"
                 : "bg-[#0C0D17]/90 border-white/[0.1] hover:border-[#9B72CB]/55"
             }`}
           >
-            <div className="flex items-center justify-between gap-1">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <Radio className="w-3.5 h-3.5 text-[#D96570] shrink-0" />
-                <span className="text-[11px] font-semibold text-white truncate">
+            <div className="flex items-center gap-2 min-w-0">
+              <Radio className="w-3.5 h-3.5 text-[#D96570] shrink-0" />
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold text-white truncate">
                   Creator Co-Streams
-                </span>
+                </div>
+                <div className="text-[10px] font-mono text-white/50 truncate">
+                  {creatorSignals[0]?.handle || "@Agent00"} ·{" "}
+                  {creatorSignals[0]?.mroas
+                    ? `${creatorSignals[0].mroas.toFixed(1)}x`
+                    : "3.8x"}{" "}
+                  mROAS
+                </div>
               </div>
-              <span className="text-[10px] font-mono text-[#E9D5FF] shrink-0 tabular-nums">
-                {creatorSignals[0]?.mroas
-                  ? `${creatorSignals[0].mroas.toFixed(1)}x mROAS`
-                  : "3.8x mROAS"}
-              </span>
             </div>
-            <div className="mt-1 flex items-center justify-between gap-1 text-[10px] font-mono text-white/55">
-              <span className="truncate">
-                {creatorSignals
-                  .slice(0, 2)
-                  .map((c) => c.handle)
-                  .join(" · ") || "@Agent00 · @ChrisSmoove"}
-              </span>
-              <span className="text-win-green shrink-0">
-                +
-                {creatorSignals.reduce(
-                  (acc, c) => acc + (c.attributed_flips || 0),
-                  0
-                ) || Math.max(2, Math.round(contagionFlipsCount * 0.45))}{" "}
-                flips
-              </span>
-            </div>
+            <span className="px-2 py-0.5 rounded-full bg-win-green/15 border border-win-green/30 text-[10px] font-mono font-semibold text-win-green shrink-0 tabular-nums">
+              +
+              {creatorSignals.reduce(
+                (acc, c) => acc + (c.attributed_flips || 0),
+                0
+              ) || Math.max(2, Math.round(contagionFlipsCount * 0.45))}
+            </span>
           </motion.button>
 
           {/* Node 3B: Crew Captain Social Gravity */}
@@ -980,29 +934,26 @@ export default function MiroFishNeuralFlow({
               )
             }
             whileTap={{ scale: 0.98 }}
-            className={`rounded-xl px-3 py-2 text-left border backdrop-blur-xl transition-all ${
+            className={`rounded-2xl px-3.5 py-2.5 text-left border backdrop-blur-xl transition-all flex items-center justify-between gap-2 ${
               selectedNodeId === "sig_crews"
                 ? "bg-[#0E1C26]/95 border-[#00F5D4]/75 shadow-[0_0_26px_rgba(0,245,212,0.3)]"
                 : "bg-[#0C0D17]/90 border-white/[0.1] hover:border-[#00F5D4]/50"
             }`}
           >
-            <div className="flex items-center justify-between gap-1">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <Users className="w-3.5 h-3.5 text-[#00F5D4] shrink-0" />
-                <span className="text-[11px] font-semibold text-white truncate">
-                  Crew Captain Gravity
-                </span>
+            <div className="flex items-center gap-2 min-w-0">
+              <Users className="w-3.5 h-3.5 text-[#00F5D4] shrink-0" />
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold text-white truncate">
+                  Crew Captains
+                </div>
+                <div className="text-[10px] font-mono text-[#00F5D4] truncate tabular-nums">
+                  {crewMultiplier.toFixed(1)}x Squad Cascade
+                </div>
               </div>
-              <span className="text-[10px] font-mono text-[#00F5D4] font-semibold shrink-0 tabular-nums">
-                {crewMultiplier.toFixed(1)}x Cascade
-              </span>
             </div>
-            <div className="mt-1 flex items-center justify-between gap-1 text-[10px] font-mono text-white/55">
-              <span className="truncate">Rec Squad &amp; Discord Pull</span>
-              <span className="text-win-green shrink-0">
-                +{Math.max(2, Math.round(contagionFlipsCount * 0.4))} flips
-              </span>
-            </div>
+            <span className="px-2 py-0.5 rounded-full bg-win-green/15 border border-win-green/30 text-[10px] font-mono font-semibold text-win-green shrink-0 tabular-nums">
+              +{Math.max(2, Math.round(contagionFlipsCount * 0.4))}
+            </span>
           </motion.button>
 
           {/* Node 3C: r/NBA2K Community Pulse */}
@@ -1014,29 +965,26 @@ export default function MiroFishNeuralFlow({
               )
             }
             whileTap={{ scale: 0.98 }}
-            className={`rounded-xl px-3 py-2 text-left border backdrop-blur-xl transition-all ${
+            className={`rounded-2xl px-3.5 py-2.5 text-left border backdrop-blur-xl transition-all flex items-center justify-between gap-2 ${
               selectedNodeId === "sig_reddit"
                 ? "bg-[#24131C]/95 border-[#D96570]/80 shadow-[0_0_26px_rgba(217,101,112,0.35)]"
                 : "bg-[#0C0D17]/90 border-white/[0.1] hover:border-[#D96570]/55"
             }`}
           >
-            <div className="flex items-center justify-between gap-1">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <MessageSquare className="w-3.5 h-3.5 text-[#FFB800] shrink-0" />
-                <span className="text-[11px] font-semibold text-white truncate">
-                  r/NBA2K Live Pulse
-                </span>
+            <div className="flex items-center gap-2 min-w-0">
+              <MessageSquare className="w-3.5 h-3.5 text-[#FFB800] shrink-0" />
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold text-white truncate">
+                  r/NBA2K Pulse
+                </div>
+                <div className="text-[10px] font-mono text-white/50 truncate">
+                  Community Sentiment
+                </div>
               </div>
-              <span className="text-[10px] font-mono text-vc-gold shrink-0 tabular-nums">
-                {redditThreads.length || 3} Threads
-              </span>
             </div>
-            <div className="mt-1 flex items-center justify-between gap-1 text-[10px] font-mono text-white/55">
-              <span className="truncate">
-                {redditThreads[0]?.title || "Community VC & Build Meta Consensus"}
-              </span>
-              <span className="text-white/70 shrink-0">Echo</span>
-            </div>
+            <span className="px-2 py-0.5 rounded-full bg-vc-gold/15 border border-vc-gold/30 text-[10px] font-mono font-semibold text-vc-gold shrink-0 tabular-nums">
+              {redditThreads.length || 3}
+            </span>
           </motion.button>
         </div>
 
@@ -1054,8 +1002,8 @@ export default function MiroFishNeuralFlow({
               scale: activeStage === "r2_firing" ? 1.025 : 1,
             }}
             transition={{ type: "spring", bounce: 0.2, duration: 0.38 }}
-            className={`group relative rounded-2xl px-4 py-2.5 text-left border backdrop-blur-xl transition-all ${
-              hasRound3 ? "w-full sm:w-[480px]" : "w-full max-w-3xl"
+            className={`group relative rounded-2xl px-5 py-2.5 text-left border backdrop-blur-xl transition-all ${
+              hasRound3 ? "w-full sm:w-[420px]" : "w-full max-w-xl"
             } ${
               selectedNodeId === "r2" || (activeRound === 2 && !hasRound3)
                 ? "bg-[#151226]/95 border-[#9B72CB]/85 shadow-[0_0_40px_rgba(155,114,203,0.35)]"
@@ -1078,7 +1026,7 @@ export default function MiroFishNeuralFlow({
 
               <div className="flex items-center gap-1.5">
                 <span className="px-2 py-0.5 rounded-full bg-win-green/20 border border-win-green/40 text-win-green font-mono text-[10px] font-semibold tabular-nums">
-                  +{contagionFlipsCount} R2 Social Flips
+                  +{contagionFlipsCount} Flips
                 </span>
                 <span className="px-2 py-0.5 rounded-full bg-[#9B72CB]/20 border border-[#9B72CB]/40 text-[#E9D5FF] font-mono text-[10px] font-semibold tabular-nums">
                   +{conversionLift.toFixed(1)}% Lift
@@ -1086,20 +1034,19 @@ export default function MiroFishNeuralFlow({
               </div>
             </div>
 
-            {/* Live R2 Social Thought Stream */}
-            <div className="mt-1.5 pt-1.5 border-t border-white/[0.07] flex items-center justify-between gap-2 text-[11px]">
-              <div className="flex items-center gap-1.5 min-w-0 truncate">
+            {(isRunning || activeReactions.length > 0) && (
+              <div className="mt-1.5 pt-1.5 border-t border-white/[0.06] flex items-center gap-1.5 text-[11px] truncate">
                 <span className="font-mono font-semibold text-[#00F5D4] shrink-0">
                   {currentR2Thought.tag}
                 </span>
-                <span className="px-1.5 py-0.2 rounded bg-win-green/15 text-win-green border border-win-green/30 text-[9px] font-mono shrink-0">
+                <span className="px-1.5 py-0.2 rounded bg-win-green/15 text-win-green text-[9px] font-mono shrink-0">
                   {currentR2Thought.driver}
                 </span>
-                <span className="text-white/75 truncate italic">
+                <span className="text-white/70 truncate">
                   &ldquo;{currentR2Thought.quote}&rdquo;
                 </span>
               </div>
-            </div>
+            )}
           </motion.button>
 
           {/* Dynamic R3 What-If Counterfactual Rescue Branch Node */}
@@ -1116,7 +1063,7 @@ export default function MiroFishNeuralFlow({
                   onSelectRound(3);
                   setSelectedNodeId((prev) => (prev === "r3" ? null : "r3"));
                 }}
-                className={`rounded-2xl px-4 py-2.5 text-left border backdrop-blur-xl transition-all w-full sm:w-[290px] ${
+                className={`rounded-2xl px-4 py-2.5 text-left border backdrop-blur-xl transition-all w-full sm:w-[270px] ${
                   selectedNodeId === "r3" || activeRound === 3
                     ? "bg-[#09221E]/95 border-[#00F5D4]/85 shadow-[0_0_36px_rgba(0,245,212,0.35)]"
                     : "bg-[#081917]/90 border-[#00F5D4]/45 hover:border-[#00F5D4]/80"
@@ -1133,7 +1080,7 @@ export default function MiroFishNeuralFlow({
                     +{round3FlipsCount} Rescued
                   </span>
                 </div>
-                <div className="mt-1.5 pt-1.5 border-t border-white/[0.08] flex items-center justify-between text-[10px] font-mono text-[#A7F3D0]">
+                <div className="mt-1 flex items-center justify-between text-[10px] font-mono text-[#A7F3D0]">
                   <span className="truncate">{selectedCfLabel}</span>
                   <span className="text-white/75 shrink-0">→ BUY</span>
                 </div>
@@ -1143,12 +1090,11 @@ export default function MiroFishNeuralFlow({
         </div>
 
         {/* LAYER 5: 4 FINAL VERDICT OUTPUT TERMINALS (BUY / EVAL / PASS / BOYCOTT) */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-5xl w-full mx-auto">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl w-full mx-auto">
           {[
             {
               id: "verdict_buy" as const,
               label: "PURCHASED",
-              short: "BUY",
               count: buyCount,
               pct: buyPct,
               icon: CheckCircle2,
@@ -1161,7 +1107,6 @@ export default function MiroFishNeuralFlow({
             {
               id: "verdict_eval" as const,
               label: "EVALUATING",
-              short: "EVAL",
               count: evalCount,
               pct: evalPct,
               icon: Clock,
@@ -1174,7 +1119,6 @@ export default function MiroFishNeuralFlow({
             {
               id: "verdict_pass" as const,
               label: "ABANDONED",
-              short: "PASS",
               count: passCount,
               pct: passPct,
               icon: MinusCircle,
@@ -1186,7 +1130,6 @@ export default function MiroFishNeuralFlow({
             {
               id: "verdict_boycott" as const,
               label: "BOYCOTT",
-              short: "BOYC",
               count: boycottCount,
               pct: boycottPct,
               icon: AlertOctagon,
@@ -1207,7 +1150,7 @@ export default function MiroFishNeuralFlow({
                 onClick={() =>
                   setSelectedNodeId((prev) => (prev === v.id ? null : v.id))
                 }
-                className={`rounded-xl px-3 py-2 text-left border backdrop-blur-xl transition-all ${
+                className={`rounded-2xl px-3.5 py-2.5 text-left border backdrop-blur-xl transition-all ${
                   isSelected ? v.borderActive : v.borderIdle
                 }`}
               >
@@ -1218,24 +1161,15 @@ export default function MiroFishNeuralFlow({
                       {v.label}
                     </span>
                   </div>
-                  <span className={`text-xs font-mono font-bold tabular-nums ${v.color}`}>
-                    {v.pct}%
-                  </span>
-                </div>
-
-                <div className="mt-1.5 flex items-baseline justify-between">
-                  <span className="text-base font-bold text-white font-mono tabular-nums">
+                  <span className="text-xs font-mono font-bold text-white tabular-nums">
                     {v.count}
-                    <span className="text-[10px] font-normal text-white/45 ml-1">
+                    <span className="text-[10px] font-normal text-white/40">
                       /{totalDenominator}
                     </span>
                   </span>
-                  <span className="text-[9px] font-mono text-white/45">
-                    Click to inspect →
-                  </span>
                 </div>
 
-                <div className="mt-1.5 h-1 w-full rounded-full bg-white/[0.08] overflow-hidden">
+                <div className="mt-2 h-1 w-full rounded-full bg-white/[0.08] overflow-hidden">
                   <div
                     style={{ width: `${v.pct}%` }}
                     className={`h-full ${v.bar} transition-all duration-500`}

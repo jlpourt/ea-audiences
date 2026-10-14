@@ -16,7 +16,7 @@ import {
   ChevronDown,
   ChevronUp,
   Send,
-  Sparkles,
+  Cpu,
   PanelRightOpen,
   PanelRightClose,
   BarChart3,
@@ -1384,11 +1384,11 @@ export function FocusGroupModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl p-2 sm:p-4 font-sans"
     >
       <div className="glass-enter w-full max-w-[1380px] h-[93vh] bg-[#0E0E12] border border-white/[0.08] shadow-[0_24px_80px_rgba(0,0,0,0.85)] rounded-2xl flex flex-col justify-between overflow-hidden text-chalk">
-        {/* TOP CHROME: Consolidated Minimalist Header + Single Compact Control Row */}
+        {/* TOP CHROME: Single Ultra-Clean Control Bar */}
         <div className="border-b border-white/[0.07] bg-white/[0.01] px-5 py-2.5 space-y-2 shrink-0">
-          {/* Bar 1: Title + Scale Toggle + Round Toggle + Active Offer Badge + Run Simulation CTA */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {/* Left: Title + View Toggle + Compact Offer & What-If Selectors */}
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-twok-red" />
                 <h2 className="text-sm font-semibold text-white tracking-tight">
@@ -1446,7 +1446,7 @@ export function FocusGroupModal({
                         />
                       )}
                       {tab.id === "neural" && (
-                        <Sparkles className="w-3 h-3 text-[#669DF6] shrink-0" />
+                        <Cpu className="w-3 h-3 text-[#669DF6] shrink-0" />
                       )}
                       <span>{tab.label}</span>
                     </button>
@@ -1454,79 +1454,137 @@ export function FocusGroupModal({
                 })}
               </div>
 
-              {/* Segmented Round Control: R1 Isolated vs R2 Social Shift vs R3 What-If */}
-              <div
-                role="tablist"
-                aria-label="Contagion round"
-                className="relative flex items-center rounded-lg bg-black/50 p-0.5 border border-white/[0.08] text-xs"
-              >
-                {(
-                  [
-                    { round: 1 as const, label: "R1 · Isolated" },
-                    { round: 2 as const, label: "R2 · Social Shift" },
-                    ...(hasRound3
-                      ? [{ round: 3 as const, label: "R3 · What-If Rescue" }]
-                      : []),
-                  ] as const
-                ).map((rTab) => {
-                  const active = activeRound === rTab.round;
-                  return (
-                    <button
-                      key={rTab.round}
-                      role="tab"
-                      aria-selected={active}
-                      type="button"
-                      onClick={() => setActiveRound(rTab.round)}
-                      className={`relative z-10 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors flex items-center gap-1.5 active:scale-[0.97] ${
-                        active ? "text-white" : "text-white/50 hover:text-white/80"
-                      }`}
-                    >
-                      {active && (
-                        <motion.div
-                          layoutId="fg-round-pill"
-                          transition={{ type: "spring", bounce: 0, duration: 0.32 }}
-                          className="absolute inset-0 rounded-md bg-white/[0.12] border border-white/[0.12] -z-10"
-                        />
-                      )}
-                      {rTab.round === 3 && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-win-green shrink-0" />
-                      )}
-                      <span>{rTab.label}</span>
-                      {rTab.round === 2 && (contagionFlipsCount > 0 || buyDeltaR2 > 0) && (
-                        <span className="px-1.5 py-0.2 rounded-full bg-win-green/20 text-win-green font-mono font-semibold text-[10px] tabular">
-                          +{contagionFlipsCount || buyDeltaR2}
-                        </span>
-                      )}
-                      {rTab.round === 3 && (round3FlipsCount > 0 || buyDeltaR3 > 0) && (
-                        <span className="px-1.5 py-0.2 rounded-full bg-win-green/20 text-win-green font-mono font-semibold text-[10px] tabular">
-                          +{round3FlipsCount || buyDeltaR3}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Segmented Round Control: Only shown in Personas / Swarm mode (in Neural mode R1/R2 are interactive canvas nodes) */}
+              {stageMode !== "neural" && (
+                <div
+                  role="tablist"
+                  aria-label="Contagion round"
+                  className="relative flex items-center rounded-lg bg-black/50 p-0.5 border border-white/[0.08] text-xs"
+                >
+                  {(
+                    [
+                      { round: 1 as const, label: "R1 · Isolated" },
+                      { round: 2 as const, label: "R2 · Social Shift" },
+                      ...(hasRound3
+                        ? [{ round: 3 as const, label: "R3 · What-If Rescue" }]
+                        : []),
+                    ] as const
+                  ).map((rTab) => {
+                    const active = activeRound === rTab.round;
+                    return (
+                      <button
+                        key={rTab.round}
+                        role="tab"
+                        aria-selected={active}
+                        type="button"
+                        onClick={() => setActiveRound(rTab.round)}
+                        className={`relative z-10 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors flex items-center gap-1.5 active:scale-[0.97] ${
+                          active ? "text-white" : "text-white/50 hover:text-white/80"
+                        }`}
+                      >
+                        {active && (
+                          <motion.div
+                            layoutId="fg-round-pill"
+                            transition={{ type: "spring", bounce: 0, duration: 0.32 }}
+                            className="absolute inset-0 rounded-md bg-white/[0.12] border border-white/[0.12] -z-10"
+                          />
+                        )}
+                        <span>{rTab.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
-              {/* Active Offer Summary Pill (Replaces the duplicate Row 4 & Row 5 offer headers) */}
-              <button
-                type="button"
-                onClick={() => setIsEditingCustomOffer((prev) => !prev)}
-                title="Click to customize offer title or price"
-                className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.07] text-xs transition-colors active:scale-[0.98]"
-              >
-                <span className="text-white/85 font-medium truncate max-w-[320px]">
-                  {creativeTitle}
-                </span>
-                <span className="font-mono font-semibold text-vc-gold tabular shrink-0">
-                  ${priceUsd.toFixed(2)}
-                  {isBattleMode ? ` vs $${(altPriceUsd ?? 19.99).toFixed(2)}` : ""}
-                </span>
-                <SlidersHorizontal className="w-3 h-3 text-white/40 shrink-0" />
-              </button>
+              {/* Consolidated Offer Preset & What-If Control Pill */}
+              <div className="flex items-center gap-1.5 rounded-lg bg-black/50 border border-white/[0.08] px-2.5 py-1 text-[11px]">
+                <span className="text-white/40 font-mono text-[10px] uppercase">Offer</span>
+                <select
+                  aria-label="Select offer preset"
+                  value={
+                    PRESETS.find(
+                      (p) => p.title === creativeTitle && p.priceUsd === priceUsd
+                    )?.id || "custom"
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "custom") {
+                      setIsEditingCustomOffer(true);
+                    } else {
+                      const found = PRESETS.find((p) => p.id === val);
+                      if (found) handleSelectPreset(found);
+                    }
+                  }}
+                  className="bg-transparent text-[11px] font-semibold text-white focus:outline-none cursor-pointer"
+                >
+                  {PRESETS.map((p) => (
+                    <option key={p.id} value={p.id} className="bg-[#0E0E12] text-white">
+                      {p.label}
+                    </option>
+                  ))}
+                  <option value="custom" className="bg-[#0E0E12] text-white">
+                    Custom (${priceUsd.toFixed(2)})
+                  </option>
+                </select>
+
+                <span className="h-3 w-px bg-white/15 mx-0.5" />
+
+                <span className="text-white/40 font-mono text-[10px] uppercase">What-If</span>
+                <select
+                  aria-label="Select What-If counterfactual shock"
+                  disabled={isRunning}
+                  value={selectedCfId}
+                  onChange={(e) => {
+                    const chip = COUNTERFACTUAL_CHIPS.find(
+                      (c) => c.id === e.target.value
+                    );
+                    if (chip) handleSelectCounterfactual(chip.id, chip.eventText);
+                  }}
+                  className="bg-transparent text-[11px] font-semibold text-vc-gold focus:outline-none cursor-pointer disabled:opacity-50"
+                >
+                  {COUNTERFACTUAL_CHIPS.map((chip) => (
+                    <option key={chip.id} value={chip.id} className="bg-[#0E0E12] text-white">
+                      {chip.label}
+                    </option>
+                  ))}
+                </select>
+
+                <span className="h-3 w-px bg-white/15 mx-0.5" />
+
+                <button
+                  type="button"
+                  onClick={() => setIsEditingCustomOffer((prev) => !prev)}
+                  className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono transition-colors ${
+                    isEditingCustomOffer
+                      ? "bg-white/15 text-white"
+                      : "text-white/50 hover:text-white"
+                  }`}
+                  title="Customize offer title, price, or A/B battle"
+                >
+                  <SlidersHorizontal className="w-3 h-3" />
+                  <span>Edit</span>
+                </button>
+              </div>
             </div>
 
-            {/* Right: Deep Analytics Shelf Toggle + Run Simulation CTA + Close */}
+            {/* Right: Inline Key Metric Pill + Deep Telemetry Shelf Toggle + Run Simulation CTA + Close */}
             <div className="flex items-center gap-2">
+              {stageMode === "neural" && (
+                <div className="hidden xl:flex items-center gap-2.5 px-3 py-1 rounded-lg bg-black/45 border border-white/[0.07] text-[11px] font-mono tabular-nums">
+                  <span className="text-win-green font-semibold">
+                    +${animatedBookingsStr}K 30d
+                  </span>
+                  <span className="text-white/20">·</span>
+                  <span className="text-white/85">
+                    +{animatedConversionLiftStr}% Lift
+                  </span>
+                  <span className="text-white/20">·</span>
+                  <span className="text-[#00F5D4] font-semibold">
+                    {animatedCrewCascadeStr}x Crew
+                  </span>
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={() => setIsRightShelfOpen((prev) => !prev)}
@@ -1543,9 +1601,6 @@ export function FocusGroupModal({
                   <PanelRightOpen className="w-3.5 h-3.5 text-[#A8C7FA]" />
                 )}
                 <span>Deep Telemetry</span>
-                <span className="px-1.5 py-0.2 rounded-full bg-white/[0.1] text-[10px] font-mono text-[#00F5D4] tabular-nums">
-                  3
-                </span>
               </button>
 
               <button
@@ -1591,37 +1646,33 @@ export function FocusGroupModal({
             </div>
           </div>
 
-          {/* Single Compact Control Row: Preset Pills + Inline Editable Offer/Price + What-If Selector */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {PRESETS.map((p) => {
-                const isSelected =
-                  !isEditingCustomOffer &&
-                  creativeTitle === p.title &&
-                  priceUsd === p.priceUsd;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => handleSelectPreset(p)}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all active:scale-[0.97] ${
-                      isSelected
-                        ? "bg-white text-court-black font-semibold"
-                        : "bg-white/[0.04] text-white/65 hover:text-white hover:bg-white/[0.08]"
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
-
+          {/* Collapsible Custom Offer / A/B Battle Editor (Only shown when Edit is clicked) */}
+          {isEditingCustomOffer && (
+            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-white/[0.06]">
+              <input
+                type="text"
+                value={creativeTitle}
+                onChange={(e) => setCreativeTitle(e.target.value)}
+                placeholder="Custom offer title..."
+                className="w-64 sm:w-80 rounded-md border border-white/[0.14] bg-black/60 px-2.5 py-1 text-[11px] text-white focus:border-white/35 focus:outline-none"
+              />
+              <div className="flex items-center gap-0.5 rounded-md border border-white/[0.14] bg-black/60 px-2 py-1">
+                <span className="text-[11px] text-white/40 font-mono">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={priceUsd}
+                  onChange={(e) => setPriceUsd(parseFloat(e.target.value) || 0)}
+                  className="w-14 bg-transparent text-[11px] text-white font-mono tabular focus:outline-none"
+                />
+              </div>
               <button
                 type="button"
                 onClick={() => {
                   setIsBattleMode((prev) => !prev);
                   if (!altPriceUsd) setAltPriceUsd(19.99);
                 }}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all active:scale-[0.97] border ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all border ${
                   isBattleMode
                     ? "bg-vc-gold/15 text-vc-gold border-vc-gold/40"
                     : "bg-white/[0.03] text-white/55 border-white/[0.07] hover:text-white"
@@ -1630,81 +1681,20 @@ export function FocusGroupModal({
                 <Swords className="w-3 h-3" />
                 <span>A/B Battle</span>
               </button>
-
-              <button
-                type="button"
-                onClick={() => setIsEditingCustomOffer((prev) => !prev)}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all active:scale-[0.97] border ${
-                  isEditingCustomOffer
-                    ? "bg-white/15 text-white border-white/25"
-                    : "bg-white/[0.02] text-white/50 border-white/[0.06] hover:text-white/85"
-                }`}
-              >
-                <SlidersHorizontal className="w-3 h-3" />
-                <span>Custom</span>
-              </button>
-
-              {/* Inline Compact Offer & Price Editor (when Custom is active) */}
-              {isEditingCustomOffer && (
-                <div className="flex items-center gap-1.5 pl-1">
+              {isBattleMode && (
+                <div className="flex items-center gap-0.5 rounded-md border border-vc-gold/30 bg-black/60 px-2 py-1">
+                  <span className="text-[10px] text-vc-gold font-mono">vs $</span>
                   <input
-                    type="text"
-                    value={creativeTitle}
-                    onChange={(e) => setCreativeTitle(e.target.value)}
-                    placeholder="Custom offer title..."
-                    className="w-56 sm:w-72 rounded-md border border-white/[0.14] bg-black/60 px-2.5 py-1 text-[11px] text-white focus:border-white/35 focus:outline-none"
+                    type="number"
+                    step="0.01"
+                    value={altPriceUsd ?? 19.99}
+                    onChange={(e) => setAltPriceUsd(parseFloat(e.target.value) || 19.99)}
+                    className="w-14 bg-transparent text-[11px] text-vc-gold font-mono tabular focus:outline-none"
                   />
-                  <div className="flex items-center gap-0.5 rounded-md border border-white/[0.14] bg-black/60 px-2 py-1">
-                    <span className="text-[11px] text-white/40 font-mono">$</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={priceUsd}
-                      onChange={(e) => setPriceUsd(parseFloat(e.target.value) || 0)}
-                      className="w-14 bg-transparent text-[11px] text-white font-mono tabular focus:outline-none"
-                    />
-                  </div>
-                  {isBattleMode && (
-                    <div className="flex items-center gap-0.5 rounded-md border border-vc-gold/30 bg-black/60 px-2 py-1">
-                      <span className="text-[10px] text-vc-gold font-mono">vs $</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={altPriceUsd ?? 19.99}
-                        onChange={(e) => setAltPriceUsd(parseFloat(e.target.value) || 19.99)}
-                        className="w-14 bg-transparent text-[11px] text-vc-gold font-mono tabular focus:outline-none"
-                      />
-                    </div>
-                  )}
                 </div>
               )}
             </div>
-
-            {/* Right: Single Clean What-If Pill Selector */}
-            <div className="flex items-center gap-1 overflow-x-auto">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-white/35 mr-1 shrink-0">
-                What-If:
-              </span>
-              {COUNTERFACTUAL_CHIPS.map((chip) => {
-                const active = selectedCfId === chip.id;
-                return (
-                  <button
-                    key={chip.id}
-                    type="button"
-                    disabled={isRunning}
-                    onClick={() => handleSelectCounterfactual(chip.id, chip.eventText)}
-                    className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all whitespace-nowrap active:scale-[0.97] border ${
-                      active
-                        ? "bg-vc-gold/15 text-vc-gold border-vc-gold/40"
-                        : "bg-transparent text-white/50 border-white/[0.07] hover:text-white/85 hover:border-white/20"
-                    }`}
-                  >
-                    {chip.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          )}
 
           {errorBanner && (
             <div className="rounded-lg border border-loss-red/30 bg-loss-red/10 px-3 py-1.5 flex items-center justify-between text-xs text-loss-red">
@@ -1723,214 +1713,125 @@ export function FocusGroupModal({
           )}
         </div>
 
-        {/* EXECUTIVE BUSINESS VALUE FIRST: Minimalist 4-Metric Executive Impact Ribbon */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 px-5 py-2.5 border-b border-white/[0.07] bg-white/[0.015] shrink-0">
-          {/* KPI 1: TimesFM 3.0 · 30d Forecast */}
-          <div className="rounded-xl border border-white/[0.07] bg-black/35 px-3.5 py-2.5 flex flex-col justify-between">
-            <div className="flex items-center justify-between gap-1.5">
-              <span className="text-[11px] font-medium text-white/55">
-                TimesFM 3.0 · 30d Forecast
-              </span>
-              <span className="px-1.5 py-0.2 rounded bg-white/[0.06] border border-white/[0.08] text-[9px] font-mono text-white/60 uppercase">
-                AI.FORECAST
-              </span>
+        {/* 4-Metric KPI Strip: Only shown in Personas/Swarm grid view (in Neural view these metrics live inside the nodes & header) */}
+        {stageMode !== "neural" && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 px-5 py-2.5 border-b border-white/[0.07] bg-white/[0.015] shrink-0">
+            {/* KPI 1: 30d Bookings Forecast */}
+            <div className="rounded-xl border border-white/[0.07] bg-black/35 px-3.5 py-2.5 flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="text-[11px] font-medium text-white/55">
+                  30-Day Bookings Forecast
+                </span>
+                <span className="px-1.5 py-0.2 rounded bg-white/[0.06] border border-white/[0.08] text-[9px] font-mono text-white/60 uppercase">
+                  FORECAST
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between gap-2 mt-1">
+                <span className="text-xl font-bold text-win-green font-mono tabular-nums tracking-tight">
+                  ${animatedBookingsStr}K
+                </span>
+                <span className="text-[10px] font-mono text-white/45 tabular-nums truncate">
+                  [90% CI: ${(timesFmForecast.ci_10_usd / 1000).toFixed(0)}K–$
+                  {(timesFmForecast.ci_90_usd / 1000).toFixed(0)}K]
+                </span>
+              </div>
             </div>
-            <div className="flex items-baseline justify-between gap-2 mt-1">
-              <span className="text-xl font-bold text-win-green font-mono tabular-nums tracking-tight">
-                ${animatedBookingsStr}K
-              </span>
-              <span className="text-[10px] font-mono text-white/45 tabular-nums truncate">
-                [90% CI: ${(timesFmForecast.ci_10_usd / 1000).toFixed(0)}K–$
-                {(timesFmForecast.ci_90_usd / 1000).toFixed(0)}K]
-              </span>
-            </div>
-          </div>
 
-          {/* KPI 2: Conversion Lift & Adoption */}
-          <div className="rounded-xl border border-white/[0.07] bg-black/35 px-3.5 py-2.5 flex flex-col justify-between">
-            <div className="flex items-center justify-between gap-1.5">
-              <span className="text-[11px] font-medium text-white/55">
-                Conversion Lift &amp; Adoption
-              </span>
-              <span className="text-[10px] font-mono text-white/75 tabular-nums font-semibold">
-                {buyCount}/{totalDenominator} BUY
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-3 mt-1">
-              <span className="text-xl font-bold text-win-green font-mono tabular-nums tracking-tight shrink-0">
-                +{animatedConversionLiftStr}%
-              </span>
-              <div className="flex-1 space-y-1">
-                <div className="h-1.5 w-full rounded-full bg-white/[0.07] overflow-hidden flex gap-0.5">
-                  <div
-                    style={{ width: `${buyPct}%` }}
-                    className="h-full bg-win-green transition-all duration-300"
-                  />
-                  <div
-                    style={{ width: `${evalPct}%` }}
-                    className="h-full bg-vc-gold transition-all duration-300"
-                  />
-                  <div
-                    style={{ width: `${passPct}%` }}
-                    className="h-full bg-white/30 transition-all duration-300"
-                  />
-                  <div
-                    style={{ width: `${boycottPct}%` }}
-                    className="h-full bg-loss-red transition-all duration-300"
-                  />
-                </div>
-                <div className="flex items-center justify-between text-[9px] font-mono text-white/45 tabular-nums">
-                  <span className="text-win-green">{buyCount} BUY</span>
-                  <span className="text-vc-gold">{evalCount} EVAL</span>
-                  <span>{passCount} PASS</span>
-                  <span className="text-loss-red">{boycottCount} BOYC</span>
+            {/* KPI 2: Conversion Lift & Adoption */}
+            <div className="rounded-xl border border-white/[0.07] bg-black/35 px-3.5 py-2.5 flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="text-[11px] font-medium text-white/55">
+                  Conversion Lift &amp; Adoption
+                </span>
+                <span className="text-[10px] font-mono text-white/75 tabular-nums font-semibold">
+                  {buyCount}/{totalDenominator} BUY
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3 mt-1">
+                <span className="text-xl font-bold text-win-green font-mono tabular-nums tracking-tight shrink-0">
+                  +{animatedConversionLiftStr}%
+                </span>
+                <div className="flex-1 space-y-1">
+                  <div className="h-1.5 w-full rounded-full bg-white/[0.07] overflow-hidden flex gap-0.5">
+                    <div
+                      style={{ width: `${buyPct}%` }}
+                      className="h-full bg-win-green transition-all duration-300"
+                    />
+                    <div
+                      style={{ width: `${evalPct}%` }}
+                      className="h-full bg-vc-gold transition-all duration-300"
+                    />
+                    <div
+                      style={{ width: `${passPct}%` }}
+                      className="h-full bg-white/30 transition-all duration-300"
+                    />
+                    <div
+                      style={{ width: `${boycottPct}%` }}
+                      className="h-full bg-loss-red transition-all duration-300"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[9px] font-mono text-white/45 tabular-nums">
+                    <span className="text-win-green">{buyCount} BUY</span>
+                    <span className="text-vc-gold">{evalCount} EVAL</span>
+                    <span>{passCount} PASS</span>
+                    <span className="text-loss-red">{boycottCount} BOYC</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* KPI 3: Social Crew Cascade */}
-          <div className="rounded-xl border border-white/[0.07] bg-black/35 px-3.5 py-2.5 flex flex-col justify-between">
-            <div className="flex items-center justify-between gap-1.5">
-              <span className="text-[11px] font-medium text-white/55">
-                Social Crew Cascade
-              </span>
-              <span className="text-[10px] font-mono text-win-green tabular-nums">
-                +{contagionFlipsCount || Math.max(0, buyDeltaR2)} R2 Social Flips
-              </span>
+            {/* KPI 3: Social Crew Cascade */}
+            <div className="rounded-xl border border-white/[0.07] bg-black/35 px-3.5 py-2.5 flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="text-[11px] font-medium text-white/55">
+                  Social Crew Cascade
+                </span>
+                <span className="text-[10px] font-mono text-win-green tabular-nums">
+                  +{contagionFlipsCount || Math.max(0, buyDeltaR2)} R2 Social Flips
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between gap-2 mt-1">
+                <span className="text-xl font-bold text-white font-mono tabular-nums tracking-tight">
+                  {animatedCrewCascadeStr}x
+                </span>
+                <span className="text-[10px] text-white/45 truncate">
+                  {round3FlipsCount > 0
+                    ? `+${round3FlipsCount} R3 What-If Rescues`
+                    : "via Crew Captains & Co-Streams"}
+                </span>
+              </div>
             </div>
-            <div className="flex items-baseline justify-between gap-2 mt-1">
-              <span className="text-xl font-bold text-white font-mono tabular-nums tracking-tight">
-                {animatedCrewCascadeStr}x
-              </span>
-              <span className="text-[10px] text-white/45 truncate">
-                {round3FlipsCount > 0
-                  ? `+${round3FlipsCount} R3 What-If Rescues`
-                  : "via Crew Captains & Co-Streams"}
-              </span>
-            </div>
-          </div>
 
-          {/* KPI 4: Causal Net Lift & Lifespan */}
-          <div className="rounded-xl border border-white/[0.07] bg-black/35 px-3.5 py-2.5 flex flex-col justify-between">
-            <div className="flex items-center justify-between gap-1.5">
-              <span className="text-[11px] font-medium text-white/55">
-                Causal Net Lift &amp; Lifespan
-              </span>
-              <span className="text-[10px] font-mono text-cyan-300 tabular-nums">
-                -{survivalAnalysis.crew_hazard_reduction_pct}% Crew Hazard
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between gap-2 mt-1">
-              <span className="text-xl font-bold text-white font-mono tabular-nums tracking-tight">
-                +{animatedLifespanStr}d Lifespan
-              </span>
-              <span
-                className={`text-[10px] font-mono tabular-nums ${
-                  backlashIndex > 35 ? "text-loss-red" : "text-white/50"
-                }`}
-              >
-                Backlash {backlashIndex}%
-              </span>
+            {/* KPI 4: Causal Net Lift & Lifespan */}
+            <div className="rounded-xl border border-white/[0.07] bg-black/35 px-3.5 py-2.5 flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="text-[11px] font-medium text-white/55">
+                  Causal Net Lift &amp; Lifespan
+                </span>
+                <span className="text-[10px] font-mono text-cyan-300 tabular-nums">
+                  -{survivalAnalysis.crew_hazard_reduction_pct}% Crew Hazard
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between gap-2 mt-1">
+                <span className="text-xl font-bold text-white font-mono tabular-nums tracking-tight">
+                  +{animatedLifespanStr}d Lifespan
+                </span>
+                <span
+                  className={`text-[10px] font-mono tabular-nums ${
+                    backlashIndex > 35 ? "text-loss-red" : "text-white/50"
+                  }`}
+                >
+                  Backlash {backlashIndex}%
+                </span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* MAIN WORKSPACE: Full-Width Neural Flow Mainstay + Dynamic Right Telemetry Shelf (Default Closed) */}
         <div className="relative flex-1 flex gap-3.5 px-5 py-3 overflow-hidden min-h-0">
           {/* Centerpiece Stage: Expands 100% Width when Right Shelf is Closed */}
           <div className="relative flex-1 min-w-0 flex flex-col h-full overflow-hidden min-h-0 gap-2.5">
-            {/* Floating Right-Edge Dock Launcher when Dynamic Shelf is Closed */}
-            <AnimatePresence>
-              {!isRightShelfOpen && (
-                <motion.div
-                  key="collapsed-right-shelf-dock"
-                  initial={{ opacity: 0, x: 16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 16 }}
-                  transition={{ type: "spring", bounce: 0.18, duration: 0.32 }}
-                  className="hidden md:flex flex-col gap-1.5 absolute right-3 top-1/2 -translate-y-1/2 z-20 rounded-2xl border border-white/[0.12] bg-[#0B0D16]/90 backdrop-blur-2xl p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.75)]"
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAnalyticsTab("all");
-                      setIsRightShelfOpen(true);
-                    }}
-                    className="group flex items-center justify-between gap-2.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-[#4285F4]/20 via-[#9B72CB]/20 to-[#D96570]/20 hover:from-[#4285F4]/35 hover:to-[#D96570]/35 border border-[#9B72CB]/45 text-left transition-all active:scale-[0.97]"
-                    title="Open all 3 deep analytics modules"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <PanelRightOpen className="w-3.5 h-3.5 text-[#A8C7FA] shrink-0" />
-                      <span className="text-[11px] font-semibold text-white whitespace-nowrap">
-                        Open Deep Shelf
-                      </span>
-                    </div>
-                    <span className="px-1.5 py-0.2 rounded bg-white/10 font-mono text-[9px] font-bold text-[#00F5D4]">
-                      ALL 3
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAnalyticsTab("forecast_survival");
-                      setIsRightShelfOpen(true);
-                    }}
-                    className="flex items-center justify-between gap-2.5 px-2.5 py-1.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.07] hover:border-win-green/40 text-left transition-all active:scale-[0.97]"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <TrendingUp className="w-3 h-3 text-win-green shrink-0" />
-                      <span className="text-[10px] font-medium text-white/80 whitespace-nowrap">
-                        Forecast &amp; Survival
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-mono font-semibold text-win-green tabular-nums">
-                      +{survivalAnalysis.days_gained.toFixed(1)}d
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAnalyticsTab("price_uplift");
-                      setIsRightShelfOpen(true);
-                    }}
-                    className="flex items-center justify-between gap-2.5 px-2.5 py-1.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.07] hover:border-vc-gold/40 text-left transition-all active:scale-[0.97]"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <BarChart3 className="w-3 h-3 text-vc-gold shrink-0" />
-                      <span className="text-[10px] font-medium text-white/80 whitespace-nowrap">
-                        Price &amp; CATE Uplift
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-mono font-semibold text-vc-gold tabular-nums">
-                      +{causalUplift.cate_lift_pct.toFixed(1)}%
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAnalyticsTab("reddit_pulse");
-                      setIsRightShelfOpen(true);
-                    }}
-                    className="flex items-center justify-between gap-2.5 px-2.5 py-1.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.07] hover:border-[#D96570]/45 text-left transition-all active:scale-[0.97]"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <MessageSquare className="w-3 h-3 text-[#D96570] shrink-0" />
-                      <span className="text-[10px] font-medium text-white/80 whitespace-nowrap">
-                        Reddit Pulse
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-mono font-semibold text-[#E9D5FF] tabular-nums">
-                      {redditThreads.length || 3}
-                    </span>
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
             {stageMode === "neural" ? (
               <MiroFishNeuralFlow
                 isRunning={isRunning}
