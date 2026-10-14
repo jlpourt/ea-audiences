@@ -38,6 +38,7 @@ import { archetypeColor, archetypeLabel } from "@/lib/archetypes";
 import { TabularNumber } from "@/components/brand/TabularNumber";
 import { RedditPulseCard } from "./RedditPulseCard";
 import { PersonaInterrogationDrawer } from "./PersonaInterrogationDrawer";
+import MiroFishNeuralFlow from "./MiroFishNeuralFlow";
 import type { ExtendedFocusGroupResult } from "@/lib/focus-group-eval";
 
 /**
@@ -534,6 +535,9 @@ export function FocusGroupModal({
 
   // Selected persona for full 1-on-1 interview or 3-Way Debate drawer
   const [interrogatePersona, setInterrogatePersona] = useState<FocusGroupReaction | null>(null);
+
+  // Main Stage Mode: Default to Gemini Dark Neural Flow Diagram ("neural" | "personas" | "swarm")
+  const [stageMode, setStageMode] = useState<"neural" | "personas" | "swarm">("neural");
 
   // Right-Hand Analytics Column: 3-Tab Segmented Control (only 1 card shown at a time)
   const [analyticsTab, setAnalyticsTab] = useState<
@@ -1385,7 +1389,7 @@ export function FocusGroupModal({
               </div>
               <span className="text-white/15">|</span>
 
-              {/* Segmented Scale Toggle: 20 Personas vs 100 Swarm */}
+              {/* Segmented Stage & Scale Toggle: Neural Flow vs 20 Personas vs 100 Swarm */}
               <div
                 role="tablist"
                 aria-label="Simulation scale and view"
@@ -1393,19 +1397,36 @@ export function FocusGroupModal({
               >
                 {(
                   [
-                    { size: 20 as const, label: "20 Personas" },
-                    { size: 100 as const, label: "100 Swarm" },
+                    {
+                      id: "neural" as const,
+                      label: "Neural Flow",
+                      size: swarmSize,
+                    },
+                    {
+                      id: "personas" as const,
+                      label: "20 Personas",
+                      size: 20 as const,
+                    },
+                    {
+                      id: "swarm" as const,
+                      label: "100 Swarm",
+                      size: 100 as const,
+                    },
                   ] as const
                 ).map((tab) => {
-                  const active = swarmSize === tab.size;
+                  const active = stageMode === tab.id;
                   return (
                     <button
-                      key={tab.size}
+                      key={tab.id}
                       role="tab"
                       aria-selected={active}
                       type="button"
-                      onClick={() => setSwarmSize(tab.size)}
-                      className={`relative z-10 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors active:scale-[0.97] ${
+                      onClick={() => {
+                        setStageMode(tab.id);
+                        if (tab.id === "personas") setSwarmSize(20);
+                        if (tab.id === "swarm") setSwarmSize(100);
+                      }}
+                      className={`relative z-10 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors flex items-center gap-1.5 active:scale-[0.97] ${
                         active ? "text-white" : "text-white/50 hover:text-white/80"
                       }`}
                     >
@@ -1416,7 +1437,10 @@ export function FocusGroupModal({
                           className="absolute inset-0 rounded-md bg-white/[0.12] border border-white/[0.12] -z-10"
                         />
                       )}
-                      {tab.label}
+                      {tab.id === "neural" && (
+                        <Sparkles className="w-3 h-3 text-[#669DF6] shrink-0" />
+                      )}
+                      <span>{tab.label}</span>
                     </button>
                   );
                 })}
@@ -1783,12 +1807,61 @@ export function FocusGroupModal({
           </div>
         </div>
 
-        {/* MAIN WORKSPACE: 8-Col Minimalist Stance Grid + 4-Col Single-Card Segmented Analytics Rail */}
+        {/* MAIN WORKSPACE: 8-Col Neural Flow / Stance Grid + 4-Col Single-Card Segmented Analytics Rail */}
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 px-5 py-3 overflow-hidden min-h-0">
-          {/* Left Column (8 Cols): Creator Signal Bar + Progressive-Disclosure Persona Stance Grid */}
+          {/* Left Column (8 Cols): MiroFish Neural Flow (Default) OR Creator Signal Bar + Persona/Swarm Grid */}
           <div className="lg:col-span-8 flex flex-col h-full overflow-hidden min-h-0 gap-2.5">
-            {/* Sleek Horizontal Creator Signal Bar (with click/hover quote popover) */}
-            <div className="relative rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 shrink-0">
+            {stageMode === "neural" ? (
+              <MiroFishNeuralFlow
+                isRunning={isRunning}
+                streamPhase={streamPhase}
+                streamProgress={streamProgress}
+                swarmSize={swarmSize}
+                activeRound={activeRound}
+                hasRound3={hasRound3}
+                selectedCfLabel={
+                  COUNTERFACTUAL_CHIPS.find((c) => c.id === selectedCfId)?.label ||
+                  "What-If Rescue"
+                }
+                cohortName={
+                  cohortContext?.query?.slice(0, 68) ||
+                  "NBA 2K27 High-Uplift Cohort"
+                }
+                creativeTitle={creativeTitle}
+                priceUsd={priceUsd}
+                altPriceUsd={altPriceUsd ?? undefined}
+                isBattleMode={isBattleMode}
+                sampledPersonas={sampledPersonas}
+                activeReactions={activeReactions}
+                crowdAgents={displayCrowdAgents}
+                creatorSignals={creatorSignalItems}
+                redditThreads={
+                  currentResult?.reddit_threads &&
+                  currentResult.reddit_threads.length > 0
+                    ? currentResult.reddit_threads
+                    : redditThreads
+                }
+                contagionFlipsCount={
+                  contagionFlipsCount || Math.max(2, buyDeltaR2)
+                }
+                round3FlipsCount={round3FlipsCount || Math.max(0, buyDeltaR3)}
+                crewMultiplier={crewMultiplier}
+                conversionLift={conversionLift}
+                buyCount={buyCount}
+                evalCount={evalCount}
+                passCount={passCount}
+                boycottCount={boycottCount}
+                totalDenominator={totalDenominator}
+                onSelectRound={(r) => setActiveRound(r)}
+                onInterrogatePersona={(persona) =>
+                  setInterrogatePersona(persona)
+                }
+                prefersReducedMotion={Boolean(prefersReducedMotion)}
+              />
+            ) : (
+              <>
+                {/* Sleek Horizontal Creator Signal Bar (with click/hover quote popover) */}
+                <div className="relative rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 shrink-0">
               <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-white/40 shrink-0">
                 <Radio className="w-3 h-3 text-twok-red" />
                 <span>Creator Signal</span>
@@ -2425,6 +2498,8 @@ export function FocusGroupModal({
                   })}
                 </div>
               </div>
+            )}
+              </>
             )}
           </div>
 

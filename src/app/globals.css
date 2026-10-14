@@ -421,6 +421,16 @@ button:disabled,
   animation: courtside-orbit 0.9s linear infinite;
 }
 
+@keyframes a2aStream {
+  to {
+    stroke-dashoffset: -38;
+  }
+}
+
+.dag-edge-active {
+  animation: a2aStream 600ms linear infinite;
+}
+
 /* ------------------------------------------------------------------ */
 /* Blur-masked crossfade — apply while cohort/filter content swaps so   */
 /* two overlapping states read as one transformation. 180ms ease.       */
