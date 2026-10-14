@@ -173,6 +173,24 @@ CREATORS = [
     ("creator-lakerfan", "LakerFan", "LakerFan", "YouTube & Twitch", "NBA2K", 490_000, 7_800, 0.88, "Comp Pro-Am & slasher meta"),
     ("creator-bde", "BDE", "Brandon Does Everything", "YouTube", "WWE2K", 1_420_000, 19_500, 0.85, "WWE 2K25 Universe & MyFACTION"),
     ("creator-ki11ersix", "Ki11erSix", "Ki11er Six", "YouTube & Twitch", "BL4", 820_000, 10_400, 0.86, "Borderlands 4 legendary farming"),
+    ("creator-badgeplug", "BadgePlug", "BadgePlug", "YouTube", "NBA2K", 2_250_000, 22_500, 0.90, "Meta builds, badge glitches & City news"),
+    ("creator-uncledemi", "UncleDemi", "Uncle Demi", "YouTube", "NBA2K", 1_180_000, 13_200, 0.89, "Rare catfish & NBA replica builds"),
+    ("creator-swante", "Swante", "Swante", "YouTube & Twitch", 720_000, 11_800, 0.86, "Comp Stage guard meta & dribble combos") if False else ("creator-swante", "Swante", "Swante", "YouTube & Twitch", "NBA2K", 720_000, 11_800, 0.86, "Comp Stage guard meta & dribble combos"),
+    ("creator-nadexe", "Nadexe", "Nadexe", "YouTube", "NBA2K", 1_380_000, 15_900, 0.81, "Park streaks, comedy & affiliation wars"),
+    ("creator-coletheman", "ColeTheMan", "ColeTheMan", "YouTube", "NBA2K", 1_080_000, 12_400, 0.82, "Park challenges, City drip & events"),
+    ("creator-doubleh", "DoubleH", "DoubleH DF", "YouTube & Twitch", "NBA2K", 1_120_000, 13_600, 0.85, "Best custom jumpshots & iso Park"),
+    ("creator-ipodkingcarter", "iPodKingCarter", "iPodKingCarter", "YouTube", "NBA2K", 1_020_000, 9_500, 0.84, "OG MyCAREER storylines & Rec commentary"),
+    ("creator-solodf", "Solo", "Solo DF", "YouTube", "NBA2K", 940_000, 10_800, 0.83, "Park wagers & Season affiliation events"),
+    ("creator-htb", "HTB", "HTB", "YouTube", "NBA2K", 470_000, 8_400, 0.90, "MyTEAM Galaxy Opal showdowns & card reviews"),
+    ("creator-bio2k", "Bio2K", "Bio2K", "YouTube & Twitch", "NBA2K", 320_000, 6_800, 0.88, "MyTEAM No Money Spent & market grind"),
+    ("creator-jc2k", "JC2K", "JC2K", "YouTube", "NBA2K", 195_000, 5_900, 0.91, "Comp MyTEAM Unlimited & tier lists"),
+    ("creator-killzamoi", "Killzamoi", "Killzamoi", "YouTube", "NBA2K", 430_000, 7_500, 0.87, "MyTEAM box openings & pack odds"),
+    ("creator-afunkydiabetic", "AFunkyDiabetic", "AFunkyDiabetic", "YouTube", "NBA2K", 490_000, 8_100, 0.83, "MyNBA Eras realism & salary cap sim"),
+    ("creator-sixringsofsteel", "SixRingsofSteel", "Six Rings of Steel", "YouTube", "NBA2K", 540_000, 8_900, 0.82, "MyNBA rebuilds & draft experiments"),
+    ("creator-quitalovessports", "QuitaLovesSports", "Quita in the Morning", "YouTube", "NBA2K", 260_000, 5_400, 0.89, "WNBA & The W career deep dives"),
+    ("creator-smacktalks", "Smacktalks", "Smacktalks", "YouTube", "WWE2K", 1_140_000, 12_200, 0.84, "WWE 2K25 creations & patch breakdowns"),
+    ("creator-gamerability", "GamerAbility", "Gamer Ability", "YouTube", "PGA2K", 350_000, 6_200, 0.86, "PGA TOUR 2K25 career & master swing"),
+    ("creator-joltzdude139", "Joltzdude139", "Joltzdude139", "YouTube & Twitch", "BL4", 1_580_000, 18_400, 0.88, "Borderlands 4 ultimate vault hunter builds"),
 ]
 CREATOR_KEYS = ["creator_id", "handle", "name", "platform", "franchise", "followers", "avg_stream_viewers",
                 "conversion_affinity", "signature_mode"]
@@ -538,25 +556,31 @@ def build_players(crews_by_tier, crew_region):
 
         # --- Creators ---
         followed = []
-        if (plays_nba27 or plays_nba26) and random.random() < 0.84:
+        if (plays_nba27 or plays_nba26) and random.random() < 0.88:
             pool = [c[0] for c in CREATORS if c[4] == "NBA2K"]
             if archetype == "BUILD_LAB_THEORYCRAFTER":
-                pool = ["creator-dbg", "creator-tydebo", "creator-tydebo", "creator-dbg", "creator-grindingdf"]
+                pool = ["creator-2klab", "creator-2ktutes", "creator-dbg", "creator-tydebo", "creator-uncledemi", "creator-badgeplug", "creator-grindingdf"]
             elif archetype == "MYTEAM_PACK_WHALE":
-                pool = ["creator-troydan", "creator-troydan", "creator-cashnasty", "creator-agent00"]
+                pool = ["creator-troydan", "creator-htb", "creator-killzamoi", "creator-bio2k", "creator-jc2k", "creator-cashnasty", "creator-agent00"]
             elif archetype == "MYNBA_FRANCHISE_SIM":
-                pool = ["creator-kot4q", "creator-shake4ndbake", "creator-chrissmoove"]
+                pool = ["creator-kot4q", "creator-afunkydiabetic", "creator-sixringsofsteel", "creator-shake4ndbake", "creator-chrissmoove"]
             elif archetype == "REC_CREW_CAPTAIN":
-                pool = ["creator-callmeagent", "creator-powerdf", "creator-joeknows", "creator-agent00"]
+                pool = ["creator-joeknows", "creator-powerdf", "creator-lakerfan", "creator-callmeagent", "creator-ipodkingcarter", "creator-agent00"]
+            elif archetype == "PARK_REP_GRINDER":
+                pool = ["creator-agent00", "creator-dukedennis", "creator-badgeplug", "creator-swante", "creator-doubleh", "creator-grindingdf", "creator-solodf", "creator-nadexe", "creator-coletheman"]
+            elif archetype == "THE_W_LOYALIST":
+                pool = ["creator-quitalovessports", "creator-kot4q", "creator-chrissmoove", "creator-ipodkingcarter"]
             elif archetype == "CROSS_LABEL_NOMAD":
-                pool = ["creator-kot4q", "creator-chrissmoove", "creator-cashnasty", "creator-agent00"]
+                pool = ["creator-kot4q", "creator-chrissmoove", "creator-cashnasty", "creator-agent00", "creator-badgeplug", "creator-troydan"]
             elif archetype == "RAGE_QUIT_TILT_RISK":
-                pool = ["creator-flightreacts", "creator-flightreacts", "creator-dukedennis", "creator-cashnasty"]
+                pool = ["creator-flightreacts", "creator-dukedennis", "creator-cashnasty", "creator-swante", "creator-nadexe"]
             followed = list(dict.fromkeys(random.sample(pool, k=min(len(set(pool)), random.randint(1, 3)))))
-        if "WWE2K" in played and random.random() < 0.45:
-            followed.append("creator-assemble")
-        if "BL4" in played and random.random() < 0.55:
-            followed.append("creator-moxsy")
+        if "WWE2K" in played and random.random() < 0.55:
+            followed.append(random.choice(["creator-assemble", "creator-bde", "creator-smacktalks"]))
+        if "PGA2K" in played and random.random() < 0.55:
+            followed.append("creator-gamerability")
+        if "BL4" in played and random.random() < 0.60:
+            followed.append(random.choice(["creator-moxsy", "creator-ki11ersix", "creator-joltzdude139"]))
         if "CIV7" in played and random.random() < 0.55:
             followed.append("creator-potatomcwhiskey")
         followed = list(dict.fromkeys(followed))[:4]

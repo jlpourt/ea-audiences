@@ -59,6 +59,9 @@ export interface RedditThreadSummary {
   author_tag?: string;
   title: string;
   body?: string;
+  snippet?: string;
+  flair?: string;
+  comment_count?: number;
   upvotes?: number;
   score?: number;
   sentiment?: string;
@@ -1804,11 +1807,10 @@ export default function MiroFishNeuralFlow({
                   Creator Co-Streams
                 </div>
                 <div className="text-[10px] font-mono text-white/50 truncate">
-                  {creatorSignals[0]?.handle || "@Agent00"} ·{" "}
+                  {creatorSignals.length || 6} Live · {creatorSignals[0]?.handle || "@Agent00"}{" "}
                   {creatorSignals[0]?.mroas
                     ? `${creatorSignals[0].mroas.toFixed(1)}x`
-                    : "3.8x"}{" "}
-                  mROAS
+                    : "4.8x"}
                 </div>
               </div>
             </div>
@@ -1921,10 +1923,10 @@ export default function MiroFishNeuralFlow({
               <MessageSquare className="w-3.5 h-3.5 text-[#FFB800] shrink-0" />
               <div className="min-w-0">
                 <div className="text-[11px] font-semibold text-white truncate">
-                  r/NBA2K Pulse
+                  Multi-Sub Reddit Pulse
                 </div>
                 <div className="text-[10px] font-mono text-white/50 truncate">
-                  {redditThreads.length || 3} Threads
+                  {redditThreads.length || 8} Threads · 6 Subreddits
                 </div>
               </div>
             </div>
@@ -2303,18 +2305,34 @@ export default function MiroFishNeuralFlow({
 
               {drawerData.mode === "reddit" && redditThreads.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pb-1">
-                  {redditThreads.slice(0, 4).map((th, i) => (
+                  {redditThreads.slice(0, 8).map((th, i) => (
                     <div
-                      key={th.id || i}
+                      key={(th as any).id || i}
                       className="rounded-xl border border-white/[0.08] bg-black/50 p-2.5 space-y-1"
                     >
                       <div className="flex items-center justify-between text-[10px] font-mono text-white/50">
-                        <span>{th.subreddit || "r/NBA2K"}</span>
-                        <span className="text-vc-gold">▲ {th.upvotes} upvotes</span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-white/80 font-semibold truncate">
+                            {th.subreddit || "r/NBA2K"}
+                          </span>
+                          {th.flair && (
+                            <span className="px-1 py-0.2 rounded bg-white/[0.06] text-[8.5px] text-white/50 truncate">
+                              {th.flair}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-vc-gold shrink-0">
+                          ▲ {th.score || (th as any).upvotes || 1240} pts
+                        </span>
                       </div>
-                      <p className="text-xs font-medium text-white/90 leading-snug">
+                      <p className="text-xs font-medium text-white/90 leading-snug line-clamp-1">
                         {th.title}
                       </p>
+                      {th.snippet && (
+                        <p className="text-[10px] text-white/55 line-clamp-1 leading-snug">
+                          {th.snippet}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>

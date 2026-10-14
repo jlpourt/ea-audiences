@@ -10,6 +10,8 @@ interface RedditPulseItem {
   sentiment: "BULLISH" | "MIXED" | "BACKLASH";
   score: number;
   snippet: string;
+  flair?: string;
+  comment_count?: number;
 }
 
 interface RedditPulseResponse {
@@ -44,21 +46,27 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const prompt = `Search reddit.com discussions across r/NBA2K, r/MyTEAM, and r/WWEGames for community sentiment.
+    const prompt = `Search reddit.com discussions across r/NBA2K (multiple distinct threads), r/MyTEAM, r/NBA2kTeamUp, r/WWEGames, r/pga2k, and r/Borderlands for community sentiment around "${topic}".
 Focus on:
-1. NBA 2K27 Season 1 VC pricing, Cap Breakers, attribute cost progression, and Season Pass Hall of Fame value.
-2. MyTEAM Galaxy Opal and Dark Matter pack odds, pack prices, and player market reactions.
-3. NBA 2K26 veterans upgrading to NBA 2K27, Rebirth build progression, and 2K Sports cross-franchise sentiment.
+1. r/NBA2K (pull at least 4 distinct thread topics):
+   - MyPLAYER VC build costs, the 60-to-85 OVR Build Cliff (~190K VC), and Rebirth build tax.
+   - Cap Breakers, badge regression/progression, green window patches, and Pro-Tuned builds.
+   - Random Rec matchmaking vs 5-stack Crew squads, Purple Plate lobbies, and Park Rep rewards.
+   - Season Pass Pro/Hall of Fame value and NBA 2K26 veterans upgrading to NBA 2K27.
+2. r/MyTEAM: Galaxy Opal & Dark Matter pack odds, 20-Box VC pricing, and Auction House / Player Market liquidity.
+3. r/NBA2kTeamUp: 5-stack Rec/Pro-Am Crew LFG recruiting, Crew Rep multipliers, and OVR gatekeeping (85+ OVR requirement).
+4. r/WWEGames, r/pga2k, and r/Borderlands: Take-Two / 2K cross-franchise community sentiment (WWE 2K26 MyFACTION / Universe, PGA TOUR 2K Clubhouse Pass, Borderlands 4 loot/endgame).
 
 Summarize real community threads, key player arguments, and prevailing sentiment (BULLISH, MIXED, or BACKLASH).`;
 
     const grounded = await groundedSearch({
       prompt,
-      system: "You are an intelligence researcher analyzing live gaming community sentiment across r/NBA2K, r/MyTEAM, and r/WWEGames.",
+      system:
+        "You are an intelligence researcher analyzing live gaming community sentiment across r/NBA2K, r/MyTEAM, r/NBA2kTeamUp, r/WWEGames, r/pga2k, and r/Borderlands.",
     });
 
     const structuringPrompt = `You are converting live Reddit search research into structured social sentiment items.
-Here is the research retrieved from live search over r/NBA2K, r/MyTEAM, and r/WWEGames:
+Here is the research retrieved from live search over r/NBA2K, r/MyTEAM, r/NBA2kTeamUp, r/WWEGames, r/pga2k, and r/Borderlands:
 
 --- RESEARCH START ---
 ${grounded.text}
@@ -67,14 +75,21 @@ ${grounded.text}
 Here are the real citation URLs found:
 ${JSON.stringify(grounded.citations, null, 2)}
 
-Extract 4 to 6 discrete sentiment items covering r/NBA2K, r/MyTEAM, and r/WWEGames.
+Extract 8 to 10 discrete sentiment items covering:
+- 4 distinct threads from "r/NBA2K" (covering VC/Build Cliff, Cap Breakers/Badges, Random Rec vs 5-Stack Crew, and Rebirth/Season Pass)
+- 1 to 2 threads from "r/MyTEAM"
+- 1 thread from "r/NBA2kTeamUp"
+- 2 threads across "r/WWEGames", "r/pga2k", or "r/Borderlands"
+
 For each item, determine:
-- subreddit: "r/NBA2K", "r/MyTEAM", or "r/WWEGames"
-- title: concise discussion thread title or topic
+- subreddit: "r/NBA2K" | "r/MyTEAM" | "r/NBA2kTeamUp" | "r/WWEGames" | "r/pga2k" | "r/Borderlands"
+- title: concise, authentic Reddit discussion thread title
 - url: match one of the citation URLs above if relevant, or use the subreddit URL
 - sentiment: "BULLISH" | "MIXED" | "BACKLASH"
-- score: estimated upvote score / engagement intensity (e.g. 450 to 3800)
-- snippet: authentic 1-2 sentence quote or summary in community lexicon (VC, badges, pack odds, etc.)
+- score: estimated upvote score / engagement intensity (e.g. 240 to 4200)
+- comment_count: estimated comment count (e.g. 65 to 940)
+- flair: short subreddit flair (e.g. "MyCAREER / Builds", "Rec / Park", "MyTEAM Packs", "LFG / 5-Stack", "MyFACTION", "Clubhouse")
+- snippet: authentic 1-2 sentence quote or summary in community lexicon (VC, badges, 85 OVR gate, Cap Breakers, pack odds, etc.)
 
 Output strict JSON format:
 {
@@ -85,6 +100,8 @@ Output strict JSON format:
       "url": "...",
       "sentiment": "BACKLASH",
       "score": 1420,
+      "comment_count": 384,
+      "flair": "MyCAREER / Builds",
       "snippet": "..."
     }
   ]

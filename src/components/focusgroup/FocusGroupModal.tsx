@@ -1318,7 +1318,7 @@ export function FocusGroupModal({
     prefersReducedMotion
   );
 
-  // Unified Creator Signal items combining live broadcasts + Meridian mROAS
+  // Unified Creator Signal items combining live broadcasts + Meridian mROAS (supports up to 6 creators)
   const creatorSignalItems = useMemo(() => {
     const mroasList = timesFmForecast.creator_mroas || [];
     const baseBroadcasts =
@@ -1349,9 +1349,33 @@ export function FocusGroupModal({
               headline:
                 "Solid value for active Pro-Am captains grinding Season 2 Cap Breakers this weekend.",
             },
+            {
+              creator_id: "cr-4",
+              handle: "@NBA2KLab",
+              platform: "YouTube",
+              stance: "MIXED" as const,
+              headline:
+                "At 3,750 VC per dollar this clears standard store rates only if you need immediate Gold shooting badges.",
+            },
+            {
+              creator_id: "cr-5",
+              handle: "@BadgePlug",
+              platform: "YouTube",
+              stance: "ENDORSE" as const,
+              headline:
+                "DO NOT MAKE A REBIRTH BUILD BEFORE SEEING THIS: fastest way past the 85 OVR gate right now.",
+            },
+            {
+              creator_id: "cr-6",
+              handle: "@JoeKnows",
+              platform: "YouTube",
+              stance: "ENDORSE" as const,
+              headline:
+                "For 5-out Pro-Am spacing, getting your 6'8\" swing to 92 OVR day one changes the whole rotation.",
+            },
           ];
 
-    return baseBroadcasts.slice(0, 3).map((cb, idx) => {
+    return baseBroadcasts.slice(0, 6).map((cb, idx) => {
       const matchedMroas =
         mroasList.find(
           (m) => m.handle.toLowerCase() === cb.handle.toLowerCase()
@@ -1362,8 +1386,8 @@ export function FocusGroupModal({
         platform: cb.platform || matchedMroas?.platform || "YouTube",
         stance: cb.stance,
         headline: cb.headline,
-        mroas: matchedMroas?.mroas ?? (4.6 - idx * 0.4),
-        attributed_flips: matchedMroas?.attributed_flips ?? (4 - idx),
+        mroas: matchedMroas?.mroas ?? Number((4.8 - idx * 0.25).toFixed(1)),
+        attributed_flips: matchedMroas?.attributed_flips ?? Math.max(2, 5 - idx),
       };
     });
   }, [creatorBroadcasts, timesFmForecast.creator_mroas]);

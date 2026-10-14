@@ -4,6 +4,7 @@ import { runRawGql, parseJsonColumn, toNumber } from "@/lib/gcp/spanner-client";
 import { queryBigQuery } from "@/lib/gcp/bigquery-client";
 import {
   buildPersonaPrompt,
+  buildIndividualVoiceProfile,
   buildCreatorBroadcastPrompt,
   buildContagionRound2Prompt,
   buildCrowdSwarmBatchPrompt,
@@ -126,6 +127,55 @@ const CANONICAL_CREATOR_HANDLES: Record<string, string> = {
   callmeagent: "@CallMeAgent",
   "creator-potatomcwhiskey": "@PotatoMcWhiskey",
   potatomcwhiskey: "@PotatoMcWhiskey",
+  "creator-2klab": "@NBA2KLab",
+  nba2klab: "@NBA2KLab",
+  "2klab": "@NBA2KLab",
+  "creator-2ktutes": "@NBA2KTutes",
+  nba2ktutes: "@NBA2KTutes",
+  "2ktutes": "@NBA2KTutes",
+  "creator-lakerfan": "@LakerFan",
+  lakerfan: "@LakerFan",
+  "creator-bde": "@BDE",
+  bde: "@BDE",
+  "creator-ki11ersix": "@Ki11erSix",
+  ki11ersix: "@Ki11erSix",
+  "creator-badgeplug": "@BadgePlug",
+  badgeplug: "@BadgePlug",
+  "creator-uncledemi": "@UncleDemi",
+  uncledemi: "@UncleDemi",
+  "creator-swante": "@Swante",
+  swante: "@Swante",
+  "creator-nadexe": "@Nadexe",
+  nadexe: "@Nadexe",
+  "creator-coletheman": "@ColeTheMan",
+  coletheman: "@ColeTheMan",
+  "creator-doubleh": "@DoubleH",
+  doubleh: "@DoubleH",
+  "creator-ipodkingcarter": "@iPodKingCarter",
+  ipodkingcarter: "@iPodKingCarter",
+  "creator-solodf": "@Solo",
+  solodf: "@Solo",
+  solo: "@Solo",
+  "creator-htb": "@HTB",
+  htb: "@HTB",
+  "creator-bio2k": "@Bio2K",
+  bio2k: "@Bio2K",
+  "creator-jc2k": "@JC2K",
+  jc2k: "@JC2K",
+  "creator-killzamoi": "@Killzamoi",
+  killzamoi: "@Killzamoi",
+  "creator-afunkydiabetic": "@AFunkyDiabetic",
+  afunkydiabetic: "@AFunkyDiabetic",
+  "creator-sixringsofsteel": "@SixRingsofSteel",
+  sixringsofsteel: "@SixRingsofSteel",
+  "creator-quitalovessports": "@QuitaLovesSports",
+  quitalovessports: "@QuitaLovesSports",
+  "creator-smacktalks": "@Smacktalks",
+  smacktalks: "@Smacktalks",
+  "creator-gamerability": "@GamerAbility",
+  gamerability: "@GamerAbility",
+  "creator-joltzdude139": "@Joltzdude139",
+  joltzdude139: "@Joltzdude139",
 };
 
 /**
@@ -190,30 +240,46 @@ const redditContagionCache = new Map<
 const REDDIT_CACHE_TTL_MS = 10 * 60 * 1000;
 
 /**
- * Fetches live Google Search-grounded Reddit discussions across `r/NBA2K`, `r/MyTEAM`, and `r/WWEGames`
+ * Fetches live Google Search-grounded Reddit discussions across `r/NBA2K` (multiple threads),
+ * `r/MyTEAM`, `r/NBA2kTeamUp`, `r/WWEGames`, `r/pga2k`, and `r/Borderlands`
  * using Vertex AI Search grounding + `MODELS.LITE` structuring, with a 10-minute in-memory cache.
  */
 export async function fetchLiveRedditThreadsForContagion(
   offerTitle: string,
   franchise: string = "NBA2K"
 ): Promise<RedditEchoItem[]> {
-  const cacheKey = `${franchise}:${offerTitle.slice(0, 48).toLowerCase()}`;
+  const cacheKey = `v2:${franchise}:${offerTitle.slice(0, 48).toLowerCase()}`;
   const now = Date.now();
-  const cached = redditContagionCache.get(cacheKey) || redditContagionCache.get("default");
+  const cached = redditContagionCache.get(cacheKey) || redditContagionCache.get("default_v2");
   if (cached && cached.expiresAt > now && cached.items.length > 0) {
     return cached.items.map((item) => ({ ...item }));
   }
 
-  const prompt =
-    "In three sentences, summarise what r/NBA2K and r/MyTEAM are saying about VC pricing, MyPLAYER build costs, and Galaxy Opal pack odds in NBA 2K.";
+  const prompt = `Search reddit.com across r/NBA2K, r/MyTEAM, r/NBA2kTeamUp, r/WWEGames, r/pga2k, and r/Borderlands for community sentiment regarding "${offerTitle}" (${franchise}):
+1. r/NBA2K (pull multiple distinct threads): MyPLAYER 85 OVR Build Cliff & VC attribute pricing, Cap Breakers & badge thresholds, Random Rec vs 5-Stack Pro-Am squad frustration, and NBA 2K26 to 2K27 Rebirth loyalty progression.
+2. r/MyTEAM: Galaxy Opal & Dark Matter pack odds, Player Market vs Auction House value, and guaranteed box topper debates.
+3. r/NBA2kTeamUp: Rec Crew Captains & Pro-Am 5-stacks recruiting teammates, coordinating builds, and stacking 2x Crew Rep multipliers.
+4. r/WWEGames, r/pga2k, and r/Borderlands: Cross-franchise 2K Sports & 2K Core Season Pass / MyFACTION / Clubhouse Pass / Vault Hunter DLC sentiment.`;
 
   const grounded = await groundedSearch({
     prompt,
+    system:
+      "You are a gaming community intelligence analyst researching live Reddit threads across r/NBA2K, r/MyTEAM, r/NBA2kTeamUp, r/WWEGames, r/pga2k, and r/Borderlands.",
   });
 
-  const structuringPrompt = `Convert this live Reddit search summary and its citations into 3 structured community threads across r/NBA2K and r/MyTEAM:
+  const structuringPrompt = `Convert this live Reddit search research and its citations into 8 structured community threads across r/NBA2K (include 3-4 distinct r/NBA2K threads covering VC/Builds, Rec/City, and Rebirth), r/MyTEAM, r/NBA2kTeamUp, r/WWEGames, and r/pga2k or r/Borderlands:
 Summary: ${grounded.text}
-Citations: ${JSON.stringify(grounded.citations.slice(0, 4))}`;
+Citations: ${JSON.stringify(grounded.citations.slice(0, 8))}
+
+For each of the 8 threads, provide:
+- subreddit: one of "r/NBA2K", "r/MyTEAM", "r/NBA2kTeamUp", "r/WWEGames", "r/pga2k", or "r/Borderlands"
+- flair: short topic flair (e.g. "VC & Build Lab", "Rec / Crew LFG", "Pack Odds", "Rebirth Bridge", "Park / City", "Cross-2K")
+- title: authentic Reddit thread title
+- url: matching citation URL or canonical subreddit URL
+- sentiment: "BULLISH" | "MIXED" | "BACKLASH"
+- score: upvote score (e.g. 420 to 4100)
+- comment_count: comment count (e.g. 65 to 890)
+- snippet: 1-2 sentence authentic community quote/summary`;
 
   const structured = await generateText({
     role: "LITE",
@@ -229,10 +295,12 @@ Citations: ${JSON.stringify(grounded.citations.slice(0, 4))}`;
             type: "OBJECT",
             properties: {
               subreddit: { type: "STRING" },
+              flair: { type: "STRING" },
               title: { type: "STRING" },
               url: { type: "STRING" },
               sentiment: { type: "STRING" },
               score: { type: "INTEGER" },
+              comment_count: { type: "INTEGER" },
               snippet: { type: "STRING" },
             },
             required: ["subreddit", "title", "url", "sentiment", "score", "snippet"],
@@ -245,21 +313,27 @@ Citations: ${JSON.stringify(grounded.citations.slice(0, 4))}`;
 
   const parsed = parseModelJson<{ items?: RedditEchoItem[] }>(structured.text);
   const items: RedditEchoItem[] = Array.isArray(parsed?.items)
-    ? parsed!.items.map((it) => ({
-        subreddit: String(it.subreddit || "r/NBA2K"),
-        title: String(it.title || "NBA 2K27 VC & Pack Value Thread"),
-        url: it.url ? String(it.url) : "https://www.reddit.com/r/NBA2K/",
-        sentiment: (["BULLISH", "MIXED", "BACKLASH"].includes(it.sentiment)
-          ? it.sentiment
-          : "MIXED") as "BULLISH" | "MIXED" | "BACKLASH",
-        score: Number(it.score || 1250),
-        snippet: String(it.snippet || ""),
-      }))
+    ? parsed!.items.map((it) => {
+        const sub = String(it.subreddit || "r/NBA2K");
+        const cleanSub = sub.startsWith("r/") ? sub : `r/${sub.replace(/^\/?r\//, "")}`;
+        return {
+          subreddit: cleanSub,
+          flair: it.flair ? String(it.flair) : "Community",
+          title: String(it.title || "NBA 2K27 VC & Pack Value Thread").replace(/—/g, "·"),
+          url: it.url ? String(it.url) : `https://www.reddit.com/${cleanSub}/`,
+          sentiment: (["BULLISH", "MIXED", "BACKLASH"].includes(it.sentiment)
+            ? it.sentiment
+            : "MIXED") as "BULLISH" | "MIXED" | "BACKLASH",
+          score: Number(it.score || 1250),
+          comment_count: Number(it.comment_count || Math.round(Number(it.score || 1200) * 0.18)),
+          snippet: String(it.snippet || "").replace(/—/g, "·"),
+        };
+      })
     : [];
 
   if (items.length > 0) {
     redditContagionCache.set(cacheKey, { expiresAt: now + REDDIT_CACHE_TTL_MS, items });
-    redditContagionCache.set("default", { expiresAt: now + REDDIT_CACHE_TTL_MS, items });
+    redditContagionCache.set("default_v2", { expiresAt: now + REDDIT_CACHE_TTL_MS, items });
   }
   return items;
 }
@@ -311,7 +385,11 @@ export function computeRedditEchoMetrics(
       const matchesSub =
         ag.tag.includes(subLower) ||
         ag.snippet.includes(subLower) ||
-        (subLower.includes("myteam") && ag.archetype === "MYTEAM_PACK_WHALE");
+        (subLower.includes("myteam") && ag.archetype === "MYTEAM_PACK_WHALE") ||
+        (subLower.includes("teamup") &&
+          (ag.archetype === "REC_CREW_CAPTAIN" || ag.archetype === "PARK_REP_GRINDER")) ||
+        ((subLower.includes("wwe") || subLower.includes("pga") || subLower.includes("borderlands")) &&
+          ag.archetype === "CROSS_LABEL_NOMAD");
       const matchesKeywords = titleWords.some((w) => ag.snippet.includes(w));
       const sentimentAligned =
         (thread.sentiment === "BACKLASH" &&
@@ -332,7 +410,7 @@ export function computeRedditEchoMetrics(
 
       if (sentimentAligned && (matchesSub || matchesKeywords || ag.driver === "REDDIT_THREAD")) {
         echoCount++;
-      } else if (sentimentAligned && (idx % 2 === 0)) {
+      } else if (sentimentAligned && idx % 3 === 0) {
         echoCount++;
       }
     }
@@ -358,6 +436,7 @@ export async function fetchLiveSpannerPersonas(
   const rows = await runRawGql(
     `SELECT p.player_id,
             ANY_VALUE(p.gamer_tag) AS gamer_tag,
+            ANY_VALUE(p.age) AS age,
             ANY_VALUE(p.primary_archetype) AS primary_archetype,
             ANY_VALUE(p.lifetime_spend_usd) AS lifetime_spend_usd,
             ANY_VALUE(p.churn_risk_score) AS churn_risk_score,
@@ -378,6 +457,7 @@ export async function fetchLiveSpannerPersonas(
              (p)-[:FOLLOWS_CREATOR]->(cr:Creator)
        RETURN p.player_id,
               p.gamer_tag,
+              p.age,
               p.primary_archetype,
               p.lifetime_spend_usd,
               p.churn_risk_score,
@@ -421,6 +501,7 @@ export async function fetchLiveSpannerPersonas(
     return {
       player_id: r.player_id,
       gamer_tag: r.gamer_tag,
+      age: toNumber(r.age) || 24,
       archetype,
       primary_archetype: archetype,
       lifetime_spend_usd: toNumber(r.lifetime_spend_usd),
@@ -503,13 +584,15 @@ export async function evaluatePersonas(
       offerTitle,
       priceUsd,
       franchise,
-      counterfactualEvent
+      counterfactualEvent,
+      index
     );
     const res = await generateText({
       role: "FAST",
       system,
       prompt,
       json: true,
+      temperature: 0.65,
       thinkingBudget: 0,
       maxOutputTokens: 512,
       schema: {
@@ -570,8 +653,9 @@ export async function evaluatePersonas(
 }
 
 /**
- * Queries the top 3 `Creator` nodes from `TakeTwoPlayerGraph` ordered by `FOLLOWS_CREATOR`
- * edge count and generates their live stream / YouTube broadcasts reacting to Round 1.
+ * Queries the top 12 `Creator` nodes from `TakeTwoPlayerGraph` ordered by `FOLLOWS_CREATOR`
+ * edge count, prioritizes creators followed by the active cohort (`r1Reactions`) plus top graph
+ * reach, and generates 6 live stream / YouTube broadcasts reacting to Round 1.
  */
 export async function generateCreatorBroadcasts(
   offerTitle: string,
@@ -587,13 +671,18 @@ export async function generateCreatorBroadcasts(
             ANY_VALUE(cr.creator_id) AS creator_id,
             ANY_VALUE(cr.name) AS name,
             ANY_VALUE(cr.platform) AS platform,
+            ANY_VALUE(cr.signature_mode) AS signature_mode,
             COUNT(p.player_id) AS followers
      GROUP BY cr.handle
      ORDER BY followers DESC
-     LIMIT 3`
+     LIMIT 12`
   );
 
-  const liveCreators = spannerCreators.map((c) => {
+  const cohortFollowedHandles = new Set(
+    r1Reactions.map((r) => normalizeCreatorHandle(r.creator_handle).toLowerCase())
+  );
+
+  const mappedCreators = spannerCreators.map((c) => {
     const handle = normalizeCreatorHandle(String(c.handle || c.creator_id || "@Agent00"));
     const graphFollowers = toNumber(c.followers) || 450;
     return {
@@ -601,9 +690,19 @@ export async function generateCreatorBroadcasts(
       handle,
       name: String(c.name || handle.replace(/^@/, "")),
       platform: String(c.platform || "YouTube"),
+      signature_mode: String(c.signature_mode || "NBA 2K26 · Park & Rec"),
       followers: graphFollowers * 5500,
+      inCohort: cohortFollowedHandles.has(handle.toLowerCase()),
     };
   });
+
+  // Sort so creators followed by active cohort come first, then by followers, and pick top 6
+  const liveCreators = mappedCreators
+    .sort((a, b) => {
+      if (a.inCohort !== b.inCohort) return a.inCohort ? -1 : 1;
+      return b.followers - a.followers;
+    })
+    .slice(0, 6);
 
   const buyCount = r1Reactions.filter((r) => r.final_fsm_state === "PURCHASED").length;
   const boycottCount = r1Reactions.filter((r) => r.final_fsm_state === "BOYCOTT").length;
@@ -622,6 +721,7 @@ export async function generateCreatorBroadcasts(
     system,
     prompt,
     json: true,
+    temperature: 0.6,
     thinkingBudget: 0,
     schema: {
       type: "OBJECT",
@@ -653,7 +753,7 @@ export async function generateCreatorBroadcasts(
     throw new Error("Creator broadcast generation returned invalid JSON payload");
   }
 
-  return broadcastsList.map((b: any, idx: number) => {
+  return broadcastsList.slice(0, 6).map((b: any, idx: number) => {
     const fallbackCreator = liveCreators[idx] || liveCreators[0];
     return {
       creator_id: String(b.creator_id || fallbackCreator?.creator_id || "creator-agent00"),
@@ -731,6 +831,7 @@ export async function evaluateContagionRound2(
     const matchedBroadcast =
       broadcastByHandle.get(normCreator.toLowerCase()) ||
       creatorBroadcasts[index % Math.max(1, creatorBroadcasts.length)];
+    const vp = buildIndividualVoiceProfile({ ...p, ...r }, index);
 
     return {
       index,
@@ -760,6 +861,9 @@ export async function evaluateContagionRound2(
             headline: matchedBroadcast.headline,
           }
         : undefined,
+      voice_cadence_tier: vp.cadenceTier,
+      voice_word_range: vp.wordCountRange,
+      voice_directive: vp.promptDirective,
     };
   });
 
@@ -786,6 +890,7 @@ export async function evaluateContagionRound2(
         system,
         prompt,
         json: true,
+        temperature: 0.6,
         thinkingBudget: 0,
         schema: {
           type: "OBJECT",
@@ -1083,18 +1188,23 @@ export async function evaluateRound3Counterfactual(
   let fastModelUsed = MODELS.FAST.id;
   let liteModelUsed = MODELS.LITE.id;
 
-  const r2CoreInput = r2Reactions.map((r, index) => ({
-    index,
-    player_id: r.player_id || `persona-${index + 1}`,
-    gamer_tag: r.gamer_tag || `Player_${index + 1}`,
-    archetype: String(r.archetype || "MYCAREER_STORY_CASUAL"),
-    crew_name: r.crew_name || "Bucket Getters",
-    creator_handle: normalizeCreatorHandle(r.creator_handle || "@Agent00"),
-    round1_state: r.round1_fsm_state || r.final_fsm_state,
-    round2_state: r.final_fsm_state,
-    round2_wtp: r.willingness_to_pay_usd,
-    round2_quote: r.verbatim_quote,
-  }));
+  const r2CoreInput = r2Reactions.map((r, index) => {
+    const vp = buildIndividualVoiceProfile(r, index);
+    return {
+      index,
+      player_id: r.player_id || `persona-${index + 1}`,
+      gamer_tag: r.gamer_tag || `Player_${index + 1}`,
+      archetype: String(r.archetype || "MYCAREER_STORY_CASUAL"),
+      crew_name: r.crew_name || "Bucket Getters",
+      creator_handle: normalizeCreatorHandle(r.creator_handle || "@Agent00"),
+      round1_state: r.round1_fsm_state || r.final_fsm_state,
+      round2_state: r.final_fsm_state,
+      round2_wtp: r.willingness_to_pay_usd,
+      round2_quote: r.verbatim_quote,
+      voice_word_range: vp.wordCountRange,
+      voice_directive: vp.promptDirective,
+    };
+  });
 
   const corePromise = (async () => {
     const r3Chunks: Array<typeof r2CoreInput> = [];
@@ -1116,6 +1226,7 @@ export async function evaluateRound3Counterfactual(
           system,
           prompt,
           json: true,
+          temperature: 0.6,
           thinkingBudget: 0,
           schema: {
             type: "OBJECT",
@@ -1498,8 +1609,8 @@ export function computeCreatorMroas(
   creatorBroadcasts: CreatorBroadcast[]
 ): CreatorMroasItem[] {
   const defaultCreators =
-    creatorBroadcasts && creatorBroadcasts.length >= 3
-      ? creatorBroadcasts.slice(0, 3)
+    creatorBroadcasts && creatorBroadcasts.length > 0
+      ? creatorBroadcasts.slice(0, 6)
       : [
           {
             creator_id: "creator-agent00",
@@ -1528,10 +1639,40 @@ export function computeCreatorMroas(
             headline: "",
             influence_reach: 1850000,
           },
+          {
+            creator_id: "creator-nba2klab",
+            handle: "@NBA2KLab",
+            name: "NBA 2K Lab",
+            platform: "YouTube",
+            stance: "MIXED" as const,
+            headline: "",
+            influence_reach: 1200000,
+          },
+          {
+            creator_id: "creator-badgeplug",
+            handle: "@BadgePlug",
+            name: "BadgePlug",
+            platform: "YouTube",
+            stance: "ENDORSE" as const,
+            headline: "",
+            influence_reach: 2150000,
+          },
+          {
+            creator_id: "creator-joeknows",
+            handle: "@JoeKnows",
+            name: "Joe Knows",
+            platform: "YouTube",
+            stance: "ENDORSE" as const,
+            headline: "",
+            influence_reach: 1450000,
+          },
         ];
 
-  const baseMroasWeights = [4.6, 4.2, 3.8];
-  const budgetShares = [42, 33, 25];
+  const baseMroasWeights = [4.8, 4.4, 4.1, 3.9, 3.6, 3.4];
+  const budgetShares =
+    defaultCreators.length > 3
+      ? [26, 20, 17, 14, 12, 11]
+      : [42, 33, 25];
 
   return defaultCreators.map((cr, idx) => {
     const normHandle = normalizeCreatorHandle(cr.handle);

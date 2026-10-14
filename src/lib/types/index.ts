@@ -376,6 +376,8 @@ export interface RedditEchoItem {
   url?: string;
   sentiment: "BULLISH" | "MIXED" | "BACKLASH";
   score: number;
+  comment_count?: number;
+  flair?: string;
   snippet: string;
   swarm_echo_count?: number;
   r2_flips_driven?: number;
