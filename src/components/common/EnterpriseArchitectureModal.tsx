@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -36,29 +42,30 @@ interface StepSpec {
   highlightNodes: string[];
 }
 
+interface Point {
+  x: number;
+  y: number;
+}
+
 const ARCH_TABS: Array<{
   id: ArchitectureTabId;
   num: string;
   title: string;
-  subtitle: string;
 }> = [
   {
     id: "federation",
     num: "01",
     title: "Snowflake & Databricks Federation",
-    subtitle: "ADK + MCP Tools vs. Databricks Genie A2A",
   },
   {
     id: "semantic",
     num: "02",
     title: "Semantic Layer & Ontology",
-    subtitle: "Metrics, Business Terms & Graph Contracts",
   },
   {
     id: "scale",
     num: "03",
     title: "Interactive Scale & Living Context",
-    subtitle: "Bifurcated Compute + Zero-Maintenance Context",
   },
 ];
 
@@ -69,15 +76,15 @@ const STEPS_BY_TAB: Record<ArchitectureTabId, StepSpec[]> = {
       shortLabel: "① Data Surfaces",
       badge: "ZERO RIP-AND-REPLACE",
       headline:
-        "Keep Snowflake (transactional spend/LTV) and Databricks (telemetry/ML features) in place while Spanner Graph holds real-time 2-hop social crew edges.",
+        "Snowflake (spend/LTV) and Databricks (telemetry/ML) stay in place while Spanner Graph powers 2-hop social edges.",
       highlightNodes: ["sf", "dbx", "spanner"],
     },
     {
       id: 1,
       shortLabel: "② ADK + MCP Pipe",
-      badge: "DETERMINISTIC HYDRATION (<40MS)",
+      badge: "DETERMINISTIC HYDRATION (<35MS)",
       headline:
-        "Use ADK + MCP Tools when Gemini needs governed tables, SQL metrics, or Unity Catalog features with strict schema contracts and zero double-LLM latency.",
+        "ADK + MCP Tools pull governed Snowflake SQL, Unity Catalog features, and Spanner GQL with zero double-LLM hop latency.",
       highlightNodes: ["sf", "dbx", "spanner", "mcp", "gemini"],
     },
     {
@@ -85,7 +92,7 @@ const STEPS_BY_TAB: Record<ArchitectureTabId, StepSpec[]> = {
       shortLabel: "③ Genie A2A Bridge",
       badge: "AGENT-TO-AGENT DELEGATION",
       headline:
-        "Use A2A when delegating open-ended Lakehouse data science to a Databricks Genie Agent—Genie runs multi-step PySpark/SQL and returns the structured finding.",
+        "A2A delegates open-ended Lakehouse data science to Databricks Genie Agents, returning structured findings to Gemini.",
       highlightNodes: ["dbx", "a2a", "gemini"],
     },
     {
@@ -93,8 +100,8 @@ const STEPS_BY_TAB: Record<ArchitectureTabId, StepSpec[]> = {
       shortLabel: "④ Unified Simulation",
       badge: "LIVE IN COURTSIDE",
       headline:
-        "Gemini 3.8 Flash fuses Snowflake LTV + Databricks Churn Hazard + Spanner Crew Gravity into a single interactive neural simulation.",
-      highlightNodes: ["mcp", "a2a", "spanner", "gemini"],
+        "Gemini 3.8 Flash fuses Snowflake LTV + Databricks Churn Hazard + Spanner Crew Gravity into one interactive simulation.",
+      highlightNodes: ["sf", "dbx", "spanner", "mcp", "a2a", "gemini"],
     },
   ],
   semantic: [
@@ -103,7 +110,7 @@ const STEPS_BY_TAB: Record<ArchitectureTabId, StepSpec[]> = {
       shortLabel: "① Business Intent",
       badge: "RAW VERNACULAR",
       headline:
-        'Marketers & executives speak in domain terms ("84 OVR Cliff", "Tilt Risk", "Persuadable Holdouts", "Net 30d Bookings")—never raw table joins.',
+        'Teams query in domain terms ("84 OVR Cliff", "High Tilt Risk", "Persuadable Holdouts")—never raw table joins.',
       highlightNodes: ["intent"],
     },
     {
@@ -111,7 +118,7 @@ const STEPS_BY_TAB: Record<ArchitectureTabId, StepSpec[]> = {
       shortLabel: "② Semantic Registry",
       badge: "GOVERNED METRIC VIEWS",
       headline:
-        "MCP exposes canonical metric definitions from Databricks Unity Catalog & Snowflake Semantic Models so LTV, mROAS, and CATE Uplift have one formula everywhere.",
+        "MCP exposes canonical metrics from Databricks Unity Catalog & Snowflake YAML so LTV, mROAS, and CATE match everywhere.",
       highlightNodes: ["intent", "sem_metrics"],
     },
     {
@@ -119,16 +126,22 @@ const STEPS_BY_TAB: Record<ArchitectureTabId, StepSpec[]> = {
       shortLabel: "③ Graph Ontology",
       badge: "ENTITY RELATIONSHIPS",
       headline:
-        "The Property Graph Ontology maps how Players, Crews, Captains, and Creators connect—turning abstract social concepts into explicit 2-hop graph paths.",
+        "Property Graph Ontology maps Players → Crews → Captains → Creators into explicit, traversal-ready 2-hop paths.",
       highlightNodes: ["intent", "sem_ontology", "sem_metrics"],
     },
     {
       id: 3,
-      shortLabel: "④ Zero-Hallucination Query",
-      badge: "CONTRACT-VERIFIED EXECUTION",
+      shortLabel: "④ Verified Execution",
+      badge: "ZERO HALLUCINATION",
       headline:
-        "Gemini compiles business intent into parameterized GQL & SQL (@params only), verified against the live schema before touching production data.",
-      highlightNodes: ["sem_metrics", "sem_ontology", "out_gql", "out_sql", "out_kpi"],
+        "Gemini compiles intent into parameterized GQL & Warehouse SQL (@params only), verified against live schema contracts.",
+      highlightNodes: [
+        "sem_metrics",
+        "sem_ontology",
+        "out_gql",
+        "out_sql",
+        "out_kpi",
+      ],
     },
   ],
   scale: [
@@ -137,15 +150,15 @@ const STEPS_BY_TAB: Record<ArchitectureTabId, StepSpec[]> = {
       shortLabel: "① Bifurcated Compute",
       badge: "WHY 6,500 AGENTS RUN INSTANTLY",
       headline:
-        "Never force an LLM to crunch 10M rows in a prompt. Gemini simulates behavioral inflection points while vectorized engines compute graph & survival math in <30ms.",
+        "Gemini 3.8 Flash simulates behavioral inflection points while vectorized engines compute graph & survival math in <30ms.",
       highlightNodes: ["brain_llm", "brain_vec", "scale_canvas"],
     },
     {
       id: 1,
       shortLabel: "② Live MCP Introspection",
-      badge: "ZERO MANUAL DOC MAINTENANCE",
+      badge: "ZERO MANUAL DOCS",
       headline:
-        "MCP Schema Servers introspect Databricks Unity Catalog, Snowflake YAML, and TypeScript ASTs automatically—variable definitions never go stale.",
+        "MCP Schema Servers introspect Unity Catalog, Snowflake YAML, and TypeScript ASTs live—variable definitions never drift.",
       highlightNodes: ["ctx_mcp", "ctx_cache"],
     },
     {
@@ -153,7 +166,7 @@ const STEPS_BY_TAB: Record<ArchitectureTabId, StepSpec[]> = {
       shortLabel: "③ Context Caching",
       badge: "-85% TOKEN COST · ZERO DRIFT",
       headline:
-        "Architectural intent (GEMINI.md), metric formulas, and Graph DDL are pinned in Vertex AI Context Caching so every turn retains full system memory.",
+        "Architectural rules (GEMINI.md), metric formulas, and Graph DDL stay pinned in Vertex AI Context Caching across turns.",
       highlightNodes: ["ctx_cache", "ctx_guard"],
     },
     {
@@ -161,7 +174,7 @@ const STEPS_BY_TAB: Record<ArchitectureTabId, StepSpec[]> = {
       shortLabel: "④ CI Contract Guardian",
       badge: "AUTOMATED SCHEMA GUARDRAILS",
       headline:
-        "Gemini 3.5 Flash-Lite contract agents validate every generated GQL/SQL query and variable reference against the live schema in CI and at runtime.",
+        "Gemini 3.5 Flash-Lite contract agents verify every generated GQL/SQL query and variable against the live schema.",
       highlightNodes: ["ctx_mcp", "ctx_cache", "ctx_guard", "scale_canvas"],
     },
   ],
@@ -177,7 +190,14 @@ function SnowflakeIcon({ className = "w-4 h-4" }: { className?: string }) {
         strokeWidth="2.2"
         strokeLinecap="round"
       />
-      <circle cx="12" cy="12" r="2.5" fill="#0B0D16" stroke="#29B5E8" strokeWidth="2" />
+      <circle
+        cx="12"
+        cy="12"
+        r="2.5"
+        fill="#0B0D16"
+        stroke="#29B5E8"
+        strokeWidth="2"
+      />
     </svg>
   );
 }
@@ -220,6 +240,21 @@ function GeminiSparkIcon({ className = "w-4 h-4" }: { className?: string }) {
   );
 }
 
+/** Smooth horizontal or vertical cubic bezier path between two measured DOM ports */
+function buildBezierPath(
+  a: Point | undefined,
+  b: Point | undefined,
+  orientation: "horizontal" | "vertical" = "horizontal"
+): string {
+  if (!a || !b) return "";
+  if (orientation === "vertical") {
+    const dy = (b.y - a.y) * 0.52;
+    return `M ${a.x} ${a.y} C ${a.x} ${a.y + dy}, ${b.x} ${b.y - dy}, ${b.x} ${b.y}`;
+  }
+  const dx = (b.x - a.x) * 0.48;
+  return `M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x} ${b.y}`;
+}
+
 export function EnterpriseArchitectureButton({
   onClick,
   compact = false,
@@ -253,8 +288,51 @@ export default function EnterpriseArchitectureModal({
   const [isAutoPlaying, setIsAutoPlaying] = useState<boolean>(true);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const [ports, setPorts] = useState<Record<string, Point>>({});
+  const [stageSize, setStageSize] = useState<{ w: number; h: number }>({
+    w: 1000,
+    h: 450,
+  });
+
   const steps = STEPS_BY_TAB[activeTab];
   const currentStep = steps[activeStep] || steps[0];
+
+  // Measure exact DOM coordinates of every [data-port] anchor inside stageRef
+  const measurePorts = useCallback(() => {
+    const container = stageRef.current;
+    if (!container) return;
+    const cRect = container.getBoundingClientRect();
+    if (cRect.width === 0 || cRect.height === 0) return;
+    setStageSize({ w: cRect.width, h: cRect.height });
+
+    const nextPorts: Record<string, Point> = {};
+    const portEls = container.querySelectorAll<HTMLElement>("[data-port]");
+    portEls.forEach((el) => {
+      const id = el.getAttribute("data-port");
+      if (!id) return;
+      const r = el.getBoundingClientRect();
+      nextPorts[id] = {
+        x: r.left - cRect.left + r.width / 2,
+        y: r.top - cRect.top + r.height / 2,
+      };
+    });
+    setPorts(nextPorts);
+  }, []);
+
+  // Re-measure on open, tab switch, step switch, and window resize
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    measurePorts();
+    const t1 = setTimeout(measurePorts, 60);
+    const t2 = setTimeout(measurePorts, 260);
+    window.addEventListener("resize", measurePorts);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      window.removeEventListener("resize", measurePorts);
+    };
+  }, [isOpen, activeTab, activeStep, measurePorts]);
 
   // Reset step to 0 when switching architecture tabs
   useEffect(() => {
@@ -276,6 +354,155 @@ export default function EnterpriseArchitectureModal({
     if (hoveredNode === nodeId) return true;
     return currentStep.highlightNodes.includes(nodeId);
   };
+
+  // Dynamic wires for active tab based on exact measured port positions
+  const activeWires = (() => {
+    if (activeTab === "federation") {
+      return [
+        // Snowflake -> ADK/MCP top port
+        {
+          id: "sf-mcp",
+          d: buildBezierPath(ports["sf-out"], ports["mcp-in-top"], "horizontal"),
+          grad: "url(#arch-mcp-grad)",
+          color: "#29B5E8",
+          active: activeStep === 0 || activeStep === 1 || activeStep === 3,
+        },
+        // Databricks -> ADK/MCP mid port
+        {
+          id: "dbx-mcp",
+          d: buildBezierPath(
+            ports["dbx-out-top"],
+            ports["mcp-in-mid"],
+            "horizontal"
+          ),
+          grad: "url(#arch-mcp-grad)",
+          color: "#4285F4",
+          active: activeStep === 1 || activeStep === 3,
+        },
+        // Databricks Genie -> A2A Protocol Bridge
+        {
+          id: "dbx-a2a",
+          d: buildBezierPath(ports["dbx-out-bot"], ports["a2a-in"], "horizontal"),
+          grad: "url(#arch-a2a-grad)",
+          color: "#FF3621",
+          active: activeStep === 0 || activeStep === 2 || activeStep === 3,
+        },
+        // Spanner Graph -> ADK/MCP bottom port
+        {
+          id: "spanner-mcp",
+          d: buildBezierPath(
+            ports["spanner-out"],
+            ports["mcp-in-bot"],
+            "horizontal"
+          ),
+          grad: "url(#arch-spanner-grad)",
+          color: "#00F5D4",
+          active: activeStep === 0 || activeStep === 1 || activeStep === 3,
+        },
+        // ADK/MCP -> Gemini top port
+        {
+          id: "mcp-gemini",
+          d: buildBezierPath(
+            ports["mcp-out"],
+            ports["gemini-in-top"],
+            "horizontal"
+          ),
+          grad: "url(#arch-mcp-grad)",
+          color: "#00F5D4",
+          active: activeStep === 1 || activeStep === 3,
+        },
+        // A2A Bridge -> Gemini bottom port
+        {
+          id: "a2a-gemini",
+          d: buildBezierPath(
+            ports["a2a-out"],
+            ports["gemini-in-bot"],
+            "horizontal"
+          ),
+          grad: "url(#arch-a2a-grad)",
+          color: "#FFB800",
+          active: activeStep === 2 || activeStep === 3,
+        },
+      ];
+    }
+
+    if (activeTab === "semantic") {
+      return [
+        // Business Intent -> Governed Metric Views
+        {
+          id: "intent-metrics",
+          d: buildBezierPath(
+            ports["intent-out-l"],
+            ports["metrics-in"],
+            "vertical"
+          ),
+          grad: "url(#arch-mcp-grad)",
+          color: "#4285F4",
+          active: activeStep >= 0,
+        },
+        // Business Intent -> Property Graph Ontology
+        {
+          id: "intent-ont",
+          d: buildBezierPath(ports["intent-out-r"], ports["ont-in"], "vertical"),
+          grad: "url(#arch-spanner-grad)",
+          color: "#00F5D4",
+          active: activeStep >= 0,
+        },
+        // Horizontal Bridge: Metric Views <-> Graph Ontology
+        {
+          id: "metrics-ont-bridge",
+          d: buildBezierPath(
+            ports["metrics-side"],
+            ports["ont-side"],
+            "horizontal"
+          ),
+          grad: "url(#arch-a2a-grad)",
+          color: "#9B72CB",
+          active: activeStep >= 2,
+        },
+        // Metric Views -> Out 1 (GQL) & Out 2 (SQL)
+        {
+          id: "metrics-out1",
+          d: buildBezierPath(
+            ports["metrics-out-l"],
+            ports["out1-in"],
+            "vertical"
+          ),
+          grad: "url(#arch-spanner-grad)",
+          color: "#00F5D4",
+          active: activeStep === 3,
+        },
+        {
+          id: "metrics-out2",
+          d: buildBezierPath(
+            ports["metrics-out-r"],
+            ports["out2-in"],
+            "vertical"
+          ),
+          grad: "url(#arch-mcp-grad)",
+          color: "#4285F4",
+          active: activeStep === 3,
+        },
+        // Graph Ontology -> Out 2 (SQL) & Out 3 (KPI)
+        {
+          id: "ont-out2",
+          d: buildBezierPath(ports["ont-out-l"], ports["out2-in"], "vertical"),
+          grad: "url(#arch-mcp-grad)",
+          color: "#669DF6",
+          active: activeStep === 3,
+        },
+        {
+          id: "ont-out3",
+          d: buildBezierPath(ports["ont-out-r"], ports["out3-in"], "vertical"),
+          grad: "url(#arch-spanner-grad)",
+          color: "#19C37D",
+          active: activeStep === 3,
+        },
+      ];
+    }
+
+    return [];
+  })();
 
   return (
     <div
@@ -326,15 +553,13 @@ export default function EnterpriseArchitectureModal({
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#4285F4]/30 via-[#9B72CB]/30 to-[#00F5D4]/30 border border-[#669DF6]/50 flex items-center justify-center">
               <Network className="w-3.5 h-3.5 text-[#00F5D4]" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xs font-semibold tracking-tight text-white">
-                  Architecture Blueprint
-                </h2>
-                <span className="px-1.5 py-0.5 rounded bg-[#4285F4]/15 border border-[#4285F4]/35 text-[9px] font-mono text-[#A8C7FA] uppercase">
-                  Live Reference Stack
-                </span>
-              </div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs font-semibold tracking-tight text-white">
+                Architecture Blueprint
+              </h2>
+              <span className="px-1.5 py-0.5 rounded bg-[#4285F4]/15 border border-[#4285F4]/35 text-[9px] font-mono text-[#A8C7FA] uppercase">
+                Live Reference Stack
+              </span>
             </div>
           </div>
 
@@ -434,132 +659,107 @@ export default function EnterpriseArchitectureModal({
         </div>
 
         {/* ================= MAIN ANIMATED DIAGRAM STAGE ================= */}
-        <div className="relative z-10 flex-1 min-h-0 w-full flex items-center justify-center px-6 py-2 overflow-hidden">
+        <div
+          ref={stageRef}
+          className="relative z-10 flex-1 min-h-0 w-full flex items-center justify-center px-8 py-2 overflow-hidden"
+        >
+          {/* Pixel-Accurate Measured SVG Overlay */}
+          <svg
+            width={stageSize.w}
+            height={stageSize.h}
+            viewBox={`0 0 ${stageSize.w} ${stageSize.h}`}
+            className="pointer-events-none absolute inset-0 w-full h-full z-0"
+          >
+            <defs>
+              <linearGradient id="arch-mcp-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#29B5E8" />
+                <stop offset="50%" stopColor="#4285F4" />
+                <stop offset="100%" stopColor="#00F5D4" />
+              </linearGradient>
+              <linearGradient id="arch-a2a-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#FF3621" />
+                <stop offset="50%" stopColor="#9B72CB" />
+                <stop offset="100%" stopColor="#FFB800" />
+              </linearGradient>
+              <linearGradient
+                id="arch-spanner-grad"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="0%"
+              >
+                <stop offset="0%" stopColor="#00F5D4" />
+                <stop offset="100%" stopColor="#19C37D" />
+              </linearGradient>
+            </defs>
+
+            {activeWires.map((wire) => {
+              if (!wire.d) return null;
+              return (
+                <g key={wire.id}>
+                  <path
+                    d={wire.d}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.08)"
+                    strokeWidth="2"
+                  />
+                  <motion.path
+                    d={wire.d}
+                    fill="none"
+                    stroke={wire.grad}
+                    strokeWidth={wire.active ? 3 : 1.5}
+                    animate={{ opacity: wire.active ? 0.92 : 0.22 }}
+                    transition={{ duration: 0.35 }}
+                  />
+                  {wire.active && (
+                    <path
+                      d={wire.d}
+                      fill="none"
+                      stroke={wire.color}
+                      strokeWidth="3.2"
+                      strokeLinecap="round"
+                      strokeDasharray="10 28"
+                      className="dag-edge-active"
+                      style={{ animationDuration: "680ms" }}
+                    />
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+
           <AnimatePresence mode="wait">
             {activeTab === "federation" && (
               <motion.div
                 key="tab-federation"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.22 }}
-                className="relative w-full h-full max-w-[1060px] flex items-center justify-between"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                onAnimationComplete={measurePorts}
+                className="relative z-10 w-full h-full max-w-[1060px] flex items-center justify-between gap-8"
               >
-                {/* SVG Animated Synaptic Beams (ViewBox 0 0 1000 460) */}
-                <svg
-                  viewBox="0 0 1000 460"
-                  preserveAspectRatio="none"
-                  className="pointer-events-none absolute inset-0 w-full h-full z-0"
-                >
-                  <defs>
-                    <linearGradient id="arch-mcp-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#29B5E8" />
-                      <stop offset="50%" stopColor="#4285F4" />
-                      <stop offset="100%" stopColor="#00F5D4" />
-                    </linearGradient>
-                    <linearGradient id="arch-a2a-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#FF3621" />
-                      <stop offset="50%" stopColor="#9B72CB" />
-                      <stop offset="100%" stopColor="#FFB800" />
-                    </linearGradient>
-                    <linearGradient id="arch-spanner-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#00F5D4" />
-                      <stop offset="100%" stopColor="#19C37D" />
-                    </linearGradient>
-                  </defs>
-
-                  {/* Snowflake (220,90) -> ADK/MCP Hub (500,145) */}
-                  {[
-                    {
-                      d: "M 240 90 C 330 90, 370 145, 420 145",
-                      grad: "url(#arch-mcp-grad)",
-                      color: "#29B5E8",
-                      active: activeStep === 0 || activeStep === 1 || activeStep === 3,
-                    },
-                    // Databricks (240,215) -> ADK/MCP Hub (420,160)
-                    {
-                      d: "M 240 215 C 330 215, 360 160, 420 160",
-                      grad: "url(#arch-mcp-grad)",
-                      color: "#4285F4",
-                      active: activeStep === 1 || activeStep === 3,
-                    },
-                    // Databricks Genie (240,245) -> A2A Protocol Hub (420,315)
-                    {
-                      d: "M 240 245 C 330 245, 360 315, 420 315",
-                      grad: "url(#arch-a2a-grad)",
-                      color: "#FF3621",
-                      active: activeStep === 0 || activeStep === 2 || activeStep === 3,
-                    },
-                    // Spanner Graph (240,370) -> ADK/MCP Hub (420,175) & Direct to Gemini (755,250)
-                    {
-                      d: "M 240 370 C 460 390, 620 340, 755 265",
-                      grad: "url(#arch-spanner-grad)",
-                      color: "#00F5D4",
-                      active: activeStep === 0 || activeStep === 1 || activeStep === 3,
-                    },
-                    // ADK/MCP Hub (580,150) -> Gemini Orchestrator (755,215)
-                    {
-                      d: "M 580 150 C 660 150, 690 210, 755 215",
-                      grad: "url(#arch-mcp-grad)",
-                      color: "#00F5D4",
-                      active: activeStep === 1 || activeStep === 3,
-                    },
-                    // A2A Hub (580,315) -> Gemini Orchestrator (755,245)
-                    {
-                      d: "M 580 315 C 660 315, 690 250, 755 245",
-                      grad: "url(#arch-a2a-grad)",
-                      color: "#FFB800",
-                      active: activeStep === 2 || activeStep === 3,
-                    },
-                  ].map((wire, i) => (
-                    <g key={`fed-wire-${i}`}>
-                      <path
-                        d={wire.d}
-                        fill="none"
-                        stroke="rgba(255,255,255,0.07)"
-                        strokeWidth="2"
-                      />
-                      <motion.path
-                        d={wire.d}
-                        fill="none"
-                        stroke={wire.grad}
-                        strokeWidth={wire.active ? 3.2 : 1.5}
-                        animate={{ opacity: wire.active ? 0.95 : 0.2 }}
-                        transition={{ duration: 0.4 }}
-                      />
-                      {wire.active && (
-                        <path
-                          d={wire.d}
-                          fill="none"
-                          stroke={wire.color}
-                          strokeWidth="3.4"
-                          strokeLinecap="round"
-                          strokeDasharray="10 28"
-                          className="dag-edge-active"
-                          style={{ animationDuration: "680ms" }}
-                        />
-                      )}
-                    </g>
-                  ))}
-                </svg>
-
                 {/* COLUMN 1: 3 EXISTING DATA SURFACES */}
-                <div className="relative z-10 flex flex-col justify-between h-[410px] w-[250px]">
+                <div className="flex flex-col justify-between h-[410px] w-[260px] shrink-0">
                   <div className="text-[10px] font-mono uppercase tracking-widest text-white/40 pl-1">
                     1 · Data Surfaces
                   </div>
 
                   {/* Node: Snowflake Data Cloud */}
-                  <motion.div
+                  <div
                     onMouseEnter={() => setHoveredNode("sf")}
                     onMouseLeave={() => setHoveredNode(null)}
-                    animate={{ scale: isHighlighted("sf") ? 1.02 : 0.98 }}
-                    className={`rounded-2xl p-3.5 border backdrop-blur-xl transition-all ${
+                    className={`relative rounded-2xl p-3.5 border backdrop-blur-xl transition-all ${
                       isHighlighted("sf")
                         ? "bg-[#0B1924]/95 border-[#29B5E8]/80 shadow-[0_0_28px_rgba(41,181,232,0.28)]"
                         : "bg-[#0B0D16]/85 border-white/[0.08] opacity-55"
                     }`}
                   >
+                    {/* Right Port Dot */}
+                    <span
+                      data-port="sf-out"
+                      className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[#29B5E8] border-2 border-[#040407] shadow-[0_0_8px_#29B5E8]"
+                    />
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <SnowflakeIcon className="w-4 h-4" />
@@ -581,19 +781,27 @@ export default function EnterpriseArchitectureModal({
                         </span>
                       ))}
                     </div>
-                  </motion.div>
+                  </div>
 
                   {/* Node: Databricks + Genie Agent */}
-                  <motion.div
+                  <div
                     onMouseEnter={() => setHoveredNode("dbx")}
                     onMouseLeave={() => setHoveredNode(null)}
-                    animate={{ scale: isHighlighted("dbx") ? 1.02 : 0.98 }}
-                    className={`rounded-2xl p-3.5 border backdrop-blur-xl transition-all ${
+                    className={`relative rounded-2xl p-3.5 border backdrop-blur-xl transition-all ${
                       isHighlighted("dbx")
                         ? "bg-[#22100E]/95 border-[#FF3621]/80 shadow-[0_0_28px_rgba(255,54,33,0.28)]"
                         : "bg-[#0B0D16]/85 border-white/[0.08] opacity-55"
                     }`}
                   >
+                    {/* Dual Right Port Dots (Top -> MCP, Bottom -> A2A) */}
+                    <span
+                      data-port="dbx-out-top"
+                      className="absolute -right-1.5 top-[34%] -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[#4285F4] border-2 border-[#040407] shadow-[0_0_8px_#4285F4]"
+                    />
+                    <span
+                      data-port="dbx-out-bot"
+                      className="absolute -right-1.5 top-[68%] -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[#FF3621] border-2 border-[#040407] shadow-[0_0_8px_#FF3621]"
+                    />
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <DatabricksIcon className="w-4 h-4" />
@@ -606,28 +814,34 @@ export default function EnterpriseArchitectureModal({
                       </span>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1">
-                      {["Unity Catalog", "churn_hazard", "Genie Agent"].map((tag) => (
-                        <span
-                          key={tag}
-                          className="px-1.5 py-0.5 rounded bg-white/[0.05] border border-white/[0.07] text-[10px] font-mono text-white/75"
-                        >
-                          {tag}
-                        </span>
-                      ))}
+                      {["Unity Catalog", "churn_hazard", "Genie Agent"].map(
+                        (tag) => (
+                          <span
+                            key={tag}
+                            className="px-1.5 py-0.5 rounded bg-white/[0.05] border border-white/[0.07] text-[10px] font-mono text-white/75"
+                          >
+                            {tag}
+                          </span>
+                        )
+                      )}
                     </div>
-                  </motion.div>
+                  </div>
 
                   {/* Node: Cloud Spanner Graph */}
-                  <motion.div
+                  <div
                     onMouseEnter={() => setHoveredNode("spanner")}
                     onMouseLeave={() => setHoveredNode(null)}
-                    animate={{ scale: isHighlighted("spanner") ? 1.02 : 0.98 }}
-                    className={`rounded-2xl p-3.5 border backdrop-blur-xl transition-all ${
+                    className={`relative rounded-2xl p-3.5 border backdrop-blur-xl transition-all ${
                       isHighlighted("spanner")
                         ? "bg-[#0A1E1C]/95 border-[#00F5D4]/80 shadow-[0_0_28px_rgba(0,245,212,0.28)]"
                         : "bg-[#0B0D16]/85 border-white/[0.08] opacity-55"
                     }`}
                   >
+                    {/* Right Port Dot */}
+                    <span
+                      data-port="spanner-out"
+                      className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[#00F5D4] border-2 border-[#040407] shadow-[0_0_8px_#00F5D4]"
+                    />
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <GitBranch className="w-4 h-4 text-[#00F5D4]" />
@@ -640,39 +854,58 @@ export default function EnterpriseArchitectureModal({
                       </span>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1">
-                      {["6.5K Players", "84 Crews", "2-Hop Contagion"].map((tag) => (
-                        <span
-                          key={tag}
-                          className="px-1.5 py-0.5 rounded bg-white/[0.05] border border-white/[0.07] text-[10px] font-mono text-white/75"
-                        >
-                          {tag}
-                        </span>
-                      ))}
+                      {["6.5K Players", "84 Crews", "2-Hop Contagion"].map(
+                        (tag) => (
+                          <span
+                            key={tag}
+                            className="px-1.5 py-0.5 rounded bg-white/[0.05] border border-white/[0.07] text-[10px] font-mono text-white/75"
+                          >
+                            {tag}
+                          </span>
+                        )
+                      )}
                     </div>
-                  </motion.div>
+                  </div>
                 </div>
 
                 {/* COLUMN 2: DUAL INTEGRATION PROTOCOLS (ADK/MCP vs A2A) */}
-                <div className="relative z-10 flex flex-col justify-around h-[390px] w-[265px]">
+                <div className="flex flex-col justify-between h-[410px] w-[275px] shrink-0">
                   <div className="text-[10px] font-mono uppercase tracking-widest text-white/40 text-center">
                     2 · Dual Protocol Bridge
                   </div>
 
                   {/* Protocol A: ADK + MCP Tool Layer */}
-                  <motion.div
+                  <div
                     onMouseEnter={() => setHoveredNode("mcp")}
                     onMouseLeave={() => setHoveredNode(null)}
                     onClick={() => {
                       setIsAutoPlaying(false);
                       setActiveStep(1);
                     }}
-                    animate={{ scale: isHighlighted("mcp") ? 1.03 : 0.97 }}
-                    className={`cursor-pointer rounded-2xl p-4 border backdrop-blur-xl transition-all ${
+                    className={`relative cursor-pointer rounded-2xl p-4 border backdrop-blur-xl transition-all my-auto ${
                       isHighlighted("mcp")
                         ? "bg-[#10182C]/95 border-[#669DF6]/85 shadow-[0_0_34px_rgba(66,133,244,0.35)]"
                         : "bg-[#0B0D16]/85 border-white/[0.08] opacity-55"
                     }`}
                   >
+                    {/* 3 Left Input Ports (Snowflake, Databricks, Spanner) + 1 Right Output Port */}
+                    <span
+                      data-port="mcp-in-top"
+                      className="absolute -left-1.5 top-[26%] -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[#29B5E8] border-2 border-[#040407]"
+                    />
+                    <span
+                      data-port="mcp-in-mid"
+                      className="absolute -left-1.5 top-[52%] -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[#4285F4] border-2 border-[#040407]"
+                    />
+                    <span
+                      data-port="mcp-in-bot"
+                      className="absolute -left-1.5 top-[78%] -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[#00F5D4] border-2 border-[#040407]"
+                    />
+                    <span
+                      data-port="mcp-out"
+                      className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[#00F5D4] border-2 border-[#040407] shadow-[0_0_8px_#00F5D4]"
+                    />
+
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Layers className="w-4 h-4 text-[#669DF6]" />
@@ -685,29 +918,39 @@ export default function EnterpriseArchitectureModal({
                       </span>
                     </div>
                     <p className="mt-1.5 text-[11px] text-white/70 leading-snug">
-                      Deterministic SQL, feature hydration &amp; OAuth row-level security.
+                      Deterministic SQL, feature hydration &amp; OAuth row-level
+                      security.
                     </p>
                     <div className="mt-2 flex items-center justify-between text-[9px] font-mono text-[#00F5D4]">
                       <span>Zero LLM Hop Overhead</span>
                       <span>~35ms</span>
                     </div>
-                  </motion.div>
+                  </div>
 
                   {/* Protocol B: A2A Agent-to-Agent Protocol */}
-                  <motion.div
+                  <div
                     onMouseEnter={() => setHoveredNode("a2a")}
                     onMouseLeave={() => setHoveredNode(null)}
                     onClick={() => {
                       setIsAutoPlaying(false);
                       setActiveStep(2);
                     }}
-                    animate={{ scale: isHighlighted("a2a") ? 1.03 : 0.97 }}
-                    className={`cursor-pointer rounded-2xl p-4 border backdrop-blur-xl transition-all ${
+                    className={`relative cursor-pointer rounded-2xl p-4 border backdrop-blur-xl transition-all my-auto ${
                       isHighlighted("a2a")
                         ? "bg-[#1D1228]/95 border-[#9B72CB]/85 shadow-[0_0_34px_rgba(155,114,203,0.35)]"
                         : "bg-[#0B0D16]/85 border-white/[0.08] opacity-55"
                     }`}
                   >
+                    {/* Left Input Port + Right Output Port */}
+                    <span
+                      data-port="a2a-in"
+                      className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[#FF3621] border-2 border-[#040407]"
+                    />
+                    <span
+                      data-port="a2a-out"
+                      className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[#FFB800] border-2 border-[#040407] shadow-[0_0_8px_#FFB800]"
+                    />
+
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-[#FFB800]" />
@@ -720,33 +963,43 @@ export default function EnterpriseArchitectureModal({
                       </span>
                     </div>
                     <p className="mt-1.5 text-[11px] text-white/70 leading-snug">
-                      Delegates exploratory Lakehouse tasks to Databricks Genie Agents.
+                      Delegates exploratory Lakehouse tasks to Databricks Genie
+                      Agents.
                     </p>
                     <div className="mt-2 flex items-center justify-between text-[9px] font-mono text-[#E9D5FF]">
                       <span>JSON-RPC (/api/a2a)</span>
                       <span>Multi-Step</span>
                     </div>
-                  </motion.div>
+                  </div>
                 </div>
 
                 {/* COLUMN 3: UNIFIED GEMINI + COURTSIDE ENGINE */}
-                <div className="relative z-10 flex flex-col justify-center h-[390px] w-[265px]">
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-3 pl-1">
+                <div className="flex flex-col justify-between h-[410px] w-[285px] shrink-0">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-white/40 pl-1">
                     3 · Agentic Decision Plane
                   </div>
 
-                  <motion.div
+                  <div
                     onMouseEnter={() => setHoveredNode("gemini")}
                     onMouseLeave={() => setHoveredNode(null)}
-                    animate={{ scale: isHighlighted("gemini") ? 1.03 : 0.98 }}
-                    className={`rounded-2xl p-4 border backdrop-blur-xl transition-all space-y-3 ${
+                    className={`relative my-auto rounded-2xl p-4 border backdrop-blur-xl transition-all space-y-3 ${
                       isHighlighted("gemini")
                         ? "bg-gradient-to-b from-[#13182E]/95 to-[#171126]/95 border-[#00F5D4]/80 shadow-[0_0_42px_rgba(0,245,212,0.3)]"
                         : "bg-[#0B0D16]/85 border-white/[0.1]"
                     }`}
                   >
+                    {/* Left Input Ports (Top from MCP, Bottom from A2A) */}
+                    <span
+                      data-port="gemini-in-top"
+                      className="absolute -left-1.5 top-[34%] -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[#00F5D4] border-2 border-[#040407] shadow-[0_0_8px_#00F5D4]"
+                    />
+                    <span
+                      data-port="gemini-in-bot"
+                      className="absolute -left-1.5 top-[68%] -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[#FFB800] border-2 border-[#040407] shadow-[0_0_8px_#FFB800]"
+                    />
+
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/[0.12] flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/[0.12] flex items-center justify-center shrink-0">
                         <GeminiSparkIcon className="w-5 h-5" />
                       </div>
                       <div>
@@ -759,27 +1012,27 @@ export default function EnterpriseArchitectureModal({
                       </div>
                     </div>
 
-                    <div className="space-y-1.5 pt-1 border-t border-white/[0.07]">
+                    <div className="space-y-1.5 pt-2 border-t border-white/[0.07]">
                       {[
                         {
-                          label: "Snowflake via MCP",
-                          val: "Spend & D2C Margin",
+                          label: "Snowflake · MCP",
+                          val: "Spend & D2C",
                           color: "text-[#29B5E8]",
                         },
                         {
-                          label: "Databricks via A2A/MCP",
+                          label: "Databricks · A2A",
                           val: "Survival & Tilt ML",
                           color: "text-[#FF3621]",
                         },
                         {
-                          label: "Spanner Graph GQL",
-                          val: "3.1x Crew Contagion",
+                          label: "Spanner · GQL",
+                          val: "3.1x Crew Cascade",
                           color: "text-[#00F5D4]",
                         },
                       ].map((row) => (
                         <div
                           key={row.label}
-                          className="flex items-center justify-between rounded-lg bg-black/45 px-2.5 py-1.5 text-[10px] font-mono"
+                          className="flex items-center justify-between gap-2 rounded-lg bg-black/50 px-2.5 py-1.5 text-[10px] font-mono whitespace-nowrap"
                         >
                           <span className="text-white/55">{row.label}</span>
                           <span className={`font-semibold ${row.color}`}>
@@ -788,7 +1041,7 @@ export default function EnterpriseArchitectureModal({
                         </div>
                       ))}
                     </div>
-                  </motion.div>
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -796,93 +1049,30 @@ export default function EnterpriseArchitectureModal({
             {activeTab === "semantic" && (
               <motion.div
                 key="tab-semantic"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.22 }}
-                className="relative w-full h-full max-w-[1020px] flex flex-col justify-between py-2"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                onAnimationComplete={measurePorts}
+                className="relative z-10 w-full h-full max-w-[1000px] flex flex-col justify-between py-3"
               >
-                {/* SVG Vertical Neural Spine (ViewBox 0 0 1000 420) */}
-                <svg
-                  viewBox="0 0 1000 420"
-                  preserveAspectRatio="none"
-                  className="pointer-events-none absolute inset-0 w-full h-full z-0"
-                >
-                  {[
-                    // Layer 1 (500,82) -> Layer 2 Left (310,175) & Right (690,175)
-                    {
-                      d: "M 460 82 C 410 125, 340 130, 310 175",
-                      color: "#669DF6",
-                      active: activeStep >= 0,
-                    },
-                    {
-                      d: "M 540 82 C 590 125, 660 130, 690 175",
-                      color: "#00F5D4",
-                      active: activeStep >= 0,
-                    },
-                    // Horizontal bridge between Metric Views (440,215) <-> Graph Ontology (560,215)
-                    {
-                      d: "M 440 215 L 560 215",
-                      color: "#9B72CB",
-                      active: activeStep >= 2,
-                    },
-                    // Layer 2 -> Layer 3 Outputs (200, 500, 800 at Y=330)
-                    {
-                      d: "M 310 255 C 270 295, 220 295, 200 330",
-                      color: "#00F5D4",
-                      active: activeStep === 3,
-                    },
-                    {
-                      d: "M 500 255 C 500 290, 500 300, 500 330",
-                      color: "#4285F4",
-                      active: activeStep === 3,
-                    },
-                    {
-                      d: "M 690 255 C 730 295, 780 295, 800 330",
-                      color: "#19C37D",
-                      active: activeStep === 3,
-                    },
-                  ].map((w, i) => (
-                    <g key={`sem-wire-${i}`}>
-                      <path
-                        d={w.d}
-                        fill="none"
-                        stroke="rgba(255,255,255,0.07)"
-                        strokeWidth="2"
-                      />
-                      <motion.path
-                        d={w.d}
-                        fill="none"
-                        stroke={w.color}
-                        strokeWidth={w.active ? 3 : 1.5}
-                        animate={{ opacity: w.active ? 0.9 : 0.2 }}
-                      />
-                      {w.active && (
-                        <path
-                          d={w.d}
-                          fill="none"
-                          stroke={w.color}
-                          strokeWidth="3.2"
-                          strokeLinecap="round"
-                          strokeDasharray="9 26"
-                          className="dag-edge-active"
-                          style={{ animationDuration: "650ms" }}
-                        />
-                      )}
-                    </g>
-                  ))}
-                </svg>
-
                 {/* LAYER 1: BUSINESS VERNACULAR INPUT */}
-                <div className="relative z-10 flex justify-center">
-                  <motion.div
-                    animate={{ scale: isHighlighted("intent") ? 1.02 : 0.98 }}
-                    className={`rounded-2xl px-5 py-3 border backdrop-blur-xl flex flex-wrap items-center gap-2.5 ${
+                <div className="flex justify-center">
+                  <div
+                    className={`relative rounded-2xl px-5 py-3 border backdrop-blur-xl flex flex-wrap items-center gap-2.5 transition-all ${
                       isHighlighted("intent")
                         ? "bg-[#11162A]/95 border-[#669DF6]/80 shadow-[0_0_30px_rgba(66,133,244,0.3)]"
                         : "bg-[#0B0D16]/85 border-white/[0.1]"
                     }`}
                   >
+                    <span
+                      data-port="intent-out-l"
+                      className="absolute -bottom-1.5 left-[32%] -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#4285F4] border-2 border-[#040407]"
+                    />
+                    <span
+                      data-port="intent-out-r"
+                      className="absolute -bottom-1.5 left-[68%] -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#00F5D4] border-2 border-[#040407]"
+                    />
                     <span className="text-[10px] font-mono uppercase tracking-wider text-[#A8C7FA] font-semibold">
                       1 · Business Terms
                     </span>
@@ -899,24 +1089,40 @@ export default function EnterpriseArchitectureModal({
                         {term}
                       </span>
                     ))}
-                  </motion.div>
+                  </div>
                 </div>
 
                 {/* LAYER 2: DUAL SEMANTIC & ONTOLOGY SPINE */}
-                <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full mx-auto">
+                <div className="grid grid-cols-2 gap-12 max-w-4xl w-full mx-auto">
                   {/* Left: Warehouse Semantic Metric Layer */}
-                  <motion.div
+                  <div
                     onClick={() => {
                       setIsAutoPlaying(false);
                       setActiveStep(1);
                     }}
-                    animate={{ scale: isHighlighted("sem_metrics") ? 1.02 : 0.98 }}
-                    className={`cursor-pointer rounded-2xl p-4 border backdrop-blur-xl transition-all ${
+                    className={`relative cursor-pointer rounded-2xl p-4 border backdrop-blur-xl transition-all ${
                       isHighlighted("sem_metrics")
                         ? "bg-[#13182C]/95 border-[#4285F4]/85 shadow-[0_0_34px_rgba(66,133,244,0.32)]"
                         : "bg-[#0B0D16]/85 border-white/[0.08] opacity-60"
                     }`}
                   >
+                    <span
+                      data-port="metrics-in"
+                      className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#4285F4] border-2 border-[#040407]"
+                    />
+                    <span
+                      data-port="metrics-side"
+                      className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[#9B72CB] border-2 border-[#040407]"
+                    />
+                    <span
+                      data-port="metrics-out-l"
+                      className="absolute -bottom-1.5 left-[35%] -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#00F5D4] border-2 border-[#040407]"
+                    />
+                    <span
+                      data-port="metrics-out-r"
+                      className="absolute -bottom-1.5 left-[70%] -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#4285F4] border-2 border-[#040407]"
+                    />
+
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Database className="w-4 h-4 text-[#669DF6]" />
@@ -925,7 +1131,7 @@ export default function EnterpriseArchitectureModal({
                         </span>
                       </div>
                       <span className="text-[9px] font-mono text-[#A8C7FA] px-2 py-0.5 rounded bg-[#4285F4]/15">
-                        Unity Catalog + Snowflake YAML
+                        Unity Catalog + Snowflake
                       </span>
                     </div>
                     <div className="mt-2.5 grid grid-cols-2 gap-2 text-[10px] font-mono">
@@ -942,21 +1148,37 @@ export default function EnterpriseArchitectureModal({
                         </div>
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
 
                   {/* Right: Property Graph Ontology */}
-                  <motion.div
+                  <div
                     onClick={() => {
                       setIsAutoPlaying(false);
                       setActiveStep(2);
                     }}
-                    animate={{ scale: isHighlighted("sem_ontology") ? 1.02 : 0.98 }}
-                    className={`cursor-pointer rounded-2xl p-4 border backdrop-blur-xl transition-all ${
+                    className={`relative cursor-pointer rounded-2xl p-4 border backdrop-blur-xl transition-all ${
                       isHighlighted("sem_ontology")
                         ? "bg-[#0D2122]/95 border-[#00F5D4]/85 shadow-[0_0_34px_rgba(0,245,212,0.3)]"
                         : "bg-[#0B0D16]/85 border-white/[0.08] opacity-60"
                     }`}
                   >
+                    <span
+                      data-port="ont-in"
+                      className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#00F5D4] border-2 border-[#040407]"
+                    />
+                    <span
+                      data-port="ont-side"
+                      className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[#9B72CB] border-2 border-[#040407]"
+                    />
+                    <span
+                      data-port="ont-out-l"
+                      className="absolute -bottom-1.5 left-[30%] -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#669DF6] border-2 border-[#040407]"
+                    />
+                    <span
+                      data-port="ont-out-r"
+                      className="absolute -bottom-1.5 left-[68%] -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#19C37D] border-2 border-[#040407]"
+                    />
+
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <GitBranch className="w-4 h-4 text-[#00F5D4]" />
@@ -981,14 +1203,16 @@ export default function EnterpriseArchitectureModal({
                         (Captain)
                       </span>
                     </div>
-                  </motion.div>
+                  </div>
                 </div>
 
                 {/* LAYER 3: CONTRACT-VERIFIED OUTPUTS */}
-                <div className="relative z-10 grid grid-cols-3 gap-4 max-w-4xl w-full mx-auto">
+                <div className="grid grid-cols-3 gap-4 max-w-4xl w-full mx-auto">
                   {[
                     {
                       id: "out_gql",
+                      port: "out1-in",
+                      portColor: "bg-[#00F5D4]",
                       title: "Parameterized GQL",
                       sub: "Spanner Graph (@params only)",
                       badge: "0 Hallucinated Joins",
@@ -996,6 +1220,8 @@ export default function EnterpriseArchitectureModal({
                     },
                     {
                       id: "out_sql",
+                      port: "out2-in",
+                      portColor: "bg-[#4285F4]",
                       title: "Federated Warehouse SQL",
                       sub: "Snowflake & Databricks Genie",
                       badge: "Same Metric Formula",
@@ -1003,32 +1229,39 @@ export default function EnterpriseArchitectureModal({
                     },
                     {
                       id: "out_kpi",
+                      port: "out3-in",
+                      portColor: "bg-[#19C37D]",
                       title: "Executive CATE & mROAS",
                       sub: "Persuadables vs. Sleeping Dogs",
                       badge: "Audited Attribution",
                       color: "text-win-green border-win-green/50",
                     },
                   ].map((card) => (
-                    <motion.div
+                    <div
                       key={card.id}
-                      animate={{ scale: isHighlighted(card.id) ? 1.03 : 0.98 }}
-                      className={`rounded-2xl p-3.5 border backdrop-blur-xl bg-[#0B0D16]/90 ${
+                      className={`relative rounded-2xl p-3.5 border backdrop-blur-xl bg-[#0B0D16]/90 transition-all ${
                         isHighlighted(card.id)
                           ? `${card.color} shadow-[0_0_24px_rgba(0,245,212,0.2)]`
                           : "border-white/[0.08]"
                       }`}
                     >
+                      <span
+                        data-port={card.port}
+                        className={`absolute -top-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full ${card.portColor} border-2 border-[#040407]`}
+                      />
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold text-white">
                           {card.title}
                         </span>
                         <CheckCircle2 className="w-3.5 h-3.5 text-win-green" />
                       </div>
-                      <div className="text-[10px] text-white/55 mt-1">{card.sub}</div>
+                      <div className="text-[10px] text-white/55 mt-1">
+                        {card.sub}
+                      </div>
                       <div className="mt-2 inline-block px-2 py-0.5 rounded bg-white/[0.05] text-[9px] font-mono text-white/80">
                         {card.badge}
                       </div>
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
               </motion.div>
@@ -1037,11 +1270,12 @@ export default function EnterpriseArchitectureModal({
             {activeTab === "scale" && (
               <motion.div
                 key="tab-scale"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.22 }}
-                className="relative w-full h-full max-w-[1060px] grid grid-cols-1 lg:grid-cols-2 gap-6 items-center py-2"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                onAnimationComplete={measurePorts}
+                className="relative z-10 w-full h-full max-w-[1060px] grid grid-cols-1 lg:grid-cols-2 gap-6 items-center py-2"
               >
                 {/* LEFT PANEL: INTERACTIVE ANALYTICS AT SCALE (BIFURCATED COMPUTE) */}
                 <div className="relative h-full rounded-2xl border border-white/[0.09] bg-[#080A12]/90 p-5 flex flex-col justify-between overflow-hidden">
@@ -1059,12 +1293,11 @@ export default function EnterpriseArchitectureModal({
 
                   {/* Two Parallel Engines Merging into Interactive Canvas */}
                   <div className="space-y-3 my-auto">
-                    <motion.div
+                    <div
                       onClick={() => {
                         setIsAutoPlaying(false);
                         setActiveStep(0);
                       }}
-                      animate={{ scale: isHighlighted("brain_llm") ? 1.02 : 0.98 }}
                       className={`cursor-pointer rounded-xl p-3.5 border transition-all ${
                         isHighlighted("brain_llm")
                           ? "bg-[#151228] border-[#9B72CB]/80 shadow-[0_0_24px_rgba(155,114,203,0.3)]"
@@ -1093,7 +1326,7 @@ export default function EnterpriseArchitectureModal({
                           What-If Hypotheses
                         </span>
                       </div>
-                    </motion.div>
+                    </div>
 
                     <div className="flex justify-center">
                       <span className="px-2.5 py-0.5 rounded-full bg-white/[0.05] border border-white/[0.1] text-[9px] font-mono text-[#00F5D4]">
@@ -1101,12 +1334,11 @@ export default function EnterpriseArchitectureModal({
                       </span>
                     </div>
 
-                    <motion.div
+                    <div
                       onClick={() => {
                         setIsAutoPlaying(false);
                         setActiveStep(0);
                       }}
-                      animate={{ scale: isHighlighted("brain_vec") ? 1.02 : 0.98 }}
                       className={`cursor-pointer rounded-xl p-3.5 border transition-all ${
                         isHighlighted("brain_vec")
                           ? "bg-[#0A1F22] border-[#00F5D4]/80 shadow-[0_0_24px_rgba(0,245,212,0.28)]"
@@ -1135,7 +1367,7 @@ export default function EnterpriseArchitectureModal({
                           Weibull &amp; Meridian mROAS
                         </span>
                       </div>
-                    </motion.div>
+                    </div>
                   </div>
 
                   <div className="rounded-xl bg-gradient-to-r from-[#4285F4]/20 via-[#9B72CB]/20 to-[#19C37D]/20 border border-win-green/45 px-3.5 py-2.5 flex items-center justify-between">
@@ -1195,13 +1427,12 @@ export default function EnterpriseArchitectureModal({
                       const Icon = item.icon;
                       const active = isHighlighted(item.id);
                       return (
-                        <motion.div
+                        <div
                           key={item.id}
                           onClick={() => {
                             setIsAutoPlaying(false);
                             setActiveStep(item.stepIdx);
                           }}
-                          animate={{ scale: active ? 1.02 : 0.98 }}
                           className={`cursor-pointer rounded-xl p-3 border transition-all ${
                             active
                               ? `${item.accent} shadow-[0_0_24px_rgba(66,133,244,0.25)]`
@@ -1222,7 +1453,7 @@ export default function EnterpriseArchitectureModal({
                           <p className="mt-1 text-[11px] text-white/70 leading-snug">
                             {item.desc}
                           </p>
-                        </motion.div>
+                        </div>
                       );
                     })}
                   </div>
