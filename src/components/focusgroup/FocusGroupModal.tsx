@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   X,
   Play,
@@ -12,8 +12,13 @@ import {
   ArrowRight,
   SlidersHorizontal,
   Users,
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
+  Send,
+  Sparkles,
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   GraphNode,
   CohortContext,
@@ -31,11 +36,87 @@ import {
 } from "@/lib/types";
 import { archetypeColor, archetypeLabel } from "@/lib/archetypes";
 import { TabularNumber } from "@/components/brand/TabularNumber";
-import { StaggerList } from "@/components/brand/StaggerList";
-import { Sparkline } from "@/components/brand/Sparkline";
 import { RedditPulseCard } from "./RedditPulseCard";
 import { PersonaInterrogationDrawer } from "./PersonaInterrogationDrawer";
 import type { ExtendedFocusGroupResult } from "@/lib/focus-group-eval";
+
+/**
+ * Smooth requestAnimationFrame cubic-out number ticker (550ms) for executive KPIs.
+ * Respects prefers-reduced-motion and avoids layout jitter via tabular-nums.
+ */
+function useAnimatedNumber(
+  target: number,
+  durationMs = 550,
+  decimals = 1,
+  reduceMotion = false
+): string {
+  const safeTarget = Number.isFinite(target) ? target : 0;
+  const [displayVal, setDisplayVal] = useState<number>(safeTarget);
+  const currentRef = useRef<number>(safeTarget);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      currentRef.current = safeTarget;
+      setDisplayVal(safeTarget);
+      return;
+    }
+    const startVal = currentRef.current;
+    const delta = safeTarget - startVal;
+    if (Math.abs(delta) < 0.001) {
+      currentRef.current = safeTarget;
+      setDisplayVal(safeTarget);
+      return;
+    }
+
+    let rafId = 0;
+    const startTime = performance.now();
+
+    const step = (now: number) => {
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / durationMs);
+      // Cubic ease-out: 1 - (1 - t)^3
+      const eased = 1 - Math.pow(1 - t, 3);
+      const next = startVal + delta * eased;
+      currentRef.current = next;
+      setDisplayVal(next);
+      if (t < 1) {
+        rafId = requestAnimationFrame(step);
+      } else {
+        currentRef.current = safeTarget;
+        setDisplayVal(safeTarget);
+      }
+    };
+
+    rafId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafId);
+  }, [safeTarget, durationMs, reduceMotion]);
+
+  return decimals === 0
+    ? Math.round(displayVal).toLocaleString("en-US")
+    : displayVal.toFixed(decimals);
+}
+
+/**
+ * Extracts a single punchy 1-line headline (~65 chars max) for scannable persona tiles.
+ */
+function extractPunchyHeadline(quote?: string | null, fallback?: string): string {
+  if (!quote || !quote.trim()) {
+    return fallback || "Evaluating bundle value with Rec squadmates.";
+  }
+  const cleaned = quote.replace(/^["'“”]+|["'“”]+$/g, "").trim();
+  const firstSentenceMatch = cleaned.match(/^[^.!?]+[.!?]?/);
+  const candidate = firstSentenceMatch ? firstSentenceMatch[0].trim() : cleaned;
+  if (candidate.length <= 68) return candidate;
+  const truncated = candidate.slice(0, 65).replace(/\s+\S*$/, "");
+  return `${truncated}…`;
+}
+
+function shortStateBadge(state?: string | null): "BUY" | "EVAL" | "PASS" | "BOYCOTT" {
+  if (state === "PURCHASED" || state === "ENGAGED_FREE") return "BUY";
+  if (state === "ABANDONED") return "PASS";
+  if (state === "BOYCOTT") return "BOYCOTT";
+  return "EVAL";
+}
 
 function classifyClientUpliftQuadrant(r1State: string, treatedState: string): UpliftQuadrant {
   if (r1State === "PURCHASED" && treatedState === "PURCHASED") return "SURE_THING";
@@ -234,11 +315,32 @@ function computeClientTimesFmForecast(
     creatorBroadcasts && creatorBroadcasts.length >= 3
       ? creatorBroadcasts.slice(0, 3)
       : [
-          { handle: "@Agent00", platform: "Twitch", stance: "ENDORSE" as const },
-          { handle: "@Troydan", platform: "YouTube", stance: "MIXED" as const },
-          { handle: "@DBG", platform: "YouTube", stance: "ENDORSE" as const },
+          {
+            creator_id: "cr-agent00",
+            handle: "@Agent00",
+            platform: "Twitch",
+            stance: "MIXED" as const,
+            headline:
+              "If your Rec squad splits the REP boost it pays off, otherwise wait for Season 2 super-packs.",
+          },
+          {
+            creator_id: "cr-cashnasty",
+            handle: "@CashNasty",
+            platform: "YouTube",
+            stance: "CALLOUT" as const,
+            headline:
+              "Check the pack odds and VC per dollar before locking in unless you need immediate Cap Breakers.",
+          },
+          {
+            creator_id: "cr-chrissmoove",
+            handle: "@ChrisSmoove",
+            platform: "YouTube",
+            stance: "ENDORSE" as const,
+            headline:
+              "That 2x Crew REP multiplier with the squad actually saves 15 hours of Rec grinding.",
+          },
         ];
-  const baseMroasWeights = [4.6, 4.2, 3.8];
+  const baseMroasWeights = [4.6, 4.0, 3.8];
   const budgetShares = [42, 33, 25];
 
   const creator_mroas = defaultCreators.map((cr, idx) => {
@@ -383,6 +485,8 @@ export function FocusGroupModal({
   onOpenCreativeStudio,
   offerPreset,
 }: FocusGroupModalProps) {
+  const prefersReducedMotion = Boolean(useReducedMotion());
+
   const [creativeTitle, setCreativeTitle] = useState(offerPreset?.title || initialCreativeTitle);
   const [priceUsd, setPriceUsd] = useState(offerPreset?.priceUsd ?? 4.99);
   const [altPriceUsd, setAltPriceUsd] = useState<number | null>(offerPreset?.altPriceUsd ?? null);
@@ -417,15 +521,24 @@ export function FocusGroupModal({
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [liveSpannerDefaults, setLiveSpannerDefaults] = useState<any[]>([]);
 
-  // Selected persona for 1-on-1 interview sheet
+  // Progressive Disclosure: Only 1 persona quote expanded at a time (default #1 spotlighted)
+  const [expandedPersonaIdx, setExpandedPersonaIdx] = useState<number | null>(0);
+  const [inlineQuestion, setInlineQuestion] = useState<string>("");
+  const [inlineAnswerMap, setInlineAnswerMap] = useState<Record<number, string>>({});
+  const [isAskingInline, setIsAskingInline] = useState<boolean>(false);
+
+  // Creator Signal Bar active popover
+  const [activeCreatorPopover, setActiveCreatorPopover] = useState<string | null>(null);
+
+  // Selected persona for full 1-on-1 interview or 3-Way Debate drawer
   const [interrogatePersona, setInterrogatePersona] = useState<FocusGroupReaction | null>(null);
 
-  // Middle Right-Rail Card Micro-Toggle: Price & Uplift vs Survival & Forecast
-  const [analyticsTab, setAnalyticsTab] = useState<"price_uplift" | "survival_forecast">(
-    "price_uplift"
-  );
+  // Right-Hand Analytics Column: 3-Tab Segmented Control (only 1 card shown at a time)
+  const [analyticsTab, setAnalyticsTab] = useState<
+    "forecast_survival" | "price_uplift" | "reddit_pulse"
+  >("forecast_survival");
 
-  // Idea 1: ScaNN + gemini-embedding-001 Graph Twin Finder state
+  // ScaNN + gemini-embedding-001 Graph Twin Finder state
   const [isFindingTwins, setIsFindingTwins] = useState(false);
   const [twinsError, setTwinsError] = useState<string | null>(null);
   const [twinsResult, setTwinsResult] = useState<{
@@ -551,7 +664,7 @@ export function FocusGroupModal({
     ];
   }, [graphPlayers, liveSpannerDefaults]);
 
-  // Seeded 80 crowd slots when in 100-Swarm mode before stream completes so the 100-agent grid is always complete
+  // Seeded 80 crowd slots when in 100-Swarm mode before stream completes
   const displayCrowdAgents = useMemo<SwarmCrowdAgent[]>(() => {
     if (crowdAgents.length >= 80) return crowdAgents.slice(0, 80);
     const allNodes = graphData?.nodes?.filter((n) => n.type === "PLAYER") || [];
@@ -607,6 +720,7 @@ export function FocusGroupModal({
     setRound3FlipsCount(0);
     setRound3Tally(null);
     setCrewCaptainSummary("");
+    setInlineAnswerMap({});
     setLiveReactions(Array(20).fill(null));
 
     try {
@@ -891,7 +1005,42 @@ export function FocusGroupModal({
     }
   };
 
-  if (!isOpen) return null;
+  const handleInlineInterrogate = async (
+    idx: number,
+    personaObj: FocusGroupReaction,
+    questionText: string
+  ) => {
+    const trimmed = questionText.trim();
+    if (!trimmed || isAskingInline) return;
+    setIsAskingInline(true);
+    setInlineQuestion("");
+    try {
+      const res = await fetch("/api/synthetic/focus-group/interrogate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "single",
+          persona: personaObj,
+          question: trimmed,
+          history: [],
+          offer_title: creativeTitle,
+          price_usd: priceUsd,
+          counterfactual_event: counterfactualEvent ?? null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.details || data.error || `HTTP ${res.status}`);
+      }
+      if (data.answer) {
+        setInlineAnswerMap((prev) => ({ ...prev, [idx]: String(data.answer) }));
+      }
+    } catch (err: any) {
+      setErrorBanner(err?.message || "1-on-1 question failed");
+    } finally {
+      setIsAskingInline(false);
+    }
+  };
 
   const activeReactions = liveReactions.filter(
     (r): r is FocusGroupReaction => r !== null && r !== undefined
@@ -980,9 +1129,24 @@ export function FocusGroupModal({
     (p) => Math.abs(p.price - recommendedPrice) < 0.5
   );
 
-  const backlashIndex = currentResult?.backlash_index ?? 18;
-  const conversionLift = currentResult?.predicted_conversion_lift ?? 26.5;
-  const crewMultiplier = currentResult?.crew_contagion_multiplier ?? 3.1;
+  const backlashIndex = currentResult?.backlash_index ?? 15;
+  const baseConversionLift = currentResult?.predicted_conversion_lift ?? 26.5;
+  const baseCrewMultiplier = currentResult?.crew_contagion_multiplier ?? 3.1;
+
+  // Round-sensitive KPI values so toggling R1 <-> R2 <-> R3 physically ticks the 4 hero KPIs
+  const conversionLift =
+    activeRound === 1
+      ? Math.max(4.5, Number((baseConversionLift * 0.34).toFixed(1)))
+      : activeRound === 3
+        ? Number((baseConversionLift + Math.max(4.2, round3FlipsCount * 3.5)).toFixed(1))
+        : baseConversionLift;
+
+  const crewMultiplier =
+    activeRound === 1
+      ? 1.0
+      : activeRound === 3
+        ? Number((baseCrewMultiplier + 0.4).toFixed(1))
+        : baseCrewMultiplier;
 
   // Distribution bar percentages
   const evaluatedTotal = Math.max(1, allCurrentStates.length);
@@ -1050,6 +1214,98 @@ export function FocusGroupModal({
       cohortContext
     );
 
+  const activeBookingsK =
+    activeRound === 1
+      ? (timesFmForecast.projected_30d_bookings_usd * 0.76) / 1000
+      : activeRound === 3
+        ? (timesFmForecast.projected_30d_bookings_usd * 1.12) / 1000
+        : timesFmForecast.projected_30d_bookings_usd / 1000;
+
+  const activeLifespanGain =
+    activeRound === 1
+      ? Math.max(2.1, Number((survivalAnalysis.days_gained * 0.45).toFixed(1)))
+      : activeRound === 3
+        ? Number((survivalAnalysis.days_gained + 1.8).toFixed(1))
+        : survivalAnalysis.days_gained;
+
+  // 4 Hero KPI Animated Tabular Number Tickers (550ms cubic-out rAF interpolation)
+  const animatedBookingsStr = useAnimatedNumber(
+    activeBookingsK,
+    550,
+    1,
+    prefersReducedMotion
+  );
+  const animatedConversionLiftStr = useAnimatedNumber(
+    conversionLift,
+    550,
+    1,
+    prefersReducedMotion
+  );
+  const animatedCrewCascadeStr = useAnimatedNumber(
+    crewMultiplier,
+    550,
+    1,
+    prefersReducedMotion
+  );
+  const animatedLifespanStr = useAnimatedNumber(
+    activeLifespanGain,
+    550,
+    1,
+    prefersReducedMotion
+  );
+
+  // Unified Creator Signal items combining live broadcasts + Meridian mROAS
+  const creatorSignalItems = useMemo(() => {
+    const mroasList = timesFmForecast.creator_mroas || [];
+    const baseBroadcasts =
+      creatorBroadcasts.length > 0
+        ? creatorBroadcasts
+        : [
+            {
+              creator_id: "cr-1",
+              handle: "@Agent00",
+              platform: "Twitch",
+              stance: "MIXED" as const,
+              headline:
+                "Paying full price only makes sense if your Rec squad stacks the 2x Crew REP multiplier together.",
+            },
+            {
+              creator_id: "cr-2",
+              handle: "@CashNasty",
+              platform: "YouTube",
+              stance: "CALLOUT" as const,
+              headline:
+                "Wait for verified pack odds or a VC squad bonus unless your build is stuck at the 84 OVR cliff.",
+            },
+            {
+              creator_id: "cr-3",
+              handle: "@ChrisSmoove",
+              platform: "YouTube",
+              stance: "MIXED" as const,
+              headline:
+                "Solid value for active Pro-Am captains grinding Season 2 Cap Breakers this weekend.",
+            },
+          ];
+
+    return baseBroadcasts.slice(0, 3).map((cb, idx) => {
+      const matchedMroas =
+        mroasList.find(
+          (m) => m.handle.toLowerCase() === cb.handle.toLowerCase()
+        ) || mroasList[idx];
+      return {
+        id: cb.creator_id || `creator-${idx}`,
+        handle: cb.handle.startsWith("@") ? cb.handle : `@${cb.handle}`,
+        platform: cb.platform || matchedMroas?.platform || "YouTube",
+        stance: cb.stance,
+        headline: cb.headline,
+        mroas: matchedMroas?.mroas ?? (4.6 - idx * 0.4),
+        attributed_flips: matchedMroas?.attributed_flips ?? (4 - idx),
+      };
+    });
+  }, [creatorBroadcasts, timesFmForecast.creator_mroas]);
+
+  if (!isOpen) return null;
+
   const handleFindGraphTwins = async () => {
     if (isFindingTwins) return;
     setIsFindingTwins(true);
@@ -1060,7 +1316,9 @@ export function FocusGroupModal({
         return st === "PURCHASED" || r.uplift_quadrant === "PERSUADABLE";
       });
       const seedPool =
-        convertedReactions.length > 0 ? convertedReactions : fallbackReactionsForStats.slice(0, 6);
+        convertedReactions.length > 0
+          ? convertedReactions
+          : fallbackReactionsForStats.slice(0, 6);
       const seedGamerTags = seedPool.map((r) => r.gamer_tag).filter(Boolean);
       const seedPlayerIds = seedPool.map((r) => r.player_id).filter(Boolean);
       const seedArchetypes = Array.from(
@@ -1103,23 +1361,23 @@ export function FocusGroupModal({
       role="dialog"
       aria-modal="true"
       aria-label="2K Courtside Focus Group"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xl p-2 sm:p-4 font-sans"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl p-2 sm:p-4 font-sans"
     >
-      <div className="glass-enter w-full max-w-[1360px] h-[92vh] bg-[#111115]/95 border border-white/[0.08] shadow-[0_24px_80px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.08)] rounded-2xl flex flex-col justify-between overflow-hidden text-chalk">
-        {/* Top Chrome: 2 Calm, Purposeful Apple-Style Bars */}
-        <div className="border-b border-white/[0.07] bg-white/[0.015] backdrop-blur-2xl px-5 py-3 space-y-2.5">
-          {/* Bar 1: Title, Unified Segmented View/Scale Control, Round Control, Run CTA */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+      <div className="glass-enter w-full max-w-[1380px] h-[93vh] bg-[#0E0E12] border border-white/[0.08] shadow-[0_24px_80px_rgba(0,0,0,0.85)] rounded-2xl flex flex-col justify-between overflow-hidden text-chalk">
+        {/* TOP CHROME: Consolidated Minimalist Header + Single Compact Control Row */}
+        <div className="border-b border-white/[0.07] bg-white/[0.01] px-5 py-2.5 space-y-2 shrink-0">
+          {/* Bar 1: Title + Scale Toggle + Round Toggle + Active Offer Badge + Run Simulation CTA */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5 flex-wrap">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-twok-red" />
-                <h2 className="text-[15px] font-semibold text-white tracking-tight">
+                <h2 className="text-sm font-semibold text-white tracking-tight">
                   Focus Group
                 </h2>
               </div>
               <span className="text-white/15">|</span>
 
-              {/* Unified Apple Segmented Control: 20 Personas vs 100 Swarm */}
+              {/* Segmented Scale Toggle: 20 Personas vs 100 Swarm */}
               <div
                 role="tablist"
                 aria-label="Simulation scale and view"
@@ -1139,15 +1397,15 @@ export function FocusGroupModal({
                       aria-selected={active}
                       type="button"
                       onClick={() => setSwarmSize(tab.size)}
-                      className={`relative z-10 px-3 py-1 rounded-md text-[11px] font-medium transition-colors active:scale-[0.97] ${
+                      className={`relative z-10 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors active:scale-[0.97] ${
                         active ? "text-white" : "text-white/50 hover:text-white/80"
                       }`}
                     >
                       {active && (
                         <motion.div
                           layoutId="fg-scale-pill"
-                          transition={{ type: "spring", bounce: 0, duration: 0.35 }}
-                          className="absolute inset-0 rounded-md bg-white/[0.12] border border-white/[0.12] shadow-sm -z-10"
+                          transition={{ type: "spring", bounce: 0, duration: 0.32 }}
+                          className="absolute inset-0 rounded-md bg-white/[0.12] border border-white/[0.12] -z-10"
                         />
                       )}
                       {tab.label}
@@ -1156,7 +1414,7 @@ export function FocusGroupModal({
                 })}
               </div>
 
-              {/* Apple Segmented Control: Round 1 (Isolated) vs Round 2 (Social Shift) vs Round 3 (What-If Rescue) */}
+              {/* Segmented Round Control: R1 Isolated vs R2 Social Shift vs R3 What-If */}
               <div
                 role="tablist"
                 aria-label="Contagion round"
@@ -1179,44 +1437,61 @@ export function FocusGroupModal({
                       aria-selected={active}
                       type="button"
                       onClick={() => setActiveRound(rTab.round)}
-                      className={`relative z-10 px-3 py-1 rounded-md text-[11px] font-medium transition-colors flex items-center gap-1.5 active:scale-[0.97] ${
+                      className={`relative z-10 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors flex items-center gap-1.5 active:scale-[0.97] ${
                         active ? "text-white" : "text-white/50 hover:text-white/80"
                       }`}
                     >
                       {active && (
                         <motion.div
                           layoutId="fg-round-pill"
-                          transition={{ type: "spring", bounce: 0, duration: 0.35 }}
-                          className="absolute inset-0 rounded-md bg-white/[0.12] border border-white/[0.12] shadow-sm -z-10"
+                          transition={{ type: "spring", bounce: 0, duration: 0.32 }}
+                          className="absolute inset-0 rounded-md bg-white/[0.12] border border-white/[0.12] -z-10"
                         />
                       )}
                       {rTab.round === 3 && (
                         <span className="w-1.5 h-1.5 rounded-full bg-win-green shrink-0" />
                       )}
                       <span>{rTab.label}</span>
-                      {rTab.round === 2 && contagionFlipsCount > 0 && (
+                      {rTab.round === 2 && (contagionFlipsCount > 0 || buyDeltaR2 > 0) && (
                         <span className="px-1.5 py-0.2 rounded-full bg-win-green/20 text-win-green font-mono font-semibold text-[10px] tabular">
-                          +{contagionFlipsCount}
+                          +{contagionFlipsCount || buyDeltaR2}
                         </span>
                       )}
-                      {rTab.round === 3 && round3FlipsCount > 0 && (
+                      {rTab.round === 3 && (round3FlipsCount > 0 || buyDeltaR3 > 0) && (
                         <span className="px-1.5 py-0.2 rounded-full bg-win-green/20 text-win-green font-mono font-semibold text-[10px] tabular">
-                          +{round3FlipsCount}
+                          +{round3FlipsCount || buyDeltaR3}
                         </span>
                       )}
                     </button>
                   );
                 })}
               </div>
+
+              {/* Active Offer Summary Pill (Replaces the duplicate Row 4 & Row 5 offer headers) */}
+              <button
+                type="button"
+                onClick={() => setIsEditingCustomOffer((prev) => !prev)}
+                title="Click to customize offer title or price"
+                className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.07] text-xs transition-colors active:scale-[0.98]"
+              >
+                <span className="text-white/85 font-medium truncate max-w-[320px]">
+                  {creativeTitle}
+                </span>
+                <span className="font-mono font-semibold text-vc-gold tabular shrink-0">
+                  ${priceUsd.toFixed(2)}
+                  {isBattleMode ? ` vs $${(altPriceUsd ?? 19.99).toFixed(2)}` : ""}
+                </span>
+                <SlidersHorizontal className="w-3 h-3 text-white/40 shrink-0" />
+              </button>
             </div>
 
-            {/* Right CTA & Close */}
-            <div className="flex items-center gap-2.5">
+            {/* Right: Run Simulation CTA & Close */}
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={handleRunPressureTest}
                 disabled={isRunning}
-                className="relative overflow-hidden flex items-center gap-2 px-4 py-1.5 rounded-lg bg-twok-red hover:bg-twok-red-deep disabled:opacity-75 text-xs font-semibold text-white shadow-sm transition-all active:scale-[0.97]"
+                className="relative overflow-hidden flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-twok-red hover:bg-twok-red-deep disabled:opacity-75 text-xs font-semibold text-white transition-all active:scale-[0.97]"
               >
                 {isRunning ? (
                   <>
@@ -1248,10 +1523,125 @@ export function FocusGroupModal({
                 type="button"
                 onClick={onClose}
                 aria-label="Close modal"
-                className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/[0.08] active:scale-95 transition-all"
+                className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/[0.08] active:scale-95 transition-all"
               >
                 <X className="w-4 h-4" />
               </button>
+            </div>
+          </div>
+
+          {/* Single Compact Control Row: Preset Pills + Inline Editable Offer/Price + What-If Selector */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {PRESETS.map((p) => {
+                const isSelected =
+                  !isEditingCustomOffer &&
+                  creativeTitle === p.title &&
+                  priceUsd === p.priceUsd;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => handleSelectPreset(p)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all active:scale-[0.97] ${
+                      isSelected
+                        ? "bg-white text-court-black font-semibold"
+                        : "bg-white/[0.04] text-white/65 hover:text-white hover:bg-white/[0.08]"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsBattleMode((prev) => !prev);
+                  if (!altPriceUsd) setAltPriceUsd(19.99);
+                }}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all active:scale-[0.97] border ${
+                  isBattleMode
+                    ? "bg-vc-gold/15 text-vc-gold border-vc-gold/40"
+                    : "bg-white/[0.03] text-white/55 border-white/[0.07] hover:text-white"
+                }`}
+              >
+                <Swords className="w-3 h-3" />
+                <span>A/B Battle</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsEditingCustomOffer((prev) => !prev)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all active:scale-[0.97] border ${
+                  isEditingCustomOffer
+                    ? "bg-white/15 text-white border-white/25"
+                    : "bg-white/[0.02] text-white/50 border-white/[0.06] hover:text-white/85"
+                }`}
+              >
+                <SlidersHorizontal className="w-3 h-3" />
+                <span>Custom</span>
+              </button>
+
+              {/* Inline Compact Offer & Price Editor (when Custom is active) */}
+              {isEditingCustomOffer && (
+                <div className="flex items-center gap-1.5 pl-1">
+                  <input
+                    type="text"
+                    value={creativeTitle}
+                    onChange={(e) => setCreativeTitle(e.target.value)}
+                    placeholder="Custom offer title..."
+                    className="w-56 sm:w-72 rounded-md border border-white/[0.14] bg-black/60 px-2.5 py-1 text-[11px] text-white focus:border-white/35 focus:outline-none"
+                  />
+                  <div className="flex items-center gap-0.5 rounded-md border border-white/[0.14] bg-black/60 px-2 py-1">
+                    <span className="text-[11px] text-white/40 font-mono">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={priceUsd}
+                      onChange={(e) => setPriceUsd(parseFloat(e.target.value) || 0)}
+                      className="w-14 bg-transparent text-[11px] text-white font-mono tabular focus:outline-none"
+                    />
+                  </div>
+                  {isBattleMode && (
+                    <div className="flex items-center gap-0.5 rounded-md border border-vc-gold/30 bg-black/60 px-2 py-1">
+                      <span className="text-[10px] text-vc-gold font-mono">vs $</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={altPriceUsd ?? 19.99}
+                        onChange={(e) => setAltPriceUsd(parseFloat(e.target.value) || 19.99)}
+                        className="w-14 bg-transparent text-[11px] text-vc-gold font-mono tabular focus:outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Right: Single Clean What-If Pill Selector */}
+            <div className="flex items-center gap-1 overflow-x-auto">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-white/35 mr-1 shrink-0">
+                What-If:
+              </span>
+              {COUNTERFACTUAL_CHIPS.map((chip) => {
+                const active = selectedCfId === chip.id;
+                return (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    disabled={isRunning}
+                    onClick={() => handleSelectCounterfactual(chip.id, chip.eventText)}
+                    className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all whitespace-nowrap active:scale-[0.97] border ${
+                      active
+                        ? "bg-vc-gold/15 text-vc-gold border-vc-gold/40"
+                        : "bg-transparent text-white/50 border-white/[0.07] hover:text-white/85 hover:border-white/20"
+                    }`}
+                  >
+                    {chip.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -1270,181 +1660,223 @@ export function FocusGroupModal({
               </button>
             </div>
           )}
+        </div>
 
-          {/* Bar 2: Clean Offer Presets + Inline Custom Edit + Counterfactual Pills */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-            {/* Left: Offer Presets & Custom Price/Title Trigger */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {PRESETS.map((p) => {
-                const isSelected =
-                  creativeTitle === p.title && priceUsd === p.priceUsd;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => handleSelectPreset(p)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all active:scale-[0.97] ${
-                      isSelected
-                        ? "bg-white text-court-black font-semibold shadow-sm"
-                        : "bg-white/[0.04] text-white/65 hover:text-white hover:bg-white/[0.08]"
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsBattleMode((prev) => !prev);
-                  if (!altPriceUsd) setAltPriceUsd(19.99);
-                }}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all active:scale-[0.97] border ${
-                  isBattleMode
-                    ? "bg-vc-gold/15 text-vc-gold border-vc-gold/40"
-                    : "bg-white/[0.03] text-white/55 border-white/[0.07] hover:text-white"
-                }`}
-              >
-                <Swords className="w-3 h-3" />
-                <span>A/B Battle</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsEditingCustomOffer((prev) => !prev)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all active:scale-[0.97] ${
-                  isEditingCustomOffer
-                    ? "bg-white/15 text-white"
-                    : "text-white/45 hover:text-white/80"
-                }`}
-              >
-                <SlidersHorizontal className="w-3 h-3" />
-                <span>Custom</span>
-              </button>
-            </div>
-
-            {/* Right: Counterfactual What-If Modifier Pills */}
-            <div className="flex items-center gap-1 overflow-x-auto">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-white/35 mr-1 shrink-0">
-                What-If:
+        {/* EXECUTIVE BUSINESS VALUE FIRST: Minimalist 4-Metric Executive Impact Ribbon */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 px-5 py-2.5 border-b border-white/[0.07] bg-white/[0.015] shrink-0">
+          {/* KPI 1: TimesFM 3.0 · 30d Forecast */}
+          <div className="rounded-xl border border-white/[0.07] bg-black/35 px-3.5 py-2.5 flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] font-medium text-white/55">
+                TimesFM 3.0 · 30d Forecast
               </span>
-              {COUNTERFACTUAL_CHIPS.map((chip) => {
-                const active = selectedCfId === chip.id;
-                return (
-                  <button
-                    key={chip.id}
-                    type="button"
-                    disabled={isRunning}
-                    onClick={() => handleSelectCounterfactual(chip.id, chip.eventText)}
-                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all whitespace-nowrap active:scale-[0.97] border ${
-                      active
-                        ? "bg-vc-gold/15 text-vc-gold border-vc-gold/40"
-                        : "bg-transparent text-white/50 border-white/[0.07] hover:text-white/85 hover:border-white/20"
-                    }`}
-                  >
-                    {chip.label}
-                  </button>
-                );
-              })}
+              <span className="px-1.5 py-0.2 rounded bg-white/[0.06] border border-white/[0.08] text-[9px] font-mono text-white/60 uppercase">
+                AI.FORECAST
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between gap-2 mt-1">
+              <span className="text-xl font-bold text-win-green font-mono tabular-nums tracking-tight">
+                ${animatedBookingsStr}K
+              </span>
+              <span className="text-[10px] font-mono text-white/45 tabular-nums truncate">
+                [90% CI: ${(timesFmForecast.ci_10_usd / 1000).toFixed(0)}K–$
+                {(timesFmForecast.ci_90_usd / 1000).toFixed(0)}K]
+              </span>
             </div>
           </div>
 
-          {/* Optional Collapsible Custom Offer Input Row */}
-          {isEditingCustomOffer && (
-            <div className="flex items-center gap-2 pt-1">
-              <input
-                type="text"
-                value={creativeTitle}
-                onChange={(e) => setCreativeTitle(e.target.value)}
-                placeholder="Custom offer title..."
-                className="flex-1 rounded-lg border border-white/[0.1] bg-black/50 px-3 py-1.5 text-xs text-white focus:border-white/30 focus:outline-none"
-              />
-              <div className="flex items-center gap-1 rounded-lg border border-white/[0.1] bg-black/50 px-2.5 py-1.5">
-                <span className="text-xs text-white/40">$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={priceUsd}
-                  onChange={(e) => setPriceUsd(parseFloat(e.target.value) || 0)}
-                  className="w-16 bg-transparent text-xs text-white font-mono tabular focus:outline-none"
-                />
-              </div>
-              {isBattleMode && (
-                <div className="flex items-center gap-1 rounded-lg border border-vc-gold/30 bg-black/50 px-2.5 py-1.5">
-                  <span className="text-[10px] text-vc-gold font-mono">vs $</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={altPriceUsd ?? 19.99}
-                    onChange={(e) => setAltPriceUsd(parseFloat(e.target.value) || 19.99)}
-                    className="w-16 bg-transparent text-xs text-vc-gold font-mono tabular focus:outline-none"
-                  />
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Main Workspace: 8-Col Persona/Swarm Stage + 4-Col Zero-Scroll Decision Rail */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 px-5 py-3.5 overflow-hidden min-h-0">
-          {/* Left Column (8 Cols): Active Offer Context + 20 Personas OR 100 Swarm */}
-          <div className="lg:col-span-8 flex flex-col h-full overflow-hidden min-h-0">
-            {/* Subtle Subheader: Active Offer Summary + Interaction Hint */}
-            <div className="flex items-center justify-between pb-2.5 text-xs">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-white/90 font-medium truncate">
-                  {creativeTitle}
-                </span>
-                <span className="font-mono text-xs font-semibold text-vc-gold shrink-0 tabular">
-                  ${priceUsd.toFixed(2)}
-                  {isBattleMode ? ` vs $${(altPriceUsd ?? 19.99).toFixed(2)}` : ""}
-                </span>
-              </div>
-              <span className="text-[11px] text-white/40 shrink-0 ml-2">
-                {swarmSize === 20
-                  ? "Select any player for 1-on-1 interview or 3-Way Debate"
-                  : "100 Swarm · Click any cell for 1-on-1 or 3-Way Debate"}
+          {/* KPI 2: Conversion Lift & Adoption */}
+          <div className="rounded-xl border border-white/[0.07] bg-black/35 px-3.5 py-2.5 flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] font-medium text-white/55">
+                Conversion Lift &amp; Adoption
+              </span>
+              <span className="text-[10px] font-mono text-white/75 tabular-nums font-semibold">
+                {buyCount}/{totalDenominator} BUY
               </span>
             </div>
+            <div className="flex items-center justify-between gap-3 mt-1">
+              <span className="text-xl font-bold text-win-green font-mono tabular-nums tracking-tight shrink-0">
+                +{animatedConversionLiftStr}%
+              </span>
+              <div className="flex-1 space-y-1">
+                <div className="h-1.5 w-full rounded-full bg-white/[0.07] overflow-hidden flex gap-0.5">
+                  <div
+                    style={{ width: `${buyPct}%` }}
+                    className="h-full bg-win-green transition-all duration-300"
+                  />
+                  <div
+                    style={{ width: `${evalPct}%` }}
+                    className="h-full bg-vc-gold transition-all duration-300"
+                  />
+                  <div
+                    style={{ width: `${passPct}%` }}
+                    className="h-full bg-white/30 transition-all duration-300"
+                  />
+                  <div
+                    style={{ width: `${boycottPct}%` }}
+                    className="h-full bg-loss-red transition-all duration-300"
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[9px] font-mono text-white/45 tabular-nums">
+                  <span className="text-win-green">{buyCount} BUY</span>
+                  <span className="text-vc-gold">{evalCount} EVAL</span>
+                  <span>{passCount} PASS</span>
+                  <span className="text-loss-red">{boycottCount} BOYC</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-            {/* Creator Megaphone Strip (when Round 2 broadcasts arrive) */}
-            {creatorBroadcasts.length > 0 && (
-              <div className="mb-2.5 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {creatorBroadcasts.map((cb) => {
-                  const dotColor =
-                    cb.stance === "ENDORSE"
-                      ? "text-win-green"
-                      : cb.stance === "CALLOUT"
-                        ? "text-loss-red"
-                        : "text-vc-gold";
+          {/* KPI 3: Social Crew Cascade */}
+          <div className="rounded-xl border border-white/[0.07] bg-black/35 px-3.5 py-2.5 flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] font-medium text-white/55">
+                Social Crew Cascade
+              </span>
+              <span className="text-[10px] font-mono text-win-green tabular-nums">
+                +{contagionFlipsCount || Math.max(0, buyDeltaR2)} R2 Social Flips
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between gap-2 mt-1">
+              <span className="text-xl font-bold text-white font-mono tabular-nums tracking-tight">
+                {animatedCrewCascadeStr}x
+              </span>
+              <span className="text-[10px] text-white/45 truncate">
+                {round3FlipsCount > 0
+                  ? `+${round3FlipsCount} R3 What-If Rescues`
+                  : "via Crew Captains & Co-Streams"}
+              </span>
+            </div>
+          </div>
+
+          {/* KPI 4: Causal Net Lift & Lifespan */}
+          <div className="rounded-xl border border-white/[0.07] bg-black/35 px-3.5 py-2.5 flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] font-medium text-white/55">
+                Causal Net Lift &amp; Lifespan
+              </span>
+              <span className="text-[10px] font-mono text-cyan-300 tabular-nums">
+                -{survivalAnalysis.crew_hazard_reduction_pct}% Crew Hazard
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between gap-2 mt-1">
+              <span className="text-xl font-bold text-white font-mono tabular-nums tracking-tight">
+                +{animatedLifespanStr}d Lifespan
+              </span>
+              <span
+                className={`text-[10px] font-mono tabular-nums ${
+                  backlashIndex > 35 ? "text-loss-red" : "text-white/50"
+                }`}
+              >
+                Backlash {backlashIndex}%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* MAIN WORKSPACE: 8-Col Minimalist Stance Grid + 4-Col Single-Card Segmented Analytics Rail */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 px-5 py-3 overflow-hidden min-h-0">
+          {/* Left Column (8 Cols): Creator Signal Bar + Progressive-Disclosure Persona Stance Grid */}
+          <div className="lg:col-span-8 flex flex-col h-full overflow-hidden min-h-0 gap-2.5">
+            {/* Sleek Horizontal Creator Signal Bar (with click/hover quote popover) */}
+            <div className="relative rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-white/40 shrink-0">
+                <Radio className="w-3 h-3 text-twok-red" />
+                <span>Creator Signal</span>
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap flex-1 justify-end">
+                {creatorSignalItems.map((cr) => {
+                  const isOpenPopover = activeCreatorPopover === cr.handle;
+                  const stanceColor =
+                    cr.stance === "ENDORSE"
+                      ? "text-win-green border-win-green/30 bg-win-green/10"
+                      : cr.stance === "CALLOUT"
+                        ? "text-loss-red border-loss-red/30 bg-loss-red/10"
+                        : "text-vc-gold border-vc-gold/30 bg-vc-gold/10";
                   return (
                     <div
-                      key={cb.creator_id}
-                      className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-2 flex flex-col justify-between"
+                      key={cr.id}
+                      className="relative"
+                      onMouseEnter={() => setActiveCreatorPopover(cr.handle)}
+                      onMouseLeave={() =>
+                        setActiveCreatorPopover((prev) =>
+                          prev === cr.handle ? null : prev
+                        )
+                      }
                     >
-                      <div className="flex items-center justify-between text-[10px] font-mono">
-                        <span className="font-semibold text-white/85 flex items-center gap-1.5">
-                          <Radio className={`w-3 h-3 ${dotColor}`} />
-                          {cb.handle}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActiveCreatorPopover((prev) =>
+                            prev === cr.handle ? null : cr.handle
+                          )
+                        }
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-white/[0.07] bg-black/40 hover:bg-white/[0.06] hover:border-white/[0.16] text-[11px] font-mono transition-colors active:scale-[0.98]"
+                      >
+                        <span className="font-semibold text-white/90">
+                          {cr.handle}
                         </span>
-                        <span className={`uppercase font-semibold ${dotColor}`}>
-                          {cb.stance}
+                        <span
+                          className={`px-1.5 py-0.2 rounded text-[9px] font-semibold border ${stanceColor}`}
+                        >
+                          {cr.stance}
                         </span>
-                      </div>
-                      <p className="text-[11px] text-white/70 line-clamp-1 mt-0.5">
-                        &ldquo;{cb.headline}&rdquo;
-                      </p>
+                        <span className="text-white/30">·</span>
+                        <span className="text-vc-gold font-semibold tabular-nums">
+                          {cr.mroas.toFixed(1)}x mROAS
+                        </span>
+                      </button>
+
+                      <AnimatePresence>
+                        {isOpenPopover && (
+                          <motion.div
+                            initial={{ opacity: 0, transform: "scale(0.96) translateY(4px)" }}
+                            animate={{ opacity: 1, transform: "scale(1) translateY(0px)" }}
+                            exit={{ opacity: 0, transform: "scale(0.96) translateY(4px)" }}
+                            transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                            style={{ transformOrigin: "top right" }}
+                            className="absolute right-0 top-full mt-1.5 z-30 w-72 rounded-xl border border-white/[0.12] bg-[#16161D] p-3 shadow-2xl text-left space-y-1.5 pointer-events-none"
+                          >
+                            <div className="flex items-center justify-between text-[10px] font-mono">
+                              <span className="font-semibold text-white">
+                                {cr.handle} · {cr.platform}
+                              </span>
+                              <span className="text-win-green tabular-nums">
+                                +{cr.attributed_flips} R2 flips
+                              </span>
+                            </div>
+                            <p className="text-xs text-white/85 leading-relaxed font-sans">
+                              &ldquo;{cr.headline}&rdquo;
+                            </p>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   );
                 })}
               </div>
-            )}
+            </div>
 
-            {/* Stage Content: 20 Personas Grid OR 100-Agent Swarm Matrix */}
+            {/* Stage Content: 20-Persona Minimalist Stance Grid OR 100-Agent Swarm Matrix */}
             {swarmSize === 20 ? (
               <div className="flex-1 overflow-y-auto pr-1">
-                <StaggerList className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                <motion.div
+                  key={`round-grid-${activeRound}`}
+                  initial="hidden"
+                  animate="visible"
+                  variants={{
+                    hidden: { opacity: 0.92 },
+                    visible: {
+                      opacity: 1,
+                      transition: {
+                        staggerChildren: prefersReducedMotion ? 0 : 0.035,
+                      },
+                    },
+                  }}
+                  className="grid grid-cols-1 md:grid-cols-2 gap-2"
+                >
                   {sampledPersonas.slice(0, 20).map((p: any, idx: number) => {
                     const reaction =
                       liveReactions[idx] || currentResult?.reactions?.[idx] || null;
@@ -1452,6 +1884,7 @@ export function FocusGroupModal({
                     const cardGamerTag = reaction?.gamer_tag || p.gamer_tag;
                     const crewName =
                       reaction?.crew_name || p.crew_name || "Bucket Getters";
+                    const ovr = reaction?.myplayer_ovr ?? p.myplayer_ovr ?? 85;
                     const rawCreator =
                       reaction?.creator_handle || p.creator_handle || "@Agent00";
                     const creatorHandle = (() => {
@@ -1490,8 +1923,7 @@ export function FocusGroupModal({
 
                     const flippedInR2 = Boolean(
                       activeRound === 2 &&
-                        reaction?.contagion_flipped &&
-                        r1State !== r2State
+                        (reaction?.contagion_flipped || r1State !== r2State)
                     );
                     const rescuedInR3 = Boolean(
                       activeRound === 3 &&
@@ -1502,6 +1934,8 @@ export function FocusGroupModal({
                       activeRound === 3 &&
                         (reaction?.round3_flipped || r2State !== r3State)
                     );
+                    const flippedToBuy =
+                      (flippedInR2 && r2State === "PURCHASED") || rescuedInR3;
                     const flipped = activeRound === 3 ? flippedInR3 : flippedInR2;
 
                     const provenanceLabel = (() => {
@@ -1542,56 +1976,117 @@ export function FocusGroupModal({
                           : reaction?.verbatim_quote;
 
                     const displayedWtp =
-                      activeRound === 1
+                      (activeRound === 1
                         ? reaction?.round1_wtp_usd ?? reaction?.willingness_to_pay_usd
                         : activeRound === 3
                           ? reaction?.round3_wtp_usd ?? reaction?.willingness_to_pay_usd
-                          : reaction?.willingness_to_pay_usd;
+                          : reaction?.willingness_to_pay_usd) ??
+                      (Number(p.vc_spend_90d ?? p.spend ?? 0) >= 120
+                        ? 14.99
+                        : Number(p.vc_spend_90d ?? p.spend ?? 0) >= 50
+                          ? 9.99
+                          : 4.99);
+
+                    const wtpRatioPct = Math.min(
+                      100,
+                      Math.max(8, Math.round((displayedWtp / Math.max(1, priceUsd)) * 100))
+                    );
 
                     const statePillStyle =
                       state === "PURCHASED"
-                        ? "bg-win-green/15 text-win-green border-win-green/30"
+                        ? "bg-win-green/15 text-win-green border-win-green/35"
                         : state === "ABANDONED"
                           ? "bg-white/[0.06] text-white/55 border-white/10"
                           : state === "BOYCOTT"
-                            ? "bg-loss-red/15 text-loss-red border-loss-red/30"
-                            : "bg-vc-gold/15 text-vc-gold border-vc-gold/30";
+                            ? "bg-loss-red/15 text-loss-red border-loss-red/35"
+                            : "bg-vc-gold/15 text-vc-gold border-vc-gold/35";
 
-                    const stateLabel =
-                      state === "PURCHASED"
-                        ? "BUY"
-                        : state === "ABANDONED"
-                          ? "PASS"
-                          : state === "BOYCOTT"
-                            ? "BOYCOTT"
-                            : "EVALUATE";
+                    const stateLabel = shortStateBadge(state);
+                    const r1Short = shortStateBadge(r1State);
+                    const r2Short = shortStateBadge(r2State);
+                    const r3Short = shortStateBadge(r3State);
+
+                    const isExpanded = expandedPersonaIdx === idx;
+                    const punchyLine = extractPunchyHeadline(
+                      displayedQuote,
+                      `${ovr} OVR · ${p.myplayer_build || "2-Way 3-Level Scorer"}`
+                    );
+
+                    const personaForDrawer: FocusGroupReaction =
+                      reaction ||
+                      ({
+                        player_id: p.player_id || `persona-${idx}`,
+                        gamer_tag: cardGamerTag,
+                        archetype: cardArchetype,
+                        crew_name: crewName,
+                        creator_handle: creatorHandle,
+                        myplayer_ovr: ovr,
+                        round1_fsm_state: r1State,
+                        final_fsm_state: r2State,
+                        willingness_to_pay_usd: displayedWtp,
+                        verbatim_quote:
+                          displayedQuote ||
+                          `Evaluating ${creativeTitle} with ${crewName}.`,
+                        authenticity_rating: 0.94,
+                        churn_risk_score: 0.25,
+                        sentiment_score: 0.65,
+                      } as FocusGroupReaction);
 
                     return (
-                      <div
-                        key={idx}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() =>
-                          setInterrogatePersona(reaction || (p as FocusGroupReaction))
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            setInterrogatePersona(
-                              reaction || (p as FocusGroupReaction)
-                            );
-                          }
+                      <motion.div
+                        key={p.player_id || idx}
+                        layout
+                        variants={{
+                          hidden: prefersReducedMotion
+                            ? { opacity: 0.95 }
+                            : {
+                                opacity: 0.65,
+                                transform: "translateY(6px) scale(0.985)",
+                              },
+                          visible: {
+                            opacity: 1,
+                            transform: "translateY(0px) scale(1)",
+                            transition: {
+                              type: "spring",
+                              bounce: 0.15,
+                              duration: 0.4,
+                            },
+                          },
                         }}
-                        className={`group relative cursor-pointer rounded-xl border p-3.5 transition-all duration-100 ease-out active:scale-[0.985] select-none flex flex-col justify-between gap-2 ${
-                          rescuedInR3 || flipped
-                            ? "border-win-green/35 bg-win-green/[0.03] hover:bg-win-green/[0.06]"
-                            : "border-white/[0.07] bg-white/[0.02] hover:bg-white/[0.045] hover:border-white/[0.14]"
+                        className={`rounded-xl border transition-colors ${
+                          isExpanded ? "md:col-span-2" : ""
+                        } ${
+                          flippedToBuy
+                            ? "border-win-green/45 bg-win-green/[0.045] shadow-[inset_0_0_0_1px_rgba(25,195,125,0.18)]"
+                            : flipped
+                              ? "border-vc-gold/35 bg-vc-gold/[0.03]"
+                              : isExpanded
+                                ? "border-white/[0.16] bg-white/[0.035]"
+                                : "border-white/[0.07] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.13]"
                         }`}
                       >
-                        {/* Top Row: Avatar Dot + GamerTag + Archetype vs Verdict Badge */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
+                        {/* Clickable Scannable Stance Header */}
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() =>
+                            setExpandedPersonaIdx((prev) =>
+                              prev === idx ? null : idx
+                            )
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setExpandedPersonaIdx((prev) =>
+                                prev === idx ? null : idx
+                              );
+                            }
+                          }}
+                          className="p-3 cursor-pointer select-none space-y-1.5"
+                        >
+                          {/* Row 1: Identity + OVR/Crew vs Flip Badge + Stance Badge */}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
                               <span
                                 style={{ backgroundColor: bColor }}
                                 className="w-2 h-2 rounded-full shrink-0"
@@ -1599,89 +2094,165 @@ export function FocusGroupModal({
                               <span className="font-semibold text-xs text-white tracking-tight truncate">
                                 {cardGamerTag}
                               </span>
+                              <span className="text-[10px] font-mono text-white/45 truncate">
+                                {ovr} OVR · {crewName}
+                              </span>
                             </div>
-                            <span className="text-[11px] text-white/45 block truncate pl-4">
-                              {archetypeLabel(cardArchetype)}
-                            </span>
-                          </div>
 
-                          <div className="flex items-center gap-1 shrink-0">
-                            {rescuedInR3 || flippedInR3 ? (
-                              <span className="px-1.5 py-0.5 rounded-md text-[9px] font-mono bg-win-green/15 text-win-green border border-win-green/30 flex items-center gap-0.5">
-                                <span>R2 → R3</span>
-                              </span>
-                            ) : flippedInR2 ? (
-                              <span className="px-1.5 py-0.5 rounded-md text-[9px] font-mono bg-white/[0.07] text-white/70 flex items-center gap-0.5">
-                                <span>
-                                  {r1State === "ABANDONED"
-                                    ? "PASS"
-                                    : r1State === "BOYCOTT"
-                                      ? "BOYC"
-                                      : "EVAL"}
+                            <div className="flex items-center gap-1 shrink-0">
+                              {flippedInR3 ? (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-win-green/20 text-win-green border border-win-green/40 flex items-center gap-0.5">
+                                  <span>
+                                    R2 {r2Short} → R3 {r3Short}
+                                  </span>
                                 </span>
-                                <ArrowRight className="w-2.5 h-2.5 text-win-green" />
-                              </span>
-                            ) : null}
-                            <span
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold tracking-wide border ${statePillStyle}`}
-                            >
-                              {stateLabel}
-                            </span>
-                          </div>
-                        </div>
+                              ) : flippedInR2 ? (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-win-green/20 text-win-green border border-win-green/40 flex items-center gap-0.5">
+                                  <span>
+                                    R1 {r1Short} → R2 {r2Short}
+                                  </span>
+                                </span>
+                              ) : null}
 
-                        {/* Middle: Verbatim Quote or Build Summary */}
-                        <p className="text-xs text-white/80 line-clamp-2 leading-relaxed">
-                          {displayedQuote ? (
-                            <>&ldquo;{displayedQuote}&rdquo;</>
-                          ) : (
-                            <span className="text-white/50">
-                              {p.myplayer_ovr || 85} OVR ·{" "}
-                              {p.myplayer_build || "2-Way 3-Level Scorer"}
-                            </span>
-                          )}
-                        </p>
-
-                        {/* Bottom Metadata Line: Causal Provenance · Crew · Creator · WTP */}
-                        <div className="flex items-center justify-between text-[10px] font-mono text-white/45 pt-1 border-t border-white/[0.05] gap-1.5">
-                          <div className="flex items-center gap-1.5 min-w-0 truncate">
-                            {provenanceLabel && (
                               <span
-                                title={
-                                  reaction?.contagion_source_snippet ||
-                                  provenanceLabel
-                                }
-                                className="px-1.5 py-0.2 rounded bg-win-green/15 text-win-green border border-win-green/25 text-[9px] font-semibold shrink-0 truncate max-w-[145px]"
+                                className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold tracking-wide border ${statePillStyle}`}
                               >
-                                {provenanceLabel}
+                                {stateLabel}
                               </span>
-                            )}
-                            <span className="truncate">
-                              {displayedQuote && !provenanceLabel
-                                ? `${p.myplayer_ovr || 85} OVR · `
-                                : ""}
-                              {crewName} · {creatorHandle}
-                            </span>
+
+                              {isExpanded ? (
+                                <ChevronUp className="w-3.5 h-3.5 text-white/40" />
+                              ) : (
+                                <ChevronDown className="w-3.5 h-3.5 text-white/30" />
+                              )}
+                            </div>
                           </div>
-                          <span className="text-white/75 shrink-0 ml-1 tabular">
-                            WTP $
-                            <TabularNumber
-                              value={
-                                displayedWtp ??
-                                (Number(p.vc_spend_90d ?? p.spend ?? 0) >= 120
-                                  ? 14.99
-                                  : Number(p.vc_spend_90d ?? p.spend ?? 0) >= 50
-                                    ? 9.99
-                                    : 4.99)
-                              }
-                              decimals={2}
-                            />
-                          </span>
+
+                          {/* Row 2: Single Punchy 1-Line Headline (when collapsed) */}
+                          {!isExpanded && (
+                            <p className="text-[11px] text-white/75 line-clamp-1 font-normal">
+                              &ldquo;{punchyLine}&rdquo;
+                            </p>
+                          )}
+
+                          {/* Row 3: Archetype + Provenance + WTP vs Offer Bar */}
+                          <div className="flex items-center justify-between gap-2 pt-0.5 text-[10px] font-mono text-white/45">
+                            <div className="flex items-center gap-1.5 min-w-0 truncate">
+                              {provenanceLabel ? (
+                                <span className="px-1.5 py-0.2 rounded bg-win-green/15 text-win-green border border-win-green/25 text-[9px] font-semibold shrink-0">
+                                  {provenanceLabel}
+                                </span>
+                              ) : null}
+                              <span className="truncate font-sans text-[10px] text-white/45">
+                                {archetypeLabel(cardArchetype)} · {creatorHandle}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <div className="w-12 h-1 rounded-full bg-white/[0.08] overflow-hidden hidden sm:block">
+                                <div
+                                  style={{ width: `${wtpRatioPct}%` }}
+                                  className={`h-full ${
+                                    displayedWtp >= priceUsd
+                                      ? "bg-win-green"
+                                      : "bg-vc-gold"
+                                  }`}
+                                />
+                              </div>
+                              <span className="text-white/80 tabular-nums">
+                                WTP ${displayedWtp.toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
+
+                        {/* Interactive Spotlight Expansion: Full Verbatim Quote + Inline 1-on-1 Chat + 3-Way Debate CTA */}
+                        <AnimatePresence initial={false}>
+                          {isExpanded && (
+                            <motion.div
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 0.18 }}
+                              className="px-3 pb-3 pt-1 border-t border-white/[0.07] space-y-2.5"
+                            >
+                              <p className="text-xs text-white/90 leading-relaxed bg-black/35 border border-white/[0.06] rounded-lg px-3 py-2">
+                                &ldquo;
+                                {displayedQuote ||
+                                  `Evaluating ${creativeTitle} at $${priceUsd.toFixed(
+                                    2
+                                  )} with ${crewName} squadmates before locking in.`}
+                                &rdquo;
+                              </p>
+
+                              {inlineAnswerMap[idx] && (
+                                <div className="rounded-lg bg-win-green/[0.06] border border-win-green/25 px-3 py-2 text-xs text-white/90 space-y-0.5">
+                                  <span className="text-[10px] font-mono text-win-green font-semibold block">
+                                    @{cardGamerTag} (Live 1-on-1 Reply):
+                                  </span>
+                                  <p className="leading-relaxed">{inlineAnswerMap[idx]}</p>
+                                </div>
+                              )}
+
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <form
+                                  onSubmit={(e) => {
+                                    e.preventDefault();
+                                    handleInlineInterrogate(
+                                      idx,
+                                      personaForDrawer,
+                                      inlineQuestion
+                                    );
+                                  }}
+                                  className="flex-1 min-w-[220px] flex items-center gap-1.5"
+                                >
+                                  <input
+                                    type="text"
+                                    value={inlineQuestion}
+                                    onChange={(e) => setInlineQuestion(e.target.value)}
+                                    placeholder={`Ask ${cardGamerTag} a 1-on-1 follow-up...`}
+                                    className="flex-1 rounded-lg border border-white/[0.1] bg-black/50 px-2.5 py-1.5 text-xs text-white placeholder:text-white/35 focus:border-white/30 focus:outline-none"
+                                  />
+                                  <button
+                                    type="submit"
+                                    disabled={isAskingInline || !inlineQuestion.trim()}
+                                    className="px-2.5 py-1.5 rounded-lg bg-white/[0.08] hover:bg-white/[0.14] text-white text-xs font-medium flex items-center gap-1 disabled:opacity-40 active:scale-[0.97] transition-all"
+                                  >
+                                    <Send className="w-3 h-3" />
+                                    <span>{isAskingInline ? "..." : "Ask"}</span>
+                                  </button>
+                                </form>
+
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setInterrogatePersona(personaForDrawer)
+                                    }
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.09] text-[11px] font-medium text-white transition-all active:scale-[0.97]"
+                                  >
+                                    <MessageSquare className="w-3 h-3 text-cyan-400" />
+                                    <span>1-on-1 Interview</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setInterrogatePersona(personaForDrawer)
+                                    }
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-twok-red/15 hover:bg-twok-red/25 border border-twok-red/35 text-[11px] font-semibold text-white transition-all active:scale-[0.97]"
+                                  >
+                                    <Users className="w-3 h-3 text-twok-red" />
+                                    <span>3-Way Debate</span>
+                                  </button>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
                     );
                   })}
-                </StaggerList>
+                </motion.div>
               </div>
             ) : (
               /* 100-Agent Swarm Matrix (20 Core + 80 Cohort Swarm — Always 100 Clickable Cells) */
@@ -1849,215 +2420,406 @@ export function FocusGroupModal({
             )}
           </div>
 
-          {/* Right Column (4 Cols): 3 Core Modules — Fits 100% Above the Fold */}
-          <div className="lg:col-span-4 flex flex-col h-full justify-between gap-3 min-h-0 overflow-hidden">
-            {/* Module 1: Verdict Breakdown & Social Contagion Lift */}
-            <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3.5 space-y-3 shrink-0">
-              {/* 3 Hero KPIs */}
-              <div className="grid grid-cols-3 gap-2 pb-2.5 border-b border-white/[0.06]">
-                <div>
-                  <span className="text-[10px] text-white/45 block">
-                    Conversion Lift
-                  </span>
-                  <span className="text-lg font-bold text-win-green tracking-tight font-mono tabular">
-                    +<TabularNumber value={conversionLift} decimals={1} />%
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-white/45 block">
-                    Crew Cascade
-                  </span>
-                  <span className="text-lg font-bold text-white tracking-tight font-mono tabular">
-                    <TabularNumber value={crewMultiplier} decimals={1} />x
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-white/45 block">
-                    Backlash Risk
-                  </span>
-                  <span
-                    className={`text-lg font-bold tracking-tight font-mono tabular ${
-                      backlashIndex > 35 ? "text-loss-red" : "text-white/90"
+          {/* Right Column (4 Cols): Clean 3-Tab Segmented Analytics Card (Only ONE Visual Card Shown at a Time) */}
+          <div className="lg:col-span-4 flex flex-col h-full min-h-0 overflow-hidden gap-2.5">
+            {/* 3-Tab Segmented Control with layoutId Spring Indicator */}
+            <div
+              role="tablist"
+              aria-label="Executive analytics view"
+              className="grid grid-cols-3 rounded-xl bg-black/50 p-1 border border-white/[0.08] text-[11px] shrink-0"
+            >
+              {(
+                [
+                  { id: "forecast_survival" as const, label: "Forecast & Survival" },
+                  { id: "price_uplift" as const, label: "Price & CATE Uplift" },
+                  { id: "reddit_pulse" as const, label: "Reddit Pulse" },
+                ] as const
+              ).map((tab) => {
+                const active = analyticsTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    role="tab"
+                    aria-selected={active}
+                    type="button"
+                    onClick={() => setAnalyticsTab(tab.id)}
+                    className={`relative z-10 py-1.5 px-2 rounded-lg font-medium transition-colors text-center truncate active:scale-[0.98] ${
+                      active ? "text-white font-semibold" : "text-white/50 hover:text-white/80"
                     }`}
                   >
-                    <TabularNumber value={backlashIndex} />%
-                  </span>
-                </div>
-              </div>
-
-              {/* Segmented Distribution Bar */}
-              <div className="space-y-2">
-                <div className="h-2 w-full rounded-full bg-white/[0.06] overflow-hidden flex gap-0.5">
-                  <div
-                    style={{ width: `${buyPct}%` }}
-                    className="h-full bg-win-green transition-all duration-300"
-                  />
-                  <div
-                    style={{ width: `${evalPct}%` }}
-                    className="h-full bg-vc-gold transition-all duration-300"
-                  />
-                  <div
-                    style={{ width: `${passPct}%` }}
-                    className="h-full bg-white/30 transition-all duration-300"
-                  />
-                  <div
-                    style={{ width: `${boycottPct}%` }}
-                    className="h-full bg-loss-red transition-all duration-300"
-                  />
-                </div>
-
-                {/* 4 Compact Verdict Tallies */}
-                <div className="grid grid-cols-4 gap-1.5 font-mono text-[11px]">
-                  <div className="rounded-lg bg-black/30 border border-white/[0.05] px-2 py-1">
-                    <div className="flex items-center justify-between text-[9px] text-win-green">
-                      <span>BUY</span>
-                      {activeRound === 2 && buyDeltaR2 !== 0 && (
-                        <span>{buyDeltaR2 > 0 ? `+${buyDeltaR2}` : buyDeltaR2}</span>
-                      )}
-                      {activeRound === 3 && buyDeltaR3 !== 0 && (
-                        <span>{buyDeltaR3 > 0 ? `+${buyDeltaR3}` : buyDeltaR3}</span>
-                      )}
-                    </div>
-                    <div className="font-bold text-white tabular">
-                      <TabularNumber value={buyCount} />
-                      <span className="text-white/35 text-[10px]">/{totalDenominator}</span>
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg bg-black/30 border border-white/[0.05] px-2 py-1">
-                    <div className="text-[9px] text-vc-gold">EVAL</div>
-                    <div className="font-bold text-white tabular">
-                      <TabularNumber value={evalCount} />
-                      <span className="text-white/35 text-[10px]">/{totalDenominator}</span>
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg bg-black/30 border border-white/[0.05] px-2 py-1">
-                    <div className="text-[9px] text-white/50">PASS</div>
-                    <div className="font-bold text-white/80 tabular">
-                      <TabularNumber value={passCount} />
-                      <span className="text-white/35 text-[10px]">/{totalDenominator}</span>
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg bg-black/30 border border-white/[0.05] px-2 py-1">
-                    <div className="text-[9px] text-loss-red">BOYCOTT</div>
-                    <div className="font-bold text-white tabular">
-                      <TabularNumber value={boycottCount} />
-                      <span className="text-white/35 text-[10px]">/{totalDenominator}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 1-Sentence Contagion Takeaway */}
-              <p className="text-[11px] text-white/60 leading-snug line-clamp-2">
-                {currentResult?.contagion_summary ||
-                  crewCaptainSummary ||
-                  "Crew Captains claiming in Round 1 drive a 3.1x conversion cascade across hesitant Rec and Pro-Am squadmates in Round 2."}
-              </p>
+                    {active && (
+                      <motion.div
+                        layoutId="fg-right-analytics-tab"
+                        transition={{ type: "spring", bounce: 0.15, duration: 0.38 }}
+                        className="absolute inset-0 rounded-lg bg-white/[0.12] border border-white/[0.14] -z-10"
+                      />
+                    )}
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Module 2: Segmented Analytics Card — Price & Uplift (CATE) | Survival & Forecast (TimesFM + Meridian) */}
-            <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3 space-y-2 shrink-0">
-              <div className="flex items-center justify-between gap-2">
-                <div
-                  role="tablist"
-                  aria-label="Predictive analytics view"
-                  className="relative flex items-center rounded-lg bg-black/50 p-0.5 border border-white/[0.08] text-[10px]"
-                >
-                  {(
-                    [
-                      { id: "price_uplift" as const, label: "Price & Uplift" },
-                      { id: "survival_forecast" as const, label: "Survival & Forecast" },
-                    ] as const
-                  ).map((tab) => {
-                    const active = analyticsTab === tab.id;
-                    return (
-                      <button
-                        key={tab.id}
-                        role="tab"
-                        aria-selected={active}
-                        type="button"
-                        onClick={() => setAnalyticsTab(tab.id)}
-                        className={`relative z-10 px-2.5 py-0.5 rounded-md font-medium transition-colors active:scale-[0.97] ${
-                          active ? "text-white" : "text-white/50 hover:text-white/80"
-                        }`}
-                      >
-                        {active && (
-                          <motion.div
-                            layoutId="fg-analytics-pill"
-                            transition={{ type: "spring", bounce: 0, duration: 0.35 }}
-                            className="absolute inset-0 rounded-md bg-white/[0.12] border border-white/[0.12] shadow-sm -z-10"
-                          />
-                        )}
-                        {tab.label}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {analyticsTab === "price_uplift" ? (
-                  <span className="text-[10px] font-mono text-vc-gold bg-vc-gold/10 px-2 py-0.5 rounded-md border border-vc-gold/20 tabular shrink-0">
-                    Optimal ${recommendedPrice.toFixed(2)}
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-mono text-win-green bg-win-green/10 px-2 py-0.5 rounded-md border border-win-green/25 tabular shrink-0">
-                    +{survivalAnalysis.days_gained.toFixed(1)}d Lifespan
-                  </span>
-                )}
-              </div>
-
-              {analyticsTab === "price_uplift" ? (
-                <div className="space-y-2">
-                  <Sparkline
-                    values={wtpCurve.map((p) => p.conversion_pct)}
-                    labels={wtpCurve.map((p) => `$${p.price}`)}
-                    width={300}
-                    height={44}
-                    stroke="var(--twok-red)"
-                    highlightIndex={highlightIdx >= 0 ? highlightIdx : 1}
-                    highlightLabel={`$${recommendedPrice}`}
-                  />
-
-                  {isBattleMode && (
-                    <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-white/[0.06] text-[10px]">
-                      <div className="rounded-md bg-black/30 border border-white/[0.05] px-2 py-1 flex items-center justify-between">
-                        <span className="font-mono text-white/60">
-                          ${priceUsd.toFixed(2)}
+            {/* Active Single Analytics Card */}
+            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+              {analyticsTab === "forecast_survival" && (
+                <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 flex-1 flex flex-col justify-between gap-3">
+                  {/* Section A: Cox/Weibull 30-Day Survival Curve (Self-Drawing SVG) */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-semibold text-white block">
+                          Cox / Weibull 30-Day Build Survival
                         </span>
-                        <span className="font-mono font-semibold text-win-green tabular">
-                          +{conversionLift.toFixed(1)}% lift
+                        <span className="text-[10px] font-mono text-white/50">
+                          Baseline T50:{" "}
+                          <span className="text-loss-red font-semibold">
+                            Day {survivalAnalysis.baseline_t50_days}
+                          </span>{" "}
+                          <ArrowRight className="inline w-2.5 h-2.5 mx-0.5 text-white/35" />{" "}
+                          Treated T50:{" "}
+                          <span className="text-win-green font-semibold">
+                            Day {survivalAnalysis.treated_t50_days}
+                          </span>
                         </span>
                       </div>
-                      <div className="rounded-md bg-black/30 border border-white/[0.05] px-2 py-1 flex items-center justify-between">
-                        <span className="font-mono text-white/60">
-                          ${(altPriceUsd ?? 19.99).toFixed(2)}
-                        </span>
-                        <span className="font-mono font-semibold text-loss-red tabular">
-                          +
-                          {(
-                            currentResult?.alt_result?.predicted_conversion_lift ??
-                            conversionLift * 0.55
-                          ).toFixed(1)}
-                          % lift
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Idea 5: 4-Quadrant Causal Uplift (CATE) Bar */}
-                  <div className="pt-1.5 border-t border-white/[0.06] space-y-1.5">
-                    <div className="flex items-center justify-between text-[10px]">
-                      <span className="text-white/65 font-medium">
-                        Causal Uplift (CATE)
+                      <span className="px-2 py-0.5 rounded-md bg-win-green/10 border border-win-green/25 text-win-green font-mono text-[10px] font-semibold tabular-nums">
+                        +{survivalAnalysis.days_gained.toFixed(1)}d Lifespan
                       </span>
-                      <span className="font-mono text-win-green tabular">
+                    </div>
+
+                    {(() => {
+                      const pts = survivalAnalysis.curve || [];
+                      const w = 320;
+                      const h = 76;
+                      const toCoord = (idx: number, pct: number) => {
+                        const x =
+                          pts.length > 1
+                            ? (idx / (pts.length - 1)) * (w - 16) + 8
+                            : w / 2;
+                        const y =
+                          h - 8 - (Math.max(0, Math.min(100, pct)) / 100) * (h - 16);
+                        return `${x.toFixed(1)},${y.toFixed(1)}`;
+                      };
+                      const basePath = pts
+                        .map(
+                          (pt, i) =>
+                            `${i === 0 ? "M" : "L"}${toCoord(
+                              i,
+                              pt.baseline_survival_pct
+                            )}`
+                        )
+                        .join(" ");
+                      const treatedPath = pts
+                        .map(
+                          (pt, i) =>
+                            `${i === 0 ? "M" : "L"}${toCoord(
+                              i,
+                              pt.treated_survival_pct
+                            )}`
+                        )
+                        .join(" ");
+                      return (
+                        <svg
+                          viewBox={`0 0 ${w} ${h}`}
+                          className="w-full h-[76px] overflow-visible rounded-lg bg-black/40 border border-white/[0.06] px-1.5"
+                        >
+                          <line
+                            x1="0"
+                            y1={h / 2}
+                            x2={w}
+                            y2={h / 2}
+                            stroke="rgba(255,255,255,0.08)"
+                            strokeDasharray="2 2"
+                          />
+                          {basePath && (
+                            <motion.path
+                              key={`surv-base-${activeRound}-${priceUsd}`}
+                              d={basePath}
+                              fill="none"
+                              stroke="#FF4D5E"
+                              strokeWidth="1.75"
+                              strokeDasharray="3 3"
+                              initial={
+                                prefersReducedMotion
+                                  ? { pathLength: 1, opacity: 1 }
+                                  : { pathLength: 0, opacity: 0.3 }
+                              }
+                              animate={{ pathLength: 1, opacity: 0.85 }}
+                              transition={{
+                                duration: 0.65,
+                                ease: [0.22, 1, 0.36, 1],
+                              }}
+                            />
+                          )}
+                          {treatedPath && (
+                            <motion.path
+                              key={`surv-treated-${activeRound}-${priceUsd}`}
+                              d={treatedPath}
+                              fill="none"
+                              stroke="#19C37D"
+                              strokeWidth="2.25"
+                              strokeLinecap="round"
+                              initial={
+                                prefersReducedMotion
+                                  ? { pathLength: 1, opacity: 1 }
+                                  : { pathLength: 0, opacity: 0.3 }
+                              }
+                              animate={{ pathLength: 1, opacity: 1 }}
+                              transition={{
+                                duration: 0.65,
+                                ease: [0.22, 1, 0.36, 1],
+                              }}
+                            />
+                          )}
+                        </svg>
+                      );
+                    })()}
+
+                    <div className="flex items-center justify-between text-[10px] font-mono text-white/45">
+                      <span>
+                        84 OVR Build Cliff Hazard: {survivalAnalysis.build_wall_hazard_ratio}x
+                      </span>
+                      <span className="text-cyan-300">
+                        -{survivalAnalysis.crew_hazard_reduction_pct}% Crew Hazard Reduction
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Section B: TimesFM 3.0 6-Week Bookings Trajectory */}
+                  <div className="pt-3 border-t border-white/[0.07] space-y-2">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-semibold text-white">
+                        TimesFM 3.0 · 6-Week Horizon
+                      </span>
+                      <span className="font-mono text-win-green font-semibold tabular-nums">
+                        +${(timesFmForecast.projected_30d_bookings_usd / 1000).toFixed(1)}K{" "}
+                        <span className="text-white/45 font-normal text-[10px]">
+                          (+{timesFmForecast.whale_decay_offset_pct.toFixed(1)}%)
+                        </span>
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-6 gap-1.5 items-end h-16 pt-2 px-1">
+                      {(timesFmForecast.points || []).slice(0, 6).map((pt) => {
+                        const maxVal = Math.max(
+                          1,
+                          ...timesFmForecast.points.map((p) => p.treated_bookings_usd)
+                        );
+                        const baseH = Math.max(
+                          14,
+                          Math.round((pt.baseline_bookings_usd / maxVal) * 100)
+                        );
+                        const treatedH = Math.max(
+                          20,
+                          Math.round((pt.treated_bookings_usd / maxVal) * 100)
+                        );
+                        return (
+                          <div
+                            key={pt.horizon_label}
+                            className="flex flex-col items-center gap-1 h-full justify-end"
+                          >
+                            <div className="w-full flex items-end justify-center gap-0.5 h-11">
+                              <div
+                                style={{ height: `${baseH}%` }}
+                                className="w-2 rounded-t bg-white/20"
+                                title={`Baseline: $${pt.baseline_bookings_usd.toLocaleString()}`}
+                              />
+                              <div
+                                style={{ height: `${treatedH}%` }}
+                                className="w-2 rounded-t bg-win-green"
+                                title={`Treated: $${pt.treated_bookings_usd.toLocaleString()}`}
+                              />
+                            </div>
+                            <span className="text-[9px] font-mono text-white/45 tabular-nums">
+                              {pt.horizon_label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Section C: Meridian Creator mROAS Allocation */}
+                  <div className="pt-3 border-t border-white/[0.07] space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px] font-mono text-white/50">
+                      <span>MERIDIAN CREATOR mROAS</span>
+                      <span>OPTIMAL BUDGET SPLIT</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5 font-mono text-[10px]">
+                      {(timesFmForecast.creator_mroas || []).slice(0, 3).map((cr) => (
+                        <div
+                          key={cr.handle}
+                          className="rounded-lg bg-black/40 border border-white/[0.06] px-2.5 py-1.5 flex flex-col justify-between"
+                        >
+                          <span className="text-white/85 font-semibold truncate">
+                            {cr.handle}
+                          </span>
+                          <div className="flex items-center justify-between pt-0.5">
+                            <span className="text-vc-gold font-bold tabular-nums">
+                              {cr.mroas.toFixed(1)}x
+                            </span>
+                            <span className="text-[9px] text-white/40 tabular-nums">
+                              {cr.optimal_budget_pct}%
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Consensus Narrative */}
+                  <p className="text-[11px] text-white/60 leading-snug pt-2 border-t border-white/[0.06]">
+                    {currentResult?.contagion_summary ||
+                      crewCaptainSummary ||
+                      "Crew Captains acted as critical social nodes, triggering a peer-pressure cascade that bypassed early price hesitation."}
+                  </p>
+                </div>
+              )}
+
+              {analyticsTab === "price_uplift" && (
+                <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 flex-1 flex flex-col justify-between gap-3">
+                  {/* Section A: Self-Drawing WTP Price Elasticity Curve */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-semibold text-white block">
+                          WTP Price Elasticity Curve
+                        </span>
+                        <span className="text-[10px] font-mono text-white/45">
+                          Evaluated at ${priceUsd.toFixed(2)} proposed offer point
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-vc-gold bg-vc-gold/10 px-2 py-0.5 rounded-md border border-vc-gold/25 tabular-nums shrink-0">
+                        Optimal ${recommendedPrice.toFixed(2)}
+                      </span>
+                    </div>
+
+                    {(() => {
+                      const values = wtpCurve.map((p) => p.conversion_pct);
+                      const w = 320;
+                      const h = 76;
+                      const padX = 10;
+                      const padY = 10;
+                      const minVal = Math.min(...values);
+                      const maxVal = Math.max(...values);
+                      const range = maxVal - minVal || 1;
+                      const innerW = w - padX * 2;
+                      const innerH = h - padY * 2;
+
+                      const pts = wtpCurve.map((item, idx) => {
+                        const x =
+                          wtpCurve.length === 1
+                            ? w / 2
+                            : padX + (idx / (wtpCurve.length - 1)) * innerW;
+                        const y =
+                          padY + innerH - ((item.conversion_pct - minVal) / range) * innerH;
+                        return { x, y, price: item.price, pct: item.conversion_pct };
+                      });
+
+                      const dPath = pts
+                        .map(
+                          (p, i) =>
+                            `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`
+                        )
+                        .join(" ");
+
+                      const hi = pts[highlightIdx >= 0 ? highlightIdx : 1] || pts[0];
+
+                      return (
+                        <svg
+                          viewBox={`0 0 ${w} ${h}`}
+                          className="w-full h-[76px] overflow-visible rounded-lg bg-black/40 border border-white/[0.06]"
+                        >
+                          <motion.path
+                            key={`wtp-curve-${priceUsd}-${recommendedPrice}`}
+                            d={dPath}
+                            fill="none"
+                            stroke="var(--twok-red)"
+                            strokeWidth="2.25"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            initial={
+                              prefersReducedMotion
+                                ? { pathLength: 1, opacity: 1 }
+                                : { pathLength: 0, opacity: 0.3 }
+                            }
+                            animate={{ pathLength: 1, opacity: 1 }}
+                            transition={{
+                              duration: 0.65,
+                              ease: [0.22, 1, 0.36, 1],
+                            }}
+                          />
+                          {hi && (
+                            <g>
+                              <line
+                                x1={hi.x}
+                                y1={padY}
+                                x2={hi.x}
+                                y2={h - padY}
+                                stroke="var(--vc-gold)"
+                                strokeDasharray="2 2"
+                                strokeWidth="1"
+                              />
+                              <circle
+                                cx={hi.x}
+                                cy={hi.y}
+                                r="3.5"
+                                fill="var(--vc-gold)"
+                              />
+                              <text
+                                x={Math.min(Math.max(hi.x, 28), w - 28)}
+                                y={Math.max(12, hi.y - 6)}
+                                textAnchor="middle"
+                                className="fill-vc-gold font-mono text-[9px] tabular-nums"
+                              >
+                                ${hi.price} ({hi.pct}%)
+                              </text>
+                            </g>
+                          )}
+                        </svg>
+                      );
+                    })()}
+
+                    {isBattleMode && (
+                      <div className="grid grid-cols-2 gap-1.5 pt-1 text-[10px]">
+                        <div className="rounded-md bg-black/40 border border-white/[0.06] px-2.5 py-1.5 flex items-center justify-between">
+                          <span className="font-mono text-white/65">
+                            ${priceUsd.toFixed(2)}
+                          </span>
+                          <span className="font-mono font-semibold text-win-green tabular-nums">
+                            +{conversionLift.toFixed(1)}% lift
+                          </span>
+                        </div>
+                        <div className="rounded-md bg-black/40 border border-white/[0.06] px-2.5 py-1.5 flex items-center justify-between">
+                          <span className="font-mono text-white/65">
+                            ${(altPriceUsd ?? 19.99).toFixed(2)}
+                          </span>
+                          <span className="font-mono font-semibold text-loss-red tabular-nums">
+                            +
+                            {(
+                              currentResult?.alt_result?.predicted_conversion_lift ??
+                              conversionLift * 0.55
+                            ).toFixed(1)}
+                            % lift
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Section B: 4-Quadrant Causal Uplift (CATE) */}
+                  <div className="pt-3 border-t border-white/[0.07] space-y-2.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-white font-semibold">
+                        Causal Uplift (CATE) Quadrants
+                      </span>
+                      <span className="font-mono text-win-green font-semibold tabular-nums">
                         +{causalUplift.cate_lift_pct.toFixed(1)}% net uplift
                       </span>
                     </div>
 
-                    <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden flex gap-0.5">
+                    <div className="h-2 w-full rounded-full bg-white/[0.06] overflow-hidden flex gap-0.5">
                       <div
                         style={{ width: `${causalUplift.persuadables_pct}%` }}
                         className="h-full bg-win-green transition-all duration-300"
@@ -2076,172 +2838,68 @@ export function FocusGroupModal({
                       />
                     </div>
 
-                    <div className="grid grid-cols-4 gap-1 font-mono text-[9px]">
-                      <div className="rounded bg-win-green/10 border border-win-green/25 px-1.5 py-0.5 flex items-center justify-between">
-                        <span className="text-win-green truncate">Persuadable</span>
-                        <span className="font-bold text-white tabular ml-1">
-                          {causalUplift.persuadables_count}
+                    <div className="grid grid-cols-2 gap-1.5 font-mono text-[10px]">
+                      <div className="rounded-lg bg-win-green/10 border border-win-green/25 px-2.5 py-1.5 flex items-center justify-between">
+                        <span className="text-win-green">Persuadables</span>
+                        <span className="font-bold text-white tabular-nums">
+                          {causalUplift.persuadables_count} ({causalUplift.persuadables_pct}%)
                         </span>
                       </div>
-                      <div className="rounded bg-cyan-500/10 border border-cyan-400/25 px-1.5 py-0.5 flex items-center justify-between">
-                        <span className="text-cyan-300 truncate">SureThing</span>
-                        <span className="font-bold text-white tabular ml-1">
-                          {causalUplift.sure_things_count}
+                      <div className="rounded-lg bg-cyan-500/10 border border-cyan-400/25 px-2.5 py-1.5 flex items-center justify-between">
+                        <span className="text-cyan-300">Sure Things</span>
+                        <span className="font-bold text-white tabular-nums">
+                          {causalUplift.sure_things_count} ({causalUplift.sure_things_pct}%)
                         </span>
                       </div>
-                      <div className="rounded bg-white/[0.04] border border-white/[0.08] px-1.5 py-0.5 flex items-center justify-between">
-                        <span className="text-zinc-400 truncate">LostCause</span>
-                        <span className="font-bold text-white/75 tabular ml-1">
-                          {causalUplift.lost_causes_count}
+                      <div className="rounded-lg bg-white/[0.04] border border-white/[0.08] px-2.5 py-1.5 flex items-center justify-between">
+                        <span className="text-zinc-400">Lost Causes</span>
+                        <span className="font-bold text-white/75 tabular-nums">
+                          {causalUplift.lost_causes_count} ({causalUplift.lost_causes_pct}%)
                         </span>
                       </div>
-                      <div className="rounded bg-loss-red/10 border border-loss-red/25 px-1.5 py-0.5 flex items-center justify-between">
-                        <span className="text-loss-red truncate">SleepDog</span>
-                        <span className="font-bold text-white tabular ml-1">
-                          {causalUplift.sleeping_dogs_count}
+                      <div className="rounded-lg bg-loss-red/10 border border-loss-red/25 px-2.5 py-1.5 flex items-center justify-between">
+                        <span className="text-loss-red">Sleeping Dogs</span>
+                        <span className="font-bold text-white tabular-nums">
+                          {causalUplift.sleeping_dogs_count} ({causalUplift.sleeping_dogs_pct}%)
                         </span>
                       </div>
                     </div>
 
-                    <p className="text-[10px] font-mono text-white/55 truncate">
+                    <div className="rounded-lg bg-black/40 border border-white/[0.06] px-3 py-2 text-[11px] font-mono text-white/70">
                       {causalUplift.takeaway}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                /* Survival & Forecast View (Ideas 6 & 7: Cox/Weibull Survival + TimesFM & Meridian mROAS) */
-                <div className="space-y-2">
-                  {/* Idea 6: Cox/Weibull 30-Day Survival Shift */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] font-mono">
-                      <span className="text-white/70">
-                        Baseline T50:{" "}
-                        <span className="text-loss-red font-semibold">
-                          Day {survivalAnalysis.baseline_t50_days}
-                        </span>{" "}
-                        → Treated T50:{" "}
-                        <span className="text-win-green font-semibold">
-                          Day {survivalAnalysis.treated_t50_days}
-                        </span>
-                      </span>
-                      <span className="text-cyan-300">
-                        -{survivalAnalysis.crew_hazard_reduction_pct}% Crew Hazard
-                      </span>
-                    </div>
-
-                    {/* Dual-path SVG Survival Curve */}
-                    {(() => {
-                      const pts = survivalAnalysis.curve || [];
-                      const w = 300;
-                      const h = 42;
-                      const toCoord = (idx: number, pct: number) => {
-                        const x =
-                          pts.length > 1
-                            ? (idx / (pts.length - 1)) * (w - 12) + 6
-                            : w / 2;
-                        const y = h - 4 - (Math.max(0, Math.min(100, pct)) / 100) * (h - 8);
-                        return `${x.toFixed(1)},${y.toFixed(1)}`;
-                      };
-                      const basePoly = pts
-                        .map((pt, i) => toCoord(i, pt.baseline_survival_pct))
-                        .join(" ");
-                      const treatedPoly = pts
-                        .map((pt, i) => toCoord(i, pt.treated_survival_pct))
-                        .join(" ");
-                      return (
-                        <svg
-                          viewBox={`0 0 ${w} ${h}`}
-                          className="w-full h-[42px] overflow-visible rounded bg-black/30 border border-white/[0.05] px-1"
-                        >
-                          <line
-                            x1="0"
-                            y1={h / 2}
-                            x2={w}
-                            y2={h / 2}
-                            stroke="rgba(255,255,255,0.08)"
-                            strokeDasharray="2 2"
-                          />
-                          {basePoly && (
-                            <polyline
-                              fill="none"
-                              stroke="#FF4D5E"
-                              strokeWidth="1.5"
-                              strokeDasharray="3 3"
-                              points={basePoly}
-                            />
-                          )}
-                          {treatedPoly && (
-                            <polyline
-                              fill="none"
-                              stroke="#19C37D"
-                              strokeWidth="2"
-                              points={treatedPoly}
-                            />
-                          )}
-                        </svg>
-                      );
-                    })()}
-                  </div>
-
-                  {/* Idea 7: TimesFM 30-Day Bookings Fan Forecast & Meridian Creator mROAS */}
-                  <div className="pt-1.5 border-t border-white/[0.06] space-y-1.5">
-                    <div className="flex items-center justify-between text-[10px] font-mono">
-                      <span className="text-white/75 font-sans font-medium">
-                        TimesFM 3.0 · 30d Forecast
-                      </span>
-                      <span className="text-win-green font-semibold tabular">
-                        ${(timesFmForecast.projected_30d_bookings_usd / 1000).toFixed(1)}K{" "}
-                        <span className="text-white/45 font-normal">
-                          [90% CI: ${(timesFmForecast.ci_10_usd / 1000).toFixed(0)}K-$
-                          {(timesFmForecast.ci_90_usd / 1000).toFixed(0)}K]
-                        </span>
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-1 font-mono text-[9px]">
-                      {(timesFmForecast.creator_mroas || []).slice(0, 3).map((cr) => (
-                        <div
-                          key={cr.handle}
-                          className="rounded bg-black/35 border border-white/[0.06] px-1.5 py-1 flex items-center justify-between"
-                        >
-                          <span className="text-white/80 truncate">{cr.handle}</span>
-                          <span className="text-vc-gold font-semibold tabular ml-1">
-                            {cr.mroas.toFixed(1)}x
-                          </span>
-                        </div>
-                      ))}
                     </div>
                   </div>
                 </div>
               )}
-            </div>
 
-            {/* Module 3: Live Community Pulse (Fits cleanly in remaining rail height) */}
-            <RedditPulseCard
-              echoThreads={
-                currentResult?.reddit_threads && currentResult.reddit_threads.length > 0
-                  ? currentResult.reddit_threads
-                  : redditThreads
-              }
-            />
+              {analyticsTab === "reddit_pulse" && (
+                <RedditPulseCard
+                  echoThreads={
+                    currentResult?.reddit_threads && currentResult.reddit_threads.length > 0
+                      ? currentResult.reddit_threads
+                      : redditThreads
+                  }
+                />
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Inline Graph Twins Popover Strip (Idea 1: ScaNN + gemini-embedding-001) */}
+        {/* Inline Graph Twins Popover Strip (ScaNN + gemini-embedding-001) */}
         {(twinsResult || twinsError) && (
-          <div className="border-t border-white/[0.08] bg-[#16161D]/95 px-5 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="border-t border-white/[0.08] bg-[#14141B] px-5 py-2 flex flex-wrap items-center justify-between gap-2 text-xs shrink-0">
             {twinsError ? (
               <span className="text-loss-red font-mono text-[11px]">{twinsError}</span>
             ) : twinsResult ? (
               <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono">
-                <span className="px-2 py-0.5 rounded bg-win-green/15 text-win-green border border-win-green/30 font-semibold tabular">
+                <span className="px-2 py-0.5 rounded bg-win-green/15 text-win-green border border-win-green/30 font-semibold tabular-nums">
                   {(twinsResult.avg_cosine_similarity * 100).toFixed(1)}% Cosine Match
                 </span>
-                <span className="text-white/85 font-semibold tabular">
+                <span className="text-white/85 font-semibold tabular-nums">
                   +{twinsResult.added_count} Graph Twins Found
                 </span>
                 <span className="text-white/30">·</span>
-                <span className="text-vc-gold font-semibold tabular">
+                <span className="text-vc-gold font-semibold tabular-nums">
                   +${(twinsResult.incremental_bookings_usd / 1000).toFixed(1)}K Est. Bookings
                 </span>
                 <span className="text-white/30">·</span>
@@ -2270,15 +2928,15 @@ export function FocusGroupModal({
           </div>
         )}
 
-        {/* Footer: Calm Status + Twin Finder, Studio & Brief Handoff */}
-        <div className="border-t border-white/[0.07] px-5 py-3 bg-white/[0.01] flex items-center justify-between gap-4">
-          <div className="text-xs text-white/50 flex items-center gap-2">
+        {/* FOOTER: Calm Status + Twin Finder, Creative Studio & Campaign Brief Handoff */}
+        <div className="border-t border-white/[0.07] px-5 py-2.5 bg-white/[0.01] flex items-center justify-between gap-4 shrink-0">
+          <div className="text-xs text-white/50 flex items-center gap-2 truncate">
             <span
-              className={`w-1.5 h-1.5 rounded-full ${
+              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                 isRunning ? "bg-vc-gold animate-pulse" : "bg-win-green"
               }`}
             />
-            <span>
+            <span className="truncate">
               {hasStreamedAny
                 ? `${totalDenominator}-agent simulation complete · +${conversionLift.toFixed(
                     1
@@ -2289,7 +2947,7 @@ export function FocusGroupModal({
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={handleFindGraphTwins}
@@ -2350,7 +3008,7 @@ export function FocusGroupModal({
                   onGenerateBrief(defaultRes);
                 }
               }}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-white text-court-black hover:bg-white/90 text-xs font-semibold shadow-sm transition-all active:scale-[0.97] disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-white text-court-black hover:bg-white/90 text-xs font-semibold transition-all active:scale-[0.97] disabled:opacity-50"
             >
               <FileText className="w-3.5 h-3.5" />
               <span>

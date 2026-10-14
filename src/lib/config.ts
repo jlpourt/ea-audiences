@@ -18,13 +18,13 @@ export const GCP_CONFIG = {
   gcsBucketName: process.env.GCS_BUCKET_NAME || "twok-courtside-media-jamie-bq-test",
   // Pub/Sub — activation events published on hold-to-approve.
   pubsubTopic: process.env.PUBSUB_TOPIC || "twok-courtside-activations",
-  // Model ids are being consolidated into `src/lib/models.ts` by the
-  // AI-Platform lane; these remain as fallbacks until that import lands.
-  vertexModel: process.env.VERTEX_MODEL || "gemini-3.5-flash",
+  // Model ids are consolidated in `src/lib/models.ts`; these remain as
+  // aligned defaults for modules reading `GCP_CONFIG`.
+  vertexModel: process.env.VERTEX_MODEL || "gemini-3.8-flash",
   // Google Search grounding requires a model that supports the `googleSearch`
   // tool. Kept separate from `vertexModel` so tuning the fast structured-output
   // model cannot silently disable grounding.
-  vertexGroundedModel: process.env.VERTEX_GROUNDED_MODEL || "gemini-3.5-flash",
+  vertexGroundedModel: process.env.VERTEX_GROUNDED_MODEL || "gemini-3.8-flash",
   embeddingModel: process.env.EMBEDDING_MODEL || "gemini-embedding-001",
   adkAgentServiceUrl: process.env.ADK_AGENT_SERVICE_URL || "http://localhost:8080",
 };

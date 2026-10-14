@@ -35,6 +35,7 @@ const {
   generateImage,
   generateMusic,
   generateText,
+  generateVideo,
   groundedSearch,
   streamText,
   synthesizeSpeech,
@@ -141,6 +142,17 @@ if (want("text")) {
   });
 }
 
+if (want("omni")) {
+  await step("OMNI text", async () => {
+    const r = await generateText({
+      role: "OMNI",
+      prompt: "Write a 10-word NBA 2K27 Season 2 Crew Courtside callout.",
+    });
+    const w = write("text_omni.txt", r.text);
+    return { summary: `${r.modelUsed} → "${r.text.slice(0, 60)}"`, modelUsed: r.modelUsed };
+  });
+}
+
 if (want("grounded")) {
   await step("GROUNDED", async () => {
     const r = await groundedSearch({
@@ -164,6 +176,20 @@ if (want("image")) {
     });
     const w = write("image.png", r.bytes);
     if (w.bytes < 10_000) throw new Error(`image too small: ${w.bytes} B`);
+    return { summary: `${r.modelUsed} ${r.mimeType} → ${w.file} (${w.bytes} B)`, modelUsed: r.modelUsed };
+  });
+}
+
+if (want("video")) {
+  await step("VIDEO", async () => {
+    const r = await generateVideo({
+      prompt:
+        "Cinematic slow-motion basketball swishing through an illuminated neon 2K arena hoop, dark stadium lighting, 4k broadcast camera.",
+      aspectRatio: "16:9",
+      durationSeconds: 4,
+    });
+    const w = write("video.mp4", r.bytes);
+    if (w.bytes < 50_000) throw new Error(`video too small: ${w.bytes} B`);
     return { summary: `${r.modelUsed} ${r.mimeType} → ${w.file} (${w.bytes} B)`, modelUsed: r.modelUsed };
   });
 }

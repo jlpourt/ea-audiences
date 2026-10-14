@@ -13,6 +13,8 @@ function resolveEngineLabel(rawId: string): string {
   const lower = (rawId || "").toLowerCase();
   if (lower.includes("offer & copy brief")) return "Offer & Copy Brief";
   if (lower.includes("pro") || lower.includes("3.1-pro")) return "Deep Synthesis";
+  if (lower.includes("veo") || lower.includes("video")) return "Veo 3.1 Video Synth";
+  if (lower.includes("omni")) return "Omni 1.1 Multimodal";
   if (lower.includes("image")) return "4K Key Art Render";
   if (lower.includes("tts")) return "Arena PA Synth";
   if (lower.includes("music") || lower.includes("002") || lower.startsWith("ly")) {
@@ -32,6 +34,9 @@ export function ModelBadge({
   const isPro = lower.includes("pro") || lower.includes("brief");
   const isMedia =
     lower.includes("image") ||
+    lower.includes("veo") ||
+    lower.includes("video") ||
+    lower.includes("omni") ||
     lower.includes("tts") ||
     lower.includes("music") ||
     lower.includes("002") ||

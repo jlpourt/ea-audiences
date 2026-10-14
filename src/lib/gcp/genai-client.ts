@@ -206,11 +206,20 @@ function isGemini3(id: string): boolean {
   return /^gemini-3(\.\d+)?-/i.test(id);
 }
 
+function isGemini38(id: string): boolean {
+  return /^gemini-3\.8/i.test(id);
+}
+
+function isOmniModel(id: string): boolean {
+  return /^gemini-omni-/i.test(id);
+}
+
 /**
  * Gemini 3.x reasons by default and bills the thinking into `maxOutputTokens`,
  * which is why a 1k budget can finish with MAX_TOKENS and no text. Callers
  * pass a numeric `thinkingBudget`; for 3.x we translate it to the nearest
  * `thinkingLevel`, for 2.5 we pass it through.
+ * Note: `gemini-3.8-flash` supports LOW / MEDIUM / HIGH (not MINIMAL).
  */
 function thinkingConfigFor(
   id: string,
@@ -218,7 +227,9 @@ function thinkingConfigFor(
 ): GenerateContentConfig["thinkingConfig"] {
   if (isGemini3(id)) {
     if (thinkingBudget === undefined) return { thinkingLevel: "LOW" as never };
-    if (thinkingBudget <= 0) return { thinkingLevel: "MINIMAL" as never };
+    if (thinkingBudget <= 0) {
+      return { thinkingLevel: (isGemini38(id) ? "LOW" : "MINIMAL") as never };
+    }
     if (thinkingBudget < 2048) return { thinkingLevel: "LOW" as never };
     if (thinkingBudget < 8192) return { thinkingLevel: "MEDIUM" as never };
     return { thinkingLevel: "HIGH" as never };
@@ -288,6 +299,39 @@ export async function generateText(input: GenerateTextInput): Promise<GenerateTe
   for (const spec of chain) {
     const started = Date.now();
     try {
+      if (isOmniModel(spec.id)) {
+        const omniPrompt = input.system ? `${input.system}\n\n${input.prompt}` : input.prompt;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const omniRes: any = await withRetry(spec.id, () =>
+          getGenAI(spec.location).interactions.create({
+            model: spec.id,
+            input: omniPrompt,
+          })
+        );
+        let text = String(omniRes?.output_text ?? "").trim();
+        if (input.json || input.schema) text = stripJsonFence(text);
+        if (!text) {
+          throw new GenAIError(
+            `Omni model ${spec.id} returned no text (status=${omniRes?.status || "EMPTY"}).`,
+            undefined,
+            spec.id
+          );
+        }
+        const u = omniRes?.usage;
+        return {
+          text,
+          modelUsed: omniRes?.model || spec.id,
+          latencyMs: Date.now() - started,
+          usage: {
+            promptTokens: u?.total_input_tokens ?? 0,
+            outputTokens: u?.total_output_tokens ?? 0,
+            thoughtTokens: u?.total_thought_tokens ?? 0,
+            totalTokens: u?.total_tokens ?? 0,
+          },
+          finishReason: omniRes?.status || "STOP",
+        };
+      }
+
       const res = await withRetry(spec.id, () =>
         getGenAI(spec.location).models.generateContent({
           model: spec.id,
@@ -421,12 +465,19 @@ export interface GenerateImageResult extends MediaResult {
 
 export async function generateImage(input: GenerateImageInput): Promise<GenerateImageResult> {
   const requested = MODELS.IMAGE;
-  const chain: Array<{ id: string; location: ModelLocation }> = [
+  const candidates: Array<{ id: string; location: ModelLocation }> = [
     { id: requested.id, location: requested.location },
+    { id: "gemini-3.1-flash-lite-image", location: "global" },
+    { id: "gemini-3.1-flash-image", location: "global" },
+    { id: "gemini-2.5-flash-image", location: "us-central1" },
   ];
-  if (requested.id !== "gemini-2.5-flash-image" || requested.location !== "us-central1") {
-    chain.push({ id: "gemini-2.5-flash-image", location: "us-central1" });
-  }
+  const seen = new Set<string>();
+  const chain = candidates.filter((c) => {
+    const key = `${c.id}@${c.location}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
   const parts: Part[] = [];
   if (input.referenceImageBase64) {
@@ -479,6 +530,113 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     }
   }
   throw lastErr ?? new Error("generateImage: no image model available.");
+}
+
+// ---------------------------------------------------------------------------
+// generateVideo (Veo 3.1 via :predictLongRunning + :fetchPredictOperation)
+// ---------------------------------------------------------------------------
+
+export interface GenerateVideoInput {
+  prompt: string;
+  aspectRatio?: "16:9" | "9:16";
+  durationSeconds?: 4 | 6 | 8;
+}
+
+export async function generateVideo(input: GenerateVideoInput): Promise<MediaResult> {
+  if (!input.prompt?.trim()) throw new Error("generateVideo: prompt is required.");
+  const requested = MODELS.VIDEO;
+  const candidates: Array<{ id: string; location: ModelLocation }> = [
+    { id: requested.id, location: requested.location },
+    { id: "veo-3.1-lite-generate-001", location: "global" },
+    { id: "veo-3.1-fast-generate-001", location: "global" },
+    { id: "veo-3.1-lite-generate-001", location: "us-central1" },
+  ];
+  const seen = new Set<string>();
+  const chain = candidates.filter((c) => {
+    const key = `${c.id}@${c.location}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  let lastErr: GenAIError | null = null;
+  for (const spec of chain) {
+    const started = Date.now();
+    try {
+      const token = await getAccessToken();
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+      const base = modelPath({ ...requested, id: spec.id, location: spec.location });
+      const startResp = await fetch(`${base}:predictLongRunning`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          instances: [{ prompt: input.prompt }],
+          parameters: {
+            aspectRatio: input.aspectRatio || "16:9",
+            durationSeconds: input.durationSeconds || 4,
+            sampleCount: 1,
+          },
+        }),
+      });
+      if (!startResp.ok) {
+        const detail = await startResp.text().catch(() => "");
+        const err = new Error(`Veo ${startResp.status}: ${detail.slice(0, 300)}`) as Error & { status: number };
+        err.status = startResp.status;
+        throw err;
+      }
+      const startJson = (await startResp.json()) as { name?: string };
+      if (!startJson.name) {
+        throw new GenAIError("Veo predictLongRunning returned no operation name.", undefined, spec.id);
+      }
+
+      for (let attempt = 0; attempt < 30; attempt++) {
+        await sleep(2000);
+        const pollResp = await fetch(`${base}:fetchPredictOperation`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ operationName: startJson.name }),
+        });
+        if (!pollResp.ok) continue;
+        const pollJson = (await pollResp.json()) as {
+          done?: boolean;
+          error?: { message?: string };
+          response?: { videos?: Array<{ bytesBase64Encoded?: string; mimeType?: string }> };
+        };
+        if (pollJson.done) {
+          if (pollJson.error) {
+            throw new GenAIError(
+              `Veo operation error: ${pollJson.error.message || "unknown"}`,
+              undefined,
+              spec.id
+            );
+          }
+          const video = pollJson.response?.videos?.[0];
+          if (!video?.bytesBase64Encoded) {
+            throw new GenAIError("Veo completed with no video bytes.", undefined, spec.id);
+          }
+          return {
+            bytes: Buffer.from(video.bytesBase64Encoded, "base64"),
+            mimeType: video.mimeType || "video/mp4",
+            modelUsed: spec.id,
+            latencyMs: Date.now() - started,
+          };
+        }
+      }
+      throw new GenAIError(`Veo operation timed out after 60s.`, undefined, spec.id);
+    } catch (e) {
+      const err = e instanceof GenAIError ? e : new GenAIError(String(e), statusOf(e), spec.id, e);
+      lastErr = err;
+      if (err.status !== undefined && UNAVAILABLE.has(err.status) && spec !== chain[chain.length - 1]) {
+        console.warn(`[genai] ${spec.id} unavailable (${err.status}); stepping down video model.`);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr ?? new Error("generateVideo: no video model available.");
 }
 
 // ---------------------------------------------------------------------------
@@ -698,59 +856,84 @@ export interface GroundedSearchInput {
  * search tool; structure the output in a second, ungrounded pass.
  */
 export async function groundedSearch(input: GroundedSearchInput): Promise<GroundedResult> {
-  const spec = MODELS.GROUNDED;
-  const started = Date.now();
+  const requested = MODELS.GROUNDED;
+  const candidates: Array<{ id: string; location: ModelLocation }> = [
+    { id: requested.id, location: requested.location },
+    { id: "gemini-3.5-flash", location: "global" },
+  ];
+  const seenModels = new Set<string>();
+  const chain = candidates.filter((c) => {
+    const key = `${c.id}@${c.location}`;
+    if (seenModels.has(key)) return false;
+    seenModels.add(key);
+    return true;
+  });
 
-  const config: GenerateContentConfig = {
-    tools: [{ googleSearch: {} }],
-    temperature: input.temperature ?? 0.3,
-    maxOutputTokens: input.maxOutputTokens ?? 8192,
-    thinkingConfig: thinkingConfigFor(spec.id, 1024),
-  };
-  if (input.system) config.systemInstruction = input.system;
+  let lastErr: GenAIError | null = null;
+  for (const spec of chain) {
+    const started = Date.now();
+    const config: GenerateContentConfig = {
+      tools: [{ googleSearch: {} }],
+      temperature: input.temperature ?? 0.3,
+      maxOutputTokens: input.maxOutputTokens ?? 8192,
+      thinkingConfig: thinkingConfigFor(spec.id, 1024),
+    };
+    if (input.system) config.systemInstruction = input.system;
 
-  const res = await withRetry(spec.id, () =>
-    getGenAI(spec.location).models.generateContent({
-      model: spec.id,
-      contents: input.prompt,
-      config,
-    })
-  );
+    try {
+      const res = await withRetry(spec.id, () =>
+        getGenAI(spec.location).models.generateContent({
+          model: spec.id,
+          contents: input.prompt,
+          config,
+        })
+      );
 
-  const candidate = res.candidates?.[0];
-  const text = textOf(res);
-  if (!text) {
-    throw new GenAIError(
-      `Grounded model returned no text (${candidate?.finishReason || "EMPTY"}).`,
-      undefined,
-      spec.id
-    );
+      const candidate = res.candidates?.[0];
+      const text = textOf(res);
+      if (!text) {
+        throw new GenAIError(
+          `Grounded model returned no text (${candidate?.finishReason || "EMPTY"}).`,
+          undefined,
+          spec.id
+        );
+      }
+
+      const meta = candidate?.groundingMetadata;
+      const seen = new Set<string>();
+      const citations: GroundingCitation[] = [];
+      for (const chunk of meta?.groundingChunks ?? []) {
+        const web = chunk.web;
+        if (!web?.uri || seen.has(web.uri)) continue;
+        seen.add(web.uri);
+        citations.push({
+          title: web.title || web.domain || "Source",
+          uri: web.uri,
+          domain: web.domain || web.title || "",
+        });
+      }
+      if (citations.length === 0) {
+        throw new GenAIError("Search grounding produced no citations.", undefined, spec.id);
+      }
+
+      return {
+        text,
+        citations,
+        searchQueries: meta?.webSearchQueries ?? [],
+        modelUsed: res.modelVersion || spec.id,
+        latencyMs: Date.now() - started,
+      };
+    } catch (e) {
+      const err = e instanceof GenAIError ? e : new GenAIError(String(e), statusOf(e), spec.id, e);
+      lastErr = err;
+      if (spec !== chain[chain.length - 1]) {
+        console.warn(`[genai] groundedSearch on ${spec.id} stepped down (${err.message}).`);
+        continue;
+      }
+      throw err;
+    }
   }
-
-  const meta = candidate?.groundingMetadata;
-  const seen = new Set<string>();
-  const citations: GroundingCitation[] = [];
-  for (const chunk of meta?.groundingChunks ?? []) {
-    const web = chunk.web;
-    if (!web?.uri || seen.has(web.uri)) continue;
-    seen.add(web.uri);
-    citations.push({
-      title: web.title || web.domain || "Source",
-      uri: web.uri,
-      domain: web.domain || web.title || "",
-    });
-  }
-  if (citations.length === 0) {
-    throw new GenAIError("Search grounding produced no citations.", undefined, spec.id);
-  }
-
-  return {
-    text,
-    citations,
-    searchQueries: meta?.webSearchQueries ?? [],
-    modelUsed: res.modelVersion || spec.id,
-    latencyMs: Date.now() - started,
-  };
+  throw lastErr ?? new Error("groundedSearch: no grounded model available.");
 }
 
 // ---------------------------------------------------------------------------
@@ -772,16 +955,23 @@ export async function probeTextModel(role: ModelRole, timeoutMs = 12_000): Promi
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    await getGenAI(spec.location).models.generateContent({
-      model: spec.id,
-      contents: "Reply with the single word OK.",
-      config: {
-        maxOutputTokens: 5,
-        temperature: 0,
-        thinkingConfig: thinkingConfigFor(spec.id, 0),
-        abortSignal: controller.signal,
-      },
-    });
+    if (isOmniModel(spec.id)) {
+      await getGenAI(spec.location).interactions.create({
+        model: spec.id,
+        input: "Reply with the single word OK.",
+      });
+    } else {
+      await getGenAI(spec.location).models.generateContent({
+        model: spec.id,
+        contents: "Reply with the single word OK.",
+        config: {
+          maxOutputTokens: 64,
+          temperature: 0,
+          thinkingConfig: thinkingConfigFor(spec.id, 0),
+          abortSignal: controller.signal,
+        },
+      });
+    }
     return { role, id: spec.id, location: spec.location, ok: true, latencyMs: Date.now() - started };
   } catch (e) {
     return {

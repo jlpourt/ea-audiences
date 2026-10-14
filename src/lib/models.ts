@@ -18,7 +18,9 @@ export type ModelRole =
   | "FAST"
   | "LITE"
   | "GROUNDED"
+  | "OMNI"
   | "IMAGE"
+  | "VIDEO"
   | "TTS"
   | "MUSIC"
   | "EMBED";
@@ -29,13 +31,15 @@ export type ModelFamily =
   | "gemini-3-pro"
   | "gemini-flash"
   | "gemini-flash-lite"
+  | "gemini-omni"
   | "gemini-image"
+  | "veo"
   | "gemini-tts"
   | "lyria"
   | "gemini-embedding";
 
 export interface ModelSpec {
-  /** Vertex AI publisher model id, e.g. `gemini-3.5-flash`. */
+  /** Vertex AI publisher model id, e.g. `gemini-3.8-flash`. */
   readonly id: string;
   /** Vertex AI location the model is served from. */
   readonly location: ModelLocation;
@@ -64,9 +68,9 @@ export const MODELS: Readonly<Record<ModelRole, ModelSpec>> = {
     family: "gemini-3-pro",
   }),
   FAST: withEnvOverride("FAST", {
-    id: "gemini-3.5-flash",
+    id: "gemini-3.8-flash",
     location: "global",
-    label: "3.5 Flash Eval",
+    label: "3.8 Flash Eval",
     family: "gemini-flash",
   }),
   LITE: withEnvOverride("LITE", {
@@ -75,20 +79,29 @@ export const MODELS: Readonly<Record<ModelRole, ModelSpec>> = {
     label: "3.5 Flash-Lite Swarm",
     family: "gemini-flash-lite",
   }),
-  // Verified 2026-10-02: 3.5-flash (global) accepts the `googleSearch`
-  // tool and returns groundingChunks, so grounding runs on the same fast tier
-  // as NL→GQL instead of dropping back to 2.5.
   GROUNDED: withEnvOverride("GROUNDED", {
-    id: "gemini-3.5-flash",
+    id: "gemini-3.8-flash",
     location: "global",
-    label: "3.5 Flash Search",
+    label: "3.8 Flash Search",
     family: "gemini-flash",
   }),
-  IMAGE: withEnvOverride("IMAGE", {
-    id: "gemini-3.1-flash-image",
+  OMNI: withEnvOverride("OMNI", {
+    id: "gemini-omni-1.1-flash-preview",
     location: "global",
-    label: "3.1 Flash Image",
+    label: "Omni 1.1 Flash",
+    family: "gemini-omni",
+  }),
+  IMAGE: withEnvOverride("IMAGE", {
+    id: "gemini-3.1-flash-lite-image",
+    location: "global",
+    label: "3.1 Flash-Lite Image",
     family: "gemini-image",
+  }),
+  VIDEO: withEnvOverride("VIDEO", {
+    id: "veo-3.1-lite-generate-001",
+    location: "global",
+    label: "Veo 3.1 Lite Video",
+    family: "veo",
   }),
   TTS: withEnvOverride("TTS", {
     id: "gemini-3.1-flash-tts-preview",
@@ -138,19 +151,29 @@ export function humanizeModelId(id: string): string {
     .join(" ");
 }
 
-/** Resolve a role or a raw id to a spec; raw ids default to `us-central1`. */
+/** Resolve a role or a raw id to a spec; Gemini 3.x/Omni raw ids route to `global` (except TTS), others default to `us-central1`. */
 export function resolveModel(roleOrId: ModelRole | string): ModelSpec {
   if (roleOrId in MODELS) return MODELS[roleOrId as ModelRole];
   const known = Object.values(MODELS).find((m) => m.id === roleOrId);
   if (known) return known;
+  const isGlobal =
+    (/^gemini-3(\.\d+)?-/i.test(roleOrId) && !roleOrId.includes("tts")) ||
+    /^gemini-omni-/i.test(roleOrId) ||
+    /^veo-3\.1/i.test(roleOrId);
   return {
     id: roleOrId,
-    location: "us-central1",
+    location: isGlobal ? "global" : "us-central1",
     label: humanizeModelId(roleOrId),
-    family: roleOrId.includes("lite")
-      ? "gemini-flash-lite"
-      : roleOrId.includes("pro")
-        ? "gemini-3-pro"
-        : "gemini-flash",
+    family: roleOrId.includes("veo")
+      ? "veo"
+      : roleOrId.includes("omni")
+        ? "gemini-omni"
+        : roleOrId.includes("image")
+          ? "gemini-image"
+          : roleOrId.includes("lite")
+            ? "gemini-flash-lite"
+            : roleOrId.includes("pro")
+              ? "gemini-3-pro"
+              : "gemini-flash",
   };
 }
