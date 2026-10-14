@@ -56,7 +56,6 @@ export default function GraphControls({
   const views: { id: ContextualViewType; label: string }[] = [
     { id: "audience-cohorts", label: "Cohorts" },
     { id: "marketing-journey", label: "Journeys" },
-    { id: "geo-map", label: "Markets" },
   ];
 
   const isGraphCanvasView =

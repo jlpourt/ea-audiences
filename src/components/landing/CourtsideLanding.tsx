@@ -763,19 +763,6 @@ export default function CourtsideLanding({
               <span>Journeys</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                if (onOpenGeoMap) onOpenGeoMap();
-                else if (onOpenWorkspaceView) onOpenWorkspaceView("geo-map");
-              }}
-              disabled={isLoading}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-white/[0.06] text-gray-300 hover:text-white text-xs font-medium transition-all disabled:opacity-50"
-            >
-              <Globe className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Markets</span>
-            </button>
-
             {onOpenFocusGroup && (
               <button
                 type="button"
