@@ -206,8 +206,8 @@ function isGemini3(id: string): boolean {
   return /^gemini-3(\.\d+)?-/i.test(id);
 }
 
-function isGemini38(id: string): boolean {
-  return /^gemini-3\.8/i.test(id);
+function isGemini3Lite(id: string): boolean {
+  return /^gemini-3(\.\d+)?-flash-lite/i.test(id);
 }
 
 function isOmniModel(id: string): boolean {
@@ -219,7 +219,7 @@ function isOmniModel(id: string): boolean {
  * which is why a 1k budget can finish with MAX_TOKENS and no text. Callers
  * pass a numeric `thinkingBudget`; for 3.x we translate it to the nearest
  * `thinkingLevel`, for 2.5 we pass it through.
- * Note: `gemini-3.8-flash` supports LOW / MEDIUM / HIGH (not MINIMAL).
+ * Note: `gemini-3.1-pro-preview` and `gemini-3.8-flash` support LOW / MEDIUM / HIGH (not MINIMAL).
  */
 function thinkingConfigFor(
   id: string,
@@ -228,7 +228,7 @@ function thinkingConfigFor(
   if (isGemini3(id)) {
     if (thinkingBudget === undefined) return { thinkingLevel: "LOW" as never };
     if (thinkingBudget <= 0) {
-      return { thinkingLevel: (isGemini38(id) ? "LOW" : "MINIMAL") as never };
+      return { thinkingLevel: (isGemini3Lite(id) ? "MINIMAL" : "LOW") as never };
     }
     if (thinkingBudget < 2048) return { thinkingLevel: "LOW" as never };
     if (thinkingBudget < 8192) return { thinkingLevel: "MEDIUM" as never };
@@ -714,6 +714,88 @@ export async function synthesizeSpeech(input: SynthesizeSpeechInput): Promise<Me
   if (!audio?.inlineData?.data) {
     const reason = res.candidates?.[0]?.finishReason || "NO_AUDIO";
     throw new GenAIError(`TTS model returned no audio (${reason}).`, undefined, spec.id);
+  }
+
+  const raw = Buffer.from(audio.inlineData.data, "base64");
+  const mime = audio.inlineData.mimeType || "";
+  const bytes = /wav/i.test(mime) ? raw : pcmToWav(raw, parseL16Rate(mime));
+
+  return {
+    bytes,
+    mimeType: "audio/wav",
+    modelUsed: res.modelVersion || spec.id,
+    latencyMs: Date.now() - started,
+  };
+}
+
+export interface MultiSpeakerTurn {
+  speaker: string;
+  voice: TTSVoice;
+  text: string;
+}
+
+export interface SynthesizeMultiSpeakerInput {
+  direction?: string;
+  turns: MultiSpeakerTurn[];
+}
+
+/**
+ * Native multi-speaker dialog synthesis on `gemini-3.1-flash-tts-preview`.
+ * Produces a single seamless studio-grade WAV file with distinct human-like voices.
+ */
+export async function synthesizeMultiSpeakerSpeech(
+  input: SynthesizeMultiSpeakerInput
+): Promise<MediaResult> {
+  if (!Array.isArray(input.turns) || input.turns.length === 0) {
+    throw new Error("synthesizeMultiSpeakerSpeech: turns are required.");
+  }
+  const spec = MODELS.TTS;
+  const started = Date.now();
+
+  const uniqueSpeakers = new Map<string, TTSVoice>();
+  for (const t of input.turns) {
+    if (t.speaker && !uniqueSpeakers.has(t.speaker)) {
+      uniqueSpeakers.set(t.speaker, t.voice);
+    }
+  }
+
+  const header = input.direction
+    ? `${input.direction.trim()}\n\n`
+    : "Read this courtside walkthrough naturally with realistic human inflection, conversational pacing, and broadcast studio warmth:\n\n";
+  const dialogue = input.turns
+    .map((t) => `${t.speaker}: ${t.text.trim()}`)
+    .join("\n");
+
+  const res = await withRetry(spec.id, () =>
+    getGenAI(spec.location).models.generateContent({
+      model: spec.id,
+      contents: `${header}${dialogue}`,
+      config: {
+        responseModalities: ["AUDIO"],
+        speechConfig: {
+          multiSpeakerVoiceConfig: {
+            speakerVoiceConfigs: Array.from(uniqueSpeakers.entries()).map(
+              ([speaker, voiceName]) => ({
+                speaker,
+                voiceConfig: {
+                  prebuiltVoiceConfig: { voiceName },
+                },
+              })
+            ),
+          },
+        },
+      },
+    })
+  );
+
+  const audio = res.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
+  if (!audio?.inlineData?.data) {
+    const reason = res.candidates?.[0]?.finishReason || "NO_AUDIO";
+    throw new GenAIError(
+      `Multi-speaker TTS returned no audio (${reason}).`,
+      undefined,
+      spec.id
+    );
   }
 
   const raw = Buffer.from(audio.inlineData.data, "base64");

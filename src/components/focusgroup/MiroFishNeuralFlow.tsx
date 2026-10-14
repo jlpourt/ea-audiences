@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Radio,
@@ -15,9 +15,16 @@ import {
   ArrowRight,
   Layers,
   Cpu,
+  Volume2,
+  Pause,
+  Play,
+  RotateCcw,
+  GitBranch,
+  Eye,
 } from "lucide-react";
 import { FocusGroupReaction } from "@/lib/types";
 import { archetypeLabel, archetypeColor } from "@/lib/archetypes";
+import type { ExplainFlowBeat } from "@/app/api/synthetic/focus-group/explain/route";
 
 export type NeuralNodeId =
   | "seed"
@@ -31,6 +38,8 @@ export type NeuralNodeId =
   | "verdict_eval"
   | "verdict_pass"
   | "verdict_boycott";
+
+export type SignalChannelId = "sig_creators" | "sig_crews" | "sig_reddit";
 
 export interface CreatorSignalSummary {
   id: string;
@@ -133,7 +142,66 @@ export default function MiroFishNeuralFlow({
   prefersReducedMotion = false,
 }: MiroFishNeuralFlowProps) {
   const [selectedNodeId, setSelectedNodeId] = useState<NeuralNodeId | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<NeuralNodeId | null>(null);
   const [thoughtTickIndex, setThoughtTickIndex] = useState<number>(0);
+
+  // ---------------------------------------------------------------------------
+  // 1. Single-Photon Attribution Trace State
+  // ---------------------------------------------------------------------------
+  const [traceModeActive, setTraceModeActive] = useState<boolean>(false);
+  const [tracePlayerIndex, setTracePlayerIndex] = useState<number>(0);
+
+  // ---------------------------------------------------------------------------
+  // 2. Layer-3 Interactive Signal Ablation / Mute Toggles
+  // ---------------------------------------------------------------------------
+  const [mutedSignals, setMutedSignals] = useState<Record<SignalChannelId, boolean>>({
+    sig_creators: false,
+    sig_crews: false,
+    sig_reddit: false,
+  });
+
+  const anySignalMuted =
+    mutedSignals.sig_creators || mutedSignals.sig_crews || mutedSignals.sig_reddit;
+
+  const toggleMuteSignal = useCallback(
+    (sig: SignalChannelId, e: React.MouseEvent) => {
+      e.stopPropagation();
+      setMutedSignals((prev) => ({ ...prev, [sig]: !prev[sig] }));
+    },
+    []
+  );
+
+  // ---------------------------------------------------------------------------
+  // 3. Choreographed Dual-Voice Walkthrough State (Gemini 3.8 Flash + 3.1 TTS)
+  // ---------------------------------------------------------------------------
+  const [isSynthesizingAudio, setIsSynthesizingAudio] = useState<boolean>(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
+  const [audioDataUrl, setAudioDataUrl] = useState<string | null>(null);
+  const [audioBeats, setAudioBeats] = useState<ExplainFlowBeat[]>([]);
+  const [activeBeatIndex, setActiveBeatIndex] = useState<number | null>(null);
+  const [audioLevel, setAudioLevel] = useState<number>(0);
+  const [audioError, setAudioError] = useState<string | null>(null);
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const cachedKeyRef = useRef<string>("");
+
+  // Reset cached voice walkthrough when offer or simulation reactions change
+  const currentSimSignature = `${creativeTitle}|${priceUsd}|${buyCount}|${contagionFlipsCount}|${hasRound3}|${round3FlipsCount}`;
+  useEffect(() => {
+    if (cachedKeyRef.current && cachedKeyRef.current !== currentSimSignature) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      setIsPlayingAudio(false);
+      setActiveBeatIndex(null);
+      setAudioDataUrl(null);
+      setAudioBeats([]);
+    }
+  }, [currentSimSignature]);
 
   // Rotate live thought stream during/after simulation
   useEffect(() => {
@@ -184,76 +252,76 @@ export default function MiroFishNeuralFlow({
     return { buy, eval: evalC, pass, boycott, total: states.length };
   }, [activeReactions, crowdAgents, swarmSize]);
 
-  // Latest active thought for R1 and R2
-  const currentR1Thought = useMemo(() => {
-    if (activeReactions.length === 0) {
-      return {
-        tag: "@ SwishGod_2K",
-        state: "EVALUATING",
-        quote: `Evaluating ${creativeTitle} ($${priceUsd.toFixed(2)}) against VC grind value...`,
-      };
+  // Attributed flip counts per Layer-3 Signal Node
+  const signalAttribution = useMemo(() => {
+    const totalFlips = Math.max(0, contagionFlipsCount);
+    const creatorRaw =
+      creatorSignals.reduce((acc, c) => acc + (c.attributed_flips || 0), 0) ||
+      Math.max(1, Math.round(totalFlips * 0.42));
+    const crewRaw = Math.max(1, Math.round(totalFlips * 0.45));
+    const redditRaw = Math.max(0, totalFlips - Math.min(totalFlips, creatorRaw + crewRaw));
+
+    // Normalize so attributed flips sum cleanly to totalFlips when > 0
+    if (totalFlips === 0) {
+      return { creators: 2, crews: 3, reddit: 1, lostFlips: 0, lostBoycotts: 0 };
     }
-    const idx = isRunning
-      ? Math.max(0, activeReactions.length - 1)
-      : thoughtTickIndex % activeReactions.length;
-    const r = activeReactions[idx] || activeReactions[0];
+    const c1 = Math.min(totalFlips, Math.max(1, Math.round(totalFlips * 0.42)));
+    const c2 = Math.min(totalFlips - c1, Math.max(1, Math.round(totalFlips * 0.45)));
+    const c3 = Math.max(0, totalFlips - c1 - c2);
+
+    const lostFlips =
+      (mutedSignals.sig_creators ? c1 : 0) +
+      (mutedSignals.sig_crews ? c2 : 0) +
+      (mutedSignals.sig_reddit ? c3 : 0);
+
     return {
-      tag: `@${String(r.gamer_tag || "Player").replace(/^@/, "")}`,
-      state: shortStateBadge(r.round1_fsm_state || r.final_fsm_state),
-      quote:
-        r.round1_quote ||
-        r.verbatim_quote ||
-        `Checking ${creativeTitle} at $${priceUsd.toFixed(2)} before locking in.`,
+      creators: c1,
+      crews: c2,
+      reddit: Math.max(1, c3),
+      lostFlips,
+      lostBoycotts: mutedSignals.sig_reddit ? Math.min(boycottCount, 1) : 0,
     };
-  }, [activeReactions, isRunning, thoughtTickIndex, creativeTitle, priceUsd]);
+  }, [creatorSignals, contagionFlipsCount, mutedSignals, boycottCount]);
 
-  const flippedReactions = useMemo(
-    () =>
-      activeReactions.filter(
-        (r) =>
-          r.contagion_flipped ||
-          (r.round1_fsm_state && r.round1_fsm_state !== r.final_fsm_state)
-      ),
-    [activeReactions]
-  );
+  // Effective downstream numbers after any Layer-3 Signal Ablation / Mute
+  const effectiveMetrics = useMemo(() => {
+    const lost = signalAttribution.lostFlips;
+    const effFlips = Math.max(0, contagionFlipsCount - lost);
+    const effBuy = Math.max(r1Breakdown.buy, buyCount - lost);
+    const effEval = evalCount + lost;
+    const effPass = passCount;
+    const effBoycott = Math.max(0, boycottCount - signalAttribution.lostBoycotts);
+    const ratio =
+      contagionFlipsCount > 0 ? effFlips / contagionFlipsCount : 1;
+    const effLift = Number((conversionLift * ratio).toFixed(1));
+    const effCascade = mutedSignals.sig_crews
+      ? 1.0
+      : Number((1 + (crewMultiplier - 1) * ratio).toFixed(1));
 
-  const r3RescuedReactions = useMemo(
-    () =>
-      activeReactions.filter(
-        (r) =>
-          r.round3_flipped ||
-          (r.round3_fsm_state && r.round3_fsm_state !== r.final_fsm_state)
-      ),
-    [activeReactions]
-  );
-
-  const currentR2Thought = useMemo(() => {
-    const pool = flippedReactions.length > 0 ? flippedReactions : activeReactions;
-    if (pool.length === 0) {
-      return {
-        tag: "@IsoKing_99",
-        driver: "via @Agent00 + Crew Captain",
-        quote: "Squad captain locked the bundle for Rec tonight · flipping from EVAL to BUY.",
-      };
-    }
-    const r = pool[thoughtTickIndex % pool.length] || pool[0];
-    const driver = r.contagion_source_tag
-      ? `via ${r.contagion_source_tag}`
-      : r.contagion_driver === "CREATOR_STREAM"
-        ? `via ${r.creator_handle || "@Agent00"}`
-        : r.contagion_driver === "REDDIT_THREAD"
-          ? "via r/NBA2K"
-          : `via ${r.crew_name || "Crew"} Captain`;
     return {
-      tag: `@${String(r.gamer_tag || "Player").replace(/^@/, "")}`,
-      driver,
-      quote:
-        r.verbatim_quote ||
-        `Squad is running Rec tonight · flipping to ${shortStateBadge(r.final_fsm_state)}.`,
+      flips: effFlips,
+      buy: effBuy,
+      eval: effEval,
+      pass: effPass,
+      boycott: effBoycott,
+      lift: effLift,
+      cascade: effCascade,
+      deltaBuy: effBuy - buyCount,
     };
-  }, [flippedReactions, activeReactions, thoughtTickIndex]);
+  }, [
+    signalAttribution,
+    contagionFlipsCount,
+    r1Breakdown.buy,
+    buyCount,
+    evalCount,
+    passCount,
+    boycottCount,
+    conversionLift,
+    crewMultiplier,
+    mutedSignals.sig_crews,
+  ]);
 
-  // Build unified list of inspectable reactions for the slide-up drawer when a node is clicked
+  // Build unified list of inspectable reactions
   const allInspectableReactions: FocusGroupReaction[] = useMemo(() => {
     const base: FocusGroupReaction[] =
       activeReactions.length > 0
@@ -269,8 +337,11 @@ export default function MiroFishNeuralFlow({
               round1_fsm_state: idx % 4 === 0 ? "PURCHASED" : "EVALUATING",
               final_fsm_state: idx % 2 === 0 ? "PURCHASED" : "EVALUATING",
               contagion_flipped: idx % 2 === 0 && idx % 4 !== 0,
+              contagion_driver:
+                idx % 3 === 0 ? "CREATOR_STREAM" : "CREW_CAPTAIN",
+              round1_quote: `At $${priceUsd.toFixed(2)}, I'm waiting to see if my ${p.crew_name || "Rec"} squad locks in before spending VC.`,
               willingness_to_pay_usd: priceUsd,
-              verbatim_quote: `Evaluating ${creativeTitle} at $${priceUsd.toFixed(2)} with ${p.crew_name || "the squad"}.`,
+              verbatim_quote: `My ${p.crew_name || "Bucket Getters"} Captain locked in ${creativeTitle} for Rec tonight · flipping from EVAL to BUY.`,
               authenticity_rating: 0.93,
               churn_risk_score: 0.28,
               sentiment_score: 0.68,
@@ -278,6 +349,470 @@ export default function MiroFishNeuralFlow({
           );
     return base;
   }, [activeReactions, sampledPersonas, priceUsd, creativeTitle]);
+
+  const flippedReactions = useMemo(
+    () =>
+      allInspectableReactions.filter(
+        (r) =>
+          r.contagion_flipped ||
+          (r.round1_fsm_state && r.round1_fsm_state !== r.final_fsm_state)
+      ),
+    [allInspectableReactions]
+  );
+
+  const r3RescuedReactions = useMemo(
+    () =>
+      allInspectableReactions.filter(
+        (r) =>
+          r.round3_flipped ||
+          (r.round3_fsm_state && r.round3_fsm_state !== r.final_fsm_state)
+      ),
+    [allInspectableReactions]
+  );
+
+  // Active traced player for Single-Photon Attribution Trace
+  const tracedPlayer = useMemo(() => {
+    const pool =
+      flippedReactions.length > 0 ? flippedReactions : allInspectableReactions;
+    const p = pool[tracePlayerIndex % Math.max(1, pool.length)] || pool[0];
+    if (!p) return null;
+    const signalNode: SignalChannelId =
+      p.contagion_driver === "CREATOR_STREAM"
+        ? "sig_creators"
+        : p.contagion_driver === "REDDIT_THREAD"
+          ? "sig_reddit"
+          : "sig_crews";
+    const signalLabel =
+      signalNode === "sig_creators"
+        ? p.creator_handle || creatorSignals[0]?.handle || "@Agent00"
+        : signalNode === "sig_reddit"
+          ? "r/NBA2K Thread"
+          : `${p.crew_name || "Bucket Getters"} Captain`;
+    const r1State = shortStateBadge(p.round1_fsm_state || "EVALUATING");
+    const r2State = shortStateBadge(p.final_fsm_state || "PURCHASED");
+    const verdictNode: NeuralNodeId =
+      r2State === "BUY"
+        ? "verdict_buy"
+        : r2State === "BOYCOTT"
+          ? "verdict_boycott"
+          : r2State === "PASS"
+            ? "verdict_pass"
+            : "verdict_eval";
+
+    return {
+      reaction: p,
+      tag: `@${String(p.gamer_tag || "SwishGod_2K").replace(/^@/, "")}`,
+      ovr: p.myplayer_ovr || 84,
+      crew: p.crew_name || "Bucket Getters",
+      r1State,
+      r2State,
+      signalNode,
+      signalLabel,
+      verdictNode,
+      r1Quote:
+        p.round1_quote ||
+        `Holding off at $${priceUsd.toFixed(2)} until I see what my squad is doing.`,
+      r2Quote:
+        p.verbatim_quote ||
+        `Saw ${signalLabel} lock in for Rec tonight · flipping from ${r1State} to ${r2State}.`,
+    };
+  }, [flippedReactions, allInspectableReactions, tracePlayerIndex, creatorSignals, priceUsd]);
+
+  // Latest active thought for R1 and R2
+  const currentR1Thought = useMemo(() => {
+    const pool = allInspectableReactions;
+    const idx = isRunning
+      ? Math.max(0, pool.length - 1)
+      : thoughtTickIndex % Math.max(1, pool.length);
+    const r = pool[idx] || pool[0];
+    return {
+      tag: `@${String(r?.gamer_tag || "SwishGod_2K").replace(/^@/, "")}`,
+      state: shortStateBadge(r?.round1_fsm_state || r?.final_fsm_state),
+      quote:
+        r?.round1_quote ||
+        r?.verbatim_quote ||
+        `Checking ${creativeTitle} at $${priceUsd.toFixed(2)} before locking in.`,
+    };
+  }, [allInspectableReactions, isRunning, thoughtTickIndex, creativeTitle, priceUsd]);
+
+  const currentR2Thought = useMemo(() => {
+    const pool =
+      flippedReactions.length > 0 ? flippedReactions : allInspectableReactions;
+    const r = pool[thoughtTickIndex % Math.max(1, pool.length)] || pool[0];
+    const driver = r?.contagion_source_tag
+      ? `via ${r.contagion_source_tag}`
+      : r?.contagion_driver === "CREATOR_STREAM"
+        ? `via ${r.creator_handle || "@Agent00"}`
+        : r?.contagion_driver === "REDDIT_THREAD"
+          ? "via r/NBA2K"
+          : `via ${r?.crew_name || "Crew"} Captain`;
+    return {
+      tag: `@${String(r?.gamer_tag || "IsoKing_99").replace(/^@/, "")}`,
+      driver,
+      quote:
+        r?.verbatim_quote ||
+        `Squad is running Rec tonight · flipping to ${shortStateBadge(r?.final_fsm_state)}.`,
+    };
+  }, [flippedReactions, allInspectableReactions, thoughtTickIndex]);
+
+  // ---------------------------------------------------------------------------
+  // Web Audio API Analyser + Timecode Beat Sync for Voice Walkthrough
+  // ---------------------------------------------------------------------------
+  const stopAudioMeter = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    setAudioLevel(0);
+  }, []);
+
+  const startAudioMeter = useCallback(() => {
+    if (!audioRef.current) return;
+    try {
+      if (!audioCtxRef.current) {
+        const AudioCtx =
+          window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        audioCtxRef.current = new AudioCtx();
+      }
+      if (audioCtxRef.current.state === "suspended") {
+        audioCtxRef.current.resume();
+      }
+      if (!sourceNodeRef.current) {
+        analyserRef.current = audioCtxRef.current.createAnalyser();
+        analyserRef.current.fftSize = 64;
+        sourceNodeRef.current = audioCtxRef.current.createMediaElementSource(
+          audioRef.current
+        );
+        sourceNodeRef.current.connect(analyserRef.current);
+        analyserRef.current.connect(audioCtxRef.current.destination);
+      }
+      const analyser = analyserRef.current;
+      if (!analyser) return;
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      const tick = () => {
+        if (!audioRef.current || audioRef.current.paused) {
+          setAudioLevel(0);
+          return;
+        }
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const avg = sum / (dataArray.length * 255);
+        setAudioLevel(Math.min(1, avg * 2.2));
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      rafRef.current = requestAnimationFrame(tick);
+    } catch {
+      // Fallback if MediaElementSource already attached
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopAudioMeter();
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, [stopAudioMeter]);
+
+  const handleAudioTimeUpdate = useCallback(() => {
+    const el = audioRef.current;
+    if (!el || !el.duration || audioBeats.length === 0) return;
+    const ratio = el.currentTime / el.duration;
+    const foundIdx = audioBeats.findIndex(
+      (b, idx) =>
+        (ratio >= b.startRatio && ratio <= b.endRatio) ||
+        (idx === audioBeats.length - 1 && ratio >= b.startRatio)
+    );
+    const nextIdx = foundIdx >= 0 ? foundIdx : 0;
+    setActiveBeatIndex(nextIdx);
+    // Automatically enable single-photon trace during Beat 3 (Player Flip story)
+    if (audioBeats[nextIdx]?.stage === "r2") {
+      setTraceModeActive(true);
+    }
+  }, [audioBeats]);
+
+  const handleScrubToBeat = useCallback(
+    (idx: number) => {
+      setActiveBeatIndex(idx);
+      const beat = audioBeats[idx];
+      if (!beat) return;
+      if (beat.stage === "r2") {
+        setTraceModeActive(true);
+      }
+      if (audioRef.current && audioRef.current.duration) {
+        audioRef.current.currentTime =
+          beat.startRatio * audioRef.current.duration + 0.05;
+        if (audioRef.current.paused) {
+          audioRef.current.play().catch(() => {});
+          setIsPlayingAudio(true);
+          startAudioMeter();
+        }
+      }
+    },
+    [audioBeats, startAudioMeter]
+  );
+
+  const handleToggleVoiceWalkthrough = useCallback(async () => {
+    setAudioError(null);
+    // If already playing, pause
+    if (isPlayingAudio && audioRef.current) {
+      audioRef.current.pause();
+      setIsPlayingAudio(false);
+      stopAudioMeter();
+      return;
+    }
+
+    // If already synthesized for this simulation state, resume or replay from start
+    if (
+      audioDataUrl &&
+      audioBeats.length > 0 &&
+      cachedKeyRef.current === currentSimSignature &&
+      audioRef.current
+    ) {
+      if (
+        audioRef.current.ended ||
+        audioRef.current.currentTime >= (audioRef.current.duration || 1) - 0.2
+      ) {
+        audioRef.current.currentTime = 0;
+        setActiveBeatIndex(0);
+      }
+      await audioRef.current.play();
+      setIsPlayingAudio(true);
+      startAudioMeter();
+      return;
+    }
+
+    // Synthesize live via Gemini 3.8 Flash + Gemini 3.1 Flash Multi-Speaker TTS
+    setIsSynthesizingAudio(true);
+    try {
+      const revenue30d = Math.round(effectiveMetrics.buy * priceUsd * 65);
+      const resp = await fetch("/api/synthetic/focus-group/explain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          creativeTitle,
+          priceUsd,
+          totalDenominator,
+          r1Buy: r1Breakdown.buy,
+          r1Eval: r1Breakdown.eval,
+          r1Pass: r1Breakdown.pass,
+          buyCount: effectiveMetrics.buy,
+          contagionFlipsCount: effectiveMetrics.flips,
+          round3FlipsCount,
+          hasRound3,
+          selectedCfLabel,
+          crewMultiplier: effectiveMetrics.cascade,
+          conversionLift: effectiveMetrics.lift,
+          revenue30d,
+          topCreator: creatorSignals[0]?.handle || "@Agent00",
+          featuredPlayerTag: tracedPlayer?.tag || "@SwishGod_2K",
+          featuredPlayerOvr: tracedPlayer?.ovr || 84,
+          featuredPlayerCrew: tracedPlayer?.crew || "Bucket Getters",
+          featuredPlayerR1State: tracedPlayer?.r1State || "EVAL",
+          featuredPlayerDriver: tracedPlayer?.signalLabel || "Crew Captain",
+          featuredPlayerQuote:
+            tracedPlayer?.r2Quote ||
+            "My Crew Captain locked in for Rec tonight, I'm in.",
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.audioDataUrl) {
+        throw new Error(data.details || data.error || `HTTP ${resp.status}`);
+      }
+
+      cachedKeyRef.current = currentSimSignature;
+      setAudioDataUrl(data.audioDataUrl);
+      setAudioBeats(data.beats || []);
+      setActiveBeatIndex(0);
+
+      setTimeout(async () => {
+        if (audioRef.current) {
+          audioRef.current.src = data.audioDataUrl;
+          audioRef.current.currentTime = 0;
+          try {
+            await audioRef.current.play();
+            setIsPlayingAudio(true);
+            startAudioMeter();
+          } catch (playErr: any) {
+            setAudioError(playErr?.message || "Playback blocked by browser");
+          }
+        }
+      }, 60);
+    } catch (err: any) {
+      setAudioError(err?.message || "Voice synthesis failed");
+    } finally {
+      setIsSynthesizingAudio(false);
+    }
+  }, [
+    isPlayingAudio,
+    audioDataUrl,
+    audioBeats.length,
+    currentSimSignature,
+    stopAudioMeter,
+    startAudioMeter,
+    effectiveMetrics,
+    priceUsd,
+    creativeTitle,
+    totalDenominator,
+    r1Breakdown,
+    round3FlipsCount,
+    hasRound3,
+    selectedCfLabel,
+    creatorSignals,
+    tracedPlayer,
+  ]);
+
+  // Active Walkthrough Beat
+  const currentBeat =
+    activeBeatIndex !== null && audioBeats[activeBeatIndex]
+      ? audioBeats[activeBeatIndex]
+      : null;
+
+  // Determine which node(s) are currently spotlighted by hover, trace, or voice walkthrough
+  const isNodeSpotlighted = useCallback(
+    (nodeId: NeuralNodeId): boolean => {
+      if (hoveredNodeId === nodeId || selectedNodeId === nodeId) return true;
+      if (currentBeat) {
+        if (currentBeat.stage === "r1" && (nodeId === "seed" || nodeId === "r1"))
+          return true;
+        if (
+          currentBeat.stage === "signals" &&
+          (nodeId === "sig_creators" ||
+            nodeId === "sig_crews" ||
+            nodeId === "sig_reddit")
+        )
+          return true;
+        if (
+          currentBeat.stage === "r2" &&
+          (nodeId === "r2" || nodeId === tracedPlayer?.signalNode)
+        )
+          return true;
+        if (
+          currentBeat.stage === "verdict" &&
+          (nodeId === "verdict_buy" || (hasRound3 && nodeId === "r3"))
+        )
+          return true;
+      }
+      if (traceModeActive && tracedPlayer) {
+        if (
+          nodeId === "seed" ||
+          nodeId === "r1" ||
+          nodeId === tracedPlayer.signalNode ||
+          nodeId === "r2" ||
+          nodeId === tracedPlayer.verdictNode
+        ) {
+          return true;
+        }
+      }
+      return false;
+    },
+    [hoveredNodeId, selectedNodeId, currentBeat, traceModeActive, tracedPlayer, hasRound3]
+  );
+
+  // Plain-English X-Ray Hover Explanation for any hovered node
+  const hoverExplanation = useMemo(() => {
+    const target = hoveredNodeId || selectedNodeId;
+    if (!target) return null;
+    switch (target) {
+      case "seed":
+        return {
+          badge: "STEP 1 · INJECTION",
+          color: "text-[#A8C7FA]",
+          text: `Injecting "${creativeTitle}" ($${priceUsd.toFixed(2)}) into ${totalDenominator} live Spanner Graph player personas from ${cohortName}.`,
+        };
+      case "r1":
+        return {
+          badge: "STEP 2 · ALONE (R1)",
+          color: "text-[#669DF6]",
+          text: `Each player evaluates price vs. OVR & VC balance in isolation—only ${r1Breakdown.buy} buy alone while ${r1Breakdown.eval} wait on their squad.`,
+        };
+      case "sig_creators":
+        return {
+          badge: mutedSignals.sig_creators
+            ? "SIGNAL MUTED · CREATORS"
+            : "STEP 3A · CREATOR STREAM",
+          color: mutedSignals.sig_creators ? "text-white/40" : "text-[#D96570]",
+          text: mutedSignals.sig_creators
+            ? `Creator Co-Streams muted—losing ${signalAttribution.creators} attributed R2 conversions.`
+            : `${creatorSignals[0]?.handle || "@Agent00"} co-stream validates the build meta, flipping +${signalAttribution.creators} fence-sitters (${creatorSignals[0]?.mroas?.toFixed(1) || "3.8"}x mROAS).`,
+        };
+      case "sig_crews":
+        return {
+          badge: mutedSignals.sig_crews
+            ? "SIGNAL MUTED · CREWS"
+            : "STEP 3B · CREW GRAVITY",
+          color: mutedSignals.sig_crews ? "text-white/40" : "text-[#00F5D4]",
+          text: mutedSignals.sig_crews
+            ? `Crew Captains muted—losing ${signalAttribution.crews} squad-cascade conversions.`
+            : `Rec/Pro-Am Captains trigger a ${effectiveMetrics.cascade.toFixed(1)}x peer cascade in Discord, pulling +${signalAttribution.crews} squadmates into BUY.`,
+        };
+      case "sig_reddit":
+        return {
+          badge: mutedSignals.sig_reddit
+            ? "SIGNAL MUTED · REDDIT"
+            : "STEP 3C · r/NBA2K PULSE",
+          color: mutedSignals.sig_reddit ? "text-white/40" : "text-[#FFB800]",
+          text: `Live r/NBA2K community threads test price backlash vs. build utility across ${redditThreads.length || 3} viral discussions.`,
+        };
+      case "r2":
+        return {
+          badge: "STEP 4 · CONTAGION SHIFT (R2)",
+          color: "text-[#E9D5FF]",
+          text: `Social proof flips +${effectiveMetrics.flips} hesitant players into BUY, boosting net conversion lift by +${effectiveMetrics.lift.toFixed(1)}%.`,
+        };
+      case "r3":
+        return {
+          badge: "STEP 4B · WHAT-IF RESCUE (R3)",
+          color: "text-[#00F5D4]",
+          text: `Counterfactual shock ("${selectedCfLabel}") rescues +${round3FlipsCount} holdouts directly into PURCHASED.`,
+        };
+      case "verdict_buy":
+        return {
+          badge: "VERDICT · PURCHASED",
+          color: "text-win-green",
+          text: `${effectiveMetrics.buy} of ${totalDenominator} players convert (${r1Breakdown.buy} in R1 alone + ${effectiveMetrics.flips} via social contagion${hasRound3 ? ` + ${round3FlipsCount} R3 rescue` : ""}).`,
+        };
+      case "verdict_eval":
+        return {
+          badge: "VERDICT · EVALUATING",
+          color: "text-vc-gold",
+          text: `${effectiveMetrics.eval} persuadable fence-sitters waiting for a Crew Captain nudge or What-If bonus.`,
+        };
+      case "verdict_pass":
+        return {
+          badge: "VERDICT · ABANDONED",
+          color: "text-slate-300",
+          text: `${effectiveMetrics.pass} low-intent players where $${priceUsd.toFixed(2)} exceeds current Willingness-to-Pay.`,
+        };
+      case "verdict_boycott":
+        return {
+          badge: "VERDICT · SLEEPING DOGS",
+          color: "text-loss-red",
+          text: `${effectiveMetrics.boycott} high-tilt holdouts—suppress from standard push to protect squad retention.`,
+        };
+    }
+  }, [
+    hoveredNodeId,
+    selectedNodeId,
+    creativeTitle,
+    priceUsd,
+    totalDenominator,
+    cohortName,
+    r1Breakdown,
+    mutedSignals,
+    signalAttribution,
+    creatorSignals,
+    effectiveMetrics,
+    redditThreads.length,
+    selectedCfLabel,
+    round3FlipsCount,
+    hasRound3,
+  ]);
 
   const drawerData = useMemo(() => {
     if (!selectedNodeId) return null;
@@ -317,7 +852,7 @@ export default function MiroFishNeuralFlow({
         };
       case "sig_crews":
         return {
-          title: `Layer 3B · Crew Captain Social Gravity (${crewMultiplier.toFixed(1)}x Cascade)`,
+          title: `Layer 3B · Crew Captain Social Gravity (${effectiveMetrics.cascade.toFixed(1)}x Cascade)`,
           subtitle: `Discord & Rec Squad peer pressure pulling hesitant teammates into the offer`,
           accent: "from-[#4285F4] to-[#00F5D4]",
           players: allInspectableReactions.filter(
@@ -340,7 +875,7 @@ export default function MiroFishNeuralFlow({
         };
       case "r2":
         return {
-          title: `Layer 4 · Round 2 Social Contagion Shift (+${contagionFlipsCount} Flips)`,
+          title: `Layer 4 · Round 2 Social Contagion Shift (+${effectiveMetrics.flips} Flips)`,
           subtitle: `Players whose decision flipped after Creator, Crew Captain, and Reddit contagion`,
           accent: "from-[#9B72CB] via-[#D96570] to-[#00F5D4]",
           players:
@@ -358,7 +893,7 @@ export default function MiroFishNeuralFlow({
         };
       case "verdict_buy":
         return {
-          title: `Layer 5 · PURCHASED Verdict Cluster (${buyCount} Agents)`,
+          title: `Layer 5 · PURCHASED Verdict Cluster (${effectiveMetrics.buy} Agents)`,
           subtitle: `Converted players ready for 2K Account / D2C Web Store activation`,
           accent: "from-[#19C37D] to-[#00F5D4]",
           players: allInspectableReactions.filter(
@@ -368,7 +903,7 @@ export default function MiroFishNeuralFlow({
         };
       case "verdict_eval":
         return {
-          title: `Layer 5 · EVALUATING Verdict Cluster (${evalCount} Agents)`,
+          title: `Layer 5 · EVALUATING Verdict Cluster (${effectiveMetrics.eval} Agents)`,
           subtitle: `Persuadable fence-sitters awaiting Crew Captain or What-If nudge`,
           accent: "from-[#FFB800] to-[#F59E0B]",
           players: allInspectableReactions.filter((r) => {
@@ -379,7 +914,7 @@ export default function MiroFishNeuralFlow({
         };
       case "verdict_pass":
         return {
-          title: `Layer 5 · PASS / ABANDONED Cluster (${passCount} Agents)`,
+          title: `Layer 5 · PASS / ABANDONED Cluster (${effectiveMetrics.pass} Agents)`,
           subtitle: `Low-intent players where offer price exceeds current Willingness-to-Pay`,
           accent: "from-slate-400 to-slate-600",
           players: allInspectableReactions.filter(
@@ -389,7 +924,7 @@ export default function MiroFishNeuralFlow({
         };
       case "verdict_boycott":
         return {
-          title: `Layer 5 · BOYCOTT / SLEEPING DOG Cluster (${boycottCount} Agents)`,
+          title: `Layer 5 · BOYCOTT / SLEEPING DOG Cluster (${effectiveMetrics.boycott} Agents)`,
           subtitle: `High-backlash holdouts · suppress from standard push or rescue via R3 What-If`,
           accent: "from-[#FF4D5E] to-[#D96570]",
           players: allInspectableReactions.filter(
@@ -407,22 +942,30 @@ export default function MiroFishNeuralFlow({
     priceUsd,
     allInspectableReactions,
     r1Breakdown,
-    crewMultiplier,
-    contagionFlipsCount,
-     flippedReactions,
+    effectiveMetrics,
+    flippedReactions,
     round3FlipsCount,
     selectedCfLabel,
     r3RescuedReactions,
-    buyCount,
-    evalCount,
-    passCount,
-    boycottCount,
   ]);
 
-  const totalEvaluated = buyCount + evalCount + passCount + boycottCount;
-  const buyPct = totalEvaluated > 0 ? Math.round((buyCount / totalEvaluated) * 100) : 0;
-  const evalPct = totalEvaluated > 0 ? Math.round((evalCount / totalEvaluated) * 100) : 0;
-  const passPct = totalEvaluated > 0 ? Math.round((passCount / totalEvaluated) * 100) : 0;
+  const totalEvaluated =
+    effectiveMetrics.buy +
+    effectiveMetrics.eval +
+    effectiveMetrics.pass +
+    effectiveMetrics.boycott;
+  const buyPct =
+    totalEvaluated > 0
+      ? Math.round((effectiveMetrics.buy / totalEvaluated) * 100)
+      : 0;
+  const evalPct =
+    totalEvaluated > 0
+      ? Math.round((effectiveMetrics.eval / totalEvaluated) * 100)
+      : 0;
+  const passPct =
+    totalEvaluated > 0
+      ? Math.round((effectiveMetrics.pass / totalEvaluated) * 100)
+      : 0;
   const boycottPct =
     totalEvaluated > 0 ? Math.max(0, 100 - buyPct - evalPct - passPct) : 0;
 
@@ -437,18 +980,35 @@ export default function MiroFishNeuralFlow({
     activeStage === "r3_firing" ||
     activeStage === "complete" ||
     activeStage === "complete_r3";
-  const isR3Active =
-    hasRound3 &&
-    (activeStage === "r3_firing" || activeStage === "complete_r3" || activeRound === 3);
+
+  const signalChannelOrder: SignalChannelId[] = [
+    "sig_creators",
+    "sig_crews",
+    "sig_reddit",
+  ];
 
   return (
     <div className="relative flex-1 h-full min-h-0 rounded-2xl border border-white/[0.08] bg-[#040407] overflow-hidden flex flex-col justify-between select-none shadow-[inset_0_0_80px_rgba(66,133,244,0.06)]">
+      {/* Hidden Audio Element for Gemini 3.1 Flash Multi-Speaker TTS Walkthrough */}
+      <audio
+        ref={audioRef}
+        onTimeUpdate={handleAudioTimeUpdate}
+        onEnded={() => {
+          setIsPlayingAudio(false);
+          stopAudioMeter();
+        }}
+        onPause={() => {
+          setIsPlayingAudio(false);
+          stopAudioMeter();
+        }}
+        className="hidden"
+      />
+
       {/* Ambient Google Gemini Dark Nebula Background + Neural Grid */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 overflow-hidden"
       >
-        {/* Top Gemini Blue/Violet Radial Glow */}
         <div
           className="absolute -top-24 left-1/2 -translate-x-1/2 w-[560px] h-[220px] rounded-full blur-[90px] opacity-30 transition-opacity duration-700"
           style={{
@@ -456,17 +1016,18 @@ export default function MiroFishNeuralFlow({
               "radial-gradient(circle, rgba(66,133,244,0.55) 0%, rgba(155,114,203,0.35) 50%, rgba(217,101,112,0) 100%)",
           }}
         />
-        {/* Center Contagion Violet/Coral Nebula */}
         <div
           className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[640px] h-[280px] rounded-full blur-[110px] transition-opacity duration-700 ${
-            isRunning ? "opacity-40" : "opacity-20"
+            isRunning || isPlayingAudio ? "opacity-45" : "opacity-20"
           }`}
           style={{
             background:
               "radial-gradient(circle, rgba(155,114,203,0.5) 0%, rgba(217,101,112,0.3) 55%, rgba(0,245,212,0) 100%)",
+            transform: isPlayingAudio
+              ? `translate(-50%, -50%) scale(${1 + audioLevel * 0.18})`
+              : "translate(-50%, -50%) scale(1)",
           }}
         />
-        {/* Subtle Dot Matrix Grid */}
         <div
           className="absolute inset-0 opacity-[0.14]"
           style={{
@@ -477,6 +1038,137 @@ export default function MiroFishNeuralFlow({
         />
       </div>
 
+      {/* ================= TOP FLOATING EXPLAINABILITY HUD BAR ================= */}
+      <div className="relative z-20 flex items-center justify-between gap-2 px-4 pt-3 pb-1">
+        {/* Left: Single-Photon Attribution Trace Toggle + Next Flip */}
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setTraceModeActive((prev) => !prev)}
+            data-testid="trace-flip-btn"
+            className={`h-7 px-2.5 rounded-full text-[11px] font-medium flex items-center gap-1.5 border transition-all backdrop-blur-xl ${
+              traceModeActive
+                ? "bg-[#00F5D4]/15 border-[#00F5D4]/70 text-[#00F5D4] shadow-[0_0_20px_rgba(0,245,212,0.25)]"
+                : "bg-white/[0.04] border-white/[0.1] text-white/70 hover:text-white hover:border-white/25"
+            }`}
+          >
+            <GitBranch className="w-3 h-3" />
+            <span>
+              {traceModeActive && tracedPlayer
+                ? `Tracing ${tracedPlayer.tag} (${tracedPlayer.r1State} → ${tracedPlayer.r2State})`
+                : "Trace 1 Flip"}
+            </span>
+          </button>
+
+          {traceModeActive && flippedReactions.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setTracePlayerIndex((prev) => prev + 1)}
+              className="h-7 px-2 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.1] text-[10px] font-mono text-white/75 hover:text-white transition-colors"
+              title="Trace next flipped player"
+            >
+              Next ↻
+            </button>
+          )}
+
+          {anySignalMuted && (
+            <button
+              type="button"
+              onClick={() =>
+                setMutedSignals({
+                  sig_creators: false,
+                  sig_crews: false,
+                  sig_reddit: false,
+                })
+              }
+              className="h-7 px-2.5 rounded-full bg-loss-red/15 border border-loss-red/40 text-[10px] font-mono font-semibold text-loss-red hover:bg-loss-red/25 flex items-center gap-1 transition-colors"
+            >
+              <RotateCcw className="w-2.5 h-2.5" />
+              <span>
+                {effectiveMetrics.deltaBuy} BUY (Reset Signals)
+              </span>
+            </button>
+          )}
+        </div>
+
+        {/* Center: 4-Step Interactive Scrubber Pills (Shown when Voice Walkthrough is active or loaded) */}
+        {audioBeats.length > 0 && (
+          <div className="hidden lg:flex items-center gap-1 rounded-full bg-black/60 border border-white/[0.1] p-0.5 backdrop-blur-xl">
+            {[
+              { idx: 0, label: "① R1 Alone" },
+              { idx: 1, label: "② Contagion" },
+              { idx: 2, label: "③ Player Flip" },
+              { idx: 3, label: "④ Verdict" },
+            ].map((step) => {
+              const active = activeBeatIndex === step.idx;
+              return (
+                <button
+                  key={step.idx}
+                  type="button"
+                  onClick={() => handleScrubToBeat(step.idx)}
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono transition-all ${
+                    active
+                      ? "bg-gradient-to-r from-[#4285F4]/35 to-[#9B72CB]/35 border border-[#A8C7FA]/50 text-white font-semibold"
+                      : "text-white/50 hover:text-white/85"
+                  }`}
+                >
+                  {step.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Right: Dual-Voice Courtside Walkthrough Button */}
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={handleToggleVoiceWalkthrough}
+            disabled={isSynthesizingAudio}
+            data-testid="explain-flow-voice-btn"
+            className={`h-7 px-3 rounded-full text-[11px] font-medium flex items-center gap-1.5 border transition-all backdrop-blur-xl ${
+              isPlayingAudio
+                ? "bg-gradient-to-r from-[#4285F4]/30 via-[#9B72CB]/30 to-[#D96570]/30 border-[#A8C7FA]/75 text-white shadow-[0_0_24px_rgba(66,133,244,0.35)]"
+                : "bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.12] hover:border-[#A8C7FA]/50 text-white/85"
+            }`}
+          >
+            {isSynthesizingAudio ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-[#A8C7FA] animate-ping" />
+                <span>Synthesizing Dual-Voice...</span>
+              </>
+            ) : isPlayingAudio ? (
+              <>
+                <Pause className="w-3 h-3 text-[#A8C7FA]" />
+                <span>Pause Walkthrough</span>
+                {/* Live 4-bar voice waveform visualizer */}
+                <span className="flex items-end gap-0.5 h-3 ml-0.5">
+                  {[0.55, 1.0, 0.75, 0.9].map((mult, i) => (
+                    <span
+                      key={i}
+                      style={{
+                        height: `${Math.max(25, Math.min(100, (0.25 + audioLevel * mult) * 100))}%`,
+                      }}
+                      className="w-0.5 bg-[#00F5D4] rounded-full transition-all duration-75"
+                    />
+                  ))}
+                </span>
+              </>
+            ) : audioDataUrl ? (
+              <>
+                <Play className="w-3 h-3 text-[#00F5D4]" />
+                <span>Replay Walkthrough</span>
+              </>
+            ) : (
+              <>
+                <Volume2 className="w-3 h-3 text-[#A8C7FA]" />
+                <span>Explain Flow</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* SVG Neural Synaptic Spine & Travelling Energy Comets (ViewBox 0 0 1000 600) */}
       <svg
         viewBox="0 0 1000 600"
@@ -484,7 +1176,6 @@ export default function MiroFishNeuralFlow({
         className="pointer-events-none absolute inset-0 w-full h-full z-0"
       >
         <defs>
-          {/* Google Gemini Signature Gradients */}
           <linearGradient id="gemini-beam-vertical" x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" stopColor="#4285F4" />
             <stop offset="50%" stopColor="#9B72CB" />
@@ -518,6 +1209,12 @@ export default function MiroFishNeuralFlow({
             <stop offset="100%" stopColor="#FF4D5E" />
           </linearGradient>
 
+          <linearGradient id="gemini-trace-gold" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#FFB800" />
+            <stop offset="50%" stopColor="#00F5D4" />
+            <stop offset="100%" stopColor="#19C37D" />
+          </linearGradient>
+
           <filter id="gemini-glow" x="-25%" y="-25%" width="150%" height="150%">
             <feGaussianBlur stdDeviation="4" result="blur" />
             <feMerge>
@@ -527,133 +1224,203 @@ export default function MiroFishNeuralFlow({
           </filter>
         </defs>
 
-        {/* ================= LAYER 1 (500,62) -> LAYER 2 R1 (500,165) ================= */}
+        {/* ================= LAYER 1 (500,72) -> LAYER 2 R1 (500,170) ================= */}
         {[
-          "M 500 62 C 500 100, 500 125, 500 165",
-          "M 440 62 C 440 105, 475 130, 485 165",
-          "M 560 62 C 560 105, 525 130, 515 165",
-        ].map((d, i) => (
-          <g key={`l1-l2-${i}`}>
-            <path
-              d={d}
-              fill="none"
-              stroke="rgba(255,255,255,0.07)"
-              strokeWidth={i === 0 ? 2.5 : 1.5}
-            />
-            <motion.path
-              d={d}
-              fill="none"
-              stroke="url(#gemini-beam-vertical)"
-              strokeWidth={i === 0 ? 3 : 1.75}
-              filter="url(#gemini-glow)"
-              initial={{ pathLength: 0, opacity: 0.25 }}
-              animate={{
-                pathLength: isR1Active ? 1 : 0.35,
-                opacity: isR1Active ? 0.95 : 0.3,
-              }}
-              transition={{ duration: 0.55, ease: [0.23, 1, 0.32, 1] }}
-            />
-            {(isRunning || isR1Active) && !prefersReducedMotion && (
+          "M 500 72 C 500 108, 500 132, 500 170",
+          "M 440 72 C 440 110, 475 135, 485 170",
+          "M 560 72 C 560 110, 525 135, 515 170",
+        ].map((d, i) => {
+          const isTraceWire = traceModeActive && i === 0;
+          const dimForTrace = traceModeActive && i !== 0;
+          return (
+            <g key={`l1-l2-${i}`}>
               <path
                 d={d}
                 fill="none"
-                stroke="#A8C7FA"
-                strokeWidth={i === 0 ? 3.2 : 2}
-                strokeLinecap="round"
-                strokeDasharray="10 26"
-                className="dag-edge-active"
-                style={{
-                  animationDuration: isRunning ? "420ms" : "1400ms",
-                }}
+                stroke="rgba(255,255,255,0.07)"
+                strokeWidth={i === 0 ? 2.5 : 1.5}
               />
-            )}
-          </g>
-        ))}
-
-        {/* ================= LAYER 2 R1 (500,225) -> LAYER 3 SIGNALS (190, 500, 810 at Y=305) ================= */}
-        {[
-          { d: "M 460 225 C 390 258, 240 262, 190 305", grad: "url(#gemini-beam-vertical)" },
-          { d: "M 500 225 C 500 258, 500 272, 500 305", grad: "url(#gemini-beam-cyan)" },
-          { d: "M 540 225 C 610 258, 760 262, 810 305", grad: "url(#gemini-beam-vertical)" },
-        ].map((edge, i) => (
-          <g key={`l2-l3-${i}`}>
-            <path d={edge.d} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="2" />
-            <motion.path
-              d={edge.d}
-              fill="none"
-              stroke={edge.grad}
-              strokeWidth="2.4"
-              filter="url(#gemini-glow)"
-              initial={{ pathLength: 0, opacity: 0.2 }}
-              animate={{
-                pathLength: isR1Active ? 1 : 0.2,
-                opacity: isR1Active ? 0.9 : 0.25,
-              }}
-              transition={{ duration: 0.6, delay: i * 0.06, ease: [0.23, 1, 0.32, 1] }}
-            />
-            {(isRunning || isR2Active) && !prefersReducedMotion && (
-              <path
-                d={edge.d}
-                fill="none"
-                stroke="#E9D5FF"
-                strokeWidth="2.6"
-                strokeLinecap="round"
-                strokeDasharray="8 28"
-                className="dag-edge-active"
-                style={{
-                  animationDuration: isRunning ? "460ms" : "1600ms",
-                }}
-              />
-            )}
-          </g>
-        ))}
-
-        {/* ================= LAYER 3 SIGNALS (Y=355) -> LAYER 4 R2 (X=hasRound3 ? 370 : 500, Y=425) ================= */}
-        {(() => {
-          const r2X = hasRound3 ? 360 : 500;
-          const l3ToL4 = [
-            `M 190 355 C 210 392, ${r2X - 70} 395, ${r2X - 25} 425`,
-            `M 500 355 C 500 390, ${r2X} 395, ${r2X} 425`,
-            `M 810 355 C 790 392, ${r2X + 70} 395, ${r2X + 25} 425`,
-          ];
-          return l3ToL4.map((d, i) => (
-            <g key={`l3-l4-${i}`}>
-              <path d={d} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="2" />
               <motion.path
                 d={d}
                 fill="none"
-                stroke="url(#gemini-beam-cyan)"
-                strokeWidth="2.4"
+                stroke={
+                  isTraceWire
+                    ? "url(#gemini-trace-gold)"
+                    : "url(#gemini-beam-vertical)"
+                }
+                strokeWidth={isTraceWire ? 3.8 : i === 0 ? 3 : 1.75}
                 filter="url(#gemini-glow)"
-                initial={{ pathLength: 0, opacity: 0.2 }}
+                initial={{ pathLength: 0, opacity: 0.25 }}
                 animate={{
-                  pathLength: isR2Active ? 1 : 0.15,
-                  opacity: isR2Active ? 0.92 : 0.22,
+                  pathLength: isR1Active ? 1 : 0.35,
+                  opacity: dimForTrace ? 0.15 : isR1Active ? 0.95 : 0.3,
                 }}
-                transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+                transition={{ duration: 0.55, ease: [0.23, 1, 0.32, 1] }}
               />
-              {(activeStage === "r2_firing" || isR2Active) && !prefersReducedMotion && (
+              {(isRunning || isR1Active) && !prefersReducedMotion && !dimForTrace && (
                 <path
                   d={d}
                   fill="none"
-                  stroke="#00F5D4"
-                  strokeWidth="2.6"
+                  stroke={isTraceWire ? "#FFB800" : "#A8C7FA"}
+                  strokeWidth={isTraceWire ? 3.8 : i === 0 ? 3.2 : 2}
                   strokeLinecap="round"
-                  strokeDasharray="9 28"
+                  strokeDasharray="10 26"
                   className="dag-edge-active"
                   style={{
-                    animationDuration: isRunning ? "380ms" : "1500ms",
+                    animationDuration: isRunning || isTraceWire ? "420ms" : "1400ms",
                   }}
                 />
               )}
             </g>
-          ));
+          );
+        })}
+
+        {/* ================= LAYER 2 R1 (500,230) -> LAYER 3 SIGNALS (190, 500, 810 at Y=308) ================= */}
+        {[
+          {
+            d: "M 460 230 C 390 262, 240 266, 190 308",
+            grad: "url(#gemini-beam-vertical)",
+            sig: "sig_creators" as const,
+          },
+          {
+            d: "M 500 230 C 500 262, 500 274, 500 308",
+            grad: "url(#gemini-beam-cyan)",
+            sig: "sig_crews" as const,
+          },
+          {
+            d: "M 540 230 C 610 262, 760 266, 810 308",
+            grad: "url(#gemini-beam-vertical)",
+            sig: "sig_reddit" as const,
+          },
+        ].map((edge, i) => {
+          const isMuted = mutedSignals[edge.sig];
+          const isTraceWire =
+            traceModeActive && tracedPlayer?.signalNode === edge.sig;
+          const dimForTrace =
+            traceModeActive && tracedPlayer?.signalNode !== edge.sig;
+          return (
+            <g key={`l2-l3-${i}`}>
+              <path
+                d={edge.d}
+                fill="none"
+                stroke="rgba(255,255,255,0.07)"
+                strokeDasharray={isMuted ? "4 6" : undefined}
+                strokeWidth="2"
+              />
+              <motion.path
+                d={edge.d}
+                fill="none"
+                stroke={isTraceWire ? "url(#gemini-trace-gold)" : edge.grad}
+                strokeWidth={isTraceWire ? 3.6 : 2.4}
+                filter="url(#gemini-glow)"
+                initial={{ pathLength: 0, opacity: 0.2 }}
+                animate={{
+                  pathLength: isMuted ? 0.15 : isR1Active ? 1 : 0.2,
+                  opacity: isMuted
+                    ? 0.08
+                    : dimForTrace
+                      ? 0.14
+                      : isR1Active
+                        ? 0.9
+                        : 0.25,
+                }}
+                transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
+              />
+              {(isRunning || isR2Active) &&
+                !prefersReducedMotion &&
+                !isMuted &&
+                !dimForTrace && (
+                  <path
+                    d={edge.d}
+                    fill="none"
+                    stroke={isTraceWire ? "#FFB800" : "#E9D5FF"}
+                    strokeWidth={isTraceWire ? 3.6 : 2.6}
+                    strokeLinecap="round"
+                    strokeDasharray="8 28"
+                    className="dag-edge-active"
+                    style={{
+                      animationDuration:
+                        isRunning || isTraceWire ? "420ms" : "1600ms",
+                    }}
+                  />
+                )}
+            </g>
+          );
+        })}
+
+        {/* ================= LAYER 3 SIGNALS (Y=358) -> LAYER 4 R2 (X=hasRound3 ? 360 : 500, Y=425) ================= */}
+        {(() => {
+          const r2X = hasRound3 ? 360 : 500;
+          const l3ToL4 = [
+            `M 190 358 C 210 392, ${r2X - 70} 395, ${r2X - 25} 425`,
+            `M 500 358 C 500 390, ${r2X} 395, ${r2X} 425`,
+            `M 810 358 C 790 392, ${r2X + 70} 395, ${r2X + 25} 425`,
+          ];
+          return l3ToL4.map((d, i) => {
+            const sig = signalChannelOrder[i];
+            const isMuted = mutedSignals[sig];
+            const isTraceWire =
+              traceModeActive && tracedPlayer?.signalNode === sig;
+            const dimForTrace =
+              traceModeActive && tracedPlayer?.signalNode !== sig;
+            return (
+              <g key={`l3-l4-${i}`}>
+                <path
+                  d={d}
+                  fill="none"
+                  stroke="rgba(255,255,255,0.07)"
+                  strokeDasharray={isMuted ? "4 6" : undefined}
+                  strokeWidth="2"
+                />
+                <motion.path
+                  d={d}
+                  fill="none"
+                  stroke={
+                    isTraceWire
+                      ? "url(#gemini-trace-gold)"
+                      : "url(#gemini-beam-cyan)"
+                  }
+                  strokeWidth={isTraceWire ? 3.6 : 2.4}
+                  filter="url(#gemini-glow)"
+                  initial={{ pathLength: 0, opacity: 0.2 }}
+                  animate={{
+                    pathLength: isMuted ? 0.1 : isR2Active ? 1 : 0.15,
+                    opacity: isMuted
+                      ? 0.08
+                      : dimForTrace
+                        ? 0.14
+                        : isR2Active
+                          ? 0.92
+                          : 0.22,
+                  }}
+                  transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
+                />
+                {(activeStage === "r2_firing" || isR2Active) &&
+                  !prefersReducedMotion &&
+                  !isMuted &&
+                  !dimForTrace && (
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke={isTraceWire ? "#00F5D4" : "#00F5D4"}
+                      strokeWidth={isTraceWire ? 3.8 : 2.6}
+                      strokeLinecap="round"
+                      strokeDasharray="9 28"
+                      className="dag-edge-active"
+                      style={{
+                        animationDuration:
+                          isRunning || isTraceWire ? "360ms" : "1500ms",
+                      }}
+                    />
+                  )}
+              </g>
+            );
+          });
         })()}
 
         {/* ================= DYNAMIC R2 -> R3 WHAT-IF BRIDGE & RESCUE BEAM ================= */}
         {hasRound3 && (
           <g>
-            {/* Horizontal Synaptic Bridge from R2 (360,455) to R3 (680,455) */}
             <motion.path
               d="M 480 455 C 535 455, 565 455, 610 455"
               fill="none"
@@ -676,9 +1443,8 @@ export default function MiroFishNeuralFlow({
               />
             )}
 
-            {/* Direct R3 Rescue Beam (680,485) -> PURCHASED Verdict Node (145,540) */}
             <motion.path
-              d="M 680 485 C 620 525, 290 508, 145 540"
+              d="M 680 485 C 620 520, 290 505, 145 535"
               fill="none"
               stroke="url(#gemini-beam-buy)"
               strokeWidth="3.2"
@@ -689,7 +1455,7 @@ export default function MiroFishNeuralFlow({
             />
             {!prefersReducedMotion && (
               <path
-                d="M 680 485 C 620 525, 290 508, 145 540"
+                d="M 680 485 C 620 520, 290 505, 145 535"
                 fill="none"
                 stroke="#19C37D"
                 strokeWidth="3.5"
@@ -702,29 +1468,33 @@ export default function MiroFishNeuralFlow({
           </g>
         )}
 
-        {/* ================= LAYER 4 R2 (Y=485) -> LAYER 5 VERDICTS (145, 385, 615, 855 at Y=540) ================= */}
+        {/* ================= LAYER 4 R2 (Y=482) -> LAYER 5 VERDICTS (145, 385, 615, 855 at Y=535) ================= */}
         {(() => {
           const r2X = hasRound3 ? 360 : 500;
           const verdictTargets = [
             {
+              id: "verdict_buy" as const,
               x: 145,
               grad: "url(#gemini-beam-buy)",
               pulse: "#19C37D",
               weight: Math.max(1.8, (buyPct / 100) * 5.2),
             },
             {
+              id: "verdict_eval" as const,
               x: 385,
               grad: "url(#gemini-beam-eval)",
               pulse: "#FFB800",
               weight: Math.max(1.5, (evalPct / 100) * 4.5),
             },
             {
+              id: "verdict_pass" as const,
               x: 615,
               grad: "url(#gemini-beam-pass)",
               pulse: "#94A3B8",
               weight: Math.max(1.3, (passPct / 100) * 4.0),
             },
             {
+              id: "verdict_boycott" as const,
               x: 855,
               grad: "url(#gemini-beam-boycott)",
               pulse: "#FF4D5E",
@@ -733,7 +1503,11 @@ export default function MiroFishNeuralFlow({
           ];
 
           return verdictTargets.map((vt, i) => {
-            const d = `M ${r2X} 485 C ${r2X} 515, ${vt.x} 510, ${vt.x} 540`;
+            const d = `M ${r2X} 482 C ${r2X} 512, ${vt.x} 508, ${vt.x} 535`;
+            const isTraceWire =
+              traceModeActive && tracedPlayer?.verdictNode === vt.id;
+            const dimForTrace =
+              traceModeActive && tracedPlayer?.verdictNode !== vt.id;
             return (
               <g key={`l4-l5-${i}`}>
                 <path
@@ -745,34 +1519,36 @@ export default function MiroFishNeuralFlow({
                 <motion.path
                   d={d}
                   fill="none"
-                  stroke={vt.grad}
-                  strokeWidth={vt.weight}
+                  stroke={isTraceWire ? "url(#gemini-trace-gold)" : vt.grad}
+                  strokeWidth={isTraceWire ? 4.0 : vt.weight}
                   filter="url(#gemini-glow)"
                   initial={{ pathLength: 0, opacity: 0.2 }}
                   animate={{
                     pathLength: isR2Active ? 1 : 0.2,
-                    opacity: isR2Active ? 0.9 : 0.25,
+                    opacity: dimForTrace ? 0.14 : isR2Active ? 0.9 : 0.25,
                   }}
                   transition={{
-                    duration: 0.65,
-                    delay: i * 0.05,
+                    duration: 0.55,
+                    delay: i * 0.04,
                     ease: [0.23, 1, 0.32, 1],
                   }}
                 />
-                {isR2Active && !prefersReducedMotion && (
+                {isR2Active && !prefersReducedMotion && !dimForTrace && (
                   <path
                     d={d}
                     fill="none"
-                    stroke={vt.pulse}
-                    strokeWidth={Math.max(2, vt.weight * 0.85)}
+                    stroke={isTraceWire ? "#19C37D" : vt.pulse}
+                    strokeWidth={
+                      isTraceWire ? 4.0 : Math.max(2, vt.weight * 0.85)
+                    }
                     strokeLinecap="round"
                     strokeDasharray="10 30"
                     className="dag-edge-active"
                     style={{
                       animationDuration:
-                        i === 0
-                          ? isRunning
-                            ? "360ms"
+                        i === 0 || isTraceWire
+                          ? isRunning || isTraceWire
+                            ? "340ms"
                             : "1100ms"
                           : isRunning
                             ? "520ms"
@@ -787,17 +1563,19 @@ export default function MiroFishNeuralFlow({
       </svg>
 
       {/* ================= FOREGROUND INTERACTIVE 5-LAYER NEURAL NODES ================= */}
-      <div className="relative z-10 flex-1 flex flex-col justify-between px-6 py-5 min-h-0">
+      <div className="relative z-10 flex-1 flex flex-col justify-between px-6 py-2 min-h-0">
         {/* LAYER 1: SEED COHORT & OFFER CAPSULE NODE */}
         <div className="flex justify-center">
           <motion.button
             type="button"
+            onMouseEnter={() => setHoveredNodeId("seed")}
+            onMouseLeave={() => setHoveredNodeId(null)}
             onClick={() =>
               setSelectedNodeId((prev) => (prev === "seed" ? null : "seed"))
             }
             whileTap={{ scale: 0.98 }}
-            className={`group relative rounded-full px-5 py-2 transition-all text-left border backdrop-blur-xl flex items-center gap-3 ${
-              selectedNodeId === "seed"
+            className={`group relative rounded-full px-5 py-1.5 transition-all text-left border backdrop-blur-xl flex items-center gap-3 ${
+              isNodeSpotlighted("seed")
                 ? "bg-[#111526]/95 border-[#669DF6]/85 shadow-[0_0_32px_rgba(66,133,244,0.38)]"
                 : "bg-[#0B0D16]/90 border-white/[0.12] hover:border-[#669DF6]/60 shadow-[0_0_24px_rgba(66,133,244,0.16)]"
             }`}
@@ -822,17 +1600,22 @@ export default function MiroFishNeuralFlow({
         <div className="flex justify-center">
           <motion.button
             type="button"
+            onMouseEnter={() => setHoveredNodeId("r1")}
+            onMouseLeave={() => setHoveredNodeId(null)}
             onClick={() => {
               onSelectRound(1);
               setSelectedNodeId((prev) => (prev === "r1" ? null : "r1"));
             }}
             animate={{
-              scale: activeStage === "r1_firing" ? 1.02 : 1,
+              scale:
+                activeStage === "r1_firing" || currentBeat?.stage === "r1"
+                  ? 1.02 + audioLevel * 0.02
+                  : 1,
             }}
             transition={{ type: "spring", bounce: 0.2, duration: 0.35 }}
-            className={`group relative rounded-2xl px-5 py-2.5 transition-all text-left border backdrop-blur-xl w-full max-w-xl ${
-              selectedNodeId === "r1" || activeRound === 1
-                ? "bg-[#111528]/95 border-[#669DF6]/75 shadow-[0_0_36px_rgba(66,133,244,0.3)]"
+            className={`group relative rounded-2xl px-5 py-2 transition-all text-left border backdrop-blur-xl w-full max-w-xl ${
+              isNodeSpotlighted("r1") || activeRound === 1
+                ? "bg-[#111528]/95 border-[#669DF6]/80 shadow-[0_0_36px_rgba(66,133,244,0.34)]"
                 : "bg-[#0B0D16]/90 border-white/[0.12] hover:border-[#669DF6]/50 shadow-[0_0_20px_rgba(66,133,244,0.12)]"
             }`}
           >
@@ -840,7 +1623,7 @@ export default function MiroFishNeuralFlow({
               <div className="flex items-center gap-2">
                 <span
                   className={`w-2 h-2 rounded-full ${
-                    activeStage === "r1_firing"
+                    activeStage === "r1_firing" || currentBeat?.stage === "r1"
                       ? "bg-[#669DF6] animate-ping"
                       : "bg-[#669DF6]"
                   }`}
@@ -866,39 +1649,47 @@ export default function MiroFishNeuralFlow({
               </div>
             </div>
 
-            {(isRunning || activeReactions.length > 0) && (
-              <div className="mt-1.5 pt-1.5 border-t border-white/[0.06] flex items-center justify-between gap-2 text-[11px] truncate">
+            {(isRunning || allInspectableReactions.length > 0) && (
+              <div className="mt-1 pt-1 border-t border-white/[0.06] flex items-center justify-between gap-2 text-[11px] truncate">
                 <div className="flex items-center gap-2 min-w-0 truncate">
                   <span className="font-mono font-semibold text-[#A8C7FA] shrink-0">
-                    {currentR1Thought.tag}
+                    {traceModeActive && tracedPlayer
+                      ? `${tracedPlayer.tag} (${tracedPlayer.r1State})`
+                      : currentR1Thought.tag}
                   </span>
                   <span className="text-white/65 truncate">
-                    &ldquo;{currentR1Thought.quote}&rdquo;
+                    &ldquo;
+                    {traceModeActive && tracedPlayer
+                      ? tracedPlayer.r1Quote
+                      : currentR1Thought.quote}
+                    &rdquo;
                   </span>
                 </div>
                 <span className="text-[10px] font-mono text-[#A8C7FA] shrink-0 tabular-nums">
-                  {activeReactions.length}/20
+                  {Math.min(20, allInspectableReactions.length)}/20
                 </span>
               </div>
             )}
           </motion.button>
         </div>
 
-        {/* LAYER 3: 3 PARALLEL CONTAGION SIGNAL NODES (CREATORS · CREW CAPTAINS · REDDIT) */}
+        {/* LAYER 3: 3 PARALLEL CONTAGION SIGNAL NODES WITH CLICK-TO-MUTE ABLATION TOGGLES */}
         <div className="grid grid-cols-3 gap-3 max-w-3xl w-full mx-auto">
           {/* Node 3A: Creator Co-Streams */}
-          <motion.button
-            type="button"
+          <motion.div
+            onMouseEnter={() => setHoveredNodeId("sig_creators")}
+            onMouseLeave={() => setHoveredNodeId(null)}
             onClick={() =>
               setSelectedNodeId((prev) =>
                 prev === "sig_creators" ? null : "sig_creators"
               )
             }
-            whileTap={{ scale: 0.98 }}
-            className={`rounded-2xl px-3.5 py-2.5 text-left border backdrop-blur-xl transition-all flex items-center justify-between gap-2 ${
-              selectedNodeId === "sig_creators"
-                ? "bg-[#1A1228]/95 border-[#9B72CB]/80 shadow-[0_0_26px_rgba(155,114,203,0.35)]"
-                : "bg-[#0C0D17]/90 border-white/[0.1] hover:border-[#9B72CB]/55"
+            className={`cursor-pointer rounded-2xl px-3.5 py-2 text-left border backdrop-blur-xl transition-all flex items-center justify-between gap-2 ${
+              mutedSignals.sig_creators
+                ? "bg-[#090A10]/70 border-white/[0.05] opacity-50"
+                : isNodeSpotlighted("sig_creators")
+                  ? "bg-[#1A1228]/95 border-[#9B72CB]/85 shadow-[0_0_28px_rgba(155,114,203,0.38)]"
+                  : "bg-[#0C0D17]/90 border-white/[0.1] hover:border-[#9B72CB]/55"
             }`}
           >
             <div className="flex items-center gap-2 min-w-0">
@@ -916,28 +1707,51 @@ export default function MiroFishNeuralFlow({
                 </div>
               </div>
             </div>
-            <span className="px-2 py-0.5 rounded-full bg-win-green/15 border border-win-green/30 text-[10px] font-mono font-semibold text-win-green shrink-0 tabular-nums">
-              +
-              {creatorSignals.reduce(
-                (acc, c) => acc + (c.attributed_flips || 0),
-                0
-              ) || Math.max(2, Math.round(contagionFlipsCount * 0.45))}
-            </span>
-          </motion.button>
+            <div className="flex items-center gap-1 shrink-0">
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-semibold tabular-nums ${
+                  mutedSignals.sig_creators
+                    ? "bg-white/[0.05] text-white/35 line-through"
+                    : "bg-win-green/15 border border-win-green/30 text-win-green"
+                }`}
+              >
+                +{signalAttribution.creators}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => toggleMuteSignal("sig_creators", e)}
+                data-testid="mute-sig-creators"
+                title={
+                  mutedSignals.sig_creators
+                    ? "Unmute Creator signal"
+                    : "Mute Creator signal to test counterfactual drop"
+                }
+                className={`px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-wider border transition-colors ${
+                  mutedSignals.sig_creators
+                    ? "bg-loss-red/20 border-loss-red/40 text-loss-red"
+                    : "bg-white/[0.05] border-white/[0.1] text-white/50 hover:text-white"
+                }`}
+              >
+                {mutedSignals.sig_creators ? "OFF" : "ON"}
+              </button>
+            </div>
+          </motion.div>
 
           {/* Node 3B: Crew Captain Social Gravity */}
-          <motion.button
-            type="button"
+          <motion.div
+            onMouseEnter={() => setHoveredNodeId("sig_crews")}
+            onMouseLeave={() => setHoveredNodeId(null)}
             onClick={() =>
               setSelectedNodeId((prev) =>
                 prev === "sig_crews" ? null : "sig_crews"
               )
             }
-            whileTap={{ scale: 0.98 }}
-            className={`rounded-2xl px-3.5 py-2.5 text-left border backdrop-blur-xl transition-all flex items-center justify-between gap-2 ${
-              selectedNodeId === "sig_crews"
-                ? "bg-[#0E1C26]/95 border-[#00F5D4]/75 shadow-[0_0_26px_rgba(0,245,212,0.3)]"
-                : "bg-[#0C0D17]/90 border-white/[0.1] hover:border-[#00F5D4]/50"
+            className={`cursor-pointer rounded-2xl px-3.5 py-2 text-left border backdrop-blur-xl transition-all flex items-center justify-between gap-2 ${
+              mutedSignals.sig_crews
+                ? "bg-[#090A10]/70 border-white/[0.05] opacity-50"
+                : isNodeSpotlighted("sig_crews")
+                  ? "bg-[#0E1C26]/95 border-[#00F5D4]/85 shadow-[0_0_28px_rgba(0,245,212,0.35)]"
+                  : "bg-[#0C0D17]/90 border-white/[0.1] hover:border-[#00F5D4]/50"
             }`}
           >
             <div className="flex items-center gap-2 min-w-0">
@@ -947,28 +1761,55 @@ export default function MiroFishNeuralFlow({
                   Crew Captains
                 </div>
                 <div className="text-[10px] font-mono text-[#00F5D4] truncate tabular-nums">
-                  {crewMultiplier.toFixed(1)}x Squad Cascade
+                  {effectiveMetrics.cascade.toFixed(1)}x Squad Cascade
                 </div>
               </div>
             </div>
-            <span className="px-2 py-0.5 rounded-full bg-win-green/15 border border-win-green/30 text-[10px] font-mono font-semibold text-win-green shrink-0 tabular-nums">
-              +{Math.max(2, Math.round(contagionFlipsCount * 0.4))}
-            </span>
-          </motion.button>
+            <div className="flex items-center gap-1 shrink-0">
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-semibold tabular-nums ${
+                  mutedSignals.sig_crews
+                    ? "bg-white/[0.05] text-white/35 line-through"
+                    : "bg-win-green/15 border border-win-green/30 text-win-green"
+                }`}
+              >
+                +{signalAttribution.crews}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => toggleMuteSignal("sig_crews", e)}
+                data-testid="mute-sig-crews"
+                title={
+                  mutedSignals.sig_crews
+                    ? "Unmute Crew Captain signal"
+                    : "Mute Crew Captains to test counterfactual drop"
+                }
+                className={`px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-wider border transition-colors ${
+                  mutedSignals.sig_crews
+                    ? "bg-loss-red/20 border-loss-red/40 text-loss-red"
+                    : "bg-white/[0.05] border-white/[0.1] text-white/50 hover:text-white"
+                }`}
+              >
+                {mutedSignals.sig_crews ? "OFF" : "ON"}
+              </button>
+            </div>
+          </motion.div>
 
           {/* Node 3C: r/NBA2K Community Pulse */}
-          <motion.button
-            type="button"
+          <motion.div
+            onMouseEnter={() => setHoveredNodeId("sig_reddit")}
+            onMouseLeave={() => setHoveredNodeId(null)}
             onClick={() =>
               setSelectedNodeId((prev) =>
                 prev === "sig_reddit" ? null : "sig_reddit"
               )
             }
-            whileTap={{ scale: 0.98 }}
-            className={`rounded-2xl px-3.5 py-2.5 text-left border backdrop-blur-xl transition-all flex items-center justify-between gap-2 ${
-              selectedNodeId === "sig_reddit"
-                ? "bg-[#24131C]/95 border-[#D96570]/80 shadow-[0_0_26px_rgba(217,101,112,0.35)]"
-                : "bg-[#0C0D17]/90 border-white/[0.1] hover:border-[#D96570]/55"
+            className={`cursor-pointer rounded-2xl px-3.5 py-2 text-left border backdrop-blur-xl transition-all flex items-center justify-between gap-2 ${
+              mutedSignals.sig_reddit
+                ? "bg-[#090A10]/70 border-white/[0.05] opacity-50"
+                : isNodeSpotlighted("sig_reddit")
+                  ? "bg-[#24131C]/95 border-[#D96570]/85 shadow-[0_0_28px_rgba(217,101,112,0.38)]"
+                  : "bg-[#0C0D17]/90 border-white/[0.1] hover:border-[#D96570]/55"
             }`}
           >
             <div className="flex items-center gap-2 min-w-0">
@@ -978,14 +1819,39 @@ export default function MiroFishNeuralFlow({
                   r/NBA2K Pulse
                 </div>
                 <div className="text-[10px] font-mono text-white/50 truncate">
-                  Community Sentiment
+                  {redditThreads.length || 3} Threads
                 </div>
               </div>
             </div>
-            <span className="px-2 py-0.5 rounded-full bg-vc-gold/15 border border-vc-gold/30 text-[10px] font-mono font-semibold text-vc-gold shrink-0 tabular-nums">
-              {redditThreads.length || 3}
-            </span>
-          </motion.button>
+            <div className="flex items-center gap-1 shrink-0">
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-semibold tabular-nums ${
+                  mutedSignals.sig_reddit
+                    ? "bg-white/[0.05] text-white/35 line-through"
+                    : "bg-vc-gold/15 border border-vc-gold/30 text-vc-gold"
+                }`}
+              >
+                +{signalAttribution.reddit}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => toggleMuteSignal("sig_reddit", e)}
+                data-testid="mute-sig-reddit"
+                title={
+                  mutedSignals.sig_reddit
+                    ? "Unmute Reddit signal"
+                    : "Mute Reddit signal to test counterfactual drop"
+                }
+                className={`px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-wider border transition-colors ${
+                  mutedSignals.sig_reddit
+                    ? "bg-loss-red/20 border-loss-red/40 text-loss-red"
+                    : "bg-white/[0.05] border-white/[0.1] text-white/50 hover:text-white"
+                }`}
+              >
+                {mutedSignals.sig_reddit ? "OFF" : "ON"}
+              </button>
+            </div>
+          </motion.div>
         </div>
 
         {/* LAYER 4: ROUND 2 · SOCIAL CONTAGION SHIFT (+ DYNAMIC R3 WHAT-IF RESCUE BRANCH) */}
@@ -994,18 +1860,23 @@ export default function MiroFishNeuralFlow({
           <motion.button
             type="button"
             layout
+            onMouseEnter={() => setHoveredNodeId("r2")}
+            onMouseLeave={() => setHoveredNodeId(null)}
             onClick={() => {
               onSelectRound(2);
               setSelectedNodeId((prev) => (prev === "r2" ? null : "r2"));
             }}
             animate={{
-              scale: activeStage === "r2_firing" ? 1.025 : 1,
+              scale:
+                activeStage === "r2_firing" || currentBeat?.stage === "r2"
+                  ? 1.025 + audioLevel * 0.025
+                  : 1,
             }}
             transition={{ type: "spring", bounce: 0.2, duration: 0.38 }}
-            className={`group relative rounded-2xl px-5 py-2.5 text-left border backdrop-blur-xl transition-all ${
+            className={`group relative rounded-2xl px-5 py-2 text-left border backdrop-blur-xl transition-all ${
               hasRound3 ? "w-full sm:w-[420px]" : "w-full max-w-xl"
             } ${
-              selectedNodeId === "r2" || (activeRound === 2 && !hasRound3)
+              isNodeSpotlighted("r2") || (activeRound === 2 && !hasRound3)
                 ? "bg-[#151226]/95 border-[#9B72CB]/85 shadow-[0_0_40px_rgba(155,114,203,0.35)]"
                 : "bg-[#0C0E18]/90 border-white/[0.14] hover:border-[#9B72CB]/60"
             }`}
@@ -1014,8 +1885,8 @@ export default function MiroFishNeuralFlow({
               <div className="flex items-center gap-2">
                 <span
                   className={`w-2 h-2 rounded-full ${
-                    activeStage === "r2_firing"
-                      ? "bg-[#D96570] animate-ping"
+                    activeStage === "r2_firing" || currentBeat?.stage === "r2"
+                      ? "bg-[#00F5D4] animate-ping"
                       : "bg-[#9B72CB]"
                   }`}
                 />
@@ -1026,24 +1897,32 @@ export default function MiroFishNeuralFlow({
 
               <div className="flex items-center gap-1.5">
                 <span className="px-2 py-0.5 rounded-full bg-win-green/20 border border-win-green/40 text-win-green font-mono text-[10px] font-semibold tabular-nums">
-                  +{contagionFlipsCount} Flips
+                  +{effectiveMetrics.flips} Flips
                 </span>
                 <span className="px-2 py-0.5 rounded-full bg-[#9B72CB]/20 border border-[#9B72CB]/40 text-[#E9D5FF] font-mono text-[10px] font-semibold tabular-nums">
-                  +{conversionLift.toFixed(1)}% Lift
+                  +{effectiveMetrics.lift.toFixed(1)}% Lift
                 </span>
               </div>
             </div>
 
-            {(isRunning || activeReactions.length > 0) && (
-              <div className="mt-1.5 pt-1.5 border-t border-white/[0.06] flex items-center gap-1.5 text-[11px] truncate">
+            {(isRunning || allInspectableReactions.length > 0) && (
+              <div className="mt-1 pt-1 border-t border-white/[0.06] flex items-center gap-1.5 text-[11px] truncate">
                 <span className="font-mono font-semibold text-[#00F5D4] shrink-0">
-                  {currentR2Thought.tag}
+                  {traceModeActive && tracedPlayer
+                    ? tracedPlayer.tag
+                    : currentR2Thought.tag}
                 </span>
                 <span className="px-1.5 py-0.2 rounded bg-win-green/15 text-win-green text-[9px] font-mono shrink-0">
-                  {currentR2Thought.driver}
+                  {traceModeActive && tracedPlayer
+                    ? `via ${tracedPlayer.signalLabel}`
+                    : currentR2Thought.driver}
                 </span>
                 <span className="text-white/70 truncate">
-                  &ldquo;{currentR2Thought.quote}&rdquo;
+                  &ldquo;
+                  {traceModeActive && tracedPlayer
+                    ? tracedPlayer.r2Quote
+                    : currentR2Thought.quote}
+                  &rdquo;
                 </span>
               </div>
             )}
@@ -1055,6 +1934,8 @@ export default function MiroFishNeuralFlow({
               <motion.button
                 key="r3-neural-branch"
                 type="button"
+                onMouseEnter={() => setHoveredNodeId("r3")}
+                onMouseLeave={() => setHoveredNodeId(null)}
                 initial={{ opacity: 0, scale: 0.88, x: -16 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
                 exit={{ opacity: 0, scale: 0.88, x: -16 }}
@@ -1063,8 +1944,8 @@ export default function MiroFishNeuralFlow({
                   onSelectRound(3);
                   setSelectedNodeId((prev) => (prev === "r3" ? null : "r3"));
                 }}
-                className={`rounded-2xl px-4 py-2.5 text-left border backdrop-blur-xl transition-all w-full sm:w-[270px] ${
-                  selectedNodeId === "r3" || activeRound === 3
+                className={`rounded-2xl px-4 py-2 text-left border backdrop-blur-xl transition-all w-full sm:w-[270px] ${
+                  isNodeSpotlighted("r3") || activeRound === 3
                     ? "bg-[#09221E]/95 border-[#00F5D4]/85 shadow-[0_0_36px_rgba(0,245,212,0.35)]"
                     : "bg-[#081917]/90 border-[#00F5D4]/45 hover:border-[#00F5D4]/80"
                 }`}
@@ -1095,31 +1976,31 @@ export default function MiroFishNeuralFlow({
             {
               id: "verdict_buy" as const,
               label: "PURCHASED",
-              count: buyCount,
+              count: effectiveMetrics.buy,
               pct: buyPct,
               icon: CheckCircle2,
               color: "text-win-green",
               bar: "bg-win-green",
               borderActive:
-                "border-win-green/80 bg-[#0A2018]/95 shadow-[0_0_28px_rgba(25,195,125,0.3)]",
+                "border-win-green/85 bg-[#0A2018]/95 shadow-[0_0_28px_rgba(25,195,125,0.35)]",
               borderIdle: "border-win-green/30 hover:border-win-green/65 bg-[#091412]/90",
             },
             {
               id: "verdict_eval" as const,
               label: "EVALUATING",
-              count: evalCount,
+              count: effectiveMetrics.eval,
               pct: evalPct,
               icon: Clock,
               color: "text-vc-gold",
               bar: "bg-vc-gold",
               borderActive:
-                "border-vc-gold/80 bg-[#211A0A]/95 shadow-[0_0_28px_rgba(255,184,0,0.28)]",
+                "border-vc-gold/85 bg-[#211A0A]/95 shadow-[0_0_28px_rgba(255,184,0,0.3)]",
               borderIdle: "border-vc-gold/30 hover:border-vc-gold/65 bg-[#141109]/90",
             },
             {
               id: "verdict_pass" as const,
               label: "ABANDONED",
-              count: passCount,
+              count: effectiveMetrics.pass,
               pct: passPct,
               icon: MinusCircle,
               color: "text-slate-300",
@@ -1130,28 +2011,30 @@ export default function MiroFishNeuralFlow({
             {
               id: "verdict_boycott" as const,
               label: "BOYCOTT",
-              count: boycottCount,
+              count: effectiveMetrics.boycott,
               pct: boycottPct,
               icon: AlertOctagon,
               color: "text-loss-red",
               bar: "bg-loss-red",
               borderActive:
-                "border-loss-red/80 bg-[#240D12]/95 shadow-[0_0_28px_rgba(255,77,94,0.3)]",
+                "border-loss-red/85 bg-[#240D12]/95 shadow-[0_0_28px_rgba(255,77,94,0.3)]",
               borderIdle: "border-loss-red/30 hover:border-loss-red/65 bg-[#160B0E]/90",
             },
           ].map((v) => {
             const Icon = v.icon;
-            const isSelected = selectedNodeId === v.id;
+            const isSpotlight = isNodeSpotlighted(v.id);
             return (
               <motion.button
                 key={v.id}
                 type="button"
                 whileTap={{ scale: 0.98 }}
+                onMouseEnter={() => setHoveredNodeId(v.id)}
+                onMouseLeave={() => setHoveredNodeId(null)}
                 onClick={() =>
                   setSelectedNodeId((prev) => (prev === v.id ? null : v.id))
                 }
-                className={`rounded-2xl px-3.5 py-2.5 text-left border backdrop-blur-xl transition-all ${
-                  isSelected ? v.borderActive : v.borderIdle
+                className={`rounded-2xl px-3.5 py-2 text-left border backdrop-blur-xl transition-all ${
+                  isSpotlight ? v.borderActive : v.borderIdle
                 }`}
               >
                 <div className="flex items-center justify-between gap-1">
@@ -1169,7 +2052,7 @@ export default function MiroFishNeuralFlow({
                   </span>
                 </div>
 
-                <div className="mt-2 h-1 w-full rounded-full bg-white/[0.08] overflow-hidden">
+                <div className="mt-1.5 h-1 w-full rounded-full bg-white/[0.08] overflow-hidden">
                   <div
                     style={{ width: `${v.pct}%` }}
                     className={`h-full ${v.bar} transition-all duration-500`}
@@ -1178,6 +2061,83 @@ export default function MiroFishNeuralFlow({
               </motion.button>
             );
           })}
+        </div>
+      </div>
+
+      {/* ================= BOTTOM MAGNETIC X-RAY HOVER & VOICE CAPTION BAR ================= */}
+      <div className="relative z-20 px-4 pb-2.5 pt-1 flex justify-center">
+        <div
+          data-testid="neural-xray-bar"
+          className="w-full max-w-3xl min-h-[34px] rounded-full border border-white/[0.1] bg-[#090B13]/90 backdrop-blur-xl px-4 py-1.5 flex items-center justify-between gap-3 text-[11px]"
+        >
+          {audioError ? (
+            <div className="flex items-center gap-2 text-loss-red truncate">
+              <AlertOctagon className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{audioError}</span>
+            </div>
+          ) : currentBeat && (isPlayingAudio || activeBeatIndex !== null) ? (
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <span
+                className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider shrink-0 ${
+                  currentBeat.speaker === "Player"
+                    ? "bg-[#00F5D4]/20 border border-[#00F5D4]/50 text-[#00F5D4]"
+                    : "bg-[#4285F4]/20 border border-[#4285F4]/50 text-[#A8C7FA]"
+                }`}
+              >
+                {currentBeat.speakerLabel}
+              </span>
+              <span className="text-white/90 truncate font-medium">
+                &ldquo;{currentBeat.caption}&rdquo;
+              </span>
+            </div>
+          ) : hoverExplanation ? (
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <span
+                className={`font-mono text-[10px] font-bold uppercase tracking-wider shrink-0 ${hoverExplanation.color}`}
+              >
+                {hoverExplanation.badge}
+              </span>
+              <span className="h-3 w-px bg-white/15 shrink-0" />
+              <span className="text-white/80 truncate">
+                {hoverExplanation.text}
+              </span>
+            </div>
+          ) : traceModeActive && tracedPlayer ? (
+            <div className="flex items-center gap-2 min-w-0 flex-1 font-mono text-[10px]">
+              <span className="text-[#00F5D4] font-semibold shrink-0">
+                {tracedPlayer.tag} ({tracedPlayer.ovr} OVR)
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-white/75 shrink-0">
+                R1 Alone: {tracedPlayer.r1State}
+              </span>
+              <ArrowRight className="w-3 h-3 text-white/35 shrink-0" />
+              <span className="px-1.5 py-0.5 rounded bg-[#9B72CB]/20 text-[#E9D5FF] shrink-0">
+                Signal: {tracedPlayer.signalLabel}
+              </span>
+              <ArrowRight className="w-3 h-3 text-white/35 shrink-0" />
+              <span className="px-1.5 py-0.5 rounded bg-win-green/20 text-win-green font-semibold shrink-0">
+                R2: {tracedPlayer.r2State}
+              </span>
+              <span className="text-white/65 font-sans truncate ml-1">
+                &ldquo;{tracedPlayer.r2Quote}&rdquo;
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between w-full text-white/50 text-[11px]">
+              <span className="flex items-center gap-1.5 truncate">
+                <Eye className="w-3 h-3 text-[#A8C7FA] shrink-0" />
+                <span className="truncate">
+                  Hover any node for plain-English X-Ray · Click{" "}
+                  <strong className="text-white/75 font-medium">ON/OFF</strong> on
+                  signals to test causal drop · Click{" "}
+                  <strong className="text-white/75 font-medium">
+                    Explain Flow
+                  </strong>{" "}
+                  for dual-voice walkthrough
+                </span>
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1192,7 +2152,6 @@ export default function MiroFishNeuralFlow({
             transition={{ type: "spring", bounce: 0.14, duration: 0.36 }}
             className="absolute inset-x-3 bottom-3 z-30 max-h-[56%] rounded-2xl border border-white/[0.16] bg-[#0B0D16]/95 backdrop-blur-2xl shadow-[0_-16px_60px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden"
           >
-            {/* Top Gemini Accent Strip */}
             <div className={`h-1 w-full bg-gradient-to-r ${drawerData.accent}`} />
 
             <div className="px-4 py-2.5 border-b border-white/[0.08] flex items-center justify-between gap-3 shrink-0">
@@ -1218,7 +2177,6 @@ export default function MiroFishNeuralFlow({
             </div>
 
             <div className="p-3 overflow-y-auto space-y-2">
-              {/* Special Creator Signal Breakdown when sig_creators is clicked */}
               {drawerData.mode === "creators" && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pb-1">
                   {creatorSignals.map((cr) => (
@@ -1238,7 +2196,6 @@ export default function MiroFishNeuralFlow({
                 </div>
               )}
 
-              {/* Special Reddit Pulse Breakdown when sig_reddit is clicked */}
               {drawerData.mode === "reddit" && redditThreads.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pb-1">
                   {redditThreads.slice(0, 4).map((th, i) => (
@@ -1258,7 +2215,6 @@ export default function MiroFishNeuralFlow({
                 </div>
               )}
 
-              {/* Filtered Personas Grid inside the Drawer */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {(drawerData.players.length > 0
                   ? drawerData.players
