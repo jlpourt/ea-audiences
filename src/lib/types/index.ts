@@ -55,10 +55,12 @@ export type ContextualViewType =
   | "marketing-journey"
   | "single-identity"
   | "cross-franchise"
-  | "social-clans";
+  | "social-clans"
+  | "social-hops";
 
 export type SegmentationLens =
   | "FRANCHISE"
+  | "SOCIAL_HOPS"
   | "CATE_UPLIFT"
   | "PORTFOLIO_RINGS"
   | "TRAJECTORY";

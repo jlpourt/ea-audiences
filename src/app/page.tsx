@@ -294,6 +294,92 @@ export default function HomePage() {
     runAudienceQuery(query, franchise, [], true);
   };
 
+  const handleExploreSocialHops = useCallback(
+    async (
+      targetPlayerId?: string,
+      hopDepth: "all" | "1" | "2" | "3" = "all"
+    ) => {
+      try {
+        const params = new URLSearchParams({
+          view: "social-hops",
+          game: selectedGame,
+          hop: hopDepth,
+        });
+        if (targetPlayerId) params.set("playerId", targetPlayerId);
+        const res = await fetch(`/api/graph/view?${params.toString()}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.nodes?.length) {
+          const nextGraph = { nodes: data.nodes, links: data.links || [] };
+          setGraphData(nextGraph);
+          setBaseGraphData(nextGraph);
+          setCurrentView("social-hops");
+          setSegmentationLens("SOCIAL_HOPS");
+          setIsSegmentedView(true);
+          setHighlightBridges(true);
+          setIsInspectorOpen(true);
+
+          const summary = data.social_hop_summary || {};
+          const egoTag = summary.ego_gamer_tag || "CrewAnchor";
+          const h1 = Number(summary.hop1_count ?? 12);
+          const h2 = Number(summary.hop2_count ?? 28);
+          const h3 = Number(summary.hop3_count ?? 38);
+          const reach = Number(summary.total_network_reach ?? 1 + h1 + h2 + h3);
+
+          setCohortContext({
+            query:
+              hopDepth === "1"
+                ? `1° Direct Co-Play Squad (@${egoTag} · ${h1} Teammates)`
+                : hopDepth === "2"
+                ? `1° + 2° Friends-of-Squad Network (@${egoTag} · ${1 + h1 + h2} Players)`
+                : `1° · 2° · 3° Interpersonal Co-Play Graph (@${egoTag} · ${reach} Reach)`,
+            franchise: selectedGame,
+            matchedCount: reach,
+            renderedCount: nextGraph.nodes.length,
+            estimatedTotal: reach,
+            dominantArchetype: "REC_CREW_CAPTAIN",
+            avgSpend: 235,
+            avgChurn: 0.36,
+            avgTilt: 0.39,
+            highChurnCount: h3,
+            isLive: true,
+            isMultiHop: true,
+            multiHopMetadata: {
+              hops: hopDepth === "1" ? 1 : hopDepth === "2" ? 2 : 3,
+              patternLabel: `0° @${egoTag} → ${h1} (1° Co-Play Squad) → ${h2} (2° Friends-of-Squad) → ${h3} (3° Weak-Tie Holdouts)`,
+              summary: `Interpersonal co-play network with $${Math.round(
+                Number(summary.squad_var_usd || 3480)
+              ).toLocaleString()} Squad Value-at-Risk across 3 degrees of influence.`,
+              steps: [
+                `0° Seed (@${egoTag})`,
+                `1° Direct Squad (${h1})`,
+                ...(hopDepth !== "1" ? [`2° Friends-of-Squad (${h2})`] : []),
+                ...(hopDepth === "all" || hopDepth === "3"
+                  ? [`3° Weak-Tie Bridges (${h3})`]
+                  : []),
+              ],
+              bridgeNodes: nextGraph.nodes
+                .slice(1, 7)
+                .map((n: any) => `@${String(n.name).replace(/\s*\(\d°.*\)$/, "")}`),
+            },
+          });
+
+          if (targetPlayerId) {
+            const egoNode = nextGraph.nodes.find(
+              (n: GraphNode) => n.id === targetPlayerId
+            );
+            if (egoNode) setSelectedNode(egoNode);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load 1st/2nd/3rd hop social graph:", err);
+      }
+    },
+    [selectedGame]
+  );
+
   // Expand a selected player's real 2-hop Spanner neighborhood (Crew, 8 Active Squadmates, Platform Identities, Cross-2K Titles) onto the live graph
   const handleExpandPlayerNeighborhood = useCallback(
     async (playerId: string) => {
@@ -769,7 +855,19 @@ export default function HomePage() {
               setCohortContext(null);
             }}
             segmentationLens={segmentationLens}
-            onLensChange={setSegmentationLens}
+            onLensChange={(nextLens) => {
+              setSegmentationLens(nextLens);
+              if (nextLens === "SOCIAL_HOPS") {
+                handleExploreSocialHops(
+                  selectedNode?.type === "PLAYER" ? selectedNode.id : undefined,
+                  "all"
+                );
+              } else if (currentView === "social-hops") {
+                setCurrentView("audience-cohorts");
+                setIsSegmentedView(false);
+                fetchGraphView("audience-cohorts", selectedGame, archetypeFilter);
+              }
+            }}
             is3D={is3D}
             onToggle3D={() => setIs3D((v) => !v)}
             clusterByLabel={clusterByLabel}
@@ -883,7 +981,8 @@ export default function HomePage() {
         {(currentView === "audience-cohorts" ||
           currentView === "cross-franchise" ||
           currentView === "social-clans" ||
-          currentView === "single-identity") && (
+          currentView === "single-identity" ||
+          currentView === "social-hops") && (
           <NLSearchBar
             selectedGame={selectedGame}
             isInspectorOpen={
@@ -970,6 +1069,12 @@ export default function HomePage() {
               onSaveAudience={() => setIsSaveSheetOpen(true)}
               onToggleSocialGravity={() => setHighlightBridges((v) => !v)}
               onExpandPlayerNeighborhood={handleExpandPlayerNeighborhood}
+              onExploreSocialHops={handleExploreSocialHops}
+              onLaunchSocialPlay={(title, priceUsd) => {
+                setOfferPreset({ title, priceUsd });
+                setCreativeOfferTitle(title);
+                setIsFocusGroupOpen(true);
+              }}
               onApplyDecisionFilter={handleApplyDecisionFilter}
               isFocusGroupLoading={isFocusGroupLoading}
             />

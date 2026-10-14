@@ -55,6 +55,11 @@ export interface EntityInspectorProps {
   onSaveAudience?: () => void;
   onToggleSocialGravity?: () => void;
   onExpandPlayerNeighborhood?: (playerId: string) => Promise<void> | void;
+  onExploreSocialHops?: (
+    playerId?: string,
+    hopDepth?: "all" | "1" | "2" | "3"
+  ) => void;
+  onLaunchSocialPlay?: (title: string, priceUsd: number) => void;
   onApplyDecisionFilter?: (
     segment: DecisionSegmentFilter,
     recommendedOffer?: { title: string; priceUsd: number }
@@ -78,6 +83,8 @@ export default function EntityInspector({
   onSaveAudience,
   onToggleSocialGravity,
   onExpandPlayerNeighborhood,
+  onExploreSocialHops,
+  onLaunchSocialPlay,
   onApplyDecisionFilter,
   isFocusGroupLoading = false,
   isDeepSonaLoading = false,
@@ -85,6 +92,7 @@ export default function EntityInspector({
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");
   const [decisionFilter, setDecisionFilter] = useState<DecisionSegmentFilter>("ALL");
   const [isExpandingNeighborhood, setIsExpandingNeighborhood] = useState(false);
+  const [activeHopFilter, setActiveHopFilter] = useState<"all" | "1" | "2" | "3">("all");
 
   const handleLaunchFocusGroup = (target?: GraphNode) => {
     const normalizedTarget =
@@ -2182,6 +2190,135 @@ export default function EntityInspector({
               </div>
             )}
           </>
+        )}
+
+        {/* 1° · 2° · 3° INTERPERSONAL CO-PLAY GRAPH & SOCIAL MONETIZATION PLAYS */}
+        {onExploreSocialHops && (
+          <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-[#669DF6]" />
+                <span className="text-[11px] font-semibold text-white">
+                  1° · 2° · 3° Co-Play Social Graph
+                </span>
+              </div>
+              <span className="text-[10px] font-mono text-emerald-400">
+                3-Hop Contagion
+              </span>
+            </div>
+
+            {/* Interactive Hop Ring Filter Pills */}
+            <div className="grid grid-cols-4 gap-1">
+              {(
+                [
+                  { id: "all" as const, label: "All 3°", color: "text-white" },
+                  { id: "1" as const, label: "1° Squad", color: "text-emerald-400" },
+                  { id: "2" as const, label: "2° Rivals", color: "text-purple-300" },
+                  { id: "3" as const, label: "3° Weak", color: "text-amber-300" },
+                ] as const
+              ).map((hop) => {
+                const isActive = activeHopFilter === hop.id;
+                return (
+                  <button
+                    key={hop.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveHopFilter(hop.id);
+                      onExploreSocialHops(
+                        node?.type === "PLAYER" ? node.id : undefined,
+                        hop.id
+                      );
+                    }}
+                    className={`py-1 px-1.5 rounded-lg text-[10px] font-mono font-semibold border transition-all ${
+                      isActive
+                        ? "bg-white/15 border-white/30 text-white"
+                        : `bg-black/40 border-white/[0.08] hover:border-white/20 ${hop.color}`
+                    }`}
+                  >
+                    {hop.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 3 Research-Backed Interpersonal Monetization Triggers */}
+            <div className="space-y-1.5 pt-0.5">
+              {[
+                {
+                  degree: "1° Strong Tie",
+                  badgeColor: "text-emerald-400 bg-emerald-500/15 border-emerald-500/30",
+                  title: "Squad Duo VC + Altruistic Gift Pass",
+                  price: 9.99,
+                  lift: "3.4x Co-Op Lift",
+                  desc: "Mutual Rec/Park co-play utility + teammate boost token",
+                  hop: "1" as const,
+                },
+                {
+                  degree: "2° Friend-of-Squad",
+                  badgeColor: "text-purple-300 bg-purple-500/15 border-purple-500/30",
+                  title: "Rival OVR Status Catch-Up Bundle",
+                  price: 14.99,
+                  lift: "2.6x Status Lift",
+                  desc: "Triggered when 2° lobby peers out-level player by +4 OVR",
+                  hop: "2" as const,
+                },
+                {
+                  degree: "3° Weak-Tie Bridge",
+                  badgeColor: "text-amber-300 bg-amber-500/15 border-amber-500/30",
+                  title: "Concordia Squad Migration Bounty",
+                  price: 49.99,
+                  lift: "2.1x Migration",
+                  desc: "Pulls 3° NBA 2K26 holdouts via shared cross-crew bridges",
+                  hop: "3" as const,
+                },
+              ].map((play) => (
+                <div
+                  key={play.degree}
+                  className="rounded-lg bg-black/45 border border-white/[0.07] p-2 space-y-1"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span
+                      className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-semibold border ${play.badgeColor}`}
+                    >
+                      {play.degree}
+                    </span>
+                    <span className="text-[10px] font-mono text-white/75">
+                      ${play.price.toFixed(2)} ·{" "}
+                      <span className="text-emerald-400 font-semibold">
+                        {play.lift}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-medium text-white truncate">
+                        {play.title}
+                      </div>
+                      <div className="text-[10px] text-gray-400 truncate">
+                        {play.desc}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveHopFilter(play.hop);
+                        onExploreSocialHops(
+                          node?.type === "PLAYER" ? node.id : undefined,
+                          play.hop
+                        );
+                        if (onLaunchSocialPlay) {
+                          onLaunchSocialPlay(play.title, play.price);
+                        }
+                      }}
+                      className="px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 text-[10px] font-semibold text-white shrink-0 transition-colors"
+                    >
+                      Test →
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 

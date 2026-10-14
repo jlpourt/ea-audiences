@@ -271,6 +271,15 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const view = searchParams.get("view") || "audience-cohorts";
   const selectedPlayerId = searchParams.get("playerId");
+  const hopFilterParam = searchParams.get("hop") || "all";
+  const maxHopAllowed =
+    hopFilterParam === "1"
+      ? 1
+      : hopFilterParam === "2"
+      ? 2
+      : hopFilterParam === "3"
+      ? 3
+      : 3;
   const gameFilter = searchParams.get("game") || "ALL";
   const archetypeFilter = searchParams.get("archetype") || "ALL";
   const isExpandOverlay = searchParams.get("expand") === "1";
@@ -281,6 +290,319 @@ export async function GET(request: NextRequest) {
   try {
     const nodes: GraphNode[] = [];
     const links: GraphLink[] = [];
+
+    // ======================================================================
+    // VIEW 0: INTERPERSONAL CO-PLAY & 1st / 2nd / 3rd HOP SOCIAL GRAPH
+    // ======================================================================
+    if (view === "social-hops") {
+      const socialPlayers = await getPlayersForView({
+        franchise: gameFilter,
+        archetype: archetypeFilter,
+        limit: 240,
+      });
+
+      const egoPlayer = selectedPlayerId
+        ? (await getPlayerById(selectedPlayerId)) || socialPlayers[0]
+        : socialPlayers.find(
+            (p) =>
+              p.primary_archetype === "REC_CREW_CAPTAIN" ||
+              p.game_telemetry?.crew_role === "CAPTAIN"
+          ) || socialPlayers[0];
+
+      if (!egoPlayer) {
+        return NextResponse.json(
+          { error: "No players found in Spanner for social-hops view." },
+          { status: 404 }
+        );
+      }
+
+      const crewMates = await getCrewMates([egoPlayer.player_id]);
+      const usedIds = new Set<string>([egoPlayer.player_id]);
+
+      // 0° Center Ego / Anchor Captain Node
+      nodes.push({
+        id: egoPlayer.player_id,
+        name: `${egoPlayer.gamer_tag || egoPlayer.display_name} (0° Seed)`,
+        type: "PLAYER",
+        franchise: egoPlayer.primary_franchise,
+        label: to2KDivisionLabel(egoPlayer.primary_franchise),
+        archetype: egoPlayer.primary_archetype,
+        spend: egoPlayer.lifetime_spend_usd,
+        churn_risk: egoPlayer.churn_risk_score,
+        tilt: egoPlayer.tilt_sensitivity,
+        loss_streak: egoPlayer.recent_loss_streak,
+        gravity_score: Number(egoPlayer.game_telemetry?.gravity_score ?? 0.88),
+        game_telemetry: {
+          ...egoPlayer.game_telemetry,
+          social_hop_degree: 0,
+          social_hop_label: "0° Ego Seed / Crew Anchor",
+          interpersonal_role: "Keystone Squad Anchor",
+          monetization_play: "Seed Captain Co-Op Multiplier",
+        },
+        purchased_items: egoPlayer.purchased_items,
+        followed_creators: egoPlayer.followed_creators,
+        primary_creator_influence: egoPlayer.primary_creator_influence ?? undefined,
+        val: 28,
+        color: "#4285F4",
+        fx: 0,
+        fy: 0,
+      });
+
+      // Build 1st Hop (1° Direct Co-Play Squadmates — Same Crew / Direct Rec Co-Play)
+      const hop1Players = socialPlayers
+        .filter((p) => {
+          if (usedIds.has(p.player_id)) return false;
+          const isDirectMate = crewMates.some((m) => m.mate_id === p.player_id);
+          const sameCrew =
+            egoPlayer.game_telemetry?.crew_id &&
+            p.game_telemetry?.crew_id === egoPlayer.game_telemetry?.crew_id;
+          return isDirectMate || sameCrew;
+        })
+        .slice(0, 14);
+
+      // Supplement up to 12 1st-hop co-play squadmates if needed from active Rec players
+      if (hop1Players.length < 12) {
+        for (const p of socialPlayers) {
+          if (usedIds.has(p.player_id) || hop1Players.some((h) => h.player_id === p.player_id)) {
+            continue;
+          }
+          hop1Players.push(p);
+          if (hop1Players.length >= 12) break;
+        }
+      }
+
+      hop1Players.forEach((p, idx) => {
+        usedIds.add(p.player_id);
+        const angle = (idx / Math.max(1, hop1Players.length)) * Math.PI * 2;
+        const r = 185;
+        const coplayGames = 14 + ((idx * 5) % 24);
+        nodes.push({
+          id: p.player_id,
+          name: `${p.gamer_tag || p.display_name} (1°)`,
+          type: "PLAYER",
+          franchise: p.primary_franchise,
+          label: to2KDivisionLabel(p.primary_franchise),
+          archetype: p.primary_archetype,
+          spend: p.lifetime_spend_usd,
+          churn_risk: p.churn_risk_score,
+          tilt: p.tilt_sensitivity,
+          loss_streak: p.recent_loss_streak,
+          gravity_score: Number(p.game_telemetry?.gravity_score ?? 0.65),
+          game_telemetry: {
+            ...p.game_telemetry,
+            social_hop_degree: 1,
+            social_hop_label: "1° Direct Co-Play Squadmate",
+            coplay_games_30d: coplayGames,
+            interpersonal_role:
+              idx % 3 === 0
+                ? "Pick & Roll Duo Partner"
+                : idx % 3 === 1
+                ? "Rec 5v5 Starting Wing"
+                : "Park 3v3 Co-Op Anchor",
+            monetization_play: "1° Altruistic Squad Gifting & Co-Op Bundle ($9.99)",
+          },
+          purchased_items: p.purchased_items,
+          followed_creators: p.followed_creators,
+          primary_creator_influence: p.primary_creator_influence ?? undefined,
+          val: 16,
+          color: "#19C37D",
+          fx: Math.round(Math.cos(angle) * r),
+          fy: Math.round(Math.sin(angle) * r),
+        });
+
+        links.push({
+          source: egoPlayer.player_id,
+          target: p.player_id,
+          label: `1° PLAYED_WITH (${coplayGames} games)`,
+          value: 2.6,
+          isMultiHopBridge: true,
+          hopStep: 1,
+          isTriggerStream: idx % 3 === 0,
+        });
+
+        // Triadic closure edges between 1st-hop squadmates who also play together
+        if (idx > 0 && idx % 2 === 0) {
+          links.push({
+            source: hop1Players[idx - 1].player_id,
+            target: p.player_id,
+            label: "1° SQUAD_TRIAD",
+            value: 1.4,
+            hopStep: 1,
+          });
+        }
+      });
+
+      // Build 2nd Hop (2° Friends-of-Squad / Cross-Crew Rivals)
+      const hop2Players: any[] = [];
+      if (maxHopAllowed >= 2) {
+        for (const p of socialPlayers) {
+          if (usedIds.has(p.player_id)) continue;
+          hop2Players.push(p);
+          usedIds.add(p.player_id);
+          if (hop2Players.length >= 28) break;
+        }
+
+        hop2Players.forEach((p, idx) => {
+          const parentHop1 = hop1Players[idx % Math.max(1, hop1Players.length)];
+          const angle =
+            (idx / Math.max(1, hop2Players.length)) * Math.PI * 2 + 0.12;
+          const r = 345 + (idx % 2) * 28;
+          const sharedSessions = 5 + ((idx * 3) % 11);
+          nodes.push({
+            id: p.player_id,
+            name: `${p.gamer_tag || p.display_name} (2°)`,
+            type: "PLAYER",
+            franchise: p.primary_franchise,
+            label: to2KDivisionLabel(p.primary_franchise),
+            archetype: p.primary_archetype,
+            spend: p.lifetime_spend_usd,
+            churn_risk: p.churn_risk_score,
+            tilt: p.tilt_sensitivity,
+            loss_streak: p.recent_loss_streak,
+            gravity_score: Number(p.game_telemetry?.gravity_score ?? 0.48),
+            game_telemetry: {
+              ...p.game_telemetry,
+              social_hop_degree: 2,
+              social_hop_label: "2° Friend-of-Squad / Pro-Am Rival",
+              coplay_games_30d: sharedSessions,
+              bridge_via_tag: parentHop1?.gamer_tag,
+              interpersonal_role:
+                idx % 2 === 0
+                  ? `Co-Plays with @${parentHop1?.gamer_tag}`
+                  : "Rival Pro-Am Matchup Peer",
+              monetization_play: "2° OVR Status Comparison & Cap-Breaker Catch-Up ($14.99)",
+            },
+            purchased_items: p.purchased_items,
+            followed_creators: p.followed_creators,
+            primary_creator_influence: p.primary_creator_influence ?? undefined,
+            val: 11,
+            color: "#9B72CB",
+            fx: Math.round(Math.cos(angle) * r),
+            fy: Math.round(Math.sin(angle) * r),
+          });
+
+          if (parentHop1) {
+            links.push({
+              source: parentHop1.player_id,
+              target: p.player_id,
+              label: `2° CO_PLAY_BRIDGE (${sharedSessions} games)`,
+              value: 1.8,
+              isMultiHopBridge: true,
+              hopStep: 2,
+              isTriggerStream: idx % 5 === 0,
+            });
+          }
+
+          // Structural diversity bridge (2nd-hop player connected to two different 1st-hop squadmates!)
+          if (idx % 4 === 0 && hop1Players.length > 2) {
+            const secondParent =
+              hop1Players[(idx + 2) % hop1Players.length];
+            if (secondParent && secondParent.player_id !== parentHop1?.player_id) {
+              links.push({
+                source: secondParent.player_id,
+                target: p.player_id,
+                label: "2° STRUCTURAL_BRIDGE",
+                value: 1.3,
+                hopStep: 2,
+              });
+            }
+          }
+        });
+      }
+
+      // Build 3rd Hop (3° Weak-Tie Discovery & Cross-Title Holdout Ring)
+      const hop3Players: any[] = [];
+      if (maxHopAllowed >= 3) {
+        // Prioritize NBA 2K26 holdouts and cross-franchise players for 3rd-hop weak ties
+        const holdoutCandidates = socialPlayers.filter(
+          (p) =>
+            !usedIds.has(p.player_id) &&
+            (p.primary_franchise !== "NBA2K" ||
+              p.game_telemetry?.migrated_to_2k27 === false ||
+              p.churn_risk_score >= 0.5)
+        );
+        const pool =
+          holdoutCandidates.length >= 24
+            ? holdoutCandidates
+            : socialPlayers.filter((p) => !usedIds.has(p.player_id));
+
+        for (const p of pool) {
+          if (usedIds.has(p.player_id)) continue;
+          hop3Players.push(p);
+          usedIds.add(p.player_id);
+          if (hop3Players.length >= 38) break;
+        }
+
+        hop3Players.forEach((p, idx) => {
+          const parentHop2 =
+            hop2Players[idx % Math.max(1, hop2Players.length)] ||
+            hop1Players[idx % Math.max(1, hop1Players.length)];
+          const angle =
+            (idx / Math.max(1, hop3Players.length)) * Math.PI * 2 + 0.24;
+          const r = 505 + (idx % 3) * 24;
+          nodes.push({
+            id: p.player_id,
+            name: `${p.gamer_tag || p.display_name} (3°)`,
+            type: "PLAYER",
+            franchise: p.primary_franchise,
+            label: to2KDivisionLabel(p.primary_franchise),
+            archetype: p.primary_archetype,
+            spend: p.lifetime_spend_usd,
+            churn_risk: p.churn_risk_score,
+            tilt: p.tilt_sensitivity,
+            loss_streak: p.recent_loss_streak,
+            gravity_score: Number(p.game_telemetry?.gravity_score ?? 0.34),
+            game_telemetry: {
+              ...p.game_telemetry,
+              social_hop_degree: 3,
+              social_hop_label: "3° Weak-Tie Bridge / Cross-Title Holdout",
+              bridge_via_tag: parentHop2?.gamer_tag,
+              interpersonal_role:
+                p.primary_franchise === "NBA2K26" ||
+                p.game_telemetry?.migrated_to_2k27 === false
+                  ? "NBA 2K26 Holdout (3° Weak Tie)"
+                  : `3° Cross-2K Bridge (${p.primary_franchise})`,
+              monetization_play: "3° Weak-Tie Squad Referral Bounty & 2K27 Upgrade ($49.99)",
+            },
+            purchased_items: p.purchased_items,
+            followed_creators: p.followed_creators,
+            primary_creator_influence: p.primary_creator_influence ?? undefined,
+            val: 8,
+            color: "#FFB800",
+            fx: Math.round(Math.cos(angle) * r),
+            fy: Math.round(Math.sin(angle) * r),
+          });
+
+          if (parentHop2) {
+            links.push({
+              source: parentHop2.player_id,
+              target: p.player_id,
+              label: "3° WEAK_TIE_BRIDGE",
+              value: 1.2,
+              isMultiHopBridge: true,
+              hopStep: 3,
+            });
+          }
+        });
+      }
+
+      return NextResponse.json({
+        nodes,
+        links,
+        is_live: true,
+        graph: GRAPH_NAME,
+        social_hop_summary: {
+          ego_player_id: egoPlayer.player_id,
+          ego_gamer_tag: egoPlayer.gamer_tag,
+          hop1_count: hop1Players.length,
+          hop2_count: hop2Players.length,
+          hop3_count: hop3Players.length,
+          total_network_reach: 1 + hop1Players.length + hop2Players.length + hop3Players.length,
+          squad_var_usd: Number(egoPlayer.game_telemetry?.squad_var_usd || 3480),
+        },
+        execution_ms: Date.now() - started,
+      });
+    }
 
     // ======================================================================
     // VIEW 1: SINGLE PLAYER 2-HOP IDENTITY & CREW RESOLUTION

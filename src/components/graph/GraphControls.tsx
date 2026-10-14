@@ -25,6 +25,7 @@ export interface GraphControlsProps {
 
 const LENS_OPTIONS: { id: SegmentationLens; label: string }[] = [
   { id: "FRANCHISE", label: "Franchise" },
+  { id: "SOCIAL_HOPS", label: "Social Hops (1°·2°·3°)" },
   { id: "CATE_UPLIFT", label: "CATE Uplift" },
   { id: "PORTFOLIO_RINGS", label: "3-Ring Portfolio" },
   { id: "TRAJECTORY", label: "Trajectory" },
@@ -62,7 +63,8 @@ export default function GraphControls({
     currentView === "audience-cohorts" ||
     currentView === "cross-franchise" ||
     currentView === "social-clans" ||
-    currentView === "single-identity";
+    currentView === "single-identity" ||
+    currentView === "social-hops";
 
   return (
     <div className="flex items-center gap-2 font-sans min-w-0">
