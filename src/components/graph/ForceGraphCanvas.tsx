@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import ForceGraph2D from "react-force-graph-2d";
 import ForceGraph3D from "react-force-graph-3d";
-import { GraphData, GraphNode, TakeTwoLabel } from "@/lib/types";
+import { GraphData, GraphNode, TakeTwoLabel, SegmentationLens } from "@/lib/types";
 import { X } from "lucide-react";
 
 export interface ForceGraphCanvasProps {
@@ -19,6 +19,155 @@ export interface ForceGraphCanvasProps {
   showLabelClusters?: boolean;
   clusterByLabel?: boolean;
   highlightBridges?: boolean;
+  segmentationLens?: SegmentationLens;
+}
+
+export interface LensClassification {
+  bucketId: string;
+  label: string;
+  actionTag: string;
+  color: string;
+  anchor?: { x: number; y: number };
+  targetRadius?: number;
+}
+
+export function classifyNodeForLens(
+  node: GraphNode,
+  keystoneCaptainIds: Set<string>,
+  lens: SegmentationLens
+): LensClassification | null {
+  if (node.type !== "PLAYER" || lens === "FRANCHISE") return null;
+
+  const spend = Number(node.spend || 0);
+  const churn = Number(node.churn_risk || 0);
+  const tilt = Number(node.tilt || 0);
+  const lossStreak = Number(node.loss_streak || 0);
+  const archetype = String(node.archetype || "");
+  const franchise = String(node.franchise || "NBA2K");
+  const tel = node.game_telemetry || {};
+  const ovr = tel.myplayer_ovr !== undefined && tel.myplayer_ovr !== null ? Number(tel.myplayer_ovr) : 88;
+  const lastLoginDays = Number(tel.last_login_days_ago || 0);
+
+  if (lens === "CATE_UPLIFT") {
+    if (
+      keystoneCaptainIds.has(node.id) ||
+      archetype === "REC_CREW_CAPTAIN" ||
+      archetype === "PARK_REP_GRINDER"
+    ) {
+      return {
+        bucketId: "SEED_CREW_CAPTAIN",
+        label: "Keystone Captains",
+        actionTag: "Seed",
+        color: "#F5B400",
+        anchor: { x: -240, y: -150 },
+      };
+    }
+    if (
+      tilt >= 0.58 ||
+      lossStreak >= 3 ||
+      archetype === "RAGE_QUIT_TILT_RISK" ||
+      archetype === "MYNBA_FRANCHISE_SIM"
+    ) {
+      return {
+        bucketId: "SLEEPING_DOG",
+        label: "Sleeping Dogs",
+        actionTag: "Suppress",
+        color: "#FF4D5E",
+        anchor: { x: 240, y: 150 },
+      };
+    }
+    if (
+      spend >= 420 ||
+      archetype === "MYTEAM_PACK_WHALE" ||
+      tel.season_pass_edition === "HALL_OF_FAME"
+    ) {
+      return {
+        bucketId: "SURE_THING_D2C",
+        label: "Sure Things",
+        actionTag: "Route D2C +22%",
+        color: "#38BDF8",
+        anchor: { x: 240, y: -150 },
+      };
+    }
+    return {
+      bucketId: "PERSUADABLE",
+      label: "Persuadables",
+      actionTag: "Target",
+      color: "#19C37D",
+      anchor: { x: -240, y: 150 },
+    };
+  }
+
+  if (lens === "PORTFOLIO_RINGS") {
+    if (
+      franchise !== "NBA2K" ||
+      archetype === "CROSS_LABEL_NOMAD" ||
+      tel.migrated_to_2k27 === false
+    ) {
+      return {
+        bucketId: "RING_3_STRETCH",
+        label: "Ring 3 · Stretch",
+        actionTag: "Cross-2K Bridge",
+        color: "#A855F7",
+        targetRadius: 335,
+      };
+    }
+    if (ovr < 85 || keystoneCaptainIds.has(node.id) || spend < 150) {
+      return {
+        bucketId: "RING_2_NURTURE",
+        label: "Ring 2 · Nurture",
+        actionTag: "Crew & Sub-85",
+        color: "#F5B400",
+        targetRadius: 220,
+      };
+    }
+    return {
+      bucketId: "RING_1_CORE",
+      label: "Ring 1 · Core",
+      actionTag: "Retain",
+      color: "#19C37D",
+      targetRadius: 105,
+    };
+  }
+
+  if (lens === "TRAJECTORY") {
+    if (spend >= 320 && (churn >= 0.42 || lastLoginDays >= 4)) {
+      return {
+        bucketId: "WHALE_VELOCITY_DECAY",
+        label: "Whale Decay",
+        actionTag: "TimesFM Guard",
+        color: "#38BDF8",
+        anchor: { x: 240, y: -150 },
+      };
+    }
+    if (lossStreak >= 2 || tilt >= 0.52 || churn >= 0.6) {
+      return {
+        bucketId: "REACTIVE_TILT_META",
+        label: "Reactive Tilt",
+        actionTag: "Rebirth Rescue",
+        color: "#FF4D5E",
+        anchor: { x: 240, y: 150 },
+      };
+    }
+    if (ovr < 85) {
+      return {
+        bucketId: "BADGE_WALL_STALL",
+        label: "Badge Wall",
+        actionTag: "Boost OVR",
+        color: "#F5B400",
+        anchor: { x: -240, y: 150 },
+      };
+    }
+    return {
+      bucketId: "GOLDEN_PATH",
+      label: "Golden Path",
+      actionTag: "Healthy",
+      color: "#19C37D",
+      anchor: { x: -240, y: -150 },
+    };
+  }
+
+  return null;
 }
 
 const DIVISION_CLUSTER_ANCHORS: Record<TakeTwoLabel, { x: number; y: number }> = {
@@ -40,6 +189,7 @@ export default function ForceGraphCanvas({
   showLabelClusters = false,
   clusterByLabel = false,
   highlightBridges = false,
+  segmentationLens = "FRANCHISE",
 }: ForceGraphCanvasProps) {
   const fgRef = useRef<any>(null);
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
@@ -58,51 +208,6 @@ export default function ForceGraphCanvas({
   const resolvedWidth = width ?? fallbackDims.width;
   const resolvedHeight = height ?? fallbackDims.height;
   const enableDivisionClusters = clusterByLabel || showLabelClusters;
-
-  // Configure custom D3 forces: abk physics tuning (charge: -110, distanceMax: 520, link distance 100 for hub edges / 130 for secondary edges)
-  useEffect(() => {
-    const fg = fgRef.current;
-    if (!fg || is3D) return;
-
-    const chargeForce = fg.d3Force("charge");
-    if (chargeForce) {
-      chargeForce.strength(-110);
-      if (typeof chargeForce.distanceMax === "function") {
-        chargeForce.distanceMax(520);
-      }
-    }
-
-    fg.d3Force("link")?.distance((link: any) => {
-      if (link.isMultiHopBridge) return 100;
-      if (
-        link.label === "PLAYS_GAME" ||
-        link.label === "PRIMARY_FRANCHISE_PLAYER" ||
-        link.label === "BASE_GAME_RETAIL_PURCHASER" ||
-        link.value === 2
-      ) {
-        return 100;
-      }
-      if (link.label === "MONETIZATION_GRAVITY" || link.label === "OWNS_SKU") return 110;
-      if (link.isTriggerStream) return 120;
-      return 130;
-    });
-
-    if (enableDivisionClusters) {
-      fg.d3Force("divisionCluster", (alpha: number) => {
-        for (const node of data.nodes as any[]) {
-          if (node.fx !== undefined && node.fy !== undefined) continue;
-          const lbl: TakeTwoLabel = node.label || "2K";
-          const target = DIVISION_CLUSTER_ANCHORS[lbl] || DIVISION_CLUSTER_ANCHORS["2K"];
-          node.vx = (node.vx || 0) + (target.x - (node.x || 0)) * alpha * 0.12;
-          node.vy = (node.vy || 0) + (target.y - (node.y || 0)) * alpha * 0.12;
-        }
-      });
-    } else {
-      fg.d3Force("divisionCluster", null);
-    }
-
-    fg.d3ReheatSimulation?.();
-  }, [data, is3D, enableDivisionClusters]);
 
   // Fast set lookup for connected links and neighbors to highlight paths on hover/select
   const highlightLinks = useMemo(() => {
@@ -162,6 +267,184 @@ export default function ForceGraphCanvas({
     return captains;
   }, [data.nodes, data.links]);
 
+  // Live lens bucket breakdown for the Floating Lens Breakdown Pill
+  const lensBreakdown = useMemo(() => {
+    if (segmentationLens === "FRANCHISE") return [];
+
+    const bucketDefs: Array<{
+      bucketId: string;
+      label: string;
+      actionTag: string;
+      color: string;
+    }> =
+      segmentationLens === "CATE_UPLIFT"
+        ? [
+            {
+              bucketId: "PERSUADABLE",
+              label: "Persuadables",
+              actionTag: "Target",
+              color: "#19C37D",
+            },
+            {
+              bucketId: "SEED_CREW_CAPTAIN",
+              label: "Keystone Captains",
+              actionTag: "Seed",
+              color: "#F5B400",
+            },
+            {
+              bucketId: "SURE_THING_D2C",
+              label: "Sure Things",
+              actionTag: "Route D2C +22%",
+              color: "#38BDF8",
+            },
+            {
+              bucketId: "SLEEPING_DOG",
+              label: "Sleeping Dogs",
+              actionTag: "Suppress",
+              color: "#FF4D5E",
+            },
+          ]
+        : segmentationLens === "PORTFOLIO_RINGS"
+        ? [
+            {
+              bucketId: "RING_1_CORE",
+              label: "Ring 1 · Core",
+              actionTag: "Retain",
+              color: "#19C37D",
+            },
+            {
+              bucketId: "RING_2_NURTURE",
+              label: "Ring 2 · Nurture",
+              actionTag: "Crew & Sub-85",
+              color: "#F5B400",
+            },
+            {
+              bucketId: "RING_3_STRETCH",
+              label: "Ring 3 · Stretch",
+              actionTag: "Cross-2K Bridge",
+              color: "#A855F7",
+            },
+          ]
+        : [
+            {
+              bucketId: "GOLDEN_PATH",
+              label: "Golden Path",
+              actionTag: "Healthy",
+              color: "#19C37D",
+            },
+            {
+              bucketId: "WHALE_VELOCITY_DECAY",
+              label: "Whale Decay",
+              actionTag: "TimesFM Guard",
+              color: "#38BDF8",
+            },
+            {
+              bucketId: "BADGE_WALL_STALL",
+              label: "Badge Wall",
+              actionTag: "Boost OVR",
+              color: "#F5B400",
+            },
+            {
+              bucketId: "REACTIVE_TILT_META",
+              label: "Reactive Tilt",
+              actionTag: "Rebirth Rescue",
+              color: "#FF4D5E",
+            },
+          ];
+
+    const counts = new Map<string, number>();
+    bucketDefs.forEach((b) => counts.set(b.bucketId, 0));
+
+    (data.nodes || []).forEach((n: GraphNode) => {
+      if (n.type !== "PLAYER") return;
+      const cls = classifyNodeForLens(n, keystoneCaptainIds, segmentationLens);
+      if (cls) {
+        counts.set(cls.bucketId, (counts.get(cls.bucketId) || 0) + 1);
+      }
+    });
+
+    return bucketDefs.map((b) => ({
+      ...b,
+      count: counts.get(b.bucketId) || 0,
+    }));
+  }, [data.nodes, keystoneCaptainIds, segmentationLens]);
+
+  // Configure custom D3 forces: abk physics tuning + Segmentation Lens clustering
+  useEffect(() => {
+    const fg = fgRef.current;
+    if (!fg || is3D) return;
+
+    const chargeForce = fg.d3Force("charge");
+    if (chargeForce) {
+      chargeForce.strength(-110);
+      if (typeof chargeForce.distanceMax === "function") {
+        chargeForce.distanceMax(520);
+      }
+    }
+
+    fg.d3Force("link")?.distance((link: any) => {
+      if (link.isMultiHopBridge) return 100;
+      if (
+        link.label === "PLAYS_GAME" ||
+        link.label === "PRIMARY_FRANCHISE_PLAYER" ||
+        link.label === "BASE_GAME_RETAIL_PURCHASER" ||
+        link.value === 2
+      ) {
+        return 100;
+      }
+      if (link.label === "MONETIZATION_GRAVITY" || link.label === "OWNS_SKU") return 110;
+      if (link.isTriggerStream) return 120;
+      return 130;
+    });
+
+    if (enableDivisionClusters && segmentationLens === "FRANCHISE") {
+      fg.d3Force("divisionCluster", (alpha: number) => {
+        for (const node of data.nodes as any[]) {
+          if (node.fx !== undefined && node.fy !== undefined) continue;
+          const lbl: TakeTwoLabel = node.label || "2K";
+          const target = DIVISION_CLUSTER_ANCHORS[lbl] || DIVISION_CLUSTER_ANCHORS["2K"];
+          node.vx = (node.vx || 0) + (target.x - (node.x || 0)) * alpha * 0.12;
+          node.vy = (node.vy || 0) + (target.y - (node.y || 0)) * alpha * 0.12;
+        }
+      });
+    } else {
+      fg.d3Force("divisionCluster", null);
+    }
+
+    if (segmentationLens === "CATE_UPLIFT" || segmentationLens === "TRAJECTORY") {
+      fg.d3Force("lensCluster", (alpha: number) => {
+        for (const node of data.nodes as any[]) {
+          if (node.type !== "PLAYER") continue;
+          if (node.fx !== undefined && node.fy !== undefined) continue;
+          const cls = classifyNodeForLens(node, keystoneCaptainIds, segmentationLens);
+          if (cls?.anchor) {
+            node.vx = (node.vx || 0) + (cls.anchor.x - (node.x || 0)) * alpha * 0.14;
+            node.vy = (node.vy || 0) + (cls.anchor.y - (node.y || 0)) * alpha * 0.14;
+          }
+        }
+      });
+    } else if (segmentationLens === "PORTFOLIO_RINGS") {
+      fg.d3Force("lensCluster", (alpha: number) => {
+        for (const node of data.nodes as any[]) {
+          if (node.type !== "PLAYER") continue;
+          if (node.fx !== undefined && node.fy !== undefined) continue;
+          const cls = classifyNodeForLens(node, keystoneCaptainIds, "PORTFOLIO_RINGS");
+          const targetR = cls?.targetRadius || 220;
+          const x = node.x || 0.01;
+          const y = node.y || 0.01;
+          const dist = Math.sqrt(x * x + y * y) || 1;
+          const deltaR = (targetR - dist) * alpha * 0.16;
+          node.vx = (node.vx || 0) + (x / dist) * deltaR;
+          node.vy = (node.vy || 0) + (y / dist) * deltaR;
+        }
+      });
+    } else {
+      fg.d3Force("lensCluster", null);
+    }
+
+    fg.d3ReheatSimulation?.();
+  }, [data, is3D, enableDivisionClusters, segmentationLens, keystoneCaptainIds]);
+
   // Directional Particle Streams (5 directional hop particles)
   const getLinkParticles = useCallback(
     (link: any) => {
@@ -197,6 +480,69 @@ export default function ForceGraphCanvas({
     return "#00FF88";
   }, []);
 
+  // Pre-frame canvas guide renderer for Segmentation Lenses (3-Ring Concentric Guides & Quadrant Anchors)
+  const paintLensGuides2D = useCallback(
+    (ctx: CanvasRenderingContext2D, globalScale: number) => {
+      if (segmentationLens === "PORTFOLIO_RINGS") {
+        const rings = [
+          { r: 105, color: "rgba(25, 195, 125, 0.28)", text: "RING 1 · CORE 2K27 (r=105)" },
+          { r: 220, color: "rgba(245, 180, 0, 0.26)", text: "RING 2 · CREW & NURTURE (r=220)" },
+          { r: 335, color: "rgba(168, 85, 247, 0.26)", text: "RING 3 · CROSS-2K STRETCH (r=335)" },
+        ];
+        ctx.save();
+        rings.forEach((ring) => {
+          ctx.beginPath();
+          ctx.setLineDash([5 / globalScale, 5 / globalScale]);
+          ctx.arc(0, 0, ring.r, 0, 2 * Math.PI, false);
+          ctx.strokeStyle = ring.color;
+          ctx.lineWidth = 1.4 / globalScale;
+          ctx.stroke();
+
+          const fontSize = Math.max(8.5 / globalScale, 2.5);
+          ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, "SF Mono", monospace`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "bottom";
+          ctx.fillStyle = ring.color.replace(/0\.2[68]/, "0.68");
+          ctx.fillText(ring.text, 0, -ring.r - 4 / globalScale);
+        });
+        ctx.restore();
+      } else if (segmentationLens === "CATE_UPLIFT" || segmentationLens === "TRAJECTORY") {
+        const quads =
+          segmentationLens === "CATE_UPLIFT"
+            ? [
+                { x: -240, y: -150, label: "KEYSTONE CAPTAINS (SEED)", color: "rgba(245, 180, 0, 0.55)" },
+                { x: 240, y: -150, label: "SURE THINGS (2K D2C +22%)", color: "rgba(56, 189, 248, 0.55)" },
+                { x: -240, y: 150, label: "PERSUADABLES (HIGH CATE)", color: "rgba(25, 195, 125, 0.55)" },
+                { x: 240, y: 150, label: "SLEEPING DOGS (SUPPRESS)", color: "rgba(255, 77, 94, 0.55)" },
+              ]
+            : [
+                { x: -240, y: -150, label: "GOLDEN PATH (85+ OVR)", color: "rgba(25, 195, 125, 0.55)" },
+                { x: 240, y: -150, label: "WHALE VELOCITY DECAY", color: "rgba(56, 189, 248, 0.55)" },
+                { x: -240, y: 150, label: "SUB-85 BADGE WALL", color: "rgba(245, 180, 0, 0.55)" },
+                { x: 240, y: 150, label: "REACTIVE TILT / META", color: "rgba(255, 77, 94, 0.55)" },
+              ];
+        ctx.save();
+        const fontSize = Math.max(9 / globalScale, 2.5);
+        ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, "SF Mono", monospace`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        quads.forEach((q) => {
+          ctx.beginPath();
+          ctx.setLineDash([4 / globalScale, 4 / globalScale]);
+          ctx.arc(q.x, q.y, 78, 0, 2 * Math.PI, false);
+          ctx.strokeStyle = q.color.replace("0.55", "0.18");
+          ctx.lineWidth = 1.1 / globalScale;
+          ctx.stroke();
+
+          ctx.fillStyle = q.color;
+          ctx.fillText(q.label, q.x, q.y - 86);
+        });
+        ctx.restore();
+      }
+    },
+    [segmentationLens]
+  );
+
   // Custom 2D Node Renderer (Sleek Apple HUD Nodes with White Center Specular Core & Emoji Pill Badges)
   const paintNode2D = useCallback(
     (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -219,6 +565,10 @@ export default function ForceGraphCanvas({
         (keystoneCaptainIds.has(node.id) ||
           node.archetype === "REC_CREW_CAPTAIN" ||
           node.archetype === "PARK_REP_GRINDER");
+      const lensClassification =
+        node.type === "PLAYER" && segmentationLens !== "FRANCHISE"
+          ? classifyNodeForLens(node, keystoneCaptainIds, segmentationLens)
+          : null;
 
       const baseRadius = isAnchor
         ? 18
@@ -395,7 +745,7 @@ export default function ForceGraphCanvas({
 
         ctx.beginPath();
         ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
-        ctx.fillStyle = node.color || "#00FF88";
+        ctx.fillStyle = lensClassification?.color || node.color || "#00FF88";
         ctx.fill();
         if (isSelected || isHovered) {
           ctx.lineWidth = 2;
@@ -523,7 +873,7 @@ export default function ForceGraphCanvas({
         ctx.fillText(text, node.x, textY);
       }
     },
-    [selectedNode, hoveredNode, keystoneCaptainIds]
+    [selectedNode, hoveredNode, keystoneCaptainIds, segmentationLens]
   );
 
   // Custom 2D Link Renderer (High-Clarity Interactive Constellation Trails)
@@ -621,40 +971,72 @@ export default function ForceGraphCanvas({
       style={{ backgroundColor: "#06080E" }}
       data-view-mode={viewMode || "audience-cohorts"}
     >
-      {/* Multi-Hop Traversal Banner (.apple-glass) */}
-      {(multiHopBridgeCount > 0 || activeCohortName || highlightBridges) && (
-        <div className="apple-glass pointer-events-auto absolute top-3 left-4 z-20 flex items-center gap-3 rounded-2xl px-3.5 py-2 text-[11px] font-mono text-white shadow-2xl">
-          <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-400">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            <span>
-              {activeCohortName || "Multi-Hop Path"}
+      {/* Top-Left HUD Stack: Multi-Hop Banner + Floating Lens Breakdown Pill */}
+      <div className="pointer-events-none absolute top-3 left-4 z-20 flex flex-col items-start gap-2">
+        {(multiHopBridgeCount > 0 || activeCohortName || highlightBridges) && (
+          <div className="apple-glass pointer-events-auto flex items-center gap-3 rounded-2xl px-3.5 py-2 text-[11px] font-mono text-white shadow-2xl">
+            <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-400">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              <span>{activeCohortName || "Multi-Hop Path"}</span>
             </span>
-          </span>
-          <span className="h-3 w-px bg-white/15" />
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-300">
-            <span className="h-2 w-2 rounded-full bg-[#00F59B]" />
-            <span>Hop 1: Crew / 2K ID</span>
-          </span>
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-300">
-            <span className="h-2 w-2 rounded-full bg-[#00D2FF]" />
-            <span>Hop 2: Squadmate / 2K26 Bridge</span>
-          </span>
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-300">
-            <span className="h-2 w-2 rounded-full bg-[#FF5722]" />
-            <span>Hop 3: Target 2K Hub</span>
-          </span>
-          {onClearCohort && (
-            <button
-              type="button"
-              onClick={onClearCohort}
-              className="ml-1 rounded-lg bg-white/10 p-1 text-gray-300 hover:bg-white/20 hover:text-white"
-              title="Reset Cohort Filter"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-      )}
+            <span className="h-3 w-px bg-white/15" />
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-300">
+              <span className="h-2 w-2 rounded-full bg-[#00F59B]" />
+              <span>Hop 1: Crew / 2K ID</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-300">
+              <span className="h-2 w-2 rounded-full bg-[#00D2FF]" />
+              <span>Hop 2: Squadmate / 2K26 Bridge</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-300">
+              <span className="h-2 w-2 rounded-full bg-[#FF5722]" />
+              <span>Hop 3: Target 2K Hub</span>
+            </span>
+            {onClearCohort && (
+              <button
+                type="button"
+                onClick={onClearCohort}
+                className="ml-1 rounded-lg bg-white/10 p-1 text-gray-300 hover:bg-white/20 hover:text-white"
+                title="Reset Cohort Filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        )}
+
+        {segmentationLens !== "FRANCHISE" && lensBreakdown.length > 0 && (
+          <div
+            className="apple-glass pointer-events-auto flex flex-wrap items-center gap-3 rounded-2xl px-3.5 py-2 text-[11px] font-mono text-white shadow-2xl"
+            data-testid="lens-breakdown-pill"
+          >
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
+              {segmentationLens === "CATE_UPLIFT"
+                ? "CATE Uplift Lens"
+                : segmentationLens === "PORTFOLIO_RINGS"
+                ? "3-Ring Portfolio"
+                : "Trajectory Lens"}
+            </span>
+            <span className="h-3 w-px bg-white/15" />
+            {lensBreakdown.map((bucket) => (
+              <span
+                key={bucket.bucketId}
+                className="inline-flex items-center gap-1.5 text-[11px] text-gray-200 tabular-nums"
+              >
+                <span
+                  className="h-2 w-2 rounded-full shrink-0"
+                  style={{ backgroundColor: bucket.color }}
+                />
+                <span className="font-medium text-white">{bucket.label}:</span>
+                <span className="font-semibold text-white">{bucket.count}</span>
+                <span className="text-[10px] text-gray-400">
+                  ({bucket.actionTag})
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Floating Constellation Legend (.apple-glass) */}
       <div
@@ -701,7 +1083,13 @@ export default function ForceGraphCanvas({
           height={resolvedHeight}
           graphData={data}
           nodeLabel={(n: any) => String(n.name || "").replace(/—/g, "·")}
-          nodeColor={(n: any) => n.color || "#00F0FF"}
+          nodeColor={(n: any) => {
+            if (segmentationLens !== "FRANCHISE" && n.type === "PLAYER") {
+              const cls = classifyNodeForLens(n, keystoneCaptainIds, segmentationLens);
+              if (cls?.color) return cls.color;
+            }
+            return n.color || "#00F0FF";
+          }}
           nodeVal={(n: any) => n.val || 7}
           nodeRelSize={4}
           linkColor={(l: any) =>
@@ -745,6 +1133,7 @@ export default function ForceGraphCanvas({
           height={resolvedHeight}
           graphData={data}
           backgroundColor="#06080E"
+          onRenderFramePre={paintLensGuides2D}
           nodeCanvasObject={paintNode2D}
           nodeCanvasObjectMode={() => "replace"}
           linkCanvasObject={paintLink2D}

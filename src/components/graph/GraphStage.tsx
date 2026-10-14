@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { GraphData, GraphNode, CohortContext } from "@/lib/types";
+import { GraphData, GraphNode, CohortContext, SegmentationLens } from "@/lib/types";
 
 const ForceGraphCanvas = dynamic(() => import("./ForceGraphCanvas"), {
   ssr: false,
@@ -16,6 +16,7 @@ export interface GraphStageProps {
   cohortContext?: CohortContext | null;
   clusterByLabel?: boolean;
   highlightBridges?: boolean;
+  segmentationLens?: SegmentationLens;
 }
 
 export default function GraphStage({
@@ -26,6 +27,7 @@ export default function GraphStage({
   cohortContext,
   clusterByLabel = false,
   highlightBridges = false,
+  segmentationLens = "FRANCHISE",
 }: GraphStageProps) {
   const [dimensions, setDimensions] = useState({ width: 1280, height: 800 });
   const [mounted, setMounted] = useState(false);
@@ -56,6 +58,7 @@ export default function GraphStage({
         height={dimensions.height}
         clusterByLabel={clusterByLabel}
         highlightBridges={highlightBridges || Boolean(cohortContext?.isMultiHop)}
+        segmentationLens={segmentationLens}
       />
     </div>
   );

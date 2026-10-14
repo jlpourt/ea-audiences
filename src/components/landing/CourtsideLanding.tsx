@@ -193,21 +193,21 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
     iconColor: "text-orange-400",
     bgAccent: "bg-orange-500/10",
     pillColor: "bg-orange-500/15 text-orange-300 border-orange-500/30",
-    metricPill: "418 Holdout Veterans",
-    title: "418 NBA 2K26 Veterans Ready to Upgrade",
+    metricPill: "730 Holdout Veterans",
+    title: "730 NBA 2K26 Veterans Ready to Upgrade",
     summary:
       "High-spend NBA 2K26 veterans ($150+ VC, 90+ OVR) whose Crew mates already play NBA 2K27.",
-    base: "418 NBA 2K26 Holdout Veterans · 2K Identity Graph",
+    base: "730 NBA 2K26 Holdout Veterans · 2K Identity Graph",
     metrics: {
-      cohortSize: 418,
+      cohortSize: 730,
       avgSpend: 342,
       avgChurn: 0.44,
       liftMetric: "+$9.5M-$55.0M Upgrade Lift",
-      highRiskCount: 164,
+      highRiskCount: 286,
       secondaryMetric: "$69.99 HoF Loyalty Upgrade + 100K VC",
     },
     caveats: [
-      "418 high-spend NBA 2K26 veterans ($342 avg LTV) have 2+ Crew mates already active in NBA 2K27.",
+      "730 high-spend NBA 2K26 veterans ($342 avg LTV) have 2+ Crew mates already active in NBA 2K27.",
       "Dispatch the $69.99 Hall of Fame Loyalty Upgrade + 100K VC + Carry-Over Cap Breakers via 2K Account.",
       "Converts at 3.1x baseline without discounting standard retail SKU margins.",
     ],
@@ -222,7 +222,7 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
           "High-spend NBA 2K26 veterans who haven't migrated to NBA 2K27 yet and have Crew mates active in NBA 2K27",
         franchise: "NBA2K26",
         tag: "2K26 → 2K27 Bridge",
-        highlight: "418 Veterans",
+        highlight: "730 Veterans",
       },
       {
         title: "92+ OVR NBA 2K26 Park Grinders",
@@ -252,17 +252,17 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
     iconColor: "text-rose-400",
     bgAccent: "bg-rose-500/10",
     pillColor: "bg-rose-500/15 text-rose-300 border-rose-500/30",
-    metricPill: "284 Stalled Builds",
-    title: "284 Sub-85 Builds at Season 2 Cliff",
+    metricPill: "681 Stalled Builds",
+    title: "681 Season 2 Build Cliff Players",
     summary:
       "Sub-85 OVR MyCAREER spenders inactive 7+ days whose Crew captains logged in within 72 hours.",
-    base: "284 Stalled MyCAREER Builds · 2K Identity Graph",
+    base: "681 Stalled MyCAREER Builds · 2K Identity Graph",
     metrics: {
-      cohortSize: 284,
+      cohortSize: 681,
       avgSpend: 218,
       avgChurn: 0.64,
       liftMetric: "+28.4% S2 Retention · +$10.4M-$42.9M RCS",
-      highRiskCount: 284,
+      highRiskCount: 681,
       secondaryMetric: "$4.99 Crew Re-Up Bundle",
     },
     caveats: [
@@ -281,7 +281,7 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
           "NBA 2K27 MyCAREER builds below 85 OVR who spent $50+ on VC, haven't logged in for 7 days, and are in a Crew with active teammates",
         franchise: "NBA2K",
         tag: "2-Hop Crew",
-        highlight: "284 At-Risk Builds",
+        highlight: "681 At-Risk Builds",
       },
       {
         title: "Park Loss Streak & Rage-Quit Risk",
@@ -311,17 +311,17 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
     iconColor: "text-amber-400",
     bgAccent: "bg-amber-500/10",
     pillColor: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-    metricPill: "196 HoF Whales",
-    title: "196 MyTEAM Galaxy Opal Pack Whales",
+    metricPill: "447 HoF Whales",
+    title: "447 MyTEAM Galaxy Opal Whales",
     summary:
       "Hall of Fame Pass holders with 10+ Galaxy Opals ($1,420 avg LTV) primed for pack offers.",
-    base: "196 MyTEAM Opal Whales · 2K Identity Graph",
+    base: "447 MyTEAM Opal Whales · 2K Identity Graph",
     metrics: {
-      cohortSize: 196,
+      cohortSize: 447,
       avgSpend: 1420,
       avgChurn: 0.24,
       liftMetric: "+$16.4M-$43.7M Pack Yield",
-      highRiskCount: 34,
+      highRiskCount: 74,
       secondaryMetric: "$14.99 vs $19.99 Offer Battle",
     },
     caveats: [
@@ -340,7 +340,7 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
           "NBA 2K27 MyTEAM whales with 10+ Galaxy Opals and Hall of Fame Season Pass",
         franchise: "NBA2K",
         tag: "Offer Battle",
-        highlight: "196 Opal Whales",
+        highlight: "447 Opal Whales",
       },
       {
         title: "High-Velocity VC Vault Holders",
@@ -370,21 +370,21 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
     iconColor: "text-cyan-400",
     bgAccent: "bg-cyan-500/10",
     pillColor: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
-    metricPill: "512 Multi-2K Players",
-    title: "512 Multi-Title 2K Cross-Players",
+    metricPill: "5,502 Cross-2K Players",
+    title: "5,502 Cross-2K Account Players",
     summary:
       "Unified 2K Account players active across NBA 2K27, WWE 2K25, PGA 2K25, and Borderlands 4.",
-    base: "512 Multi-Franchise 2K Accounts · 2K Identity Spine",
+    base: "5,502 Multi-Franchise 2K Accounts · 2K Identity Spine",
     metrics: {
-      cohortSize: 512,
+      cohortSize: 5502,
       avgSpend: 685,
       avgChurn: 0.29,
       liftMetric: "2.8x Cross-2K LTV",
-      highRiskCount: 78,
+      highRiskCount: 168,
       secondaryMetric: "Zero-CAC 2K Portfolio Cross-Sell",
     },
     caveats: [
-      "Unified 2K Account links console, PC, and mobile play across 12 2K titles.",
+      "Unified 2K Account links console, PC, and mobile play across 12 2K titles (5,502 Cross-2K players).",
       "Target NBA 2K27 players during mid-season lulls with WWE 2K25 MyFACTION and PGA 2K25 bundles.",
       "Multi-title 2K players generate 2.8x higher annual LTV with zero external paid-media CAC.",
     ],
@@ -399,7 +399,7 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
           "2K Sports players bridging NBA 2K27 with WWE 2K25 MyFACTION and PGA TOUR 2K25",
         franchise: "WWE2K",
         tag: "2K Sports",
-        highlight: "WWE + PGA 2K",
+        highlight: "5,502 Cross-2K",
       },
       {
         title: "Borderlands 4 & Civilization VII Cross-Play",
@@ -429,21 +429,21 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
     iconColor: "text-emerald-400",
     bgAccent: "bg-emerald-500/10",
     pillColor: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-    metricPill: "364 Creator Squads",
-    title: "364 Creator-Led Crew Squads",
+    metricPill: "1,477 Creator Squads",
+    title: "1,477 Creator-Led Crew Squads",
     summary:
-      "Level 30+ Crew players following top 2K creators with 87% bundle conversion affinity.",
-    base: "364 Creator-Linked Crew Players · 2K Identity Graph",
+      "84 active Crews and 1,477 players following top 2K creators with 87% bundle conversion affinity.",
+    base: "1,477 Creator-Linked Crew Players · 84 Crews · 2K Identity Graph",
     metrics: {
-      cohortSize: 364,
+      cohortSize: 1477,
       avgSpend: 590,
       avgChurn: 0.31,
       liftMetric: "87.4% Creator Affinity",
-      highRiskCount: 62,
+      highRiskCount: 142,
       secondaryMetric: "Creator Locker Code & Crew Co-Promo",
     },
     caveats: [
-      "364 Level 30+ Crew members follow Agent 00, Troydan, CashNasty, KOT4Q, DBG, Tydebo, or Moxsy.",
+      "1,477 Crew members across 84 Crews follow Agent 00, Troydan, CashNasty, KOT4Q, DBG, Tydebo, or Moxsy.",
       "Synchronize creator Locker Code drops with Cap Breaker and MyTEAM Friday pack releases.",
       "Drives 3.2x faster bundle conversion within 24 hours of creator build breakdown streams.",
     ],
@@ -512,10 +512,25 @@ export default function CourtsideLanding({
   const [isBriefModalOpen, setIsBriefModalOpen] = useState<boolean>(false);
   const [footerStats, setFooterStats] = useState<{
     players: number;
+    crews: number;
+    cross2k: number;
     identities: number;
   }>({
-    players: 2850,
-    identities: 6853,
+    players: 6500,
+    crews: 84,
+    cross2k: 5502,
+    identities: 15787,
+  });
+  const [pillarCounts, setPillarCounts] = useState<{
+    cateHoldouts: number;
+    d2cWebstore: number;
+    whaleDecay: number;
+    buildRebirth: number;
+  }>({
+    cateHoldouts: 730,
+    d2cWebstore: 787,
+    whaleDecay: 378,
+    buildRebirth: 677,
   });
 
   const isLoading = Boolean(isLoadingProp ?? isSearching);
@@ -537,37 +552,50 @@ export default function CourtsideLanding({
       .then((d) => {
         if (!cancelled && d && d.ok) {
           setFooterStats({
-            players: d.players || 2850,
-            identities: d.identities || 6853,
+            players: d.players || 6500,
+            crews: d.crews || 84,
+            cross2k: d.cross_2k_players || 5502,
+            identities: d.identities || 15787,
           });
           const p1 = d.play_counts?.play1_season2_cliff;
           const p2 = d.play_counts?.play2_cross_label_gravity;
           const p3 = d.play_counts?.play3_myteam_whales;
+          const p5 = d.play_counts?.play5_creator_crews;
+          const p6 = d.play_counts?.play6_whale_decay;
+          const p7 = d.play_counts?.play7_d2c_webstore;
+          const p8 = d.play_counts?.play8_build_rebirth;
+          const cross2kTotal = d.cross_2k_players;
+          setPillarCounts({
+            cateHoldouts: typeof p2 === "number" && p2 > 0 ? p2 : 730,
+            d2cWebstore: typeof p7 === "number" && p7 > 0 ? p7 : 787,
+            whaleDecay: typeof p6 === "number" && p6 > 0 ? p6 : 378,
+            buildRebirth: typeof p8 === "number" && p8 > 0 ? p8 : 677,
+          });
           setDynamicFindings((prev) =>
             prev.map((f) => {
               if (f.id === "2k26-bridge" && typeof p2 === "number" && p2 > 0) {
                 return {
                   ...f,
-                  title: `${p2} NBA 2K26 Veterans Ready to Upgrade`,
-                  metricPill: `${p2} Holdout Veterans`,
-                  base: `${p2} NBA 2K26 Holdout Veterans · 2K Identity Graph`,
+                  title: `${p2.toLocaleString()} NBA 2K26 Veterans Ready to Upgrade`,
+                  metricPill: `${p2.toLocaleString()} Holdout Veterans`,
+                  base: `${p2.toLocaleString()} NBA 2K26 Holdout Veterans · 2K Identity Graph`,
                   metrics: { ...f.metrics, cohortSize: p2 },
                   caveats: [
-                    `${p2} high-spend NBA 2K26 veterans ($342 avg LTV) have 2+ Crew mates already active in NBA 2K27.`,
+                    `${p2.toLocaleString()} high-spend NBA 2K26 veterans ($342 avg LTV) have 2+ Crew mates already active in NBA 2K27.`,
                     f.caveats[1],
                     f.caveats[2],
                   ],
                   prompts: f.prompts.map((pr, idx) =>
-                    idx === 0 ? { ...pr, highlight: `${p2} Veterans` } : pr
+                    idx === 0 ? { ...pr, highlight: `${p2.toLocaleString()} Veterans` } : pr
                   ),
                 };
               }
               if (f.id === "season2-cliff" && typeof p1 === "number" && p1 > 0) {
                 return {
                   ...f,
-                  title: `${p1} Sub-85 Builds at Season 2 Cliff`,
-                  metricPill: `${p1} Stalled Builds`,
-                  base: `${p1} Stalled MyCAREER Builds · 2K Identity Graph`,
+                  title: `${p1.toLocaleString()} Season 2 Build Cliff Players`,
+                  metricPill: `${p1.toLocaleString()} Stalled Builds`,
+                  base: `${p1.toLocaleString()} Stalled MyCAREER Builds · 2K Identity Graph`,
                   metrics: {
                     ...f.metrics,
                     cohortSize: p1,
@@ -575,20 +603,47 @@ export default function CourtsideLanding({
                     liftMetric: "+28.4% S2 Retention · +$10.4M-$42.9M RCS",
                   },
                   prompts: f.prompts.map((pr, idx) =>
-                    idx === 0 ? { ...pr, highlight: `${p1} At-Risk Builds` } : pr
+                    idx === 0 ? { ...pr, highlight: `${p1.toLocaleString()} At-Risk Builds` } : pr
                   ),
                 };
               }
               if (f.id === "myteam-whales" && typeof p3 === "number" && p3 > 0) {
                 return {
                   ...f,
-                  title: `${p3} MyTEAM Galaxy Opal Pack Whales`,
-                  metricPill: `${p3} HoF Whales`,
-                  base: `${p3} MyTEAM Opal Whales · 2K Identity Graph`,
+                  title: `${p3.toLocaleString()} MyTEAM Galaxy Opal Whales`,
+                  metricPill: `${p3.toLocaleString()} HoF Whales`,
+                  base: `${p3.toLocaleString()} MyTEAM Opal Whales · 2K Identity Graph`,
                   metrics: { ...f.metrics, cohortSize: p3 },
                   prompts: f.prompts.map((pr, idx) =>
-                    idx === 0 ? { ...pr, highlight: `${p3} Opal Whales` } : pr
+                    idx === 0 ? { ...pr, highlight: `${p3.toLocaleString()} Opal Whales` } : pr
                   ),
+                };
+              }
+              if (
+                f.id === "2k-crossplay" &&
+                typeof cross2kTotal === "number" &&
+                cross2kTotal > 0
+              ) {
+                return {
+                  ...f,
+                  title: `${cross2kTotal.toLocaleString()} Cross-2K Account Players`,
+                  metricPill: `${cross2kTotal.toLocaleString()} Cross-2K Players`,
+                  base: `${cross2kTotal.toLocaleString()} Multi-Franchise 2K Accounts · 2K Identity Spine`,
+                  metrics: { ...f.metrics, cohortSize: cross2kTotal },
+                  prompts: f.prompts.map((pr, idx) =>
+                    idx === 0
+                      ? { ...pr, highlight: `${cross2kTotal.toLocaleString()} Cross-2K` }
+                      : pr
+                  ),
+                };
+              }
+              if (f.id === "creator-crews" && typeof p5 === "number" && p5 > 0) {
+                return {
+                  ...f,
+                  title: `${p5.toLocaleString()} Creator-Led Crew Squads`,
+                  metricPill: `${p5.toLocaleString()} Creator Squads`,
+                  base: `${p5.toLocaleString()} Creator-Linked Crew Players · ${d.crews || 84} Crews · 2K Identity Graph`,
+                  metrics: { ...f.metrics, cohortSize: p5 },
                 };
               }
               return f;
@@ -754,7 +809,7 @@ export default function CourtsideLanding({
       </header>
 
       {/* 3. Center Stage (Spacious, Minimalist, Apple-Grade Master Control Panel) */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 max-w-4xl w-full mx-auto space-y-3.5 my-auto animate-spring-in">
+      <main className="relative z-10 flex-1 overflow-y-auto flex flex-col items-center justify-center px-6 py-3 max-w-5xl w-full mx-auto space-y-3 my-auto animate-spring-in">
         {/* Hero Title */}
         <div className="space-y-1 text-center">
           <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white leading-tight">
@@ -1000,12 +1055,131 @@ export default function CourtsideLanding({
             })}
           </div>
         </div>
+
+        {/* 4.5. 2026 Take-Two & 2K Decision Intelligence Pillars */}
+        <div className="w-full space-y-1.5 pt-0.5">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 font-mono">
+              2026 Take-Two &amp; 2K Decision Intelligence Pillars
+            </span>
+            <span className="text-[11px] text-zinc-400 font-mono hidden sm:inline">
+              1-Click Causal Graph &amp; D2C Arbitrage Presets
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            {[
+              {
+                id: "pillar-cate",
+                badge: "2K Game Science & Insights",
+                metric: `${pillarCounts.cateHoldouts.toLocaleString()} Holdouts`,
+                metricClass:
+                  "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+                dotClass: "bg-emerald-400",
+                title: "CATE Uplift & Sleeping Dog Guard",
+                desc: "Isolates true Persuadables at the Crew tipping point while suppressing promo-averse Sleeping Dogs.",
+                query:
+                  "NBA 2K26 holdout veterans at the Concordia Crew tipping point with active NBA 2K27 Crew mates",
+                franchise: "NBA2K26" as GameFranchise,
+              },
+              {
+                id: "pillar-d2c",
+                badge: "Strauss Zelnick · FY26/27",
+                metric: `${pillarCounts.d2cWebstore.toLocaleString()} D2C Whales`,
+                metricClass: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+                dotClass: "bg-sky-400",
+                title: "2K D2C Web Store (+22% Margin)",
+                desc: "Routes Sure-Thing whales to the 2K Web Store with zero promo discount and no 30% console fee.",
+                query:
+                  "High-velocity 2K Account VC spenders eligible for Direct-to-Consumer (D2C) Web Store margin arbitrage",
+                franchise: "NBA2K" as GameFranchise,
+              },
+              {
+                id: "pillar-timesfm",
+                badge: "Lainie Goldstein · Q4 FY26",
+                metric: `${pillarCounts.whaleDecay.toLocaleString()} Decaying`,
+                metricClass:
+                  "bg-amber-500/15 text-amber-300 border-amber-500/30",
+                dotClass: "bg-amber-400",
+                title: "TimesFM 3.0 Velocity Decay Guard",
+                desc: "Spots early-season whale spend deceleration before Q4 and activates mid-tier Persuadables.",
+                query:
+                  "High-LTV NBA 2K27 whales showing mid-season spending velocity decay for TimesFM 3.0 intervention",
+                franchise: "NBA2K" as GameFranchise,
+              },
+              {
+                id: "pillar-rebirth",
+                badge: "Dennis Ceccarelli · DAIS",
+                metric: `${pillarCounts.buildRebirth.toLocaleString()} Sub-86 Tilt`,
+                metricClass: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+                dotClass: "bg-rose-400",
+                title: "Reactive Build-Meta & Squad VaR",
+                desc: "Protects 5-stack Crew Value-at-Risk (VaR) and intervenes on sub-86 OVR matchmaking loss streaks.",
+                query:
+                  "Sub-86 OVR NBA 2K27 builds with sunk VC experiencing reactive frustration and loss streaks",
+                franchise: "NBA2K" as GameFranchise,
+              },
+            ].map((pillar) => {
+              const isPillarLoading =
+                isLoading && activeLoadingQuery === pillar.query;
+              return (
+                <button
+                  key={pillar.id}
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => {
+                    setQuery(pillar.query);
+                    handleSelectFranchise(pillar.franchise);
+                    handleRunSearch(pillar.query, pillar.franchise);
+                  }}
+                  className={`text-left p-2.5 rounded-xl border transition-all flex flex-col justify-between space-y-1.5 group ${
+                    isPillarLoading
+                      ? "bg-white/10 border-cyan-400/50 shadow-sm"
+                      : "bg-white/[0.025] hover:bg-white/[0.06] border-white/10 hover:border-white/20 active:scale-[0.99]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1.5 w-full">
+                    <span className="text-[10px] text-zinc-400 font-mono truncate flex items-center gap-1">
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${pillar.dotClass}`}
+                      />
+                      {pillar.badge}
+                    </span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full border font-mono font-semibold shrink-0 tabular-nums ${pillar.metricClass}`}
+                    >
+                      {pillar.metric}
+                    </span>
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-semibold text-zinc-100 group-hover:text-white transition-colors truncate">
+                      {pillar.title}
+                    </div>
+                    <p className="text-[11px] text-zinc-400 group-hover:text-zinc-300 leading-snug line-clamp-2 mt-0.5">
+                      {pillar.desc}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[10px] text-cyan-400/90 group-hover:text-cyan-300 font-mono w-full">
+                    <span>Launch in Graph</span>
+                    <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </main>
 
       {/* 5. Bottom Telemetry Ticker (Subtle, Clean) */}
       <footer className="relative z-20 flex items-center justify-between px-8 py-3 bg-black/20 backdrop-blur-xl border-t border-white/5 text-[11px] text-zinc-400 font-mono">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 tabular-nums">
           <span>{footerStats.players.toLocaleString()} Players</span>
+          <span>·</span>
+          <span>{footerStats.crews.toLocaleString()} Crews</span>
+          <span>·</span>
+          <span>{footerStats.cross2k.toLocaleString()} Cross-2K</span>
           <span>·</span>
           <span>
             {footerStats.identities.toLocaleString()} Linked IDs

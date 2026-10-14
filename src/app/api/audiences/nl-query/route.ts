@@ -97,7 +97,7 @@ function humanizePredicate(fragment: string, idx: number): ParsedCondition {
     op = m?.[1] || "<=";
     value = m?.[2] || "3";
     label = `Crew Mate Active <= ${value}d`;
-  } else if (/last_login_days_ago/i.test(clean)) {
+  } else if (/last_login_days_ago/i.test(clean) && !/churn_risk_score/i.test(clean)) {
     const m = clean.match(/([<>]=?|=)\s*(\d+)/);
     field = "last_login_days_ago";
     op = m?.[1] || ">=";
@@ -159,12 +159,25 @@ function humanizePredicate(fragment: string, idx: number): ParsedCondition {
     op = m?.[1] || ">=";
     value = m?.[2] || "100";
     label = `Lifetime Spend ${op} $${value}`;
+  } else if (/churn_risk_score/i.test(clean) && /last_login_days_ago/i.test(clean)) {
+    field = "velocity_decay";
+    op = ">=";
+    value = "0.45";
+    label = "Churn Risk >= 0.45 or Inactive >= 5d";
   } else if (/churn_risk_score/i.test(clean)) {
     const m = clean.match(/([<>]=?|=)\s*(\d+(?:\.\d+)?)/);
     field = "churn_risk_score";
     op = m?.[1] || ">=";
     value = m?.[2] || "0.7";
     label = `Churn Risk ${op} ${value}`;
+  } else if (/recent_loss_streak/i.test(clean)) {
+    const m = clean.match(/recent_loss_streak\s*([<>]=?|=)\s*(\d+)/i);
+    field = "recent_loss_streak";
+    op = m?.[1] || ">=";
+    value = m?.[2] || "2";
+    label = /rage_quits_7d/i.test(clean)
+      ? `Loss Streak ${op} ${value} or Tilt Risk`
+      : `Loss Streak ${op} ${value}`;
   } else if (/tilt_sensitivity|rage_quits_7d/i.test(clean)) {
     field = "rage_quits_7d";
     op = ">=";
@@ -318,6 +331,87 @@ RETURN p.player_id`,
       explanation:
         "Multi-hop 2K Account traversal connecting NBA 2K27 players across WWE 2K25, PGA TOUR 2K25, TopSpin 2K25, Borderlands 4, Civilization VII, and Mafia: The Old Country.",
       dominant_archetype: "CROSS_LABEL_NOMAD",
+    };
+  }
+
+  // Concordia Crew Tipping Point (>=60% Crew in 2K27)
+  if (
+    q.includes("tipping point") ||
+    q.includes("3/5") ||
+    q.includes("concordia")
+  ) {
+    return {
+      gql_query: `GRAPH ${GRAPH_NAME}
+MATCH (p:Player)-[:MEMBER_OF_CLAN]->(c:Clan)<-[:MEMBER_OF_CLAN]-(mate:Player)
+WHERE BOOL(p.game_telemetry.nba2k26_veteran) = true
+  AND BOOL(p.game_telemetry.migrated_to_2k27) = false
+  AND INT64(mate.game_telemetry.last_login_days_ago) <= 3${dmaClause}
+  AND p.player_id <> mate.player_id
+RETURN p.player_id`,
+      explanation:
+        "2-hop Concordia Crew Tipping-Point traversal isolating NBA 2K26 holdout veterans whose Rec/Pro-Am Crew mates are actively playing NBA 2K27 (3.4x social conversion multiplier with zero discount).",
+      dominant_archetype: "REC_CREW_CAPTAIN",
+    };
+  }
+
+  // Whale Velocity Decay Guard (Lainie Goldstein Q4 FY26 Call)
+  if (
+    q.includes("velocity decay") ||
+    q.includes("whale exhaustion") ||
+    q.includes("whale decay") ||
+    q.includes("spending velocity")
+  ) {
+    return {
+      gql_query: `GRAPH ${GRAPH_NAME}
+MATCH (p:Player)
+WHERE p.primary_franchise = 'NBA2K'
+  AND p.lifetime_spend_usd >= 350
+  AND (p.churn_risk_score >= 0.45 OR INT64(p.game_telemetry.last_login_days_ago) >= 5)${dmaClause}
+RETURN p.player_id`,
+      explanation:
+        "TimesFM 3.0 velocity-decay segment isolating front-loaded NBA 2K27 high spenders ($350+ LTV) showing mid-season engagement deceleration (Lainie Goldstein Q4 FY26 guard).",
+      dominant_archetype: "MYTEAM_PACK_WHALE",
+    };
+  }
+
+  // D2C Web Store Margin Arbitrage (Strauss Zelnick 1B+ Graph / Chartboost)
+  if (
+    q.includes("d2c") ||
+    q.includes("web store") ||
+    q.includes("margin arbitrage") ||
+    q.includes("direct-to-consumer")
+  ) {
+    return {
+      gql_query: `GRAPH ${GRAPH_NAME}
+MATCH (p:Player)-[:HAS_IDENTITY]->(i:Identity {platform: '2K Account'})
+WHERE p.lifetime_spend_usd >= 400
+  AND FLOAT64(p.game_telemetry.vc_spend_90d) >= 120${dmaClause}
+RETURN p.player_id`,
+      explanation:
+        "2K Account D2C Web Store arbitrage cohort isolating high-velocity recurrent VC spenders ($400+ LTV) where holding promos and routing to the 2K Web Store expands gross margin by +22%.",
+      dominant_archetype: "MYTEAM_PACK_WHALE",
+    };
+  }
+
+  // Build-Meta Rebirth & Progression Frustration (Dennis Ceccarelli / 2K Applied AI)
+  if (
+    q.includes("build-meta") ||
+    q.includes("rebirth") ||
+    q.includes("meta frustration") ||
+    q.includes("reactive frustration") ||
+    q.includes("loss streak")
+  ) {
+    return {
+      gql_query: `GRAPH ${GRAPH_NAME}
+MATCH (p:Player)
+WHERE p.primary_franchise = 'NBA2K'
+  AND INT64(p.game_telemetry.myplayer_ovr) < 86
+  AND FLOAT64(p.game_telemetry.vc_spend_90d) >= 50
+  AND (p.recent_loss_streak >= 2 OR INT64(p.game_telemetry.rage_quits_7d) >= 1)${dmaClause}
+RETURN p.player_id`,
+      explanation:
+        "Dennis Ceccarelli Reactive Journey trigger isolating sub-86 OVR MyCAREER builds with $50+ sunk VC experiencing matchmaking loss streaks or tilt—targeted with a Rebirth Badge Boost.",
+      dominant_archetype: "BUILD_LAB_THEORYCRAFTER",
     };
   }
 
@@ -729,15 +823,22 @@ User Request: "${query}"`,
 
     const is2K26Bridge = matchClause.includes("game-nba2k26");
     const isIdentityBridge = matchClause.includes("Identity");
+    const isD2cWebStore = isIdentityBridge && !matchClause.includes("Game");
+    const isConcordiaCrew =
+      matchClause.includes("Clan") && /migrated_to_2k27/i.test(whereClause);
     multiHopMetadata = {
-      hops: isIdentityBridge ? 3 : 2,
+      hops: isIdentityBridge && !isD2cWebStore ? 3 : 2,
       patternLabel: is2K26Bridge
         ? "Player → 2K Account → NBA 2K26 → HoF Loyalty Upgrade (+100K VC)"
-        : isIdentityBridge
-          ? "Player → 2K Account → 2K Cross-Franchise Portfolio (WWE / PGA / BL4 / Civ VII)"
-          : matchClause.includes("Clan")
-            ? "Player → Crew (MEMBER_OF_CLAN) → Active Crew Mate → $4.99 Crew Re-Up Bundle"
-            : "Player → NBA 2K Creator Squad Halo (Agent 00 / Troydan / KOT4Q / DBG)",
+        : isD2cWebStore
+          ? "Player → 2K Account → 2K D2C Web Store (+22% Gross Margin)"
+          : isIdentityBridge
+            ? "Player → 2K Account → 2K Cross-Franchise Portfolio (WWE / PGA / BL4 / Civ VII)"
+            : isConcordiaCrew
+              ? "NBA 2K26 Holdout → Crew (MEMBER_OF_CLAN) → Active 2K27 Crew Mate (3.4x Tipping Point)"
+              : matchClause.includes("Clan")
+                ? "Player → Crew (MEMBER_OF_CLAN) → Active Crew Mate → $4.99 Crew Re-Up Bundle"
+                : "Player → NBA 2K Creator Squad Halo (Agent 00 / Troydan / KOT4Q / DBG)",
       summary: explanation,
       steps: is2K26Bridge
         ? [
@@ -745,28 +846,124 @@ User Request: "${query}"`,
             "2K Account Identity Spine",
             "NBA 2K26 → 2K27 Hall of Fame Loyalty Upgrade + 100K VC",
           ]
-        : isIdentityBridge
+        : isD2cWebStore
           ? [
-              "NBA 2K27 Core Player",
+              "High-Velocity Recurrent VC Spender ($400+ LTV)",
               "2K Account Identity Spine",
-              "WWE 2K25 / PGA TOUR 2K25 / Borderlands 4 / Civ VII",
+              "2K D2C Web Store Margin Arbitrage (+22% Margin)",
             ]
-          : matchClause.includes("Clan")
+          : isIdentityBridge
             ? [
-                "Stalled MyCAREER Build (<85 OVR)",
-                "Rec / Pro-Am Crew Roster",
-                "Active Crew Mate (<=3d) + $4.99 Crew Re-Up Bundle",
+                "NBA 2K27 Core Player",
+                "2K Account Identity Spine",
+                "WWE 2K25 / PGA TOUR 2K25 / Borderlands 4 / Civ VII",
               ]
-            : [
-                "High-LTV NBA 2K27 Player",
-                "FOLLOWS_CREATOR Edge",
-                "Creator Squad (Agent 00, Troydan, CashNasty, KOT4Q, DBG, Tydebo)",
-              ],
+            : isConcordiaCrew
+              ? [
+                  "NBA 2K26 Holdout Veteran",
+                  "Rec / Pro-Am Crew Roster (≥60% Tipping Point)",
+                  "Active NBA 2K27 Crew Mate (3.4x Conversion Multiplier)",
+                ]
+              : matchClause.includes("Clan")
+                ? [
+                    "Stalled MyCAREER Build (<85 OVR)",
+                    "Rec / Pro-Am Crew Roster",
+                    "Active Crew Mate (<=3d) + $4.99 Crew Re-Up Bundle",
+                  ]
+                : [
+                    "High-LTV NBA 2K27 Player",
+                    "FOLLOWS_CREATOR Edge",
+                    "Creator Squad (Agent 00, Troydan, CashNasty, KOT4Q, DBG, Tydebo)",
+                  ],
       bridgeNodes: Array.from(bridgeNames).slice(0, 8),
     };
   }
 
   const activeConditions = parseConditionsFromWhere(spannerRes.whereClause);
+
+  // Compute deterministic, real-data-driven Causal Pruning & D2C Margin Waterfall from spannerRes.rows
+  const scaleFactor =
+    spannerRes.totalMatched / Math.max(1, spannerRes.rows.length);
+  let sleepingDogsRaw = 0;
+  let sureThingsD2cRaw = 0;
+  let keystoneCaptainsRaw = 0;
+  let persuadablesRaw = 0;
+
+  for (const r of spannerRes.rows) {
+    if (
+      r.tilt_sensitivity >= 0.58 ||
+      r.recent_loss_streak >= 3 ||
+      r.primary_archetype === "MYNBA_FRANCHISE_SIM"
+    ) {
+      sleepingDogsRaw++;
+    } else if (
+      r.lifetime_spend_usd >= 420 ||
+      r.primary_archetype === "MYTEAM_PACK_WHALE" ||
+      r.game_telemetry?.season_pass_edition === "HALL_OF_FAME"
+    ) {
+      sureThingsD2cRaw++;
+    } else if (
+      r.primary_archetype === "REC_CREW_CAPTAIN" ||
+      r.primary_archetype === "PARK_REP_GRINDER"
+    ) {
+      keystoneCaptainsRaw++;
+    } else {
+      persuadablesRaw++;
+    }
+  }
+
+  let sleeping_dogs_suppressed = Math.round(sleepingDogsRaw * scaleFactor);
+  let sure_things_d2c_routed = Math.round(sureThingsD2cRaw * scaleFactor);
+  let keystone_captains_seeded = Math.round(keystoneCaptainsRaw * scaleFactor);
+  let persuadables_targeted =
+    spannerRes.totalMatched -
+    sleeping_dogs_suppressed -
+    sure_things_d2c_routed -
+    keystone_captains_seeded;
+
+  if (persuadables_targeted < 0) {
+    const deficit = -persuadables_targeted;
+    persuadables_targeted = 0;
+    if (sure_things_d2c_routed >= deficit) {
+      sure_things_d2c_routed -= deficit;
+    } else if (keystone_captains_seeded >= deficit) {
+      keystone_captains_seeded -= deficit;
+    } else {
+      sleeping_dogs_suppressed = Math.max(0, sleeping_dogs_suppressed - deficit);
+    }
+  }
+
+  const d2c_margin_saved_usd = Math.round(
+    sure_things_d2c_routed * Math.max(18, spannerRes.aggregates.avgSpend * 0.085)
+  );
+  const squad_var_protected_usd = Math.round(keystone_captains_seeded * 680);
+  const scann_twins_added = Math.round(
+    (persuadables_targeted + keystone_captains_seeded) * 0.24
+  );
+  const net_activated_cohort =
+    persuadables_targeted +
+    keystone_captains_seeded +
+    sure_things_d2c_routed +
+    scann_twins_added;
+  const projected_incremental_lift_usd = Math.round(
+    (persuadables_targeted + keystone_captains_seeded + scann_twins_added) *
+      24.5 +
+      d2c_margin_saved_usd
+  );
+
+  const causal_waterfall = {
+    total_graph_players: 6500,
+    raw_matched: spannerRes.totalMatched,
+    sleeping_dogs_suppressed,
+    sure_things_d2c_routed,
+    d2c_margin_saved_usd,
+    keystone_captains_seeded,
+    squad_var_protected_usd,
+    persuadables_targeted,
+    scann_twins_added,
+    net_activated_cohort,
+    projected_incremental_lift_usd,
+  };
 
   return {
     nodes,
@@ -795,6 +992,7 @@ User Request: "${query}"`,
       spanner_source: spannerRes.source,
       is_multi_hop: spannerRes.isMultiHop,
       multi_hop_metadata: multiHopMetadata,
+      causal_waterfall,
     },
   };
 }

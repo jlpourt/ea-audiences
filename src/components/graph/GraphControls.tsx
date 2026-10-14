@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ContextualViewType, GameFranchise } from "@/lib/types";
+import { ContextualViewType, GameFranchise, SegmentationLens } from "@/lib/types";
 
 export interface GraphControlsProps {
   currentView: ContextualViewType;
@@ -10,6 +10,8 @@ export interface GraphControlsProps {
   onGameChange: (game: GameFranchise) => void;
   archetypeFilter: string;
   onArchetypeChange: (archetype: string) => void;
+  segmentationLens?: SegmentationLens;
+  onLensChange?: (lens: SegmentationLens) => void;
   is3D: boolean;
   onToggle3D: () => void;
   clusterByLabel?: boolean;
@@ -20,6 +22,13 @@ export interface GraphControlsProps {
   nodeCount: number;
   edgeCount: number;
 }
+
+const LENS_OPTIONS: { id: SegmentationLens; label: string }[] = [
+  { id: "FRANCHISE", label: "Franchise" },
+  { id: "CATE_UPLIFT", label: "CATE Uplift" },
+  { id: "PORTFOLIO_RINGS", label: "3-Ring Portfolio" },
+  { id: "TRAJECTORY", label: "Trajectory" },
+];
 
 const GAME_OPTIONS: { id: GameFranchise; label: string }[] = [
   { id: "ALL", label: "All 2K" },
@@ -53,6 +62,8 @@ export default function GraphControls({
   onGameChange,
   archetypeFilter,
   onArchetypeChange,
+  segmentationLens = "FRANCHISE",
+  onLensChange,
   is3D,
   onToggle3D,
   nodeCount,
@@ -144,7 +155,37 @@ export default function GraphControls({
         </div>
       )}
 
-      {/* 4. 2D / 3D Toggle Button */}
+      {/* 4. Segmentation Lens Switcher (when on graph view) */}
+      {isGraphCanvasView && onLensChange && (
+        <div
+          className="flex items-center rounded-xl bg-white/[0.04] border border-white/[0.08] p-0.5 pl-2 gap-0.5 shrink-0"
+          role="group"
+          aria-label="Segmentation Lens Switcher"
+        >
+          <span className="text-[10px] font-mono uppercase tracking-wider text-gray-400 mr-1">
+            Lens:
+          </span>
+          {LENS_OPTIONS.map((opt) => {
+            const active = segmentationLens === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => onLensChange(opt.id)}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap ${
+                  active
+                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/35 font-semibold shadow-sm"
+                    : "text-gray-400 hover:text-white hover:bg-white/5 border border-transparent"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 5. 2D / 3D Toggle Button */}
       {isGraphCanvasView && (
         <button
           type="button"
@@ -159,7 +200,7 @@ export default function GraphControls({
         </button>
       )}
 
-      {/* 5. Nodes · Edges Counter Pill */}
+      {/* 6. Nodes · Edges Counter Pill */}
       {isGraphCanvasView && (
         <div className="hidden 2xl:flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/[0.03] border border-white/[0.07] text-[11px] text-gray-300 font-mono tabular">
           <span>{nodeCount}N</span>

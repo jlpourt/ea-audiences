@@ -16,6 +16,9 @@ export async function GET() {
     play3Rows,
     play4Rows,
     play5Rows,
+    play6Rows,
+    play7Rows,
+    play8Rows,
   ] = await Promise.all([
     runRawGql(`GRAPH ${GRAPH_NAME} MATCH (p:Player) RETURN COUNT(p) AS n`),
     runRawGql(`SELECT COUNT(*) AS n FROM Clans`),
@@ -69,6 +72,30 @@ export async function GET() {
          AND p.lifetime_spend_usd >= 200
        RETURN COUNT(DISTINCT p.player_id) AS n`
     ),
+    runRawGql(
+      `GRAPH ${GRAPH_NAME}
+       MATCH (p:Player)
+       WHERE p.primary_franchise = 'NBA2K'
+         AND p.lifetime_spend_usd >= 350
+         AND (p.churn_risk_score >= 0.45 OR INT64(p.game_telemetry.last_login_days_ago) >= 5)
+       RETURN COUNT(p.player_id) AS n`
+    ),
+    runRawGql(
+      `GRAPH ${GRAPH_NAME}
+       MATCH (p:Player)-[:HAS_IDENTITY]->(i:Identity {platform: '2K Account'})
+       WHERE p.lifetime_spend_usd >= 400
+         AND FLOAT64(p.game_telemetry.vc_spend_90d) >= 120
+       RETURN COUNT(DISTINCT p.player_id) AS n`
+    ),
+    runRawGql(
+      `GRAPH ${GRAPH_NAME}
+       MATCH (p:Player)
+       WHERE p.primary_franchise = 'NBA2K'
+         AND INT64(p.game_telemetry.myplayer_ovr) < 86
+         AND FLOAT64(p.game_telemetry.vc_spend_90d) >= 50
+         AND (p.recent_loss_streak >= 2 OR INT64(p.game_telemetry.rage_quits_7d) >= 1)
+       RETURN COUNT(p.player_id) AS n`
+    ),
   ]);
 
   const play2Count = toNumber(play2Rows[0]?.n);
@@ -89,6 +116,9 @@ export async function GET() {
       play3_myteam_whales: toNumber(play3Rows[0]?.n),
       play4_2k_crossplay: toNumber(play4Rows[0]?.n),
       play5_creator_crews: toNumber(play5Rows[0]?.n),
+      play6_whale_decay: toNumber(play6Rows[0]?.n),
+      play7_d2c_webstore: toNumber(play7Rows[0]?.n),
+      play8_build_rebirth: toNumber(play8Rows[0]?.n),
     },
     execution_ms: Date.now() - started,
   });

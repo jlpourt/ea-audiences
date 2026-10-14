@@ -57,6 +57,12 @@ export type ContextualViewType =
   | "cross-franchise"
   | "social-clans";
 
+export type SegmentationLens =
+  | "FRANCHISE"
+  | "CATE_UPLIFT"
+  | "PORTFOLIO_RINGS"
+  | "TRAJECTORY";
+
 /** Season Pass editions as stored in `game_telemetry.season_pass_edition`. */
 export type SeasonPassEdition = "NONE" | "PRO" | "HALL_OF_FAME";
 

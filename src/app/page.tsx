@@ -25,6 +25,7 @@ import {
   CampaignBrief,
   CohortContext,
   SavedAudience,
+  SegmentationLens,
 } from "@/lib/types";
 import {
   ArrowLeft,
@@ -44,6 +45,8 @@ export default function HomePage() {
   const [is3D, setIs3D] = useState<boolean>(false);
   const [clusterByLabel, setClusterByLabel] = useState<boolean>(false);
   const [highlightBridges, setHighlightBridges] = useState<boolean>(false);
+  const [segmentationLens, setSegmentationLens] =
+    useState<SegmentationLens>("FRANCHISE");
 
   const [graphData, setGraphData] = useState<GraphData>({
     nodes: [],
@@ -645,6 +648,8 @@ export default function HomePage() {
               setIsSegmentedView(false);
               setCohortContext(null);
             }}
+            segmentationLens={segmentationLens}
+            onLensChange={setSegmentationLens}
             is3D={is3D}
             onToggle3D={() => setIs3D((v) => !v)}
             clusterByLabel={clusterByLabel}
@@ -745,6 +750,7 @@ export default function HomePage() {
               cohortContext={cohortContext}
               clusterByLabel={clusterByLabel}
               highlightBridges={highlightBridges}
+              segmentationLens={segmentationLens}
             />
           )}
         </div>

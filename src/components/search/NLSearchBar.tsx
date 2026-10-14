@@ -50,12 +50,30 @@ const GOLDEN_PLAY_PRESETS: Array<{
   },
   {
     tag: "03",
-    label: "10+ Opal Whales",
+    label: "Crew Tipping Point",
     query:
-      "NBA 2K27 MyTEAM whales with 10+ Galaxy Opals and Hall of Fame Season Pass",
+      "NBA 2K26 holdout veterans at the Concordia Crew tipping point with active NBA 2K27 Crew mates",
   },
   {
     tag: "04",
+    label: "Whale Velocity Decay",
+    query:
+      "High-LTV NBA 2K27 whales showing mid-season spending velocity decay for TimesFM 3.0 intervention",
+  },
+  {
+    tag: "05",
+    label: "D2C Web Store Arbitrage",
+    query:
+      "High-velocity 2K Account VC spenders eligible for Direct-to-Consumer (D2C) Web Store margin arbitrage",
+  },
+  {
+    tag: "06",
+    label: "Build-Meta Rebirth",
+    query:
+      "Sub-86 OVR NBA 2K27 builds with sunk VC experiencing reactive frustration and loss streaks",
+  },
+  {
+    tag: "07",
     label: "2K Cross-Play",
     query:
       "Multi-franchise 2K players linked via 2K Account playing NBA 2K27 alongside WWE 2K25, PGA TOUR 2K25, Borderlands 4, or Civilization VII",
@@ -162,7 +180,7 @@ export default function NLSearchBar({
     <div
       className={`absolute bottom-4 left-1/2 ${
         isInspectorOpen ? "lg:left-[calc(50%-190px)]" : ""
-      } -translate-x-1/2 transition-all duration-200 z-20 w-[92%] max-w-2xl flex flex-col items-center gap-1.5 font-sans`}
+      } -translate-x-1/2 transition-all duration-200 z-20 w-[94%] max-w-4xl flex flex-col items-center gap-1.5 font-sans`}
     >
       {errorText && (
         <div
@@ -250,6 +268,63 @@ export default function NLSearchBar({
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Causal Pruning & D2C Margin Waterfall Ribbon */}
+      {metrics?.causal_waterfall && (
+        <div
+          data-testid="causal-waterfall-ribbon"
+          className="apple-glass-heavy glass-enter w-full rounded-2xl px-3 py-1.5 flex flex-wrap items-center justify-between gap-1.5 border border-white/[0.08] font-mono text-[11px] tabular-nums"
+        >
+          <div className="flex flex-wrap items-center gap-1.5 w-full justify-between">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] border border-white/10 px-2 py-0.5 text-zinc-200 whitespace-nowrap">
+              <span className="text-zinc-400">Raw Match:</span>
+              <span className="font-semibold text-white">
+                {metrics.causal_waterfall.raw_matched.toLocaleString()}
+              </span>
+            </span>
+
+            <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 border border-rose-500/35 px-2 py-0.5 text-rose-300 whitespace-nowrap">
+              <span>
+                → Suppress Sleeping Dogs: -
+                {metrics.causal_waterfall.sleeping_dogs_suppressed.toLocaleString()}
+              </span>
+            </span>
+
+            <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/15 border border-sky-500/35 px-2 py-0.5 text-sky-300 whitespace-nowrap">
+              <span>
+                → Route Sure Things to 2K D2C:{" "}
+                {metrics.causal_waterfall.sure_things_d2c_routed.toLocaleString()}{" "}
+                (+${metrics.causal_waterfall.d2c_margin_saved_usd.toLocaleString()}{" "}
+                Margin)
+              </span>
+            </span>
+
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/35 px-2 py-0.5 text-amber-300 whitespace-nowrap">
+              <span>
+                → Seed Crew Captains:{" "}
+                {metrics.causal_waterfall.keystone_captains_seeded.toLocaleString()}
+              </span>
+            </span>
+
+            <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/15 border border-purple-500/35 px-2 py-0.5 text-purple-300 whitespace-nowrap">
+              <span>
+                → +ScaNN Twins: +
+                {metrics.causal_waterfall.scann_twins_added.toLocaleString()}
+              </span>
+            </span>
+
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-500/45 px-2.5 py-0.5 text-emerald-300 font-semibold whitespace-nowrap">
+              <span>
+                = Net Activated:{" "}
+                {metrics.causal_waterfall.net_activated_cohort.toLocaleString()}{" "}
+                (+$
+                {metrics.causal_waterfall.projected_incremental_lift_usd.toLocaleString()}{" "}
+                Est. Lift)
+              </span>
+            </span>
           </div>
         </div>
       )}
