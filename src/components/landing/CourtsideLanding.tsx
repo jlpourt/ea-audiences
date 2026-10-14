@@ -163,238 +163,238 @@ const getFindingIcon = (iconType: string) => {
 };
 
 const PROMPT_SPECS: Record<string, string> = {
-  "NBA 2K26 → 2K27 Holdout Veterans": "$150+ spend · Active 2K27 Crew",
-  "92+ OVR NBA 2K26 Park Grinders": "$200+ spend · 92+ OVR builds",
-  "2K26 Crew Captains Bridging to 2K27": "Rec & Pro-Am squad captains",
-  "Season 2 Build Cliff · Active Crew Mates": "<85 OVR · $50+ VC · 7d lapsed",
-  "Park Loss Streak & Rage-Quit Risk": "3+ Park losses · High tilt risk",
-  "Build Lab Theorycrafters Below 85 OVR": "Sub-85 OVR · Unspent VC balance",
-  "MyTEAM Galaxy Opal Whales (HoF Pass)": "10+ Galaxy Opals · HoF Pass",
-  "High-Velocity VC Vault Holders": "$500+ LTV · 50,000+ VC balance",
-  "NBA 2K Mobile Daily Pack Ritualists": "Mobile + Console MyTEAM sync",
-  "NBA 2K27 + WWE 2K25 & PGA TOUR 2K25 Bridge": "NBA 2K27 · WWE 2K25 · PGA 2K25",
-  "Borderlands 4 & Civilization VII Cross-Play": "2K Account · BL4 & Civ VII",
-  "MyNBA Sim GMs Playing Civilization VII": "MyNBA Era Sim + Civ VII",
-  "Agent 00, Troydan & CashNasty Park/MyTEAM Halo": "Agent 00 · Troydan · CashNasty",
-  "DBG, Tydebo & KOT4Q Build Lab Followers": "Meta build & MyNBA followers",
-  "Moxsy & Assemble Cross-2K Creator Fans": "Borderlands 4 & WWE 2K creators",
+  "NBA 2K26 → 2K27 Holdouts": "$150+ LTV · Active 2K27 Crew",
+  "Crew Tipping Point (3/5 in 2K27)": "Concordia Stag-Hunt · 3.4x lift",
+  "92+ OVR Park Grinders": "$200+ spend · 92+ OVR builds",
+  "Season 2 Build Cliff (<85 OVR)": "<85 OVR · $50+ VC · 7d lapsed",
+  "Reactive Build-Meta Rebirth": "Sub-86 OVR · Loss streak >= 2",
+  "Keystone Captains (Squad VaR)": "5-stack Rec/Pro-Am organizers",
+  "MyTEAM Galaxy Opal Whales": "10+ Galaxy Opals · HoF Pass",
+  "TimesFM Velocity Decay Guard": "$350+ LTV · Q4 spend deceleration",
+  "2K D2C Web Store (+22% Margin)": "Hold discount · Zero 30% store fee",
+  "WWE 2K25 & PGA TOUR 2K25 Bridge": "NBA 2K27 · WWE 2K25 · PGA 2K25",
+  "Borderlands 4 & Civ VII Cross-Play": "2K Account · BL4 & Civ VII",
+  "NBA 2K Mobile Companion Sync": "Mobile + Console MyTEAM sync",
+  "Agent 00 & Troydan Park Halo": "Agent 00 · Troydan · CashNasty",
+  "DBG & KOT4Q Build Lab Fans": "Meta build & MyNBA followers",
+  "Moxsy & Assemble Cross-2K Fans": "Borderlands 4 & WWE 2K creators",
 };
 
-const BRIEF_BULLET_LABELS = ["Why It Matters", "Recommended Play", "Expected Impact"];
+const BRIEF_BULLET_LABELS = ["Signal", "Play", "Impact"];
 
 const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
   {
     id: "2k26-bridge",
     category: "cross_title",
-    tabLabel: "01. 2K26 → 2K27 Upgrade",
-    shortLabel: "2K26 Upgrade",
+    tabLabel: "2K26 Holdouts",
+    shortLabel: "2K26 Holdouts",
     badge: "3-Hop Upgrade Bridge",
     iconType: "cross_title",
     iconColor: "text-orange-400",
     bgAccent: "bg-orange-500/10",
     pillColor: "bg-orange-500/15 text-orange-300 border-orange-500/30",
-    metricPill: "730 Holdout Veterans",
+    metricPill: "730 Holdouts",
     title: "730 NBA 2K26 Veterans Ready to Upgrade",
     summary:
-      "High-spend NBA 2K26 veterans ($150+ VC, 90+ OVR) whose Crew mates already play NBA 2K27.",
-    base: "730 NBA 2K26 Holdout Veterans · 2K Identity Graph",
+      "High-LTV 2K26 holdouts with 2+ Crew mates already active in NBA 2K27.",
+    base: "730 NBA 2K26 Holdouts · 2K Identity Graph",
     metrics: {
       cohortSize: 730,
       avgSpend: 342,
       avgChurn: 0.44,
-      liftMetric: "+$9.5M-$55.0M Upgrade Lift",
+      liftMetric: "+$9.5M–$55M Lift",
       highRiskCount: 286,
-      secondaryMetric: "$69.99 HoF Loyalty Upgrade + 100K VC",
+      secondaryMetric: "$69.99 HoF Loyalty Upgrade",
     },
     caveats: [
-      "730 high-spend NBA 2K26 veterans ($342 avg LTV) have 2+ Crew mates already active in NBA 2K27.",
-      "Dispatch the $69.99 Hall of Fame Loyalty Upgrade + 100K VC + Carry-Over Cap Breakers via 2K Account.",
-      "Converts at 3.1x baseline without discounting standard retail SKU margins.",
+      "730 NBA 2K26 veterans ($342 avg LTV) have active 2K27 Crew mates.",
+      "Send $69.99 HoF Loyalty Upgrade + 100K VC via 2K Account.",
+      "3.1x conversion lift without discounting base retail SKU.",
     ],
-    actionLabel: "Explore Cohort in Graph",
+    actionLabel: "Explore in Graph",
     queryToRun:
       "High-spend NBA 2K26 veterans who haven't migrated to NBA 2K27 yet and have Crew mates active in NBA 2K27",
     franchise: "NBA2K26",
     prompts: [
       {
-        title: "NBA 2K26 → 2K27 Holdout Veterans",
+        title: "NBA 2K26 → 2K27 Holdouts",
         query:
           "High-spend NBA 2K26 veterans who haven't migrated to NBA 2K27 yet and have Crew mates active in NBA 2K27",
         franchise: "NBA2K26",
-        tag: "2K26 → 2K27 Bridge",
-        highlight: "730 Veterans",
+        tag: "2K26 Bridge",
+        highlight: "730 Holdouts",
       },
       {
-        title: "92+ OVR NBA 2K26 Park Grinders",
+        title: "Crew Tipping Point (3/5 in 2K27)",
+        query:
+          "NBA 2K26 holdout veterans at the Concordia Crew tipping point with active NBA 2K27 Crew mates",
+        franchise: "NBA2K26",
+        tag: "CATE Uplift",
+        highlight: "3.4x Lift",
+      },
+      {
+        title: "92+ OVR Park Grinders",
         query:
           "NBA 2K26 Park and Rec veterans with $200+ spend who haven't upgraded to NBA 2K27",
         franchise: "NBA2K26",
         tag: "HoF Upgrade",
-        highlight: "$69.99 + 100K VC",
-      },
-      {
-        title: "2K26 Crew Captains Bridging to 2K27",
-        query:
-          "NBA 2K26 players in active Crews where teammates already play NBA 2K27 Season 1",
-        franchise: "NBA2K26",
-        tag: "2-Hop Crew",
-        highlight: "3.1x Conversion",
+        highlight: "+100K VC",
       },
     ],
   },
   {
     id: "season2-cliff",
     category: "churn_contagion",
-    tabLabel: "02. Season 2 Build Cliff",
-    shortLabel: "Season 2 Cliff",
-    badge: "Season 2 Tip-Off Oct 16",
+    tabLabel: "Season 2 Cliff",
+    shortLabel: "S2 Cliff",
+    badge: "Season 2 Retention",
     iconType: "slump",
     iconColor: "text-rose-400",
     bgAccent: "bg-rose-500/10",
     pillColor: "bg-rose-500/15 text-rose-300 border-rose-500/30",
     metricPill: "681 Stalled Builds",
-    title: "681 Season 2 Build Cliff Players",
+    title: "681 Sub-85 OVR Builds at the Season 2 Cliff",
     summary:
-      "Sub-85 OVR MyCAREER spenders inactive 7+ days whose Crew captains logged in within 72 hours.",
-    base: "681 Stalled MyCAREER Builds · 2K Identity Graph",
+      "Stalled MyCAREER spenders inactive 7+ days whose Crew captains logged in within 72h.",
+    base: "681 Stalled Builds · 2K Identity Graph",
     metrics: {
       cohortSize: 681,
       avgSpend: 218,
       avgChurn: 0.64,
-      liftMetric: "+28.4% S2 Retention · +$10.4M-$42.9M RCS",
+      liftMetric: "+28.4% S2 Retention",
       highRiskCount: 681,
       secondaryMetric: "$4.99 Crew Re-Up Bundle",
     },
     caveats: [
-      "Builds stalled at 78-84 OVR show 2.6x higher Season 2 churn risk when solo-queuing.",
-      "Co-trigger the $4.99 Crew Re-Up Bundle (15,000 VC + 2x Crew REP) with a captain squad invite.",
-      "Lifts 14-day Season 2 return rate by +28.4% across active Rec and Pro-Am Crews.",
+      "Builds stalled at 78–84 OVR face 2.6x higher solo-queue churn risk.",
+      "Co-trigger $4.99 Crew Re-Up Bundle with a Crew Captain squad invite.",
+      "+28.4% Season 2 return rate while suppressing tilted Sleeping Dogs.",
     ],
-    actionLabel: "Explore Cohort in Graph",
+    actionLabel: "Explore in Graph",
     queryToRun:
       "NBA 2K27 MyCAREER builds below 85 OVR who spent $50+ on VC, haven't logged in for 7 days, and are in a Crew with active teammates",
     franchise: "NBA2K",
     prompts: [
       {
-        title: "Season 2 Build Cliff · Active Crew Mates",
+        title: "Season 2 Build Cliff (<85 OVR)",
         query:
           "NBA 2K27 MyCAREER builds below 85 OVR who spent $50+ on VC, haven't logged in for 7 days, and are in a Crew with active teammates",
         franchise: "NBA2K",
         tag: "2-Hop Crew",
-        highlight: "681 At-Risk Builds",
+        highlight: "681 Builds",
       },
       {
-        title: "Park Loss Streak & Rage-Quit Risk",
+        title: "Reactive Build-Meta Rebirth",
         query:
-          "NBA 2K27 Park and Rec grinders on 3+ loss streaks with high rage-quit churn risk",
+          "Sub-86 OVR NBA 2K27 builds with sunk VC experiencing reactive frustration and loss streaks",
         franchise: "NBA2K",
-        tag: "Tilt Recovery",
-        highlight: "Loss Streak >= 3",
+        tag: "Ceccarelli Trigger",
+        highlight: "677 Tilted",
       },
       {
-        title: "Build Lab Theorycrafters Below 85 OVR",
+        title: "Keystone Captains (Squad VaR)",
         query:
           "NBA 2K27 Build Lab theorycrafters below 85 OVR holding unspent VC balances",
         franchise: "NBA2K",
-        tag: "Cap Breakers",
-        highlight: "<85 OVR Builds",
+        tag: "5-Stack VaR",
+        highlight: "$1.4K VaR",
       },
     ],
   },
   {
     id: "myteam-whales",
     category: "whale_spillover",
-    tabLabel: "03. MyTEAM Opal Whales",
-    shortLabel: "MyTEAM Whales",
-    badge: "Hall of Fame Pass Collectors",
+    tabLabel: "MyTEAM Whales",
+    shortLabel: "Whales",
+    badge: "HoF Pass & D2C Margin",
     iconType: "currency",
     iconColor: "text-amber-400",
     bgAccent: "bg-amber-500/10",
     pillColor: "bg-amber-500/15 text-amber-300 border-amber-500/30",
     metricPill: "447 HoF Whales",
-    title: "447 MyTEAM Galaxy Opal Whales",
+    title: "447 MyTEAM Opal Whales & D2C Arbitrage",
     summary:
-      "Hall of Fame Pass holders with 10+ Galaxy Opals ($1,420 avg LTV) primed for pack offers.",
-    base: "447 MyTEAM Opal Whales · 2K Identity Graph",
+      "HoF Pass collectors ($1,420 avg LTV) routed to 2K D2C Web Store (+22% gross margin) & TimesFM velocity guard.",
+    base: "447 MyTEAM Whales · 2K Identity Graph",
     metrics: {
       cohortSize: 447,
       avgSpend: 1420,
       avgChurn: 0.24,
-      liftMetric: "+$16.4M-$43.7M Pack Yield",
+      liftMetric: "+22% D2C Margin",
       highRiskCount: 74,
-      secondaryMetric: "$14.99 vs $19.99 Offer Battle",
+      secondaryMetric: "2K Web Store + Offer Battle",
     },
     caveats: [
-      "Top-decile MyTEAM collectors hold 10+ Galaxy Opals and average $1,420 lifetime spend.",
-      "Pressure-test $14.99 vs $19.99 Galaxy Opal Deluxe Pack with guaranteed topper in Focus Group.",
-      "68% also open packs on NBA 2K Mobile within 4 hours of Friday drops.",
+      "Top MyTEAM collectors hold 10+ Galaxy Opals ($1,420 avg LTV).",
+      "Route Sure Things to 2K D2C Web Store (0% discount, no 30% console fee).",
+      "Use BigQuery TimesFM 3.0 to catch Q2/Q3 whale velocity decay before Q4.",
     ],
-    actionLabel: "Explore Cohort in Graph",
+    actionLabel: "Explore in Graph",
     queryToRun:
       "NBA 2K27 MyTEAM whales with 10+ Galaxy Opals and Hall of Fame Season Pass",
     franchise: "NBA2K",
     prompts: [
       {
-        title: "MyTEAM Galaxy Opal Whales (HoF Pass)",
+        title: "MyTEAM Galaxy Opal Whales",
         query:
           "NBA 2K27 MyTEAM whales with 10+ Galaxy Opals and Hall of Fame Season Pass",
         franchise: "NBA2K",
         tag: "Offer Battle",
-        highlight: "447 Opal Whales",
+        highlight: "447 Whales",
       },
       {
-        title: "High-Velocity VC Vault Holders",
+        title: "TimesFM Velocity Decay Guard",
         query:
-          "NBA 2K27 MyTEAM players with $500+ lifetime spend and 50,000+ unspent VC balance",
+          "High-LTV NBA 2K27 whales showing mid-season spending velocity decay for TimesFM 3.0 intervention",
         franchise: "NBA2K",
-        tag: "VC Treasury",
-        highlight: "50K+ VC",
+        tag: "Goldstein Q4 Guard",
+        highlight: "378 Decaying",
       },
       {
-        title: "NBA 2K Mobile Daily Pack Ritualists",
+        title: "2K D2C Web Store (+22% Margin)",
         query:
-          "NBA 2K Mobile daily ritualists linked to NBA 2K27 MyTEAM with high pack spend",
-        franchise: "NBA2KMOBILE",
-        tag: "Mobile Sync",
-        highlight: "Daily Streak",
+          "High-velocity 2K Account VC spenders eligible for Direct-to-Consumer (D2C) Web Store margin arbitrage",
+        franchise: "NBA2K",
+        tag: "Zelnick D2C",
+        highlight: "787 D2C Ready",
       },
     ],
   },
   {
     id: "2k-crossplay",
     category: "cross_title",
-    tabLabel: "04. 2K Cross-Play",
-    shortLabel: "2K Cross-Play",
-    badge: "Unified 2K Account Graph",
+    tabLabel: "2K Cross-Play",
+    shortLabel: "Cross-Play",
+    badge: "Unified 2K Account",
     iconType: "shield",
     iconColor: "text-cyan-400",
     bgAccent: "bg-cyan-500/10",
     pillColor: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
-    metricPill: "5,502 Cross-2K Players",
-    title: "5,502 Cross-2K Account Players",
+    metricPill: "5,502 Cross-2K",
+    title: "5,502 Multi-Franchise 2K Account Players",
     summary:
-      "Unified 2K Account players active across NBA 2K27, WWE 2K25, PGA 2K25, and Borderlands 4.",
-    base: "5,502 Multi-Franchise 2K Accounts · 2K Identity Spine",
+      "Unified 2K Account players bridging NBA 2K27 with WWE 2K25, PGA 2K25, Borderlands 4, and Civ VII.",
+    base: "5,502 Cross-2K Accounts · 2K Identity Spine",
     metrics: {
       cohortSize: 5502,
       avgSpend: 685,
       avgChurn: 0.29,
       liftMetric: "2.8x Cross-2K LTV",
       highRiskCount: 168,
-      secondaryMetric: "Zero-CAC 2K Portfolio Cross-Sell",
+      secondaryMetric: "Zero-CAC Portfolio Cross-Sell",
     },
     caveats: [
-      "Unified 2K Account links console, PC, and mobile play across 12 2K titles (5,502 Cross-2K players).",
-      "Target NBA 2K27 players during mid-season lulls with WWE 2K25 MyFACTION and PGA 2K25 bundles.",
-      "Multi-title 2K players generate 2.8x higher annual LTV with zero external paid-media CAC.",
+      "2K Account links console, PC, and mobile across 12 titles.",
+      "Cross-sell WWE 2K25, PGA 2K25, and Borderlands 4 during seasonal lulls.",
+      "2.8x annual LTV at zero external paid-media acquisition cost.",
     ],
-    actionLabel: "Explore Cohort in Graph",
+    actionLabel: "Explore in Graph",
     queryToRun:
       "Multi-franchise 2K players linked via 2K Account playing NBA 2K27 alongside WWE 2K25, PGA TOUR 2K25, Borderlands 4, or Civilization VII",
     franchise: "ALL",
     prompts: [
       {
-        title: "NBA 2K27 + WWE 2K25 & PGA TOUR 2K25 Bridge",
+        title: "WWE 2K25 & PGA TOUR 2K25 Bridge",
         query:
           "2K Sports players bridging NBA 2K27 with WWE 2K25 MyFACTION and PGA TOUR 2K25",
         franchise: "WWE2K",
@@ -402,7 +402,7 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
         highlight: "5,502 Cross-2K",
       },
       {
-        title: "Borderlands 4 & Civilization VII Cross-Play",
+        title: "Borderlands 4 & Civ VII Cross-Play",
         query:
           "Players with unified 2K Account playing NBA 2K27 alongside Borderlands 4 or Civilization VII",
         franchise: "BL4",
@@ -410,11 +410,11 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
         highlight: "BL4 + Civ VII",
       },
       {
-        title: "MyNBA Sim GMs Playing Civilization VII",
+        title: "NBA 2K Mobile Companion Sync",
         query:
-          "MyNBA Franchise Sim players who also play Sid Meier's Civilization VII or PGA TOUR 2K25",
-        franchise: "ALL",
-        tag: "Strategy Sim",
+          "NBA 2K Mobile daily ritualists linked to NBA 2K27 MyTEAM with high pack spend",
+        franchise: "NBA2KMOBILE",
+        tag: "Mobile Bridge",
         highlight: "2.8x LTV",
       },
     ],
@@ -422,38 +422,38 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
   {
     id: "creator-crews",
     category: "creator_halo",
-    tabLabel: "05. Creator & Crew Squads",
-    shortLabel: "Creators & Crews",
-    badge: "2-Hop Creator & Crew Halo",
+    tabLabel: "Creator Crews",
+    shortLabel: "Creators",
+    badge: "2-Hop Creator Halo",
     iconType: "creator",
     iconColor: "text-emerald-400",
     bgAccent: "bg-emerald-500/10",
     pillColor: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-    metricPill: "1,477 Creator Squads",
+    metricPill: "1,477 Creator Fans",
     title: "1,477 Creator-Led Crew Squads",
     summary:
-      "84 active Crews and 1,477 players following top 2K creators with 87% bundle conversion affinity.",
-    base: "1,477 Creator-Linked Crew Players · 84 Crews · 2K Identity Graph",
+      "84 Crews and 1,477 players following Agent 00, Troydan, KOT4Q, DBG, and Moxsy (3.2x faster bundle conversion).",
+    base: "1,477 Creator-Linked Players · 84 Crews",
     metrics: {
       cohortSize: 1477,
       avgSpend: 590,
       avgChurn: 0.31,
-      liftMetric: "87.4% Creator Affinity",
+      liftMetric: "87.4% Affinity",
       highRiskCount: 142,
-      secondaryMetric: "Creator Locker Code & Crew Co-Promo",
+      secondaryMetric: "Creator Locker Code Co-Promo",
     },
     caveats: [
-      "1,477 Crew members across 84 Crews follow Agent 00, Troydan, CashNasty, KOT4Q, DBG, Tydebo, or Moxsy.",
-      "Synchronize creator Locker Code drops with Cap Breaker and MyTEAM Friday pack releases.",
-      "Drives 3.2x faster bundle conversion within 24 hours of creator build breakdown streams.",
+      "1,477 Crew members follow top NBA 2K, WWE 2K, and Borderlands creators.",
+      "Sync Creator Locker Code drops with Friday MyTEAM and Cap Breaker releases.",
+      "3.2x faster bundle conversion within 24h of creator build streams.",
     ],
-    actionLabel: "Explore Cohort in Graph",
+    actionLabel: "Explore in Graph",
     queryToRun:
       "High-value 2K players in active Crews following Agent 00, Troydan, CashNasty, KOT4Q, DBG, Tydebo, or Moxsy",
     franchise: "ALL",
     prompts: [
       {
-        title: "Agent 00, Troydan & CashNasty Park/MyTEAM Halo",
+        title: "Agent 00 & Troydan Park Halo",
         query:
           "NBA 2K27 players following Agent 00, Troydan, or CashNasty with high VC spend",
         franchise: "NBA2K",
@@ -461,7 +461,7 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
         highlight: "Agent 00 · Troydan",
       },
       {
-        title: "DBG, Tydebo & KOT4Q Build Lab Followers",
+        title: "DBG & KOT4Q Build Lab Fans",
         query:
           "Players following DBG, Tydebo, or Kenny Beecham KOT4Q across NBA 2K27 and NBA 2K26",
         franchise: "NBA2K",
@@ -469,11 +469,11 @@ const DEFAULT_DYNAMIC_FINDINGS: DynamicCohortFinding[] = [
         highlight: "DBG · KOT4Q",
       },
       {
-        title: "Moxsy & Assemble Cross-2K Creator Fans",
+        title: "Moxsy & Assemble Cross-2K Fans",
         query:
           "2K players following Moxsy in Borderlands 4 or Assemble in WWE 2K25",
         franchise: "BL4",
-        tag: "Cross-2K Creators",
+        tag: "Cross-2K",
         highlight: "Moxsy · Assemble",
       },
     ],
@@ -577,45 +577,49 @@ export default function CourtsideLanding({
                 return {
                   ...f,
                   title: `${p2.toLocaleString()} NBA 2K26 Veterans Ready to Upgrade`,
-                  metricPill: `${p2.toLocaleString()} Holdout Veterans`,
-                  base: `${p2.toLocaleString()} NBA 2K26 Holdout Veterans · 2K Identity Graph`,
+                  metricPill: `${p2.toLocaleString()} Holdouts`,
+                  base: `${p2.toLocaleString()} NBA 2K26 Holdouts · 2K Identity Graph`,
                   metrics: { ...f.metrics, cohortSize: p2 },
-                  caveats: [
-                    `${p2.toLocaleString()} high-spend NBA 2K26 veterans ($342 avg LTV) have 2+ Crew mates already active in NBA 2K27.`,
-                    f.caveats[1],
-                    f.caveats[2],
-                  ],
                   prompts: f.prompts.map((pr, idx) =>
-                    idx === 0 ? { ...pr, highlight: `${p2.toLocaleString()} Veterans` } : pr
+                    idx === 0 ? { ...pr, highlight: `${p2.toLocaleString()} Holdouts` } : pr
                   ),
                 };
               }
               if (f.id === "season2-cliff" && typeof p1 === "number" && p1 > 0) {
                 return {
                   ...f,
-                  title: `${p1.toLocaleString()} Season 2 Build Cliff Players`,
+                  title: `${p1.toLocaleString()} Sub-85 OVR Builds at the Season 2 Cliff`,
                   metricPill: `${p1.toLocaleString()} Stalled Builds`,
-                  base: `${p1.toLocaleString()} Stalled MyCAREER Builds · 2K Identity Graph`,
+                  base: `${p1.toLocaleString()} Stalled Builds · 2K Identity Graph`,
                   metrics: {
                     ...f.metrics,
                     cohortSize: p1,
                     highRiskCount: p1,
-                    liftMetric: "+28.4% S2 Retention · +$10.4M-$42.9M RCS",
                   },
                   prompts: f.prompts.map((pr, idx) =>
-                    idx === 0 ? { ...pr, highlight: `${p1.toLocaleString()} At-Risk Builds` } : pr
+                    idx === 0
+                      ? { ...pr, highlight: `${p1.toLocaleString()} Builds` }
+                      : idx === 1 && typeof p8 === "number" && p8 > 0
+                        ? { ...pr, highlight: `${p8.toLocaleString()} Tilted` }
+                        : pr
                   ),
                 };
               }
               if (f.id === "myteam-whales" && typeof p3 === "number" && p3 > 0) {
                 return {
                   ...f,
-                  title: `${p3.toLocaleString()} MyTEAM Galaxy Opal Whales`,
+                  title: `${p3.toLocaleString()} MyTEAM Opal Whales & D2C Arbitrage`,
                   metricPill: `${p3.toLocaleString()} HoF Whales`,
-                  base: `${p3.toLocaleString()} MyTEAM Opal Whales · 2K Identity Graph`,
+                  base: `${p3.toLocaleString()} MyTEAM Whales · 2K Identity Graph`,
                   metrics: { ...f.metrics, cohortSize: p3 },
                   prompts: f.prompts.map((pr, idx) =>
-                    idx === 0 ? { ...pr, highlight: `${p3.toLocaleString()} Opal Whales` } : pr
+                    idx === 0
+                      ? { ...pr, highlight: `${p3.toLocaleString()} Whales` }
+                      : idx === 1 && typeof p6 === "number" && p6 > 0
+                        ? { ...pr, highlight: `${p6.toLocaleString()} Decaying` }
+                        : idx === 2 && typeof p7 === "number" && p7 > 0
+                          ? { ...pr, highlight: `${p7.toLocaleString()} D2C Ready` }
+                          : pr
                   ),
                 };
               }
@@ -626,9 +630,9 @@ export default function CourtsideLanding({
               ) {
                 return {
                   ...f,
-                  title: `${cross2kTotal.toLocaleString()} Cross-2K Account Players`,
-                  metricPill: `${cross2kTotal.toLocaleString()} Cross-2K Players`,
-                  base: `${cross2kTotal.toLocaleString()} Multi-Franchise 2K Accounts · 2K Identity Spine`,
+                  title: `${cross2kTotal.toLocaleString()} Multi-Franchise 2K Account Players`,
+                  metricPill: `${cross2kTotal.toLocaleString()} Cross-2K`,
+                  base: `${cross2kTotal.toLocaleString()} Cross-2K Accounts · 2K Identity Spine`,
                   metrics: { ...f.metrics, cohortSize: cross2kTotal },
                   prompts: f.prompts.map((pr, idx) =>
                     idx === 0
@@ -641,8 +645,8 @@ export default function CourtsideLanding({
                 return {
                   ...f,
                   title: `${p5.toLocaleString()} Creator-Led Crew Squads`,
-                  metricPill: `${p5.toLocaleString()} Creator Squads`,
-                  base: `${p5.toLocaleString()} Creator-Linked Crew Players · ${d.crews || 84} Crews · 2K Identity Graph`,
+                  metricPill: `${p5.toLocaleString()} Creator Fans`,
+                  base: `${p5.toLocaleString()} Creator-Linked Players · ${d.crews || 84} Crews`,
                   metrics: { ...f.metrics, cohortSize: p5 },
                 };
               }
@@ -744,57 +748,59 @@ export default function CourtsideLanding({
         <div className="flex items-center gap-2">
           <SpannerStatusPill />
 
-          <button
-            type="button"
-            onClick={() => {
-              if (onOpenMarketingJourney) onOpenMarketingJourney();
-              else if (onOpenWorkspaceView)
-                onOpenWorkspaceView("marketing-journey");
-            }}
-            disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-gray-300 hover:text-white text-xs font-medium transition-all active:scale-95 disabled:opacity-50"
-          >
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Journeys</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (onOpenGeoMap) onOpenGeoMap();
-              else if (onOpenWorkspaceView) onOpenWorkspaceView("geo-map");
-            }}
-            disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-gray-300 hover:text-white text-xs font-medium transition-all active:scale-95 disabled:opacity-50"
-          >
-            <Globe className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Markets</span>
-          </button>
-
-          {onOpenFocusGroup && (
+          <div className="flex items-center rounded-xl bg-white/[0.04] border border-white/[0.08] p-0.5 gap-0.5">
             <button
               type="button"
-              onClick={onOpenFocusGroup}
+              onClick={() => {
+                if (onOpenMarketingJourney) onOpenMarketingJourney();
+                else if (onOpenWorkspaceView)
+                  onOpenWorkspaceView("marketing-journey");
+              }}
               disabled={isLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-gray-300 hover:text-white text-xs font-medium transition-all active:scale-95 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-white/[0.06] text-gray-300 hover:text-white text-xs font-medium transition-all disabled:opacity-50"
             >
-              <Users className="w-3.5 h-3.5 text-amber-400" />
-              <span>Focus Group</span>
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Journeys</span>
             </button>
-          )}
 
-          <button
-            type="button"
-            onClick={() => {
-              if (onOpenA2A) onOpenA2A();
-              else if (onOpenActivationFeed) onOpenActivationFeed();
-            }}
-            disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-gray-300 hover:text-white text-xs font-medium transition-all active:scale-95 disabled:opacity-50"
-          >
-            <Radio className="w-3.5 h-3.5 text-rose-400" />
-            <span>Activate</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (onOpenGeoMap) onOpenGeoMap();
+                else if (onOpenWorkspaceView) onOpenWorkspaceView("geo-map");
+              }}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-white/[0.06] text-gray-300 hover:text-white text-xs font-medium transition-all disabled:opacity-50"
+            >
+              <Globe className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Markets</span>
+            </button>
+
+            {onOpenFocusGroup && (
+              <button
+                type="button"
+                onClick={onOpenFocusGroup}
+                disabled={isLoading}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-amber-500/15 text-amber-300 text-xs font-medium transition-all disabled:opacity-50"
+              >
+                <Users className="w-3.5 h-3.5 text-amber-400" />
+                <span>Focus Group</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                if (onOpenA2A) onOpenA2A();
+                else if (onOpenActivationFeed) onOpenActivationFeed();
+              }}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-white/[0.06] text-gray-300 hover:text-white text-xs font-medium transition-all disabled:opacity-50"
+            >
+              <Radio className="w-3.5 h-3.5 text-rose-400" />
+              <span>Activate</span>
+            </button>
+          </div>
 
           <button
             type="button"
@@ -809,14 +815,14 @@ export default function CourtsideLanding({
       </header>
 
       {/* 3. Center Stage (Spacious, Minimalist, Apple-Grade Master Control Panel) */}
-      <main className="relative z-10 flex-1 overflow-y-auto flex flex-col items-center justify-center px-6 py-3 max-w-5xl w-full mx-auto space-y-3 my-auto animate-spring-in">
+      <main className="relative z-10 flex-1 overflow-y-auto flex flex-col items-center justify-center px-6 py-4 max-w-4xl w-full mx-auto space-y-4 my-auto animate-spring-in">
         {/* Hero Title */}
         <div className="space-y-1 text-center">
           <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white leading-tight">
             2K Courtside
           </h1>
-          <p className="text-xs sm:text-sm text-zinc-400 max-w-xl mx-auto leading-relaxed">
-            Cross-title player identity, lifecycle cohorts, and offer testing across the 2K portfolio.
+          <p className="text-xs sm:text-sm text-zinc-400 max-w-lg mx-auto leading-relaxed">
+            Cross-title player identity, causal cohorts, and offer testing across 2K.
           </p>
         </div>
 
@@ -937,8 +943,8 @@ export default function CourtsideLanding({
           </div>
         </div>
 
-        {/* 4. Dynamic Cohort Explorer (5 Segmented Tabs + Single Core Finding Callout Card + 3 Prompt Cards) */}
-        <div className="w-full space-y-2.5">
+        {/* 4. Minimalist Cohort Explorer (5 Clean Tabs + Compact Core Finding + 3 Short Play Cards) */}
+        <div className="w-full space-y-2">
           {/* Dynamic Cohort Segmented Tabs */}
           <div className="flex flex-wrap items-center justify-center bg-black/40 p-1 rounded-2xl border border-white/10 backdrop-blur-xl gap-1">
             {dynamicFindings.map((finding) => {
@@ -949,7 +955,7 @@ export default function CourtsideLanding({
                   key={finding.id}
                   type="button"
                   onClick={() => setActiveFindingId(finding.id)}
-                  className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl text-[11px] font-medium transition-all ${
+                  className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl text-xs font-medium transition-all ${
                     isSelected
                       ? "bg-white/15 text-white font-semibold shadow-sm border border-white/10"
                       : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5"
@@ -971,42 +977,36 @@ export default function CourtsideLanding({
             })}
           </div>
 
-          {/* 🌟 The Dynamic Core Finding Executive Callout Card */}
+          {/* 🌟 Compact 2-Line Core Finding Callout */}
           <button
             type="button"
             onClick={() => setIsBriefModalOpen(true)}
-            className="w-full text-left p-3.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-white/20 backdrop-blur-2xl transition-all space-y-1.5 cursor-pointer shadow-lg group active:scale-[0.99] focus:outline-none focus:ring-1 focus:ring-cyan-400/50"
+            className="w-full text-left px-4 py-3 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-white/20 backdrop-blur-2xl transition-all space-y-1 cursor-pointer shadow-lg group active:scale-[0.99] focus:outline-none focus:ring-1 focus:ring-cyan-400/50"
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider font-mono flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                  CORE FINDING · {currentFinding.metricPill}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2 min-w-0">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0 animate-pulse" />
+                <span className="text-sm font-semibold text-white tracking-tight truncate">
+                  {currentFinding.title}
+                </span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold border shrink-0 ${currentFinding.pillColor}`}
+                >
+                  {currentFinding.metrics.liftMetric}
                 </span>
               </div>
-              <div className="flex items-center gap-1 text-[11px] text-cyan-400 group-hover:text-cyan-300 font-medium transition-colors">
-                <span>Opportunity Brief</span>
+              <div className="flex items-center gap-1 text-[11px] text-cyan-400 group-hover:text-cyan-300 font-medium transition-colors shrink-0">
+                <span>Brief</span>
                 <ExternalLink className="w-3 h-3" />
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5">
-              <div className="text-sm sm:text-[15px] font-semibold text-white tracking-tight">
-                {currentFinding.title}
-              </div>
-              <span
-                className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${currentFinding.pillColor}`}
-              >
-                {currentFinding.metrics.liftMetric}
-              </span>
-            </div>
-
-            <p className="text-xs text-zinc-300 leading-relaxed">
+            <p className="text-xs text-zinc-400 truncate pl-4">
               {currentFinding.summary}
             </p>
           </button>
 
-          {/* 3 Spacious Prompt Cards in a clean 1x3 grid */}
+          {/* 3 Compact, High-Signal 1-Click Play Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {currentFinding.prompts.map((p, pIdx) => {
               const isThisCardLoading =
@@ -1014,156 +1014,35 @@ export default function CourtsideLanding({
               const shortSpec =
                 PROMPT_SPECS[p.title] || `${p.tag} · ${p.highlight}`;
               return (
-                <div
+                <button
                   key={pIdx}
+                  type="button"
+                  disabled={isLoading}
                   onClick={() => {
-                    if (isLoading) return;
                     setQuery(p.query);
                     handleSelectFranchise(p.franchise);
                     handleRunSearch(p.query, p.franchise);
                   }}
-                  className={`p-2.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-1.5 group ${
+                  className={`text-left px-3.5 py-2.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-1.5 group ${
                     isThisCardLoading
                       ? "bg-white/10 border-cyan-400/50 shadow-sm scale-[1.01]"
-                      : "bg-black/30 hover:bg-white/[0.06] border-white/5 hover:border-white/15 active:scale-98"
+                      : "bg-black/35 hover:bg-white/[0.06] border-white/[0.07] hover:border-white/20 active:scale-98"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-300 font-mono">
-                      {p.tag}
+                  <div className="flex items-center justify-between gap-2 w-full">
+                    <span className="text-xs font-semibold text-zinc-100 group-hover:text-white truncate transition-colors">
+                      {p.title}
                     </span>
-                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/12 border border-emerald-500/25 text-emerald-300 font-mono font-semibold shrink-0 tabular-nums">
                       {p.highlight}
                     </span>
                   </div>
 
-                  <div>
-                    <div className="text-xs font-semibold text-zinc-200 group-hover:text-white truncate transition-colors">
-                      {p.title}
-                    </div>
-                    <p className="text-[11px] text-zinc-400 group-hover:text-zinc-300 mt-0.5 font-mono">
+                  <div className="flex items-center justify-between gap-2 w-full">
+                    <span className="text-[11px] text-zinc-400 group-hover:text-zinc-300 font-mono truncate">
                       {shortSpec}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[11px] text-zinc-400 group-hover:text-zinc-200">
-                    <span>Explore cohort</span>
-                    <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 4.5. 2026 Take-Two & 2K Decision Intelligence Pillars */}
-        <div className="w-full space-y-1.5 pt-0.5">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 font-mono">
-              2026 Take-Two &amp; 2K Decision Intelligence Pillars
-            </span>
-            <span className="text-[11px] text-zinc-400 font-mono hidden sm:inline">
-              1-Click Causal Graph &amp; D2C Arbitrage Presets
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-            {[
-              {
-                id: "pillar-cate",
-                badge: "2K Game Science & Insights",
-                metric: `${pillarCounts.cateHoldouts.toLocaleString()} Holdouts`,
-                metricClass:
-                  "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-                dotClass: "bg-emerald-400",
-                title: "CATE Uplift & Sleeping Dog Guard",
-                desc: "Isolates true Persuadables at the Crew tipping point while suppressing promo-averse Sleeping Dogs.",
-                query:
-                  "NBA 2K26 holdout veterans at the Concordia Crew tipping point with active NBA 2K27 Crew mates",
-                franchise: "NBA2K26" as GameFranchise,
-              },
-              {
-                id: "pillar-d2c",
-                badge: "Strauss Zelnick · FY26/27",
-                metric: `${pillarCounts.d2cWebstore.toLocaleString()} D2C Whales`,
-                metricClass: "bg-sky-500/15 text-sky-300 border-sky-500/30",
-                dotClass: "bg-sky-400",
-                title: "2K D2C Web Store (+22% Margin)",
-                desc: "Routes Sure-Thing whales to the 2K Web Store with zero promo discount and no 30% console fee.",
-                query:
-                  "High-velocity 2K Account VC spenders eligible for Direct-to-Consumer (D2C) Web Store margin arbitrage",
-                franchise: "NBA2K" as GameFranchise,
-              },
-              {
-                id: "pillar-timesfm",
-                badge: "Lainie Goldstein · Q4 FY26",
-                metric: `${pillarCounts.whaleDecay.toLocaleString()} Decaying`,
-                metricClass:
-                  "bg-amber-500/15 text-amber-300 border-amber-500/30",
-                dotClass: "bg-amber-400",
-                title: "TimesFM 3.0 Velocity Decay Guard",
-                desc: "Spots early-season whale spend deceleration before Q4 and activates mid-tier Persuadables.",
-                query:
-                  "High-LTV NBA 2K27 whales showing mid-season spending velocity decay for TimesFM 3.0 intervention",
-                franchise: "NBA2K" as GameFranchise,
-              },
-              {
-                id: "pillar-rebirth",
-                badge: "Dennis Ceccarelli · DAIS",
-                metric: `${pillarCounts.buildRebirth.toLocaleString()} Sub-86 Tilt`,
-                metricClass: "bg-rose-500/15 text-rose-300 border-rose-500/30",
-                dotClass: "bg-rose-400",
-                title: "Reactive Build-Meta & Squad VaR",
-                desc: "Protects 5-stack Crew Value-at-Risk (VaR) and intervenes on sub-86 OVR matchmaking loss streaks.",
-                query:
-                  "Sub-86 OVR NBA 2K27 builds with sunk VC experiencing reactive frustration and loss streaks",
-                franchise: "NBA2K" as GameFranchise,
-              },
-            ].map((pillar) => {
-              const isPillarLoading =
-                isLoading && activeLoadingQuery === pillar.query;
-              return (
-                <button
-                  key={pillar.id}
-                  type="button"
-                  disabled={isLoading}
-                  onClick={() => {
-                    setQuery(pillar.query);
-                    handleSelectFranchise(pillar.franchise);
-                    handleRunSearch(pillar.query, pillar.franchise);
-                  }}
-                  className={`text-left p-2.5 rounded-xl border transition-all flex flex-col justify-between space-y-1.5 group ${
-                    isPillarLoading
-                      ? "bg-white/10 border-cyan-400/50 shadow-sm"
-                      : "bg-white/[0.025] hover:bg-white/[0.06] border-white/10 hover:border-white/20 active:scale-[0.99]"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-1.5 w-full">
-                    <span className="text-[10px] text-zinc-400 font-mono truncate flex items-center gap-1">
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${pillar.dotClass}`}
-                      />
-                      {pillar.badge}
                     </span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded-full border font-mono font-semibold shrink-0 tabular-nums ${pillar.metricClass}`}
-                    >
-                      {pillar.metric}
-                    </span>
-                  </div>
-
-                  <div>
-                    <div className="text-xs font-semibold text-zinc-100 group-hover:text-white transition-colors truncate">
-                      {pillar.title}
-                    </div>
-                    <p className="text-[11px] text-zinc-400 group-hover:text-zinc-300 leading-snug line-clamp-2 mt-0.5">
-                      {pillar.desc}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[10px] text-cyan-400/90 group-hover:text-cyan-300 font-mono w-full">
-                    <span>Launch in Graph</span>
-                    <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                    <ArrowRight className="w-3 h-3 text-zinc-500 group-hover:text-white group-hover:translate-x-0.5 transition-all shrink-0" />
                   </div>
                 </button>
               );
