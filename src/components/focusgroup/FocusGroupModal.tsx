@@ -2187,7 +2187,7 @@ export function FocusGroupModal({
                   <div className="pt-1.5 border-t border-white/[0.06] space-y-1.5">
                     <div className="flex items-center justify-between text-[10px] font-mono">
                       <span className="text-white/75 font-sans font-medium">
-                        TimesFM 30d Forecast
+                        TimesFM 3.0 · 30d Forecast
                       </span>
                       <span className="text-win-green font-semibold tabular">
                         ${(timesFmForecast.projected_30d_bookings_usd / 1000).toFixed(1)}K{" "}

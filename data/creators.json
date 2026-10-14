@@ -202,5 +202,65 @@
     "conversion_affinity": 0.83,
     "signature_mode": "Civilization VII strategy",
     "avatar": "PO"
+  },
+  {
+    "creator_id": "creator-2klab",
+    "handle": "NBA2KLab",
+    "name": "NBA 2KLab",
+    "platform": "YouTube",
+    "franchise": "NBA2K",
+    "followers": 1150000,
+    "avg_stream_viewers": 15400,
+    "conversion_affinity": 0.94,
+    "signature_mode": "Green window & badge frame telemetry",
+    "avatar": "NB"
+  },
+  {
+    "creator_id": "creator-2ktutes",
+    "handle": "NBA2KTutes",
+    "name": "NBA 2K Tutes",
+    "platform": "YouTube",
+    "franchise": "NBA2K",
+    "followers": 540000,
+    "avg_stream_viewers": 9200,
+    "conversion_affinity": 0.92,
+    "signature_mode": "Attribute threshold & cap breaker math",
+    "avatar": "NB"
+  },
+  {
+    "creator_id": "creator-lakerfan",
+    "handle": "LakerFan",
+    "name": "LakerFan",
+    "platform": "YouTube & Twitch",
+    "franchise": "NBA2K",
+    "followers": 490000,
+    "avg_stream_viewers": 7800,
+    "conversion_affinity": 0.88,
+    "signature_mode": "Comp Pro-Am & slasher meta",
+    "avatar": "LA"
+  },
+  {
+    "creator_id": "creator-bde",
+    "handle": "BDE",
+    "name": "Brandon Does Everything",
+    "platform": "YouTube",
+    "franchise": "WWE2K",
+    "followers": 1420000,
+    "avg_stream_viewers": 19500,
+    "conversion_affinity": 0.85,
+    "signature_mode": "WWE 2K25 Universe & MyFACTION",
+    "avatar": "BD"
+  },
+  {
+    "creator_id": "creator-ki11ersix",
+    "handle": "Ki11erSix",
+    "name": "Ki11er Six",
+    "platform": "YouTube & Twitch",
+    "franchise": "BL4",
+    "followers": 820000,
+    "avg_stream_viewers": 10400,
+    "conversion_affinity": 0.86,
+    "signature_mode": "Borderlands 4 legendary farming",
+    "avatar": "KI"
   }
 ]

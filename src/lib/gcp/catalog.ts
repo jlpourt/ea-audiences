@@ -327,7 +327,7 @@ export async function getPlayersForView(opts: {
   archetype?: string;
   limit?: number;
 }) {
-  const { franchise, archetype, limit = 450 } = opts;
+  const { franchise, archetype, limit = 780 } = opts;
   const where: string[] = [];
   const params: Record<string, any> = {
     limit: Math.max(1, Math.floor(limit)),
@@ -345,7 +345,7 @@ export async function getPlayersForView(opts: {
   const rows = await runRawGql(
     `SELECT ${PLAYER_COLUMNS} FROM Players
      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-     ORDER BY player_id ASC
+     ORDER BY FARM_FINGERPRINT(player_id) ASC
      LIMIT @limit`,
     params
   );

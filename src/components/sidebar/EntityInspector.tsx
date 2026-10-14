@@ -32,6 +32,13 @@ export type InspectableGraphNode = GraphNode & {
   master_player_id?: string;
 };
 
+export type DecisionSegmentFilter =
+  | "ALL"
+  | "PERSUADABLE"
+  | "CAPTAIN"
+  | "SURE_THING"
+  | "SLEEPING_DOG";
+
 export interface EntityInspectorProps {
   node: InspectableGraphNode | null;
   cohortContext?: Partial<CohortContext> | null;
@@ -44,6 +51,11 @@ export interface EntityInspectorProps {
   onOpenCreativeStudio?: () => void;
   onSaveAudience?: () => void;
   onToggleSocialGravity?: () => void;
+  onExpandPlayerNeighborhood?: (playerId: string) => Promise<void> | void;
+  onApplyDecisionFilter?: (
+    segment: DecisionSegmentFilter,
+    recommendedOffer?: { title: string; priceUsd: number }
+  ) => void;
   isFocusGroupLoading?: boolean;
   isDeepSonaLoading?: boolean;
 }
@@ -60,10 +72,14 @@ export default function EntityInspector({
   onOpenCreativeStudio,
   onSaveAudience,
   onToggleSocialGravity,
+  onExpandPlayerNeighborhood,
+  onApplyDecisionFilter,
   isFocusGroupLoading = false,
   isDeepSonaLoading = false,
 }: EntityInspectorProps) {
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");
+  const [decisionFilter, setDecisionFilter] = useState<DecisionSegmentFilter>("ALL");
+  const [isExpandingNeighborhood, setIsExpandingNeighborhood] = useState(false);
 
   const handleLaunchFocusGroup = (target?: GraphNode) => {
     const normalizedTarget =
@@ -249,6 +265,20 @@ export default function EntityInspector({
 
     playerNodes.forEach((p) => {
       const pTel = p.game_telemetry || {};
+      const storedRing = String(pTel.portfolio_ring || "");
+      if (storedRing === "SQUAD_NURTURE") {
+        rawNurture += 1;
+        return;
+      }
+      if (storedRing === "CROSS_2K_STRETCH") {
+        rawStretch += 1;
+        return;
+      }
+      if (storedRing === "CORE_RETAIN") {
+        rawCore += 1;
+        return;
+      }
+
       const gScore = Number(p.gravity_score ?? pTel.gravity_score ?? 0.48);
       const crossTitles = Number(pTel.cross_2k_titles ?? 1);
       const isHoldoutOrSquadNurture =
@@ -309,6 +339,76 @@ export default function EntityInspector({
       concordiaTippingLabel: "3/5 Crew Mates in 2K27 → 3.1x Upgrade Probability",
     };
   }, [playerNodes, graphData?.links, cohortStats.estimatedTotal]);
+
+  // Real Spanner Decision Engine Summary (CATE Uplift Quadrants, Margin Protection & Top Offer)
+  const decisionSummary = useMemo(() => {
+    const totalEstimated = Math.max(1, cohortStats.estimatedTotal || playerNodes.length || 1);
+    let rawPersuadable = 0;
+    let rawCaptain = 0;
+    let rawSureThing = 0;
+    let rawSleepingDog = 0;
+    let rawIncrementalLtv = 0;
+    let rawMarginSaved = 0;
+    const offerVotes: Record<string, { count: number; priceUsd: number }> = {};
+
+    playerNodes.forEach((p) => {
+      const pTel = p.game_telemetry || {};
+      const quad = String(pTel.uplift_quadrant || "PERSUADABLE");
+      const action = String(pTel.decision_action || "DISPATCH_PERSONALIZED_OFFER");
+      const role = String(pTel.crew_role || "MEMBER");
+
+      if (action === "SEED_CREW_CAPTAIN" || role === "CAPTAIN") {
+        rawCaptain += 1;
+      }
+      if (quad === "PERSUADABLE") {
+        rawPersuadable += 1;
+        rawIncrementalLtv += Number(pTel.expected_incremental_ltv_usd ?? 28.5);
+      } else if (quad === "SURE_THING") {
+        rawSureThing += 1;
+        rawMarginSaved += Number(pTel.margin_saved_usd ?? 14.5);
+      } else if (quad === "SLEEPING_DOG") {
+        rawSleepingDog += 1;
+        rawMarginSaved += Number(pTel.margin_saved_usd ?? 18.0);
+      } else {
+        rawPersuadable += 1;
+        rawIncrementalLtv += Number(pTel.expected_incremental_ltv_usd ?? 18.0);
+      }
+
+      const offerTitle = String(pTel.recommended_offer_title || "Crew Re-Up Bundle");
+      const offerPrice = Number(pTel.recommended_offer_price ?? 4.99);
+      if (offerTitle && offerPrice > 0 && (quad === "PERSUADABLE" || action === "SEED_CREW_CAPTAIN")) {
+        if (!offerVotes[offerTitle]) {
+          offerVotes[offerTitle] = { count: 0, priceUsd: offerPrice };
+        }
+        offerVotes[offerTitle].count += 1;
+      }
+    });
+
+    const nSampled = Math.max(1, playerNodes.length);
+    const scale = totalEstimated / nSampled;
+    const persuadableCount = Math.max(1, Math.round(rawPersuadable * scale));
+    const captainCount = Math.max(1, Math.round(rawCaptain * scale));
+    const sureThingCount = Math.round(rawSureThing * scale);
+    const sleepingDogCount = Math.round(rawSleepingDog * scale);
+
+    const topOfferEntry = Object.entries(offerVotes).sort(
+      (a, b) => b[1].count - a[1].count
+    )[0];
+    const topRecommendedOffer = topOfferEntry
+      ? { title: topOfferEntry[0], priceUsd: topOfferEntry[1].priceUsd }
+      : { title: "Crew Re-Up Bundle", priceUsd: 4.99 };
+
+    return {
+      persuadableCount,
+      captainCount,
+      sureThingCount,
+      sleepingDogCount,
+      targetableCount: persuadableCount,
+      incrementalLtvUsd: Math.round(rawIncrementalLtv * scale),
+      marginSavedUsd: Math.round(rawMarginSaved * scale),
+      topRecommendedOffer,
+    };
+  }, [playerNodes, cohortStats.estimatedTotal]);
 
   // Idea 3 & Idea 6: Single-node 5-Stack Squad Value-at-Risk, Concordia Tipping Point & 30-Day Cox/Weibull Survival Curve
   const nodePredictiveMetrics = useMemo(() => {
@@ -384,10 +484,12 @@ export default function EntityInspector({
       (sum, m) => sum + Number(m.spend || 165),
       0
     );
-    const squadVarUsd = Math.round(
-      selfSpend + (activeSquadMates.length > 0 ? matesSpend : 4 * 175)
-    );
-    const squadSize = Math.max(5, activeSquadMates.length + (node.type === "PLAYER" ? 1 : 0));
+    const storedSquadVar = Number(nodeTel.squad_var_usd || 0);
+    const squadVarUsd =
+      storedSquadVar > 0
+        ? Math.round(storedSquadVar)
+        : Math.round(selfSpend + (activeSquadMates.length > 0 ? matesSpend : 4 * 175));
+    const squadSize = Number(nodeTel.crew_size || Math.max(5, activeSquadMates.length + 1));
 
     // Concordia Stag-Hunt Squad Tipping Point (k of 5 Crew Mates active in 2K27)
     const matesIn2k27 = activeSquadMates.filter(
@@ -395,18 +497,43 @@ export default function EntityInspector({
     ).length;
     const selfIn2k27 =
       nodeTel.migrated_to_2k27 !== false && node.franchise !== "NBA2K26" ? 1 : 0;
-    const active2k27Count = Math.min(
-      5,
-      Math.max(3, matesIn2k27 + (node.type === "PLAYER" ? selfIn2k27 : 1))
-    );
-    const upgradeMultiplier =
-      active2k27Count >= 4 ? "3.4x" : active2k27Count === 3 ? "3.1x" : "2.4x";
+    const active2k27Count =
+      typeof nodeTel.crew_active_2k27_mates === "number"
+        ? Math.min(5, Math.max(2, Number(nodeTel.crew_active_2k27_mates)))
+        : Math.min(
+            5,
+            Math.max(3, matesIn2k27 + (node.type === "PLAYER" ? selfIn2k27 : 1))
+          );
+    const upgradeMultiplier = nodeTel.concordia_tipping_multiplier
+      ? `${nodeTel.concordia_tipping_multiplier}x`
+      : active2k27Count >= 4
+      ? "3.4x"
+      : active2k27Count === 3
+      ? "3.1x"
+      : "2.2x";
 
+    const crewRole = String(
+      nodeTel.crew_role ||
+        (node.archetype === "REC_CREW_CAPTAIN" ? "CAPTAIN" : "MEMBER")
+    );
     const isKeystoneCaptain =
       node.type === "CLAN" ||
+      crewRole === "CAPTAIN" ||
+      nodeTel.decision_action === "SEED_CREW_CAPTAIN" ||
       node.archetype === "REC_CREW_CAPTAIN" ||
       node.archetype === "PARK_REP_GRINDER" ||
       directNeighborIds.size >= 3;
+
+    const crewName = String(
+      nodeTel.crew_name || node.clan_id || nodeTel.crew_id || "2K City Pro-Am Crew"
+    );
+    const squadMateTags: string[] =
+      Array.isArray(nodeTel.squad_mate_tags) && nodeTel.squad_mate_tags.length > 0
+        ? nodeTel.squad_mate_tags
+        : activeSquadMates.map(
+            (m) =>
+              `${m.name || m.id} (${m.game_telemetry?.myplayer_ovr || 86} OVR)`
+          );
 
     // 2. 30-Day Cox Proportional Hazards & Weibull Survival Curve S(t)
     const ovr = Number(nodeTel.myplayer_ovr ?? 83);
@@ -421,25 +548,32 @@ export default function EntityInspector({
         connectedClanIds.size > 0
     );
 
-    // Log-hazard linear predictor: build wall (<85 OVR), loss streak / tilt, and Crew protective beta
     const wallHazardBeta = ovr < 85 ? (vcBal < 15000 ? 0.54 : 0.36) : -0.16;
     const tiltHazardBeta = Math.min(0.62, lossStreak * 0.11 + tilt * 0.34 + churnRisk * 0.28);
     const baselineCrewBeta = hasActiveCrew ? -0.14 : 0.08;
 
     const baselineHR = Math.exp(wallHazardBeta + tiltHazardBeta + baselineCrewBeta);
-    // Crew Re-Up intervention: -42% Crew protective hazard reduction + 15K VC build wall relief
     const treatedHR = baselineHR * 0.58 * (ovr < 85 ? 0.62 : 0.72);
 
     const lambda0 = 19.5;
     const rho = 1.48;
     const rawBaseT50 = Math.round(lambda0 * Math.pow(Math.LN2 / baselineHR, 1 / rho));
-    const baselineT50 = Math.max(6, Math.min(20, rawBaseT50));
+    const baselineT50 =
+      typeof nodeTel.survival_baseline_t50_days === "number"
+        ? Number(nodeTel.survival_baseline_t50_days)
+        : Math.max(6, Math.min(20, rawBaseT50));
     const rawTreatedT50 = Math.round(lambda0 * Math.pow(Math.LN2 / treatedHR, 1 / rho));
-    const treatedT50 = Math.max(baselineT50 + 8, Math.min(29, rawTreatedT50));
-    const daysGained = treatedT50 - baselineT50;
+    const treatedT50 =
+      typeof nodeTel.survival_treated_t50_days === "number"
+        ? Number(nodeTel.survival_treated_t50_days)
+        : Math.max(baselineT50 + 8, Math.min(29, rawTreatedT50));
+    const daysGained =
+      typeof nodeTel.survival_days_gained === "number"
+        ? Number(nodeTel.survival_days_gained)
+        : treatedT50 - baselineT50;
+    const crewHazardReductionPct = Number(nodeTel.crew_hazard_reduction_pct ?? 42);
 
     // Generate 7-point 30-day Weibull survival curve S(t) = exp(-(t / lambda)^rho)
-    // Calibrate effective scale lambda from T50 so S(T50) = 50%
     const baseLambda = baselineT50 / Math.pow(Math.LN2, 1 / rho);
     const treatedLambda = treatedT50 / Math.pow(Math.LN2, 1 / rho);
     const days = [1, 5, 10, 15, 20, 25, 30];
@@ -453,40 +587,83 @@ export default function EntityInspector({
       };
     });
 
+    // 3. Spanner Decision Engine & CATE Uplift Metadata
+    const upliftQuadrant = String(nodeTel.uplift_quadrant || "PERSUADABLE");
+    const decisionAction = String(
+      nodeTel.decision_action ||
+        (isKeystoneCaptain ? "SEED_CREW_CAPTAIN" : "DISPATCH_PERSONALIZED_OFFER")
+    );
+    const cateUpliftScore = Number(nodeTel.cate_uplift_score ?? 0.24);
+    const recommendedOfferTitle = String(
+      nodeTel.recommended_offer_title || "Crew Re-Up Bundle"
+    );
+    const recommendedOfferPrice = Number(nodeTel.recommended_offer_price ?? 4.99);
+    const expectedIncrementalLtvUsd = Number(
+      nodeTel.expected_incremental_ltv_usd ?? 28.5
+    );
+    const marginSavedUsd = Number(nodeTel.margin_saved_usd ?? 0);
+
     return {
       squadVarUsd,
       squadSize,
-      activeSquadMatesCount: Math.max(4, activeSquadMates.length),
+      activeSquadMatesCount: Math.max(4, squadMateTags.length || activeSquadMates.length),
       active2k27Count,
       upgradeMultiplier,
       isKeystoneCaptain,
+      crewName,
+      crewRole,
+      squadMateTags,
       baselineT50,
       treatedT50,
       daysGained,
-      crewHazardReductionPct: 42,
+      crewHazardReductionPct,
       ovr,
       lossStreak,
       survivalPoints,
+      upliftQuadrant,
+      decisionAction,
+      cateUpliftScore,
+      recommendedOfferTitle,
+      recommendedOfferPrice,
+      expectedIncrementalLtvUsd,
+      marginSavedUsd,
     };
   }, [node, graphData?.nodes, graphData?.links, playerNodes]);
 
-  // Filtered players list for search within cohort
+  // Filtered players list for search & decision segment within cohort
   const filteredPlayers = useMemo(() => {
-    if (!playerSearchQuery.trim()) return playerNodes.slice(0, 45);
-    const q = playerSearchQuery.toLowerCase();
+    const q = playerSearchQuery.trim().toLowerCase();
     return playerNodes
-      .filter(
-        (p) =>
+      .filter((p) => {
+        const pTel = p.game_telemetry || {};
+        if (decisionFilter !== "ALL") {
+          const quad = String(pTel.uplift_quadrant || "PERSUADABLE");
+          const action = String(pTel.decision_action || "DISPATCH_PERSONALIZED_OFFER");
+          const role = String(pTel.crew_role || "MEMBER");
+          if (decisionFilter === "CAPTAIN") {
+            if (action !== "SEED_CREW_CAPTAIN" && role !== "CAPTAIN" && p.archetype !== "REC_CREW_CAPTAIN") {
+              return false;
+            }
+          } else if (decisionFilter === "PERSUADABLE") {
+            if (quad !== "PERSUADABLE" && action !== "SEED_CREW_CAPTAIN") return false;
+          } else if (decisionFilter === "SURE_THING") {
+            if (quad !== "SURE_THING") return false;
+          } else if (decisionFilter === "SLEEPING_DOG") {
+            if (quad !== "SLEEPING_DOG") return false;
+          }
+        }
+        if (!q) return true;
+        return (
           p.name?.toLowerCase().includes(q) ||
           (p.country && p.country.toLowerCase().includes(q)) ||
           (p.dma_market && p.dma_market.toLowerCase().includes(q)) ||
           (p.archetype && String(p.archetype).toLowerCase().includes(q)) ||
-          String(p.game_telemetry?.myplayer_build || "")
-            .toLowerCase()
-            .includes(q)
-      )
-      .slice(0, 45);
-  }, [playerNodes, playerSearchQuery]);
+          String(pTel.myplayer_build || "").toLowerCase().includes(q) ||
+          String(pTel.crew_name || "").toLowerCase().includes(q)
+        );
+      })
+      .slice(0, 60);
+  }, [playerNodes, playerSearchQuery, decisionFilter]);
 
   if (!node && playerNodes.length === 0 && !cohortContext) return null;
 
@@ -729,6 +906,167 @@ export default function EntityInspector({
               </div>
             </div>
 
+            {/* Live Decision Engine: CATE Uplift Quadrants, Margin Protection & 1-Click Cohort Pruning */}
+            <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-white flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Live Decision Engine (CATE)</span>
+                </span>
+                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 tabular">
+                  +${decisionSummary.incrementalLtvUsd.toLocaleString()} Lift · $
+                  {decisionSummary.marginSavedUsd.toLocaleString()} Saved
+                </span>
+              </div>
+
+              {/* 4 Interactive Decision Segment Filter Pills */}
+              <div className="grid grid-cols-2 gap-1.5 font-mono text-[10px] tabular">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next =
+                      decisionFilter === "PERSUADABLE" ? "ALL" : "PERSUADABLE";
+                    setDecisionFilter(next);
+                    onApplyDecisionFilter?.(
+                      next,
+                      decisionSummary.topRecommendedOffer
+                    );
+                  }}
+                  className={`p-2 rounded-lg text-left border transition-all ${
+                    decisionFilter === "PERSUADABLE"
+                      ? "bg-emerald-500/20 border-emerald-400 text-white shadow-sm"
+                      : "bg-emerald-500/[0.08] border-emerald-500/20 text-gray-200 hover:border-emerald-400/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-emerald-300 font-sans font-semibold">
+                      Target Persuadables
+                    </span>
+                    <span className="text-white font-semibold">
+                      {decisionSummary.persuadableCount.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="text-[9.5px] text-gray-400 mt-0.5 truncate">
+                    High CATE τᵢ · {decisionSummary.topRecommendedOffer.title}
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next =
+                      decisionFilter === "CAPTAIN" ? "ALL" : "CAPTAIN";
+                    setDecisionFilter(next);
+                    onApplyDecisionFilter?.(
+                      next,
+                      decisionSummary.topRecommendedOffer
+                    );
+                  }}
+                  className={`p-2 rounded-lg text-left border transition-all ${
+                    decisionFilter === "CAPTAIN"
+                      ? "bg-amber-500/20 border-amber-400 text-white shadow-sm"
+                      : "bg-amber-500/[0.08] border-amber-500/20 text-gray-200 hover:border-amber-400/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-amber-300 font-sans font-semibold">
+                      Seed Crew Captains
+                    </span>
+                    <span className="text-white font-semibold">
+                      {decisionSummary.captainCount.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="text-[9.5px] text-gray-400 mt-0.5 truncate">
+                    3.1x Squad Cascade Multiplier
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next =
+                      decisionFilter === "SURE_THING" ? "ALL" : "SURE_THING";
+                    setDecisionFilter(next);
+                    onApplyDecisionFilter?.(next);
+                  }}
+                  className={`p-2 rounded-lg text-left border transition-all ${
+                    decisionFilter === "SURE_THING"
+                      ? "bg-cyan-500/20 border-cyan-400 text-white shadow-sm"
+                      : "bg-cyan-500/[0.08] border-cyan-500/20 text-gray-200 hover:border-cyan-400/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-cyan-300 font-sans font-semibold">
+                      Hold Discount
+                    </span>
+                    <span className="text-white font-semibold">
+                      {decisionSummary.sureThingCount.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="text-[9.5px] text-gray-400 mt-0.5 truncate">
+                    Sure Things · Protect Margin
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next =
+                      decisionFilter === "SLEEPING_DOG" ? "ALL" : "SLEEPING_DOG";
+                    setDecisionFilter(next);
+                    onApplyDecisionFilter?.(next);
+                  }}
+                  className={`p-2 rounded-lg text-left border transition-all ${
+                    decisionFilter === "SLEEPING_DOG"
+                      ? "bg-rose-500/20 border-rose-400 text-white shadow-sm"
+                      : "bg-rose-500/[0.08] border-rose-500/20 text-gray-200 hover:border-rose-400/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-rose-300 font-sans font-semibold">
+                      Suppress Offer
+                    </span>
+                    <span className="text-white font-semibold">
+                      {decisionSummary.sleepingDogCount.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="text-[9.5px] text-gray-400 mt-0.5 truncate">
+                    Sleeping Dogs · Avoid Backlash
+                  </div>
+                </button>
+              </div>
+
+              {/* 1-Click Action: Prune Graph & Cohort to Margin-Positive Targets */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDecisionFilter("PERSUADABLE");
+                    onApplyDecisionFilter?.(
+                      "PERSUADABLE",
+                      decisionSummary.topRecommendedOffer
+                    );
+                  }}
+                  className="flex-1 py-1.5 px-2.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 font-mono text-[10.5px] font-semibold transition-all text-center"
+                >
+                  Prune Graph to Persuadables + Captains (
+                  {decisionSummary.targetableCount.toLocaleString()})
+                </button>
+                {decisionFilter !== "ALL" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDecisionFilter("ALL");
+                      onApplyDecisionFilter?.("ALL");
+                    }}
+                    className="py-1.5 px-2 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-gray-200 font-mono text-[10px] transition-all shrink-0"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* 2K26 -> 2K27 & Cross-2K Gravity Histogram */}
             <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
               <div className="flex items-center justify-between">
@@ -796,41 +1134,74 @@ export default function EntityInspector({
               )}
 
               <div className="space-y-1 max-h-44 overflow-y-auto pr-1">
-                {filteredPlayers.map((player, idx) => (
-                  <button
-                    key={player.id || idx}
-                    type="button"
-                    onClick={() => onSelectNode?.(player)}
-                    className="w-full flex items-center justify-between p-2 rounded-lg bg-black/40 hover:bg-white/[0.06] border border-white/5 hover:border-cyan-500/30 text-left transition-all group"
-                  >
-                    <div className="flex items-center gap-2 truncate max-w-[215px]">
-                      <span className="text-xs select-none shrink-0">
-                        {player.country_flag || "🏀"}
-                      </span>
-                      <div className="truncate">
-                        <span className="text-white block font-medium text-[11px] truncate group-hover:text-cyan-300 transition-colors">
-                          {player.name}
-                        </span>
-                        <span className="text-[11px] text-gray-400 block truncate">
-                          {player.game_telemetry?.myplayer_ovr
-                            ? `${player.game_telemetry.myplayer_ovr} OVR · ${
-                                player.game_telemetry.myplayer_build || "MyPLAYER"
-                              }`
-                            : `${player.dma_market || "Global"} · ${
-                                player.loss_streak || 0
-                              }L`}
-                        </span>
-                      </div>
-                    </div>
+                {filteredPlayers.map((player, idx) => {
+                  const pTel = player.game_telemetry || {};
+                  const action = String(
+                    pTel.decision_action || "DISPATCH_PERSONALIZED_OFFER"
+                  );
+                  const quad = String(pTel.uplift_quadrant || "PERSUADABLE");
+                  const badge =
+                    action === "SEED_CREW_CAPTAIN"
+                      ? {
+                          label: "CAPTAIN",
+                          cls: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+                        }
+                      : quad === "SURE_THING"
+                      ? {
+                          label: "HOLD",
+                          cls: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+                        }
+                      : quad === "SLEEPING_DOG"
+                      ? {
+                          label: "SUPPRESS",
+                          cls: "bg-rose-500/20 text-rose-300 border-rose-500/30",
+                        }
+                      : {
+                          label: "TARGET",
+                          cls: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+                        };
 
-                    <div className="flex items-center gap-1 shrink-0 ml-2">
-                      <span className="font-mono text-amber-300 font-semibold text-[11px] tabular">
-                        ${(player.spend || 0).toFixed(0)}
-                      </span>
-                      <ChevronRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-cyan-300 transition-colors" />
-                    </div>
-                  </button>
-                ))}
+                  return (
+                    <button
+                      key={player.id || idx}
+                      type="button"
+                      onClick={() => onSelectNode?.(player)}
+                      className="w-full flex items-center justify-between p-2 rounded-lg bg-black/40 hover:bg-white/[0.06] border border-white/5 hover:border-cyan-500/30 text-left transition-all group"
+                    >
+                      <div className="flex items-center gap-2 truncate max-w-[190px]">
+                        <span className="text-xs select-none shrink-0">
+                          {player.country_flag || "🏀"}
+                        </span>
+                        <div className="truncate">
+                          <span className="text-white block font-medium text-[11px] truncate group-hover:text-cyan-300 transition-colors">
+                            {player.name}
+                          </span>
+                          <span className="text-[10.5px] text-gray-400 block truncate">
+                            {pTel.myplayer_ovr
+                              ? `${pTel.myplayer_ovr} OVR · ${
+                                  pTel.crew_name || pTel.myplayer_build || "MyPLAYER"
+                                }`
+                              : `${player.dma_market || "Global"} · ${
+                                  player.loss_streak || 0
+                                }L`}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                        <span
+                          className={`font-mono text-[9px] px-1.5 py-0.5 rounded border font-semibold ${badge.cls}`}
+                        >
+                          {badge.label}
+                        </span>
+                        <span className="font-mono text-amber-300 font-semibold text-[11px] tabular">
+                          ${(player.spend || 0).toFixed(0)}
+                        </span>
+                        <ChevronRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-cyan-300 transition-colors" />
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1189,6 +1560,96 @@ export default function EntityInspector({
                   </div>
                 </div>
 
+                {/* Spanner Decision Engine: Next-Best Action, CATE Uplift & 1-Click 2-Hop Graph Expansion */}
+                {nodePredictiveMetrics && (
+                  <div className="p-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/25 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-white flex items-center gap-1.5">
+                        <Target className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Next-Best Decision (Spanner)</span>
+                      </span>
+                      <span
+                        className={`font-mono text-[10px] px-1.5 py-0.5 rounded border font-semibold ${
+                          nodePredictiveMetrics.decisionAction === "SEED_CREW_CAPTAIN"
+                            ? "bg-amber-500/20 text-amber-300 border-amber-500/35"
+                            : nodePredictiveMetrics.upliftQuadrant === "SURE_THING"
+                            ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/35"
+                            : nodePredictiveMetrics.upliftQuadrant === "SLEEPING_DOG"
+                            ? "bg-rose-500/20 text-rose-300 border-rose-500/35"
+                            : "bg-emerald-500/20 text-emerald-300 border-emerald-500/35"
+                        }`}
+                      >
+                        {nodePredictiveMetrics.decisionAction === "SEED_CREW_CAPTAIN"
+                          ? "SEED CREW CAPTAIN"
+                          : nodePredictiveMetrics.upliftQuadrant === "SURE_THING"
+                          ? "HOLD DISCOUNT · SAVE MARGIN"
+                          : nodePredictiveMetrics.upliftQuadrant === "SLEEPING_DOG"
+                          ? "SUPPRESS · PROTECT SENTIMENT"
+                          : "DISPATCH OFFER · PERSUADABLE"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 font-mono text-xs tabular">
+                      <div className="p-2 rounded-lg bg-black/40 border border-white/10">
+                        <div className="text-[10px] text-gray-400">
+                          Recommended Action / SKU
+                        </div>
+                        <div className="text-[11px] font-semibold text-white mt-0.5 truncate">
+                          {nodePredictiveMetrics.recommendedOfferTitle}
+                        </div>
+                        <div className="text-[10px] text-emerald-300">
+                          {nodePredictiveMetrics.recommendedOfferPrice > 0
+                            ? `$${nodePredictiveMetrics.recommendedOfferPrice.toFixed(2)} · CATE τᵢ ${
+                                nodePredictiveMetrics.cateUpliftScore >= 0 ? "+" : ""
+                              }${Math.round(nodePredictiveMetrics.cateUpliftScore * 100)}%`
+                            : `No Discount · CATE τᵢ ${Math.round(
+                                nodePredictiveMetrics.cateUpliftScore * 100
+                              )}%`}
+                        </div>
+                      </div>
+
+                      <div className="p-2 rounded-lg bg-black/40 border border-white/10">
+                        <div className="text-[10px] text-gray-400">
+                          {nodePredictiveMetrics.marginSavedUsd > 0
+                            ? "Margin Protected"
+                            : "Expected Incremental LTV"}
+                        </div>
+                        <div className="text-sm font-semibold text-emerald-400 mt-0.5">
+                          {nodePredictiveMetrics.marginSavedUsd > 0
+                            ? `+$${nodePredictiveMetrics.marginSavedUsd.toFixed(2)} Saved`
+                            : `+$${nodePredictiveMetrics.expectedIncrementalLtvUsd.toFixed(2)}`}
+                        </div>
+                        <div className="text-[10px] text-gray-400 truncate">
+                          {nodePredictiveMetrics.crewName} ({nodePredictiveMetrics.crewRole})
+                        </div>
+                      </div>
+                    </div>
+
+                    {onExpandPlayerNeighborhood && (
+                      <button
+                        type="button"
+                        disabled={isExpandingNeighborhood}
+                        onClick={async () => {
+                          setIsExpandingNeighborhood(true);
+                          try {
+                            await onExpandPlayerNeighborhood(node.id);
+                          } finally {
+                            setIsExpandingNeighborhood(false);
+                          }
+                        }}
+                        className="w-full py-1.5 px-2.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/35 text-cyan-200 font-mono text-[10.5px] font-semibold transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
+                      >
+                        <Users className="w-3.5 h-3.5 text-cyan-300" />
+                        <span>
+                          {isExpandingNeighborhood
+                            ? "Expanding 2-Hop Neighborhood..."
+                            : "Expand 2-Hop Crew, Squad & 2K Titles on Graph"}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {/* Idea 3 & Idea 2: 5-Stack Squad Value-at-Risk (VaR_crew) & Concordia Stag-Hunt Tipping Point */}
                 {nodePredictiveMetrics && (
                   <div className="p-3 rounded-xl bg-amber-500/[0.07] border border-amber-500/25 space-y-2">
@@ -1198,8 +1659,8 @@ export default function EntityInspector({
                       </span>
                       <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200 border border-amber-500/30">
                         {nodePredictiveMetrics.isKeystoneCaptain
-                          ? "Keystone Captain"
-                          : "5-Stack Crew"}
+                          ? `Keystone Captain · ${nodePredictiveMetrics.crewName}`
+                          : `5-Stack · ${nodePredictiveMetrics.crewName}`}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 font-mono text-xs tabular">
@@ -1226,6 +1687,24 @@ export default function EntityInspector({
                         </div>
                       </div>
                     </div>
+
+                    {nodePredictiveMetrics.squadMateTags.length > 0 && (
+                      <div className="pt-1 border-t border-white/5 space-y-1">
+                        <div className="text-[10px] text-gray-400 font-mono">
+                          Active Spanner Crew Squadmates:
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {nodePredictiveMetrics.squadMateTags.slice(0, 4).map((tag, idx) => (
+                            <span
+                              key={idx}
+                              className="px-1.5 py-0.5 rounded bg-black/50 border border-white/10 text-[10px] font-mono text-amber-200"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

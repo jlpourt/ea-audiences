@@ -357,6 +357,7 @@ export interface TimesFmForecastSummary {
   ci_10_usd: number;
   ci_90_usd: number;
   whale_decay_offset_pct: number;
+  model_used?: string;
   points: TimesFmForecastPoint[];
   creator_mroas: CreatorMroasItem[];
 }

@@ -5,7 +5,7 @@
     "franchise": "NBA2K",
     "region": "Dallas / Fort Worth DMA",
     "tier": "Rec",
-    "member_count": 50
+    "member_count": 78
   },
   {
     "clan_id": "crew-002",
@@ -13,7 +13,7 @@
     "franchise": "NBA2K",
     "region": "Washington DC DMA",
     "tier": "Rec",
-    "member_count": 40
+    "member_count": 70
   },
   {
     "clan_id": "crew-003",
@@ -21,7 +21,7 @@
     "franchise": "NBA2K",
     "region": "Cleveland DMA",
     "tier": "Rec",
-    "member_count": 61
+    "member_count": 90
   },
   {
     "clan_id": "crew-004",
@@ -29,7 +29,7 @@
     "franchise": "NBA2K",
     "region": "Atlanta DMA",
     "tier": "Rec",
-    "member_count": 40
+    "member_count": 67
   },
   {
     "clan_id": "crew-005",
@@ -37,7 +37,7 @@
     "franchise": "NBA2K",
     "region": "Oklahoma City DMA",
     "tier": "Rec",
-    "member_count": 41
+    "member_count": 78
   },
   {
     "clan_id": "crew-006",
@@ -45,7 +45,7 @@
     "franchise": "NBA2K",
     "region": "Sacramento DMA",
     "tier": "Rec",
-    "member_count": 43
+    "member_count": 46
   },
   {
     "clan_id": "crew-007",
@@ -53,7 +53,7 @@
     "franchise": "NBA2K",
     "region": "Indianapolis DMA",
     "tier": "Rec",
-    "member_count": 43
+    "member_count": 51
   },
   {
     "clan_id": "crew-008",
@@ -61,7 +61,7 @@
     "franchise": "NBA2K",
     "region": "Sacramento DMA",
     "tier": "Rec",
-    "member_count": 53
+    "member_count": 52
   },
   {
     "clan_id": "crew-009",
@@ -69,7 +69,7 @@
     "franchise": "NBA2K",
     "region": "Indianapolis DMA",
     "tier": "Rec",
-    "member_count": 38
+    "member_count": 59
   },
   {
     "clan_id": "crew-010",
@@ -77,7 +77,7 @@
     "franchise": "NBA2K",
     "region": "Philadelphia DMA",
     "tier": "Rec",
-    "member_count": 62
+    "member_count": 57
   },
   {
     "clan_id": "crew-011",
@@ -85,7 +85,7 @@
     "franchise": "NBA2K",
     "region": "Indianapolis DMA",
     "tier": "Rec",
-    "member_count": 40
+    "member_count": 50
   },
   {
     "clan_id": "crew-012",
@@ -93,7 +93,7 @@
     "franchise": "NBA2K",
     "region": "Minneapolis / St. Paul DMA",
     "tier": "Rec",
-    "member_count": 43
+    "member_count": 73
   },
   {
     "clan_id": "crew-013",
@@ -101,7 +101,7 @@
     "franchise": "NBA2K",
     "region": "New Orleans DMA",
     "tier": "Rec",
-    "member_count": 42
+    "member_count": 71
   },
   {
     "clan_id": "crew-014",
@@ -109,7 +109,7 @@
     "franchise": "NBA2K",
     "region": "Chicago DMA",
     "tier": "Rec",
-    "member_count": 73
+    "member_count": 62
   },
   {
     "clan_id": "crew-015",
@@ -117,7 +117,7 @@
     "franchise": "NBA2K",
     "region": "Orlando DMA",
     "tier": "Rec",
-    "member_count": 48
+    "member_count": 64
   },
   {
     "clan_id": "crew-016",
@@ -125,262 +125,550 @@
     "franchise": "NBA2K",
     "region": "New York DMA",
     "tier": "Rec",
-    "member_count": 47
+    "member_count": 84
   },
   {
     "clan_id": "crew-017",
-    "name": "Lock & Load",
+    "name": "Corner Specialist Crew",
     "franchise": "NBA2K",
     "region": "Chicago DMA",
-    "tier": "Pro-Am",
-    "member_count": 34
+    "tier": "Rec",
+    "member_count": 58
   },
   {
     "clan_id": "crew-018",
-    "name": "Stage Sharks",
+    "name": "Break Starter Brotherhood",
     "franchise": "NBA2K",
     "region": "Milwaukee DMA",
-    "tier": "Pro-Am",
-    "member_count": 26
+    "tier": "Rec",
+    "member_count": 60
   },
   {
     "clan_id": "crew-019",
-    "name": "Pro-Am Prophets",
+    "name": "South City Ballers",
     "franchise": "NBA2K",
     "region": "Milwaukee DMA",
-    "tier": "Pro-Am",
-    "member_count": 43
+    "tier": "Rec",
+    "member_count": 75
   },
   {
     "clan_id": "crew-020",
-    "name": "Clamp Gods",
+    "name": "North Side Knights",
     "franchise": "NBA2K",
     "region": "Toronto DMA",
-    "tier": "Pro-Am",
-    "member_count": 34
+    "tier": "Rec",
+    "member_count": 73
   },
   {
     "clan_id": "crew-021",
-    "name": "Five Out Faithful",
+    "name": "Rivet City Hoopers",
     "franchise": "NBA2K",
     "region": "Manila DMA",
-    "tier": "Pro-Am",
-    "member_count": 26
+    "tier": "Rec",
+    "member_count": 62
   },
   {
     "clan_id": "crew-022",
-    "name": "Pick & Pop Co.",
+    "name": "Sunset Beach Squad",
     "franchise": "NBA2K",
     "region": "Memphis DMA",
-    "tier": "Pro-Am",
-    "member_count": 37
+    "tier": "Rec",
+    "member_count": 65
   },
   {
     "clan_id": "crew-023",
-    "name": "Bully Ball Union",
+    "name": "Old Town Flyers",
     "franchise": "NBA2K",
     "region": "Houston DMA",
-    "tier": "Pro-Am",
-    "member_count": 30
+    "tier": "Rec",
+    "member_count": 75
   },
   {
     "clan_id": "crew-024",
-    "name": "Court Vision Collective",
+    "name": "The Theater Regulars",
     "franchise": "NBA2K",
     "region": "Orlando DMA",
-    "tier": "Pro-Am",
-    "member_count": 32
+    "tier": "Rec",
+    "member_count": 68
   },
   {
     "clan_id": "crew-025",
-    "name": "Hoop Dreams Pro-Am",
+    "name": "Solo Rec Rescue",
     "franchise": "NBA2K",
     "region": "Philadelphia DMA",
-    "tier": "Pro-Am",
-    "member_count": 24
+    "tier": "Rec",
+    "member_count": 65
   },
   {
     "clan_id": "crew-026",
-    "name": "Dunk Meter Mafia",
+    "name": "Sixth Man Syndicate",
     "franchise": "NBA2K",
     "region": "Memphis DMA",
-    "tier": "Pro-Am",
-    "member_count": 19
+    "tier": "Rec",
+    "member_count": 65
   },
   {
     "clan_id": "crew-027",
-    "name": "Takeover Tribe",
+    "name": "Lock & Load",
     "franchise": "NBA2K",
     "region": "Sacramento DMA",
     "tier": "Pro-Am",
-    "member_count": 30
-  },
-  {
-    "clan_id": "crew-028",
-    "name": "The W Collective",
-    "franchise": "NBA2K",
-    "region": "Washington DC DMA",
-    "tier": "Pro-Am",
-    "member_count": 34
-  },
-  {
-    "clan_id": "crew-029",
-    "name": "Comp Stage Elite",
-    "franchise": "NBA2K",
-    "region": "Portland DMA",
-    "tier": "Comp",
-    "member_count": 22
-  },
-  {
-    "clan_id": "crew-030",
-    "name": "Legend Rep Syndicate",
-    "franchise": "NBA2K",
-    "region": "Houston DMA",
-    "tier": "Comp",
-    "member_count": 16
-  },
-  {
-    "clan_id": "crew-031",
-    "name": "Ankle Breakers Comp",
-    "franchise": "NBA2K",
-    "region": "Washington DC DMA",
-    "tier": "Comp",
-    "member_count": 26
-  },
-  {
-    "clan_id": "crew-032",
-    "name": "Dark Matter Dynasty",
-    "franchise": "NBA2K",
-    "region": "Phoenix DMA",
-    "tier": "Comp",
-    "member_count": 33
-  },
-  {
-    "clan_id": "crew-033",
-    "name": "99 OVR Only",
-    "franchise": "NBA2K",
-    "region": "Oklahoma City DMA",
-    "tier": "Comp",
-    "member_count": 23
-  },
-  {
-    "clan_id": "crew-034",
-    "name": "Posterize Pros",
-    "franchise": "NBA2K",
-    "region": "Denver DMA",
-    "tier": "Comp",
-    "member_count": 21
-  },
-  {
-    "clan_id": "crew-035",
-    "name": "Cap Breaker Crew",
-    "franchise": "NBA2K",
-    "region": "Los Angeles – Inglewood DMA",
-    "tier": "Comp",
-    "member_count": 19
-  },
-  {
-    "clan_id": "crew-036",
-    "name": "Full Court Press Comp",
-    "franchise": "NBA2K",
-    "region": "Charlotte DMA",
-    "tier": "Comp",
-    "member_count": 23
-  },
-  {
-    "clan_id": "crew-037",
-    "name": "2K26 Park Oldheads",
-    "franchise": "NBA2K26",
-    "region": "Oklahoma City DMA",
-    "tier": "Rec",
-    "member_count": 40
-  },
-  {
-    "clan_id": "crew-038",
-    "name": "2K26 Sunset Legends",
-    "franchise": "NBA2K26",
-    "region": "London DMA",
-    "tier": "Pro-Am",
-    "member_count": 32
-  },
-  {
-    "clan_id": "crew-039",
-    "name": "2K26 Holdout Hoopers",
-    "franchise": "NBA2K26",
-    "region": "Milwaukee DMA",
-    "tier": "Rec",
     "member_count": 35
   },
   {
-    "clan_id": "crew-040",
-    "name": "Prior Gen Grinding Squad",
-    "franchise": "NBA2K26",
-    "region": "São Paulo DMA",
+    "clan_id": "crew-028",
+    "name": "Stage Sharks",
+    "franchise": "NBA2K",
+    "region": "Washington DC DMA",
+    "tier": "Pro-Am",
+    "member_count": 38
+  },
+  {
+    "clan_id": "crew-029",
+    "name": "Pro-Am Prophets",
+    "franchise": "NBA2K",
+    "region": "Portland DMA",
+    "tier": "Pro-Am",
+    "member_count": 35
+  },
+  {
+    "clan_id": "crew-030",
+    "name": "Clamp Gods",
+    "franchise": "NBA2K",
+    "region": "Houston DMA",
+    "tier": "Pro-Am",
+    "member_count": 46
+  },
+  {
+    "clan_id": "crew-031",
+    "name": "Five Out Faithful",
+    "franchise": "NBA2K",
+    "region": "Washington DC DMA",
+    "tier": "Pro-Am",
+    "member_count": 45
+  },
+  {
+    "clan_id": "crew-032",
+    "name": "Pick & Pop Co.",
+    "franchise": "NBA2K",
+    "region": "Phoenix DMA",
+    "tier": "Pro-Am",
+    "member_count": 47
+  },
+  {
+    "clan_id": "crew-033",
+    "name": "Bully Ball Union",
+    "franchise": "NBA2K",
+    "region": "Oklahoma City DMA",
+    "tier": "Pro-Am",
+    "member_count": 36
+  },
+  {
+    "clan_id": "crew-034",
+    "name": "Court Vision Collective",
+    "franchise": "NBA2K",
+    "region": "Denver DMA",
+    "tier": "Pro-Am",
+    "member_count": 33
+  },
+  {
+    "clan_id": "crew-035",
+    "name": "Hoop Dreams Pro-Am",
+    "franchise": "NBA2K",
+    "region": "Los Angeles – Inglewood DMA",
+    "tier": "Pro-Am",
+    "member_count": 54
+  },
+  {
+    "clan_id": "crew-036",
+    "name": "Dunk Meter Mafia",
+    "franchise": "NBA2K",
+    "region": "Charlotte DMA",
+    "tier": "Pro-Am",
+    "member_count": 47
+  },
+  {
+    "clan_id": "crew-037",
+    "name": "Takeover Tribe",
+    "franchise": "NBA2K",
+    "region": "Oklahoma City DMA",
     "tier": "Pro-Am",
     "member_count": 42
   },
   {
-    "clan_id": "crew-041",
-    "name": "2K26 Stage Holdouts",
-    "franchise": "NBA2K26",
-    "region": "Dallas / Fort Worth DMA",
-    "tier": "Comp",
+    "clan_id": "crew-038",
+    "name": "The W Collective",
+    "franchise": "NBA2K",
+    "region": "London DMA",
+    "tier": "Pro-Am",
+    "member_count": 38
+  },
+  {
+    "clan_id": "crew-039",
+    "name": "High Screen Cartel",
+    "franchise": "NBA2K",
+    "region": "Milwaukee DMA",
+    "tier": "Pro-Am",
     "member_count": 32
   },
   {
+    "clan_id": "crew-040",
+    "name": "Zone Breakers 5v5",
+    "franchise": "NBA2K",
+    "region": "São Paulo DMA",
+    "tier": "Pro-Am",
+    "member_count": 41
+  },
+  {
+    "clan_id": "crew-041",
+    "name": "Switch Everything Pro-Am",
+    "franchise": "NBA2K",
+    "region": "Dallas / Fort Worth DMA",
+    "tier": "Pro-Am",
+    "member_count": 48
+  },
+  {
     "clan_id": "crew-042",
-    "name": "2K26 MyTEAM Vault",
-    "franchise": "NBA2K26",
+    "name": "Backdoor Cut Club",
+    "franchise": "NBA2K",
     "region": "Minneapolis / St. Paul DMA",
-    "tier": "Rec",
-    "member_count": 31
+    "tier": "Pro-Am",
+    "member_count": 33
   },
   {
     "clan_id": "crew-043",
-    "name": "2K26 Rec Captains",
-    "franchise": "NBA2K26",
+    "name": "Shot Clock Assassins",
+    "franchise": "NBA2K",
     "region": "San Antonio DMA",
     "tier": "Pro-Am",
-    "member_count": 25
+    "member_count": 45
   },
   {
     "clan_id": "crew-044",
-    "name": "2K26 Hall of Fame Crew",
-    "franchise": "NBA2K26",
+    "name": "Hall of Fame Dimes",
+    "franchise": "NBA2K",
     "region": "Portland DMA",
+    "tier": "Pro-Am",
+    "member_count": 40
+  },
+  {
+    "clan_id": "crew-045",
+    "name": "Pro-Am Platinum",
+    "franchise": "NBA2K",
+    "region": "Cleveland DMA",
+    "tier": "Pro-Am",
+    "member_count": 41
+  },
+  {
+    "clan_id": "crew-046",
+    "name": "Mid-Range Maestroes",
+    "franchise": "NBA2K",
+    "region": "Indianapolis DMA",
+    "tier": "Pro-Am",
+    "member_count": 44
+  },
+  {
+    "clan_id": "crew-047",
+    "name": "Comp Stage Elite",
+    "franchise": "NBA2K",
+    "region": "Minneapolis / St. Paul DMA",
     "tier": "Comp",
     "member_count": 34
   },
   {
-    "clan_id": "crew-045",
-    "name": "The Bloodline Faction",
-    "franchise": "WWE2K",
+    "clan_id": "crew-048",
+    "name": "Legend Rep Syndicate",
+    "franchise": "NBA2K",
+    "region": "Chicago DMA",
+    "tier": "Comp",
+    "member_count": 19
+  },
+  {
+    "clan_id": "crew-049",
+    "name": "Ankle Breakers Comp",
+    "franchise": "NBA2K",
     "region": "Cleveland DMA",
+    "tier": "Comp",
+    "member_count": 29
+  },
+  {
+    "clan_id": "crew-050",
+    "name": "Dark Matter Dynasty",
+    "franchise": "NBA2K",
+    "region": "Mexico City DMA",
+    "tier": "Comp",
+    "member_count": 23
+  },
+  {
+    "clan_id": "crew-051",
+    "name": "99 OVR Only",
+    "franchise": "NBA2K",
+    "region": "Manila DMA",
     "tier": "Comp",
     "member_count": 26
   },
   {
-    "clan_id": "crew-046",
-    "name": "Judgment Day Faction",
-    "franchise": "WWE2K",
-    "region": "Indianapolis DMA",
-    "tier": "Pro-Am",
+    "clan_id": "crew-052",
+    "name": "Posterize Pros",
+    "franchise": "NBA2K",
+    "region": "San Antonio DMA",
+    "tier": "Comp",
+    "member_count": 29
+  },
+  {
+    "clan_id": "crew-053",
+    "name": "Cap Breaker Crew",
+    "franchise": "NBA2K",
+    "region": "Chicago DMA",
+    "tier": "Comp",
+    "member_count": 26
+  },
+  {
+    "clan_id": "crew-054",
+    "name": "Full Court Press Comp",
+    "franchise": "NBA2K",
+    "region": "Paris DMA",
+    "tier": "Comp",
+    "member_count": 33
+  },
+  {
+    "clan_id": "crew-055",
+    "name": "2K League Prospects",
+    "franchise": "NBA2K",
+    "region": "Memphis DMA",
+    "tier": "Comp",
+    "member_count": 28
+  },
+  {
+    "clan_id": "crew-056",
+    "name": "Ante-Up High Rollers",
+    "franchise": "NBA2K",
+    "region": "Los Angeles DMA",
+    "tier": "Comp",
+    "member_count": 36
+  },
+  {
+    "clan_id": "crew-057",
+    "name": "Red Plate Sweats",
+    "franchise": "NBA2K",
+    "region": "Brooklyn DMA",
+    "tier": "Comp",
     "member_count": 22
   },
   {
-    "clan_id": "crew-047",
-    "name": "Attitude Era Revivalists",
-    "franchise": "WWE2K",
-    "region": "Minneapolis / St. Paul DMA",
-    "tier": "Rec",
-    "member_count": 21
+    "clan_id": "crew-058",
+    "name": "Green Window Gods",
+    "franchise": "NBA2K",
+    "region": "Denver DMA",
+    "tier": "Comp",
+    "member_count": 38
   },
   {
-    "clan_id": "crew-048",
+    "clan_id": "crew-059",
+    "name": "Wager Court Kings",
+    "franchise": "NBA2K",
+    "region": "New York DMA",
+    "tier": "Comp",
+    "member_count": 25
+  },
+  {
+    "clan_id": "crew-060",
+    "name": "Top 100 Rep Guild",
+    "franchise": "NBA2K",
+    "region": "Manila DMA",
+    "tier": "Comp",
+    "member_count": 17
+  },
+  {
+    "clan_id": "crew-061",
+    "name": "2K26 Park Oldheads",
+    "franchise": "NBA2K26",
+    "region": "Cleveland DMA",
+    "tier": "Rec",
+    "member_count": 54
+  },
+  {
+    "clan_id": "crew-062",
+    "name": "2K26 Sunset Legends",
+    "franchise": "NBA2K26",
+    "region": "Sydney DMA",
+    "tier": "Pro-Am",
+    "member_count": 55
+  },
+  {
+    "clan_id": "crew-063",
+    "name": "2K26 Holdout Hoopers",
+    "franchise": "NBA2K26",
+    "region": "Boston DMA",
+    "tier": "Rec",
+    "member_count": 58
+  },
+  {
+    "clan_id": "crew-064",
+    "name": "Prior Gen Grinding Squad",
+    "franchise": "NBA2K26",
+    "region": "Denver DMA",
+    "tier": "Pro-Am",
+    "member_count": 55
+  },
+  {
+    "clan_id": "crew-065",
+    "name": "2K26 Stage Holdouts",
+    "franchise": "NBA2K26",
+    "region": "Detroit DMA",
+    "tier": "Comp",
+    "member_count": 53
+  },
+  {
+    "clan_id": "crew-066",
+    "name": "2K26 MyTEAM Vault",
+    "franchise": "NBA2K26",
+    "region": "Orlando DMA",
+    "tier": "Rec",
+    "member_count": 63
+  },
+  {
+    "clan_id": "crew-067",
+    "name": "2K26 Rec Captains",
+    "franchise": "NBA2K26",
+    "region": "Salt Lake City DMA",
+    "tier": "Pro-Am",
+    "member_count": 48
+  },
+  {
+    "clan_id": "crew-068",
+    "name": "2K26 Hall of Fame Crew",
+    "franchise": "NBA2K26",
+    "region": "Atlanta DMA",
+    "tier": "Comp",
+    "member_count": 62
+  },
+  {
+    "clan_id": "crew-069",
+    "name": "2K26 Neighborhood Vets",
+    "franchise": "NBA2K26",
+    "region": "Detroit DMA",
+    "tier": "Rec",
+    "member_count": 46
+  },
+  {
+    "clan_id": "crew-070",
+    "name": "2K26 Last Run Squad",
+    "franchise": "NBA2K26",
+    "region": "Boston DMA",
+    "tier": "Pro-Am",
+    "member_count": 52
+  },
+  {
+    "clan_id": "crew-071",
+    "name": "2K26 Unmigrated Five",
+    "franchise": "NBA2K26",
+    "region": "Atlanta DMA",
+    "tier": "Rec",
+    "member_count": 55
+  },
+  {
+    "clan_id": "crew-072",
+    "name": "2K26 Badge Grinders",
+    "franchise": "NBA2K26",
+    "region": "Orlando DMA",
+    "tier": "Comp",
+    "member_count": 48
+  },
+  {
+    "clan_id": "crew-073",
+    "name": "The Bloodline Faction",
+    "franchise": "WWE2K",
+    "region": "Phoenix DMA",
+    "tier": "Comp",
+    "member_count": 36
+  },
+  {
+    "clan_id": "crew-074",
+    "name": "Judgment Day Faction",
+    "franchise": "WWE2K",
+    "region": "Manila DMA",
+    "tier": "Pro-Am",
+    "member_count": 41
+  },
+  {
+    "clan_id": "crew-075",
+    "name": "Attitude Era Revivalists",
+    "franchise": "WWE2K",
+    "region": "New Orleans DMA",
+    "tier": "Rec",
+    "member_count": 32
+  },
+  {
+    "clan_id": "crew-076",
     "name": "Wyatt Sicks Society",
     "franchise": "WWE2K",
-    "region": "Chicago DMA",
+    "region": "Manila DMA",
     "tier": "Rec",
-    "member_count": 33
+    "member_count": 49
+  },
+  {
+    "clan_id": "crew-077",
+    "name": "MyFACTION Ring Generals",
+    "franchise": "WWE2K",
+    "region": "Portland DMA",
+    "tier": "Comp",
+    "member_count": 41
+  },
+  {
+    "clan_id": "crew-078",
+    "name": "WrestleMania Main Eventers",
+    "franchise": "WWE2K",
+    "region": "London DMA",
+    "tier": "Pro-Am",
+    "member_count": 47
+  },
+  {
+    "clan_id": "crew-079",
+    "name": "Crimson Raiders Vault Crew",
+    "franchise": "BL4",
+    "region": "Washington DC DMA",
+    "tier": "Comp",
+    "member_count": 0
+  },
+  {
+    "clan_id": "crew-080",
+    "name": "Kairos Loot Hunters",
+    "franchise": "BL4",
+    "region": "Los Angeles DMA",
+    "tier": "Pro-Am",
+    "member_count": 0
+  },
+  {
+    "clan_id": "crew-081",
+    "name": "Deity Turn 250 League",
+    "franchise": "CIV7",
+    "region": "Portland DMA",
+    "tier": "Comp",
+    "member_count": 0
+  },
+  {
+    "clan_id": "crew-082",
+    "name": "Crossroads Diplomacy Guild",
+    "franchise": "CIV7",
+    "region": "Washington DC DMA",
+    "tier": "Pro-Am",
+    "member_count": 0
+  },
+  {
+    "clan_id": "crew-083",
+    "name": "TPC Sawgrass Clubhouse",
+    "franchise": "PGA2K",
+    "region": "Indianapolis DMA",
+    "tier": "Rec",
+    "member_count": 0
+  },
+  {
+    "clan_id": "crew-084",
+    "name": "Centre Court Grand Slam",
+    "franchise": "TOPSPIN",
+    "region": "London DMA",
+    "tier": "Rec",
+    "member_count": 0
   }
 ]

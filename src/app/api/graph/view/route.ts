@@ -24,7 +24,7 @@ import { getCrewMates, getCrossLabelBridges } from "@/lib/gcp/spanner-client";
 export const dynamic = "force-dynamic";
 
 /** Cap on drawn player nodes. A rendering budget, never an audience size. */
-const RENDER_LIMIT = 420;
+const RENDER_LIMIT = 780;
 
 const PLATFORM_COLORS: Record<string, string> = {
   "2K Account": "#E4002B",
@@ -273,6 +273,10 @@ export async function GET(request: NextRequest) {
   const selectedPlayerId = searchParams.get("playerId");
   const gameFilter = searchParams.get("game") || "ALL";
   const archetypeFilter = searchParams.get("archetype") || "ALL";
+  const isExpandOverlay = searchParams.get("expand") === "1";
+  const customLimit = Number(searchParams.get("limit") || 0);
+  const effectiveRenderLimit =
+    customLimit >= 100 && customLimit <= 1400 ? customLimit : RENDER_LIMIT;
 
   try {
     const nodes: GraphNode[] = [];
@@ -316,8 +320,7 @@ export async function GET(request: NextRequest) {
         dma_market: player.dma_market ?? undefined,
         val: 28,
         color: "#00F0FF",
-        fx: 0,
-        fy: 0,
+        ...(isExpandOverlay ? {} : { fx: 0, fy: 0 }),
       });
 
       const [identities, crewMates, bridges] = await Promise.all([
@@ -337,8 +340,12 @@ export async function GET(request: NextRequest) {
           confidence: ident.confidence_score,
           val: 15,
           color: PLATFORM_COLORS[cleanPlatform] || "#A855F7",
-          fx: Math.round(Math.cos(angle) * 200),
-          fy: Math.round(Math.sin(angle) * 200),
+          ...(isExpandOverlay
+            ? {}
+            : {
+                fx: Math.round(Math.cos(angle) * 200),
+                fy: Math.round(Math.sin(angle) * 200),
+              }),
         });
         links.push({
           source: player.player_id,
@@ -370,8 +377,12 @@ export async function GET(request: NextRequest) {
           hours: b.hours_played,
           val: 22,
           color: FRANCHISE_COLORS[b.franchise] || LABEL_COLORS[lbl] || "#E4002B",
-          fx: Math.round(Math.cos(angle) * 330),
-          fy: Math.round(Math.sin(angle) * 330),
+          ...(isExpandOverlay
+            ? {}
+            : {
+                fx: Math.round(Math.cos(angle) * 330),
+                fy: Math.round(Math.sin(angle) * 330),
+              }),
         });
         links.push({
           source: player.player_id,
@@ -394,8 +405,7 @@ export async function GET(request: NextRequest) {
           rank_tier: first.clan_tier,
           val: 22,
           color: "#00F59B",
-          fx: -280,
-          fy: -220,
+          ...(isExpandOverlay ? {} : { fx: -280, fy: -220 }),
         });
         links.push({
           source: player.player_id,
@@ -405,7 +415,7 @@ export async function GET(request: NextRequest) {
           isMultiHopBridge: true,
           hopStep: 1,
         });
-        crewMates.slice(0, 5).forEach((m, i) => {
+        crewMates.slice(0, 8).forEach((m, i) => {
           nodes.push({
             id: m.mate_id,
             name: `${m.mate_tag} (${m.mate_ovr ?? 88} OVR)`,
@@ -413,8 +423,12 @@ export async function GET(request: NextRequest) {
             franchise: "NBA2K",
             val: 12,
             color: "#00D2FF",
-            fx: -410 - (i % 2) * 75,
-            fy: -270 + i * 52,
+            ...(isExpandOverlay
+              ? {}
+              : {
+                  fx: -410 - (i % 2) * 75,
+                  fy: -270 + i * 52,
+                }),
           });
           links.push({
             source: clanNodeId,
@@ -447,7 +461,7 @@ export async function GET(request: NextRequest) {
       getPlayersForView({
         franchise: gameFilter,
         archetype: archetypeFilter,
-        limit: RENDER_LIMIT,
+        limit: effectiveRenderLimit,
       }),
     ]);
 
@@ -464,10 +478,10 @@ export async function GET(request: NextRequest) {
     // VIEW 2: SOCIAL CREWS & 2K NEXTMAKERS CREATORS VIEW
     // ======================================================================
     if (view === "social-clans" || view === "crews") {
-      const topCrews = clans.slice(0, 12);
+      const topCrews = clans.slice(0, 20);
       topCrews.forEach((c, idx) => {
         const angle = (idx / Math.max(1, topCrews.length)) * Math.PI * 2 - Math.PI / 2;
-        const radius = c.tier === "Comp" ? 210 : c.tier === "Pro-Am" ? 330 : 430;
+        const radius = c.tier === "Comp" ? 210 : c.tier === "Pro-Am" ? 330 : 445;
         const tierColor =
           c.tier === "Comp"
             ? "#FFB800"
@@ -506,7 +520,7 @@ export async function GET(request: NextRequest) {
 
       const crewIds = new Set(topCrews.map((c) => c.clan_id));
       const creatorIds = new Set(MACRO_CREATOR_ANCHORS.map((c) => c.id));
-      const crewPlayers = players.slice(0, 280);
+      const crewPlayers = players.slice(0, 520);
 
       crewPlayers.forEach((p: any, idx: number) => {
         const assignedCrewId =

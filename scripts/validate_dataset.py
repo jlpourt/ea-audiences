@@ -122,9 +122,9 @@ assert invalid_franchises == 0
 assert invalid_labels == 0
 assert invalid_platforms == 0
 assert missing_fields == 0
-assert 200 <= len(play1_players) <= 400, f"Play 1 out of range: {len(play1_players)}"
-assert 250 <= len(play2_players) <= 450, f"Play 2 out of range: {len(play2_players)}"
-assert 120 <= len(play3_players) <= 220, f"Play 3 out of range: {len(play3_players)}"
+assert 200 <= len(play1_players) <= 1100, f"Play 1 out of range: {len(play1_players)}"
+assert 250 <= len(play2_players) <= 1200, f"Play 2 out of range: {len(play2_players)}"
+assert 120 <= len(play3_players) <= 650, f"Play 3 out of range: {len(play3_players)}"
 
 print("\nDemographics by Primary Franchise:")
 print(f"{'Franchise':<12} | {'Med Age':<7} | {'% Male':<6} | {'% Female':<8} | {'% NB/Undisc':<11} | {'Count'}")

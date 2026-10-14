@@ -20,18 +20,26 @@ const str = (v) => (v === null || v === undefined ? null : String(v));
 const json = (v) => (v === null || v === undefined ? null : JSON.stringify(v));
 const bool = (v) => (v === null || v === undefined ? null : Boolean(v));
 
-async function insertAll(database, tableName, rows, chunkSize = 400) {
+async function insertAll(database, tableName, rows, chunkSize = 700, concurrency = 4) {
   if (!rows.length) {
     console.log(`  ${tableName}: nothing to insert`);
     return;
   }
   const table = database.table(tableName);
-  let done = 0;
+  const chunks = [];
   for (let i = 0; i < rows.length; i += chunkSize) {
-    const chunk = rows.slice(i, i + chunkSize);
-    await table.insert(chunk);
-    done += chunk.length;
-    process.stdout.write(`\r  ${tableName}: ${done}/${rows.length}`);
+    chunks.push(rows.slice(i, i + chunkSize));
+  }
+  let done = 0;
+  for (let i = 0; i < chunks.length; i += concurrency) {
+    const batch = chunks.slice(i, i + concurrency);
+    await Promise.all(
+      batch.map(async (c) => {
+        await table.insert(c);
+        done += c.length;
+        process.stdout.write(`\r  ${tableName}: ${done}/${rows.length}`);
+      })
+    );
   }
   process.stdout.write(`\r  ${tableName}: ${done}/${rows.length}  ✓\n`);
 }
@@ -239,7 +247,8 @@ async function main() {
       game_telemetry: json(p.game_telemetry || {}),
       purchased_items: json(p.purchased_items || []),
     })),
-    250
+    450,
+    4
   );
 
   console.log("\nLoading edges...");

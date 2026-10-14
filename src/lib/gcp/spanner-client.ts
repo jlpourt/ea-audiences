@@ -93,7 +93,7 @@ export class SpannerUnavailableError extends Error {
 export const GRAPH_NAME = "TakeTwoPlayerGraph";
 export const GRAPH = GRAPH_NAME;
 
-export const PLAYER_PROJECTION = [
+export const PLAYER_COLS = [
   "p.player_id",
   "p.display_name",
   "p.gamer_tag",
@@ -118,6 +118,13 @@ export const PLAYER_PROJECTION = [
   "p.primary_creator_influence",
   "p.game_telemetry",
   "p.purchased_items",
+];
+
+export const PLAYER_PROJECTION = PLAYER_COLS.join(", ");
+
+export const PLAYER_GROUPED_PROJECTION = [
+  "p.player_id AS player_id",
+  ...PLAYER_COLS.slice(1).map((c) => `ANY_VALUE(${c}) AS ${c.slice(2)}`),
 ].join(", ");
 
 let cachedDatabase: Database | null = null;
@@ -274,7 +281,7 @@ async function runGql(
  */
 export async function runSpannerGraphQuery(
   generatedGql: string,
-  renderLimit = 64
+  renderLimit = 220
 ): Promise<GraphQueryResult> {
   const started = Date.now();
   const database = getDatabase();
@@ -292,13 +299,20 @@ export async function runSpannerGraphQuery(
   const where = normalizeWhereClause(extractWhereClause(generatedGql));
   const whereFragment = buildWhereFragment(where);
 
-  const rowsSql =
-    `GRAPH ${GRAPH}\n` +
-    `MATCH ${matchClause}\n` +
-    whereFragment +
-    `RETURN ${PLAYER_PROJECTION}\n` +
-    `ORDER BY p.lifetime_spend_usd DESC\n` +
-    `LIMIT ${Math.max(1, Math.floor(renderLimit * (isMultiHop ? 3 : 1)))}`;
+  const rowsSql = isMultiHop
+    ? `GRAPH ${GRAPH}\n` +
+      `MATCH ${matchClause}\n` +
+      whereFragment +
+      `RETURN ${PLAYER_GROUPED_PROJECTION}\n` +
+      `GROUP BY p.player_id\n` +
+      `ORDER BY lifetime_spend_usd DESC\n` +
+      `LIMIT ${Math.max(1, renderLimit)}`
+    : `GRAPH ${GRAPH}\n` +
+      `MATCH ${matchClause}\n` +
+      whereFragment +
+      `RETURN ${PLAYER_PROJECTION}\n` +
+      `ORDER BY p.lifetime_spend_usd DESC\n` +
+      `LIMIT ${Math.max(1, renderLimit)}`;
 
   const statsSql =
     `GRAPH ${GRAPH}\n` +
@@ -340,15 +354,16 @@ export async function runSpannerGraphQuery(
         `GRAPH ${GRAPH}\n` +
         `MATCH ${matchClause}\n` +
         whereFragment +
-        `RETURN DISTINCT p.player_id,\n` +
-        `       ${ca}.clan_id, ${ca}.name AS clan_name, ${ca}.tier AS clan_tier,\n` +
+        `RETURN p.player_id AS player_id,\n` +
+        `       ${ca}.clan_id AS clan_id, ANY_VALUE(${ca}.name) AS clan_name, ANY_VALUE(${ca}.tier) AS clan_tier,\n` +
         (hasMate
-          ? `       mate.player_id AS mate_id, mate.gamer_tag AS mate_tag, mate.primary_franchise AS mate_franchise,\n`
+          ? `       ANY_VALUE(mate.player_id) AS mate_id, ANY_VALUE(mate.gamer_tag) AS mate_tag, ANY_VALUE(mate.primary_franchise) AS mate_franchise,\n`
           : "") +
         (ga
-          ? `       ${ga}.game_id AS target_game_id, ${ga}.title AS target_game_title, ${ga}.franchise AS target_game_franchise, ${ga}.label AS target_game_label\n`
-          : `       ${ca}.franchise AS target_game_franchise\n`) +
-        `LIMIT 140`;
+          ? `       ANY_VALUE(${ga}.game_id) AS target_game_id, ANY_VALUE(${ga}.title) AS target_game_title, ANY_VALUE(${ga}.franchise) AS target_game_franchise, ANY_VALUE(${ga}.label) AS target_game_label\n`
+          : `       ANY_VALUE(${ca}.franchise) AS target_game_franchise\n`) +
+        `GROUP BY p.player_id, ${ca}.clan_id\n` +
+        `LIMIT 260`;
       bridgePromise = runGql(database, bridgeSql);
     } else if (identityAliasMatch) {
       const ia = identityAliasMatch[1];
@@ -362,7 +377,7 @@ export async function runSpannerGraphQuery(
         (ga
           ? `,\n       ${ga}.game_id AS target_game_id, ${ga}.title AS target_game_title, ${ga}.franchise AS target_game_franchise, ${ga}.label AS target_game_label\n`
           : `\n`) +
-        `LIMIT 140`;
+        `LIMIT 260`;
       bridgePromise = runGql(database, bridgeSql);
     } else if (creatorAliasMatch) {
       const cra = creatorAliasMatch[1];
@@ -373,7 +388,7 @@ export async function runSpannerGraphQuery(
         `RETURN DISTINCT p.player_id,\n` +
         `       ${cra}.creator_id, ${cra}.handle AS creator_handle, ${cra}.platform AS creator_platform, ${cra}.name AS creator_name,\n` +
         `       ${cra}.franchise AS target_game_franchise\n` +
-        `LIMIT 140`;
+        `LIMIT 260`;
       bridgePromise = runGql(database, bridgeSql);
     }
   }

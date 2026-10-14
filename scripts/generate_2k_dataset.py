@@ -29,7 +29,7 @@ random.seed(2027)
 
 NOW = datetime(2026, 10, 2, 12, 0, 0, tzinfo=timezone.utc)
 NBA2K27_LAUNCH = datetime(2026, 9, 4, tzinfo=timezone.utc)
-N_PLAYERS = 2850
+N_PLAYERS = 6500
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 
 # ---------------------------------------------------------------------------
@@ -168,6 +168,11 @@ CREATORS = [
     ("creator-assemble", "Assemble", "Assemble", "YouTube", "WWE2K", 620_000, 6_900, 0.81, "WWE 2K25 MyFACTION & news"),
     ("creator-moxsy", "Moxsy", "Moxsy", "YouTube & Twitch", "BL4", 940_000, 11_200, 0.84, "Borderlands 4 endgame builds"),
     ("creator-potatomcwhiskey", "PotatoMcWhiskey", "PotatoMcWhiskey", "YouTube & Twitch", "CIV7", 790_000, 9_100, 0.83, "Civilization VII strategy"),
+    ("creator-2klab", "NBA2KLab", "NBA 2KLab", "YouTube", "NBA2K", 1_150_000, 15_400, 0.94, "Green window & badge frame telemetry"),
+    ("creator-2ktutes", "NBA2KTutes", "NBA 2K Tutes", "YouTube", "NBA2K", 540_000, 9_200, 0.92, "Attribute threshold & cap breaker math"),
+    ("creator-lakerfan", "LakerFan", "LakerFan", "YouTube & Twitch", "NBA2K", 490_000, 7_800, 0.88, "Comp Pro-Am & slasher meta"),
+    ("creator-bde", "BDE", "Brandon Does Everything", "YouTube", "WWE2K", 1_420_000, 19_500, 0.85, "WWE 2K25 Universe & MyFACTION"),
+    ("creator-ki11ersix", "Ki11erSix", "Ki11er Six", "YouTube & Twitch", "BL4", 820_000, 10_400, 0.86, "Borderlands 4 legendary farming"),
 ]
 CREATOR_KEYS = ["creator_id", "handle", "name", "platform", "franchise", "followers", "avg_stream_viewers",
                 "conversion_affinity", "signature_mode"]
@@ -175,20 +180,29 @@ CREATOR_KEYS = ["creator_id", "handle", "name", "platform", "franchise", "follow
 NBA_CREWS = {
     "Rec": ["Bucket Getters", "Rim Runners Rec", "Dimers Only", "No Fly Zone", "Paint Beasts", "Glass Cleaners",
             "Green Machine", "Splash Bros Rec", "The Rec Sweats", "Lob City Legends", "Iso Kings", "Cheese Factory",
-            "Random Rec Survivors", "Fadeaway Family", "Zig Zag Nation", "Stepback Society"],
+            "Random Rec Survivors", "Fadeaway Family", "Zig Zag Nation", "Stepback Society", "Corner Specialist Crew",
+            "Break Starter Brotherhood", "South City Ballers", "North Side Knights", "Rivet City Hoopers",
+            "Sunset Beach Squad", "Old Town Flyers", "The Theater Regulars", "Solo Rec Rescue", "Sixth Man Syndicate"],
     "Pro-Am": ["Lock & Load", "Stage Sharks", "Pro-Am Prophets", "Clamp Gods", "Five Out Faithful", "Pick & Pop Co.",
                "Bully Ball Union", "Court Vision Collective", "Hoop Dreams Pro-Am", "Dunk Meter Mafia",
-               "Takeover Tribe", "The W Collective"],
+               "Takeover Tribe", "The W Collective", "High Screen Cartel", "Zone Breakers 5v5", "Switch Everything Pro-Am",
+               "Backdoor Cut Club", "Shot Clock Assassins", "Hall of Fame Dimes", "Pro-Am Platinum", "Mid-Range Maestroes"],
     "Comp": ["Comp Stage Elite", "Legend Rep Syndicate", "Ankle Breakers Comp", "Dark Matter Dynasty",
-             "99 OVR Only", "Posterize Pros", "Cap Breaker Crew", "Full Court Press Comp"],
+             "99 OVR Only", "Posterize Pros", "Cap Breaker Crew", "Full Court Press Comp", "2K League Prospects",
+             "Ante-Up High Rollers", "Red Plate Sweats", "Green Window Gods", "Wager Court Kings", "Top 100 Rep Guild"],
 }
 NBA2K26_VETERAN_CREWS = [
     ("2K26 Park Oldheads", "Rec"), ("2K26 Sunset Legends", "Pro-Am"), ("2K26 Holdout Hoopers", "Rec"),
     ("Prior Gen Grinding Squad", "Pro-Am"), ("2K26 Stage Holdouts", "Comp"), ("2K26 MyTEAM Vault", "Rec"),
-    ("2K26 Rec Captains", "Pro-Am"), ("2K26 Hall of Fame Crew", "Comp"),
+    ("2K26 Rec Captains", "Pro-Am"), ("2K26 Hall of Fame Crew", "Comp"), ("2K26 Neighborhood Vets", "Rec"),
+    ("2K26 Last Run Squad", "Pro-Am"), ("2K26 Unmigrated Five", "Rec"), ("2K26 Badge Grinders", "Comp"),
 ]
 WWE_FACTIONS = [("The Bloodline Faction", "Comp"), ("Judgment Day Faction", "Pro-Am"),
-                ("Attitude Era Revivalists", "Rec"), ("Wyatt Sicks Society", "Rec")]
+                ("Attitude Era Revivalists", "Rec"), ("Wyatt Sicks Society", "Rec"),
+                ("MyFACTION Ring Generals", "Comp"), ("WrestleMania Main Eventers", "Pro-Am")]
+BL4_CIV_CREWS = [("Crimson Raiders Vault Crew", "BL4", "Comp"), ("Kairos Loot Hunters", "BL4", "Pro-Am"),
+                 ("Deity Turn 250 League", "CIV7", "Comp"), ("Crossroads Diplomacy Guild", "CIV7", "Pro-Am"),
+                 ("TPC Sawgrass Clubhouse", "PGA2K", "Rec"), ("Centre Court Grand Slam", "TOPSPIN", "Rec")]
 
 OFFERS = [
     # id, title, franchise, game, type, category, price, boost, archetype, lifecycle, from, description
@@ -695,7 +709,7 @@ def assign_purchases(players):
 
 def build_crews():
     crews = []
-    crews_by_tier = {"Rec": [], "Pro-Am": [], "Comp": [], "NBA2K26": [], "WWE": []}
+    crews_by_tier = {"Rec": [], "Pro-Am": [], "Comp": [], "NBA2K26": [], "WWE": [], "CORE": []}
     crew_region = {}
     markets = [m[1] for m in NBA_MARKETS] + [m[1] for m in INTL_MARKETS]
     n = 0
@@ -721,6 +735,13 @@ def build_crews():
         crews.append({"clan_id": cid, "name": name, "franchise": "WWE2K", "region": region, "tier": tier, "member_count": 0})
         crews_by_tier["WWE"].append(cid)
         crew_region[cid] = region
+    for name, fran, tier in BL4_CIV_CREWS:
+        n += 1
+        cid = f"crew-{n:03d}"
+        region = random.choice(markets)
+        crews.append({"clan_id": cid, "name": name, "franchise": fran, "region": region, "tier": tier, "member_count": 0})
+        crews_by_tier["CORE"].append(cid)
+        crew_region[cid] = region
     return crews, crews_by_tier, crew_region
 
 
@@ -731,6 +752,9 @@ def build_crew_edges(players, crews):
         if cid:
             members.setdefault(cid, []).append(p)
     edges = []
+    crew_by_id = {c["clan_id"]: c for c in crews}
+    role_by_player = {}
+
     for c in crews:
         roster = members.get(c["clan_id"], [])
         c["member_count"] = len(roster)
@@ -738,8 +762,144 @@ def build_crew_edges(players, crews):
             continue
         roster.sort(key=lambda p: (p["primary_archetype"] != "REC_CREW_CAPTAIN", p["game_telemetry"]["last_login_days_ago"]))
         for i, p in enumerate(roster):
-            role = "CAPTAIN" if i == 0 else "CO_CAPTAIN" if i <= 2 else "MEMBER"
+            role = "CAPTAIN" if i == 0 else "CO_CAPTAIN" if i <= 3 else "MEMBER"
+            role_by_player[p["player_id"]] = role
             edges.append({"player_id": p["player_id"], "clan_id": c["clan_id"], "role": role})
+
+    # Enrich every player in Spanner with real graph-computed Crew VaR, Concordia Stag-Hunt Tipping,
+    # 4-Quadrant Causal Uplift (CATE), 30-Day Cox/Weibull Survival T50, and Next-Best Action Decision
+    for p in players:
+        t = p["game_telemetry"]
+        cid = t.get("crew_id")
+        crew_obj = crew_by_id.get(cid) if cid else None
+        roster = members.get(cid, []) if cid else []
+        role = role_by_player.get(p["player_id"], "CAPTAIN" if p["primary_archetype"] == "REC_CREW_CAPTAIN" else "MEMBER")
+
+        mates = [m for m in roster if m["player_id"] != p["player_id"]]
+        mates.sort(key=lambda m: (m["game_telemetry"].get("last_login_days_ago", 99), -m["lifetime_spend_usd"]))
+        squad_4 = mates[:4]
+
+        self_spend_90d = float(t.get("vc_spend_90d") or (p["lifetime_spend_usd"] * 0.42))
+        mates_spend_90d = sum(
+            float(m["game_telemetry"].get("vc_spend_90d") or (m["lifetime_spend_usd"] * 0.42))
+            for m in squad_4
+        )
+        squad_var_usd = round(self_spend_90d + mates_spend_90d, 2)
+
+        active_2k27_mates = sum(
+            1 for m in squad_4
+            if "NBA2K" in m["franchises_played"] and (m["game_telemetry"].get("last_login_days_ago") or 0) <= 7
+        )
+        self_in_2k27 = 1 if ("NBA2K" in p["franchises_played"] and (t.get("last_login_days_ago") or 0) <= 7) else 0
+        k_of_5 = min(5, active_2k27_mates + self_in_2k27)
+        concordia_mult = 3.4 if k_of_5 >= 4 else 3.1 if k_of_5 == 3 else 2.2 if k_of_5 == 2 else 1.3
+
+        squad_mate_tags = [
+            f"@{m['gamer_tag']} ({m['game_telemetry'].get('myplayer_ovr') or 88} OVR)"
+            for m in squad_4
+        ]
+
+        if p["primary_franchise"] == "NBA2K26" or (t.get("nba2k26_veteran") and not t.get("migrated_to_2k27")) or p.get("_cliff"):
+            portfolio_ring = "SQUAD_NURTURE"
+        elif len(p["franchises_played"]) >= 2 or p["primary_franchise"] not in ("NBA2K", "NBA2K26") or p["primary_archetype"] == "CROSS_LABEL_NOMAD":
+            portfolio_ring = "CROSS_2K_STRETCH"
+        else:
+            portfolio_ring = "CORE_RETAIN"
+
+        ovr = t.get("myplayer_ovr") or 85
+        last_login = t.get("last_login_days_ago") or 3
+        loss_streak = p["recent_loss_streak"] or 0
+        rage = t.get("rage_quits_7d") or 0
+        lifetime = p["lifetime_spend_usd"] or 0.0
+        churn = p["churn_risk_score"] or 0.35
+        tilt = p["tilt_sensitivity"] or 0.30
+
+        if (tilt >= 0.74 and loss_streak >= 4 and self_spend_90d < 45) or (rage >= 5 and lifetime < 60):
+            uplift_quadrant = "SLEEPING_DOG"
+            cate_score = round(random.uniform(-0.34, -0.08), 3)
+            decision_action = "SUPPRESS_PROTECT_SENTIMENT"
+            rec_offer_id = "NONE"
+            rec_offer_title = "Suppress Store Prompt (Cool-Down Matchmaking)"
+            rec_offer_price = 0.0
+            expected_inc_ltv = 0.0
+            margin_saved = round(random.uniform(4.99, 14.99), 2)
+        elif lifetime >= 340 and last_login <= 3 and churn < 0.34 and not p.get("_cliff"):
+            uplift_quadrant = "SURE_THING"
+            cate_score = round(random.uniform(0.01, 0.07), 3)
+            decision_action = "SEED_CREW_CAPTAIN" if role in ("CAPTAIN", "CO_CAPTAIN") else "HOLD_DISCOUNT_SAVE_MARGIN"
+            rec_offer_id = "off-myteam-galaxy-opal-deluxe-1999" if p["primary_archetype"] == "MYTEAM_PACK_WHALE" else "off-season-pass-hof"
+            rec_offer_title = OFFER_BY_ID[rec_offer_id]["offer_title"]
+            rec_offer_price = OFFER_BY_ID[rec_offer_id]["price_usd"]
+            expected_inc_ltv = round(rec_offer_price * (1.4 if role == "CAPTAIN" else 0.35), 2)
+            margin_saved = round(rec_offer_price * 0.25, 2)
+        elif last_login >= 26 and lifetime < 18 and k_of_5 <= 1:
+            uplift_quadrant = "LOST_CAUSE"
+            cate_score = round(random.uniform(-0.02, 0.04), 3)
+            decision_action = "WINBACK_DRIP_ONLY"
+            rec_offer_id = "off-vc-5k"
+            rec_offer_title = OFFER_BY_ID["off-vc-5k"]["offer_title"]
+            rec_offer_price = 1.99
+            expected_inc_ltv = 0.85
+            margin_saved = 4.99
+        else:
+            uplift_quadrant = "PERSUADABLE"
+            cate_score = round(clamp(0.22 + 0.05 * k_of_5 + (0.14 if p.get("_cliff") or p.get("_p2") else 0.0) + random.gauss(0, 0.04), 0.14, 0.58), 3)
+            decision_action = "SEED_CREW_CAPTAIN" if role in ("CAPTAIN", "CO_CAPTAIN") else "DISPATCH_PERSONALIZED_OFFER"
+            if p.get("_p2") or p["primary_franchise"] == "NBA2K26":
+                rec_offer_id = "off-nba2k27-loyalty-upgrade"
+            elif p.get("_cliff") or (ovr < 85 and p["primary_franchise"] == "NBA2K"):
+                rec_offer_id = "off-crew-reup-bundle"
+            elif p["primary_archetype"] == "MYTEAM_PACK_WHALE":
+                rec_offer_id = "off-myteam-galaxy-opal-deluxe-1499"
+            elif len(p["franchises_played"]) >= 2:
+                rec_offer_id = "off-2k-allstar-pass"
+            else:
+                rec_offer_id = "off-season-pass-pro"
+            rec_offer_title = OFFER_BY_ID[rec_offer_id]["offer_title"]
+            rec_offer_price = OFFER_BY_ID[rec_offer_id]["price_usd"]
+            expected_inc_ltv = round(rec_offer_price * cate_score * concordia_mult, 2)
+            margin_saved = 0.0
+
+        wall_beta = 0.52 if ovr < 85 else -0.14
+        tilt_beta = min(0.60, loss_streak * 0.10 + tilt * 0.32 + churn * 0.26)
+        crew_beta = -0.16 if cid else 0.10
+        base_hr = max(0.35, min(3.2, 2.71828 ** (wall_beta + tilt_beta + crew_beta)))
+        treated_hr = base_hr * 0.58 * (0.62 if ovr < 85 else 0.72)
+        base_t50 = int(clamp(round(19.5 * ((0.6931 / base_hr) ** (1 / 1.48))), 6, 21))
+        treated_t50 = int(clamp(max(base_t50 + 8, round(19.5 * ((0.6931 / treated_hr) ** (1 / 1.48)))), 15, 29))
+
+        if p.get("_cliff") or (ovr < 85 and last_login >= 6):
+            trajectory_cluster = "BADGE_WALL_STALL"
+        elif loss_streak >= 3 or rage >= 2 or p["primary_archetype"] == "RAGE_QUIT_TILT_RISK":
+            trajectory_cluster = "REACTIVE_FRUSTRATION_TRAP"
+        elif p.get("_p2") or p["primary_franchise"] == "NBA2K26":
+            trajectory_cluster = "HOLD_2K26_BRIDGE"
+        else:
+            trajectory_cluster = "GOLDEN_PATH_SYNERGY"
+
+        t["crew_name"] = crew_obj["name"] if crew_obj else "Solo City Free Agent"
+        t["crew_tier"] = crew_obj["tier"] if crew_obj else "Rec"
+        t["crew_role"] = role
+        t["crew_size"] = len(roster) if roster else 1
+        t["crew_active_2k27_mates"] = k_of_5
+        t["squad_var_usd"] = squad_var_usd
+        t["squad_mate_tags"] = squad_mate_tags
+        t["concordia_tipping_multiplier"] = concordia_mult
+        t["portfolio_ring"] = portfolio_ring
+        t["uplift_quadrant"] = uplift_quadrant
+        t["cate_uplift_score"] = cate_score
+        t["decision_action"] = decision_action
+        t["recommended_offer_id"] = rec_offer_id
+        t["recommended_offer_title"] = rec_offer_title
+        t["recommended_offer_price"] = rec_offer_price
+        t["expected_incremental_ltv_usd"] = expected_inc_ltv
+        t["margin_saved_usd"] = margin_saved
+        t["survival_baseline_t50_days"] = base_t50
+        t["survival_treated_t50_days"] = treated_t50
+        t["survival_days_gained"] = treated_t50 - base_t50
+        t["crew_hazard_reduction_pct"] = 42 if cid else 18
+        t["trajectory_cluster"] = trajectory_cluster
+
     return edges
 
 

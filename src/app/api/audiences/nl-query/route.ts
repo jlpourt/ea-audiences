@@ -230,7 +230,7 @@ function matchGoldenPlay(
 
   // Play 1 — Season 1 → 2 Build Cliff Rescue
   if (
-    (q.includes("85 ovr") || q.includes("below 85") || q.includes("under 85") || q.includes("cliff")) &&
+    (q.includes("85 ovr") || q.includes("84 ovr") || q.includes("below 85") || q.includes("under 85") || q.includes("cliff")) &&
     (q.includes("crew") || q.includes("teammate") || q.includes("7 days") || q.includes("7+ days") || q.includes("inactivity") || q.includes("stalled"))
   ) {
     return {
@@ -447,7 +447,7 @@ User Request: "${query}"`,
     throw new Error(safety.reason || "Invalid GQL query.");
   }
 
-  const spannerRes = await runSpannerGraphQuery(gqlQuery, 72);
+  const spannerRes = await runSpannerGraphQuery(gqlQuery, 220);
   const { games, creators } = await getCatalog();
   const gameById = new Map(games.map((g) => [g.game_id, g]));
   const creatorById = new Map(creators.map((c) => [c.creator_id, c]));
@@ -514,6 +514,8 @@ User Request: "${query}"`,
       gravity_score: Number(r.game_telemetry?.gravity_score ?? 0),
       game_telemetry: r.game_telemetry,
       purchased_items: r.purchased_items,
+      followed_creators: r.followed_creators,
+      primary_creator_influence: r.primary_creator_influence ?? undefined,
       country: r.country ?? undefined,
       country_code: r.country_code ?? undefined,
       country_flag: r.country_flag ?? undefined,
@@ -541,7 +543,7 @@ User Request: "${query}"`,
   if (spannerRes.isMultiHop && bridgeRows.length > 0) {
     const bridgeNames = new Set<string>();
 
-    for (const br of bridgeRows.slice(0, 65)) {
+    for (const br of bridgeRows.slice(0, 180)) {
       if (!nodeIds.has(br.player_id)) continue;
 
       if (br.clan_id) {

@@ -49,6 +49,10 @@ export default function HomePage() {
     nodes: [],
     links: [],
   });
+  const [baseGraphData, setBaseGraphData] = useState<GraphData>({
+    nodes: [],
+    links: [],
+  });
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(true);
 
@@ -129,7 +133,9 @@ export default function HomePage() {
         });
         const data = await res.json();
         if (res.ok && data.nodes) {
-          setGraphData({ nodes: data.nodes, links: data.links || [] });
+          const nextGraph = { nodes: data.nodes, links: data.links || [] };
+          setGraphData(nextGraph);
+          setBaseGraphData(nextGraph);
           if (data.execution_ms) setExecutionMs(data.execution_ms);
           if (selectPlayerId) {
             const found = (data.nodes as GraphNode[]).find(
@@ -186,7 +192,9 @@ export default function HomePage() {
           return;
         }
 
-        setGraphData({ nodes: data.nodes || [], links: data.links || [] });
+        const nextGraph = { nodes: data.nodes || [], links: data.links || [] };
+        setGraphData(nextGraph);
+        setBaseGraphData(nextGraph);
         setGeneratedGql(data.generated_gql || "");
         setWhereClause(data.where_clause || "");
         setMatchPattern(
@@ -281,6 +289,144 @@ export default function HomePage() {
     setHighlightBridges(playNumber === 1 || playNumber === 2);
     runAudienceQuery(query, franchise, [], true);
   };
+
+  // Expand a selected player's real 2-hop Spanner neighborhood (Crew, 8 Active Squadmates, Platform Identities, Cross-2K Titles) onto the live graph
+  const handleExpandPlayerNeighborhood = useCallback(
+    async (playerId: string) => {
+      try {
+        const res = await fetch(
+          `/api/graph/view?view=single-identity&playerId=${encodeURIComponent(
+            playerId
+          )}&expand=1`,
+          { cache: "no-store" }
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        const incomingNodes: GraphNode[] = data.nodes || [];
+        const incomingLinks: any[] = data.links || [];
+
+        setGraphData((prev) => {
+          const existingMap = new Map(prev.nodes.map((n) => [n.id, n]));
+          incomingNodes.forEach((n) => {
+            if (!existingMap.has(n.id)) {
+              existingMap.set(n.id, n);
+            } else if (n.id === playerId) {
+              existingMap.set(n.id, { ...existingMap.get(n.id)!, ...n });
+            }
+          });
+          const mergedNodes = Array.from(existingMap.values());
+
+          const linkKey = (l: any) => {
+            const s = typeof l.source === "object" ? l.source.id : String(l.source);
+            const t = typeof l.target === "object" ? l.target.id : String(l.target);
+            return `${s}->${t}:${l.label || ""}`;
+          };
+          const seenLinks = new Set(prev.links.map(linkKey));
+          const mergedLinks = [...prev.links];
+          incomingLinks.forEach((l) => {
+            const k = linkKey(l);
+            if (!seenLinks.has(k)) {
+              seenLinks.add(k);
+              mergedLinks.push(l);
+            }
+          });
+
+          return { nodes: mergedNodes, links: mergedLinks };
+        });
+
+        const enrichedSelf = incomingNodes.find((n) => n.id === playerId);
+        if (enrichedSelf) {
+          setSelectedNode((prev) =>
+            prev && prev.id === playerId ? { ...prev, ...enrichedSelf } : prev
+          );
+        }
+      } catch (err) {
+        console.error("Failed to expand player 2-hop neighborhood:", err);
+      }
+    },
+    []
+  );
+
+  // Filter / Prune the live graph & cohort by Spanner CATE Decision Segment
+  const handleApplyDecisionFilter = useCallback(
+    (
+      segment: "ALL" | "PERSUADABLE" | "CAPTAIN" | "SURE_THING" | "SLEEPING_DOG",
+      recommendedOffer?: { title: string; priceUsd: number }
+    ) => {
+      if (recommendedOffer && recommendedOffer.title) {
+        setOfferPreset({
+          title: recommendedOffer.title,
+          priceUsd: recommendedOffer.priceUsd || 4.99,
+        });
+        setCreativeOfferTitle(recommendedOffer.title);
+      }
+
+      const sourceGraph =
+        baseGraphData.nodes.length > 0 ? baseGraphData : graphData;
+      if (segment === "ALL") {
+        setGraphData(sourceGraph);
+        return;
+      }
+
+      const allowedPlayerIds = new Set<string>();
+      sourceGraph.nodes.forEach((n) => {
+        if (n.type !== "PLAYER") return;
+        const pTel = n.game_telemetry || {};
+        const quad = String(pTel.uplift_quadrant || "PERSUADABLE");
+        const action = String(
+          pTel.decision_action || "DISPATCH_PERSONALIZED_OFFER"
+        );
+        const role = String(pTel.crew_role || "MEMBER");
+
+        if (segment === "CAPTAIN") {
+          if (
+            action === "SEED_CREW_CAPTAIN" ||
+            role === "CAPTAIN" ||
+            n.archetype === "REC_CREW_CAPTAIN"
+          ) {
+            allowedPlayerIds.add(n.id);
+          }
+        } else if (segment === "PERSUADABLE") {
+          if (quad === "PERSUADABLE" || action === "SEED_CREW_CAPTAIN") {
+            allowedPlayerIds.add(n.id);
+          }
+        } else if (segment === "SURE_THING") {
+          if (quad === "SURE_THING") allowedPlayerIds.add(n.id);
+        } else if (segment === "SLEEPING_DOG") {
+          if (quad === "SLEEPING_DOG") allowedPlayerIds.add(n.id);
+        }
+      });
+
+      const connectedNonPlayerIds = new Set<string>();
+      const filteredLinks = sourceGraph.links.filter((l: any) => {
+        const s = typeof l.source === "object" ? l.source.id : String(l.source);
+        const t = typeof l.target === "object" ? l.target.id : String(l.target);
+        const sIsAllowedPlayer = allowedPlayerIds.has(s);
+        const tIsAllowedPlayer = allowedPlayerIds.has(t);
+        if (sIsAllowedPlayer && !t.startsWith("p-")) {
+          connectedNonPlayerIds.add(t);
+          return true;
+        }
+        if (tIsAllowedPlayer && !s.startsWith("p-")) {
+          connectedNonPlayerIds.add(s);
+          return true;
+        }
+        if (sIsAllowedPlayer && tIsAllowedPlayer) return true;
+        return false;
+      });
+
+      const filteredNodes = sourceGraph.nodes.filter(
+        (n) =>
+          (n.type === "PLAYER" && allowedPlayerIds.has(n.id)) ||
+          (n.type !== "PLAYER" && connectedNonPlayerIds.has(n.id))
+      );
+
+      if (filteredNodes.length > 0) {
+        setGraphData({ nodes: filteredNodes, links: filteredLinks });
+      }
+    },
+    [baseGraphData, graphData]
+  );
 
   const handleGenerateBrief = async (fgResult: FocusGroupResult) => {
     setIsGeneratingBrief(true);
@@ -623,6 +769,7 @@ export default function HomePage() {
               raw
             ) => {
               setGraphData(newGraphData);
+              setBaseGraphData(newGraphData);
               setGeneratedGql(gql);
               setIsSegmentedView(true);
               setIsInspectorOpen(true);
@@ -687,6 +834,8 @@ export default function HomePage() {
               onOpenCreativeStudio={() => setIsCreativeStudioOpen(true)}
               onSaveAudience={() => setIsSaveSheetOpen(true)}
               onToggleSocialGravity={() => setHighlightBridges((v) => !v)}
+              onExpandPlayerNeighborhood={handleExpandPlayerNeighborhood}
+              onApplyDecisionFilter={handleApplyDecisionFilter}
               isFocusGroupLoading={isFocusGroupLoading}
             />
           )}
