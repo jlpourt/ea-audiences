@@ -41,6 +41,8 @@ export type NeuralNodeId =
 
 export type SignalChannelId = "sig_creators" | "sig_crews" | "sig_reddit";
 
+export type SyntheticAudienceScale = 20 | 100 | 1000 | 6500;
+
 export interface CreatorSignalSummary {
   id: string;
   handle: string;
@@ -67,7 +69,8 @@ interface MiroFishNeuralFlowProps {
   isRunning: boolean;
   streamPhase: string;
   streamProgress: number;
-  swarmSize: 20 | 100;
+  swarmSize: SyntheticAudienceScale;
+  onChangeSwarmSize?: (size: SyntheticAudienceScale) => void;
   activeRound: 1 | 2 | 3;
   hasRound3: boolean;
   selectedCfLabel?: string;
@@ -115,6 +118,7 @@ export default function MiroFishNeuralFlow({
   streamPhase,
   streamProgress,
   swarmSize,
+  onChangeSwarmSize,
   activeRound,
   hasRound3,
   selectedCfLabel = "What-If Shock",
@@ -190,7 +194,7 @@ export default function MiroFishNeuralFlow({
   const cachedKeyRef = useRef<string>("");
 
   // Reset cached voice walkthrough when offer or simulation reactions change
-  const currentSimSignature = `${creativeTitle}|${priceUsd}|${buyCount}|${contagionFlipsCount}|${hasRound3}|${round3FlipsCount}`;
+  const currentSimSignature = `${creativeTitle}|${priceUsd}|${totalDenominator}|${buyCount}|${contagionFlipsCount}|${hasRound3}|${round3FlipsCount}`;
   useEffect(() => {
     if (cachedKeyRef.current && cachedKeyRef.current !== currentSimSignature) {
       if (audioRef.current) {
@@ -234,23 +238,30 @@ export default function MiroFishNeuralFlow({
     return "r1_firing";
   }, [isRunning, streamPhase, streamProgress, activeReactions.length, hasRound3, activeRound]);
 
-  // Compute R1 isolated counts vs R2 social counts
+  // Compute R1 isolated counts vs R2 social counts, scaled to totalDenominator (20 | 100 | 1,000 | 6,500)
   const r1Breakdown = useMemo(() => {
     const states = [
       ...activeReactions.map((r) => r.round1_fsm_state || r.final_fsm_state || "EVALUATING"),
-      ...(swarmSize === 100 && crowdAgents.length > 0
+      ...(swarmSize >= 100 && crowdAgents.length > 0
         ? crowdAgents.map((a) => a.round1_state || "EVALUATING")
         : []),
     ];
     if (states.length === 0) {
-      return { buy: 5, eval: 9, pass: 4, boycott: 2, total: 20 };
+      const scale = totalDenominator / 20;
+      const buy = Math.round(5 * scale);
+      const pass = Math.round(4 * scale);
+      const boycott = Math.round(2 * scale);
+      const evalC = Math.max(0, totalDenominator - buy - pass - boycott);
+      return { buy, eval: evalC, pass, boycott, total: totalDenominator };
     }
-    const buy = states.filter((s) => s === "PURCHASED").length;
-    const evalC = states.filter((s) => s === "EVALUATING" || s === "ENGAGED_FREE").length;
-    const pass = states.filter((s) => s === "ABANDONED").length;
-    const boycott = states.filter((s) => s === "BOYCOTT").length;
-    return { buy, eval: evalC, pass, boycott, total: states.length };
-  }, [activeReactions, crowdAgents, swarmSize]);
+    const rawTotal = Math.max(1, states.length);
+    const scale = totalDenominator / rawTotal;
+    const buy = Math.round(states.filter((s) => s === "PURCHASED").length * scale);
+    const pass = Math.round(states.filter((s) => s === "ABANDONED").length * scale);
+    const boycott = Math.round(states.filter((s) => s === "BOYCOTT").length * scale);
+    const evalC = Math.max(0, totalDenominator - buy - pass - boycott);
+    return { buy, eval: evalC, pass, boycott, total: totalDenominator };
+  }, [activeReactions, crowdAgents, swarmSize, totalDenominator]);
 
   // Attributed flip counts per Layer-3 Signal Node
   const signalAttribution = useMemo(() => {
@@ -1039,9 +1050,64 @@ export default function MiroFishNeuralFlow({
       </div>
 
       {/* ================= TOP FLOATING EXPLAINABILITY HUD BAR ================= */}
-      <div className="relative z-20 flex items-center justify-between gap-2 px-4 pt-3 pb-1">
-        {/* Left: Single-Photon Attribution Trace Toggle + Next Flip */}
-        <div className="flex items-center gap-1.5">
+      <div className="relative z-20 flex flex-wrap items-center justify-between gap-2 px-4 pt-3 pb-1">
+        {/* Left: Synthetic Audience Scale Toggle + Single-Photon Attribution Trace + Reset */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {/* Synthetic Audience Scale Toggle: 20 | 100 | 1K | 6.5K */}
+          <div
+            data-testid="neural-audience-scale-toggle"
+            role="group"
+            aria-label="Scale synthetic audience size"
+            className="flex items-center gap-0.5 h-7 rounded-full bg-black/65 border border-white/[0.12] p-0.5 backdrop-blur-xl"
+          >
+            <span className="px-2 text-[9px] font-mono uppercase tracking-wider text-white/45 flex items-center gap-1">
+              <Users className="w-2.5 h-2.5 text-[#A8C7FA]" />
+              <span className="hidden sm:inline">Audiences</span>
+            </span>
+            {(
+              [
+                {
+                  size: 20 as const,
+                  label: "20",
+                  title: "Test against 20 Core Gemini Personas",
+                },
+                {
+                  size: 100 as const,
+                  label: "100",
+                  title: "Test against 100-Agent Contagion Swarm",
+                },
+                {
+                  size: 1000 as const,
+                  label: "1K",
+                  title: "Scale to 1,000-Player Spanner Graph Cohort",
+                },
+                {
+                  size: 6500 as const,
+                  label: "6.5K",
+                  title: "Scale across Full 6,500-Player Spanner Identity Graph",
+                },
+              ] as const
+            ).map((opt) => {
+              const active = swarmSize === opt.size;
+              return (
+                <button
+                  key={opt.size}
+                  type="button"
+                  data-testid={`neural-scale-${opt.size}`}
+                  onClick={() => onChangeSwarmSize?.(opt.size)}
+                  title={opt.title}
+                  className={`relative px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums transition-all ${
+                    active
+                      ? "bg-gradient-to-r from-[#4285F4]/35 to-[#9B72CB]/35 border border-[#A8C7FA]/60 text-white font-semibold shadow-[0_0_12px_rgba(66,133,244,0.3)]"
+                      : "text-white/50 hover:text-white/85"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+
           <button
             type="button"
             onClick={() => setTraceModeActive((prev) => !prev)}
@@ -1225,13 +1291,52 @@ export default function MiroFishNeuralFlow({
         </defs>
 
         {/* ================= LAYER 1 (500,72) -> LAYER 2 R1 (500,170) ================= */}
-        {[
-          "M 500 72 C 500 108, 500 132, 500 170",
-          "M 440 72 C 440 110, 475 135, 485 170",
-          "M 560 72 C 560 110, 525 135, 515 170",
-        ].map((d, i) => {
+        {(swarmSize === 6500
+          ? [
+              "M 500 72 C 500 108, 500 132, 500 170",
+              "M 440 72 C 440 110, 475 135, 485 170",
+              "M 560 72 C 560 110, 525 135, 515 170",
+              "M 390 72 C 395 112, 455 138, 470 170",
+              "M 610 72 C 605 112, 545 138, 530 170",
+              "M 340 72 C 350 116, 435 142, 455 170",
+              "M 660 72 C 650 116, 565 142, 545 170",
+              "M 295 72 C 310 120, 415 145, 440 170",
+              "M 705 72 C 690 120, 585 145, 560 170",
+            ]
+          : swarmSize === 1000
+            ? [
+                "M 500 72 C 500 108, 500 132, 500 170",
+                "M 440 72 C 440 110, 475 135, 485 170",
+                "M 560 72 C 560 110, 525 135, 515 170",
+                "M 390 72 C 395 112, 455 138, 470 170",
+                "M 610 72 C 605 112, 545 138, 530 170",
+                "M 340 72 C 350 116, 435 142, 455 170",
+                "M 660 72 C 650 116, 565 142, 545 170",
+              ]
+            : swarmSize === 100
+              ? [
+                  "M 500 72 C 500 108, 500 132, 500 170",
+                  "M 440 72 C 440 110, 475 135, 485 170",
+                  "M 560 72 C 560 110, 525 135, 515 170",
+                  "M 390 72 C 395 112, 455 138, 470 170",
+                  "M 610 72 C 605 112, 545 138, 530 170",
+                ]
+              : [
+                  "M 500 72 C 500 108, 500 132, 500 170",
+                  "M 440 72 C 440 110, 475 135, 485 170",
+                  "M 560 72 C 560 110, 525 135, 515 170",
+                ]
+        ).map((d, i) => {
           const isTraceWire = traceModeActive && i === 0;
           const dimForTrace = traceModeActive && i !== 0;
+          const idleSpeed =
+            swarmSize === 6500
+              ? "680ms"
+              : swarmSize === 1000
+                ? "880ms"
+                : swarmSize === 100
+                  ? "1120ms"
+                  : "1400ms";
           return (
             <g key={`l1-l2-${i}`}>
               <path
@@ -1267,7 +1372,7 @@ export default function MiroFishNeuralFlow({
                   strokeDasharray="10 26"
                   className="dag-edge-active"
                   style={{
-                    animationDuration: isRunning || isTraceWire ? "420ms" : "1400ms",
+                    animationDuration: isRunning || isTraceWire ? "420ms" : idleSpeed,
                   }}
                 />
               )}
@@ -1591,7 +1696,7 @@ export default function MiroFishNeuralFlow({
               {isBattleMode && altPriceUsd ? ` vs $${altPriceUsd.toFixed(2)}` : ""}
             </span>
             <span className="px-2 py-0.5 rounded-full bg-[#4285F4]/20 border border-[#4285F4]/40 text-[10px] font-mono font-semibold text-[#A8C7FA] tabular-nums">
-              {totalDenominator} Agents
+              {totalDenominator.toLocaleString()} Agents
             </span>
           </motion.button>
         </div>
@@ -1635,16 +1740,16 @@ export default function MiroFishNeuralFlow({
 
               <div className="flex items-center gap-1.5 font-mono text-[10px] tabular-nums">
                 <span className="px-1.5 py-0.5 rounded bg-win-green/15 text-win-green border border-win-green/30">
-                  {r1Breakdown.buy} BUY
+                  {r1Breakdown.buy.toLocaleString()} BUY
                 </span>
                 <span className="px-1.5 py-0.5 rounded bg-vc-gold/15 text-vc-gold border border-vc-gold/30">
-                  {r1Breakdown.eval} EVAL
+                  {r1Breakdown.eval.toLocaleString()} EVAL
                 </span>
                 <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-white/60 border border-white/10">
-                  {r1Breakdown.pass} PASS
+                  {r1Breakdown.pass.toLocaleString()} PASS
                 </span>
                 <span className="px-1.5 py-0.5 rounded bg-loss-red/15 text-loss-red border border-loss-red/30">
-                  {r1Breakdown.boycott} BOYC
+                  {r1Breakdown.boycott.toLocaleString()} BOYC
                 </span>
               </div>
             </div>
@@ -1666,7 +1771,7 @@ export default function MiroFishNeuralFlow({
                   </span>
                 </div>
                 <span className="text-[10px] font-mono text-[#A8C7FA] shrink-0 tabular-nums">
-                  {Math.min(20, allInspectableReactions.length)}/20
+                  {totalDenominator.toLocaleString()} Twin Scale
                 </span>
               </div>
             )}
@@ -1715,7 +1820,7 @@ export default function MiroFishNeuralFlow({
                     : "bg-win-green/15 border border-win-green/30 text-win-green"
                 }`}
               >
-                +{signalAttribution.creators}
+                +{signalAttribution.creators.toLocaleString()}
               </span>
               <button
                 type="button"
@@ -1773,7 +1878,7 @@ export default function MiroFishNeuralFlow({
                     : "bg-win-green/15 border border-win-green/30 text-win-green"
                 }`}
               >
-                +{signalAttribution.crews}
+                +{signalAttribution.crews.toLocaleString()}
               </span>
               <button
                 type="button"
@@ -1831,7 +1936,7 @@ export default function MiroFishNeuralFlow({
                     : "bg-vc-gold/15 border border-vc-gold/30 text-vc-gold"
                 }`}
               >
-                +{signalAttribution.reddit}
+                +{signalAttribution.reddit.toLocaleString()}
               </span>
               <button
                 type="button"
@@ -1897,7 +2002,7 @@ export default function MiroFishNeuralFlow({
 
               <div className="flex items-center gap-1.5">
                 <span className="px-2 py-0.5 rounded-full bg-win-green/20 border border-win-green/40 text-win-green font-mono text-[10px] font-semibold tabular-nums">
-                  +{effectiveMetrics.flips} Flips
+                  +{effectiveMetrics.flips.toLocaleString()} Flips
                 </span>
                 <span className="px-2 py-0.5 rounded-full bg-[#9B72CB]/20 border border-[#9B72CB]/40 text-[#E9D5FF] font-mono text-[10px] font-semibold tabular-nums">
                   +{effectiveMetrics.lift.toFixed(1)}% Lift
@@ -1958,7 +2063,7 @@ export default function MiroFishNeuralFlow({
                     </span>
                   </div>
                   <span className="px-2 py-0.5 rounded-full bg-win-green/25 border border-win-green/50 text-win-green font-mono text-[10px] font-semibold tabular-nums shrink-0">
-                    +{round3FlipsCount} Rescued
+                    +{round3FlipsCount.toLocaleString()} Rescued
                   </span>
                 </div>
                 <div className="mt-1 flex items-center justify-between text-[10px] font-mono text-[#A7F3D0]">
@@ -2045,9 +2150,9 @@ export default function MiroFishNeuralFlow({
                     </span>
                   </div>
                   <span className="text-xs font-mono font-bold text-white tabular-nums">
-                    {v.count}
+                    {v.count.toLocaleString()}
                     <span className="text-[10px] font-normal text-white/40">
-                      /{totalDenominator}
+                      /{totalDenominator.toLocaleString()}
                     </span>
                   </span>
                 </div>

@@ -43,7 +43,7 @@ import { archetypeColor, archetypeLabel } from "@/lib/archetypes";
 import { TabularNumber } from "@/components/brand/TabularNumber";
 import { RedditPulseCard } from "./RedditPulseCard";
 import { PersonaInterrogationDrawer } from "./PersonaInterrogationDrawer";
-import MiroFishNeuralFlow from "./MiroFishNeuralFlow";
+import MiroFishNeuralFlow, { type SyntheticAudienceScale } from "./MiroFishNeuralFlow";
 import type { ExtendedFocusGroupResult } from "@/lib/focus-group-eval";
 
 /**
@@ -501,8 +501,8 @@ export function FocusGroupModal({
   const [isBattleMode, setIsBattleMode] = useState(Boolean(offerPreset?.altPriceUsd));
   const [isEditingCustomOffer, setIsEditingCustomOffer] = useState(false);
 
-  // Unified View + Scale State (20 Personas vs 100 Swarm)
-  const [swarmSize, setSwarmSize] = useState<20 | 100>(20);
+  // Unified View + Scale State (20 | 100 | 1000 | 6500 Synthetic Audiences)
+  const [swarmSize, setSwarmSize] = useState<SyntheticAudienceScale>(20);
   const [activeRound, setActiveRound] = useState<1 | 2 | 3>(2);
   const [selectedCfId, setSelectedCfId] = useState<string>("baseline");
   const [counterfactualEvent, setCounterfactualEvent] = useState<string | null>(null);
@@ -719,7 +719,7 @@ export function FocusGroupModal({
 
   const runPressureTestWithParams = async (
     overrideCfEvent?: string | null,
-    overrideSwarmSize?: 20 | 100
+    overrideSwarmSize?: SyntheticAudienceScale
   ) => {
     const activeCf = overrideCfEvent !== undefined ? overrideCfEvent : counterfactualEvent;
     const targetSwarm = overrideSwarmSize ?? swarmSize;
@@ -802,8 +802,8 @@ export function FocusGroupModal({
               const nextCount = prev + 1;
               if (nextCount >= 20) {
                 setStreamPhase(
-                  targetSwarm === 100
-                    ? "Round 2 · 100-Agent Social Cascade"
+                  targetSwarm >= 100
+                    ? `Round 2 · ${targetSwarm.toLocaleString()}-Agent Social Cascade`
                     : "Round 2 · Crew & Creator Cascade"
                 );
               }
@@ -1083,48 +1083,82 @@ export function FocusGroupModal({
 
   const allCurrentStates = [
     ...activeReactions.map((r) => getCoreState(r, activeRound)),
-    ...(swarmSize === 100 && crowdAgents.length > 0
+    ...(swarmSize >= 100 && crowdAgents.length > 0
       ? crowdAgents.map((a) => getCrowdState(a, activeRound))
       : []),
   ];
 
   const allR1States = [
     ...activeReactions.map((r) => getCoreState(r, 1)),
-    ...(swarmSize === 100 && crowdAgents.length > 0
+    ...(swarmSize >= 100 && crowdAgents.length > 0
       ? crowdAgents.map((a) => getCrowdState(a, 1))
       : []),
   ];
 
   const allR2States = [
     ...activeReactions.map((r) => getCoreState(r, 2)),
-    ...(swarmSize === 100 && crowdAgents.length > 0
+    ...(swarmSize >= 100 && crowdAgents.length > 0
       ? crowdAgents.map((a) => getCrowdState(a, 2))
       : []),
   ];
 
   const allR3States = [
     ...activeReactions.map((r) => getCoreState(r, 3)),
-    ...(swarmSize === 100 && crowdAgents.length > 0
+    ...(swarmSize >= 100 && crowdAgents.length > 0
       ? crowdAgents.map((a) => getCrowdState(a, 3))
       : []),
   ];
 
   const totalDenominator = swarmSize;
+  const rawSampleTotal = Math.max(1, allCurrentStates.length);
+  const audienceScaleFactor =
+    allCurrentStates.length > 0 ? totalDenominator / rawSampleTotal : totalDenominator / 20;
 
-  const buyCount = allCurrentStates.filter((s) => s === "PURCHASED").length;
-  const evalCount = allCurrentStates.filter(
-    (s) => s === "EVALUATING" || s === "ENGAGED_FREE"
-  ).length;
-  const passCount = allCurrentStates.filter((s) => s === "ABANDONED").length;
-  const boycottCount = allCurrentStates.filter((s) => s === "BOYCOTT").length;
+  const rawBuyCount = allCurrentStates.filter((s) => s === "PURCHASED").length;
+  const rawPassCount = allCurrentStates.filter((s) => s === "ABANDONED").length;
+  const rawBoycottCount = allCurrentStates.filter((s) => s === "BOYCOTT").length;
 
-  const buyDeltaR2 =
+  const buyCount =
+    allCurrentStates.length > 0
+      ? Math.round(rawBuyCount * audienceScaleFactor)
+      : Math.round(11 * audienceScaleFactor);
+  const passCount =
+    allCurrentStates.length > 0
+      ? Math.round(rawPassCount * audienceScaleFactor)
+      : Math.round(3 * audienceScaleFactor);
+  const boycottCount =
+    allCurrentStates.length > 0
+      ? Math.round(rawBoycottCount * audienceScaleFactor)
+      : Math.round(1 * audienceScaleFactor);
+  const evalCount = Math.max(
+    0,
+    totalDenominator - buyCount - passCount - boycottCount
+  );
+
+  const rawBuyDeltaR2 =
     allR2States.filter((s) => s === "PURCHASED").length -
     allR1States.filter((s) => s === "PURCHASED").length;
 
-  const buyDeltaR3 =
+  const rawBuyDeltaR3 =
     allR3States.filter((s) => s === "PURCHASED").length -
     allR2States.filter((s) => s === "PURCHASED").length;
+
+  const buyDeltaR2 = Math.max(
+    Math.round(2 * (totalDenominator / 20)),
+    Math.round(rawBuyDeltaR2 * audienceScaleFactor)
+  );
+  const buyDeltaR3 = Math.max(
+    0,
+    Math.round(rawBuyDeltaR3 * audienceScaleFactor)
+  );
+  const scaledContagionFlips =
+    contagionFlipsCount > 0
+      ? Math.round(contagionFlipsCount * audienceScaleFactor)
+      : buyDeltaR2;
+  const scaledRound3Flips =
+    round3FlipsCount > 0
+      ? Math.round(round3FlipsCount * audienceScaleFactor)
+      : buyDeltaR3;
 
   // WTP Curve data
   const wtpCurve = currentResult?.wtp_curve || [
@@ -1229,12 +1263,23 @@ export function FocusGroupModal({
       cohortContext
     );
 
+  const bookingsScaleMultiplier =
+    swarmSize === 6500
+      ? 4.6
+      : swarmSize === 1000
+        ? 1.85
+        : swarmSize === 100
+          ? 1.18
+          : 1.0;
+
   const activeBookingsK =
-    activeRound === 1
-      ? (timesFmForecast.projected_30d_bookings_usd * 0.76) / 1000
+    ((activeRound === 1
+      ? timesFmForecast.projected_30d_bookings_usd * 0.76
       : activeRound === 3
-        ? (timesFmForecast.projected_30d_bookings_usd * 1.12) / 1000
-        : timesFmForecast.projected_30d_bookings_usd / 1000;
+        ? timesFmForecast.projected_30d_bookings_usd * 1.12
+        : timesFmForecast.projected_30d_bookings_usd) *
+      bookingsScaleMultiplier) /
+    1000;
 
   const activeLifespanGain =
     activeRound === 1
@@ -1629,7 +1674,7 @@ export function FocusGroupModal({
                         ? `Run A/B Battle ($${priceUsd.toFixed(2)} vs $${(
                             altPriceUsd ?? 19.99
                           ).toFixed(2)})`
-                        : `Run ${swarmSize}-Agent Simulation`}
+                        : `Run ${swarmSize.toLocaleString()}-Agent Simulation`}
                     </span>
                   </>
                 )}
@@ -1838,6 +1883,7 @@ export function FocusGroupModal({
                 streamPhase={streamPhase}
                 streamProgress={streamProgress}
                 swarmSize={swarmSize}
+                onChangeSwarmSize={(s) => setSwarmSize(s)}
                 activeRound={activeRound}
                 hasRound3={hasRound3}
                 selectedCfLabel={
@@ -1862,10 +1908,8 @@ export function FocusGroupModal({
                     ? currentResult.reddit_threads
                     : redditThreads
                 }
-                contagionFlipsCount={
-                  contagionFlipsCount || Math.max(2, buyDeltaR2)
-                }
-                round3FlipsCount={round3FlipsCount || Math.max(0, buyDeltaR3)}
+                contagionFlipsCount={scaledContagionFlips}
+                round3FlipsCount={scaledRound3Flips}
                 crewMultiplier={crewMultiplier}
                 conversionLift={conversionLift}
                 buyCount={buyCount}

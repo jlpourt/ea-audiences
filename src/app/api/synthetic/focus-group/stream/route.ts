@@ -83,7 +83,15 @@ export async function POST(request: NextRequest) {
     priceUsd = Number(body.price_usd ?? existingResult?.proposed_spend ?? 4.99);
     altPriceUsd = typeof body.alt_price_usd === "number" ? body.alt_price_usd : null;
     cohortContext = body.cohort_context || null;
-    swarmSize = body.swarm_size === 20 ? 20 : 100;
+    const rawSwarm = Number(body.swarm_size);
+    swarmSize =
+      rawSwarm === 20
+        ? 20
+        : rawSwarm === 1000
+          ? 1000
+          : rawSwarm === 6500
+            ? 6500
+            : 100;
     enableContagion = body.enable_contagion !== false;
     counterfactualEvent =
       typeof body.counterfactual_event === "string" && body.counterfactual_event.trim()
@@ -149,7 +157,7 @@ export async function POST(request: NextRequest) {
       const combined = [...enrichedIncoming, ...remainingPool];
 
       corePlayers = combined.slice(0, 20);
-      crowdPlayers = swarmSize === 100 ? combined.slice(20, 100) : [];
+      crowdPlayers = swarmSize >= 100 ? combined.slice(20, 100) : [];
     }
   } catch (err: any) {
     console.error("[Focus Group Stream Spanner Init Error]:", err);
@@ -378,7 +386,7 @@ export async function POST(request: NextRequest) {
               counterfactualEvent,
               rawRedditThreads
             ),
-            swarmSize === 100 && crowdPlayers.length > 0
+            swarmSize >= 100 && crowdPlayers.length > 0
               ? evaluateCrowdSwarm80(
                   crowdPlayers,
                   creativeTitle,
@@ -417,7 +425,7 @@ export async function POST(request: NextRequest) {
             crewCaptainSummary: r2Outcome.crewCaptainSummary,
             reddit_threads: enrichedRedditThreads,
           });
-        } else if (swarmSize === 100 && crowdPlayers.length > 0) {
+        } else if (swarmSize >= 100 && crowdPlayers.length > 0) {
           const swarmOutcome = await evaluateCrowdSwarm80(
             crowdPlayers,
             creativeTitle,
