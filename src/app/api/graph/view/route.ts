@@ -24,7 +24,7 @@ import { getCrewMates, getCrossLabelBridges } from "@/lib/gcp/spanner-client";
 export const dynamic = "force-dynamic";
 
 /** Cap on drawn player nodes. A rendering budget, never an audience size. */
-const RENDER_LIMIT = 780;
+const RENDER_LIMIT = 420;
 
 const PLATFORM_COLORS: Record<string, string> = {
   "2K Account": "#E4002B",
@@ -419,17 +419,6 @@ export async function GET(request: NextRequest) {
           hopStep: 1,
           isTriggerStream: idx % 3 === 0,
         });
-
-        // Triadic closure edges between 1st-hop squadmates who also play together
-        if (idx > 0 && idx % 2 === 0) {
-          links.push({
-            source: hop1Players[idx - 1].player_id,
-            target: p.player_id,
-            label: "1° SQUAD_TRIAD",
-            value: 1.4,
-            hopStep: 1,
-          });
-        }
       });
 
       // Build 2nd Hop (2° Friends-of-Squad / Cross-Crew Rivals)
@@ -491,21 +480,6 @@ export async function GET(request: NextRequest) {
               hopStep: 2,
               isTriggerStream: idx % 5 === 0,
             });
-          }
-
-          // Structural diversity bridge (2nd-hop player connected to two different 1st-hop squadmates!)
-          if (idx % 4 === 0 && hop1Players.length > 2) {
-            const secondParent =
-              hop1Players[(idx + 2) % hop1Players.length];
-            if (secondParent && secondParent.player_id !== parentHop1?.player_id) {
-              links.push({
-                source: secondParent.player_id,
-                target: p.player_id,
-                label: "2° STRUCTURAL_BRIDGE",
-                value: 1.3,
-                hopStep: 2,
-              });
-            }
           }
         });
       }
@@ -1157,13 +1131,12 @@ export async function GET(request: NextRequest) {
       }
 
       // ------------------------------------------------------------------
-      // EDGE 2 (MAX 1): Cross-Franchise / 2K26->2K27 Migration Bridge Edge (value: 1)
+      // EDGE 2 (MAX 1): Cross-Franchise / 2K26->2K27 Migration Bridge Edge (ONLY in cross-franchise view)
       // ------------------------------------------------------------------
-      if (gameFilter === "ALL") {
+      if (gameFilter === "ALL" && view === "cross-franchise") {
         let bridgeHubId: string | null = null;
 
         if (primaryHubId === "game-nba2k26") {
-          // 2K26 holdout/veteran migration bridge to NBA 2K27
           bridgeHubId = "game-nba2k27";
         } else if (
           primaryHubId === "game-nba2k27" &&
@@ -1182,15 +1155,13 @@ export async function GET(request: NextRequest) {
         }
 
         if (bridgeHubId && drawnIds.has(bridgeHubId)) {
-          const isCrossView = view === "cross-franchise";
           links.push({
             source: p.player_id,
             target: bridgeHubId,
             label: "CROSS_FRANCHISE_PLAY",
             value: 1,
-            isMultiHopBridge: isCrossView && i % 4 === 0,
-            hopStep: isCrossView ? 2 : undefined,
-            isTriggerStream: i % 12 === 0,
+            isMultiHopBridge: i % 4 === 0,
+            hopStep: 2,
           });
         }
       }

@@ -290,7 +290,7 @@ export default function HomePage() {
     setOfferPreset(preset);
     setCreativeOfferTitle(preset.title);
     setClusterByLabel(playNumber === 2);
-    setHighlightBridges(playNumber === 1 || playNumber === 2);
+    setHighlightBridges(false);
     runAudienceQuery(query, franchise, [], true);
   };
 
@@ -318,7 +318,7 @@ export default function HomePage() {
           setCurrentView("social-hops");
           setSegmentationLens("SOCIAL_HOPS");
           setIsSegmentedView(true);
-          setHighlightBridges(true);
+          setHighlightBridges(false);
           setIsInspectorOpen(true);
 
           const summary = data.social_hop_summary || {};
@@ -578,7 +578,7 @@ export default function HomePage() {
           setShowLanding(false);
           setCurrentView("audience-cohorts");
           setIsSegmentedView(true);
-          setHighlightBridges(true);
+          setHighlightBridges(false);
           setIsInspectorOpen(true);
 
           const addedCount = Number(

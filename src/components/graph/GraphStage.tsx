@@ -57,7 +57,7 @@ export default function GraphStage({
         width={dimensions.width}
         height={dimensions.height}
         clusterByLabel={clusterByLabel}
-        highlightBridges={highlightBridges || Boolean(cohortContext?.isMultiHop)}
+        highlightBridges={highlightBridges}
         segmentationLens={segmentationLens}
       />
     </div>

@@ -452,10 +452,7 @@ export default function ForceGraphCanvas({
       const tId = typeof link.target === "object" ? link.target.id : link.target;
       const isHighlighted = highlightLinks.has(`${sId}->${tId}`);
 
-      if (isHighlighted) return 5;
-      if (link.isMultiHopBridge) return 5;
-      if (link.isTriggerStream) return 2;
-      return 0;
+      return isHighlighted ? 4 : 0;
     },
     [highlightLinks]
   );
@@ -729,20 +726,6 @@ export default function ForceGraphCanvas({
         ctx.fill();
       } else {
         // Player Nodes
-        if (isKeystoneCaptain) {
-          // Idea 3: Championship-gold outer keystone ring for Crew Captains & high-degree bridges
-          ctx.beginPath();
-          ctx.arc(node.x, node.y, radius + 5.8, 0, 2 * Math.PI, false);
-          ctx.fillStyle = "rgba(245, 180, 0, 0.14)";
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.arc(node.x, node.y, radius + 3.6, 0, 2 * Math.PI, false);
-          ctx.strokeStyle = "rgba(245, 180, 0, 0.45)";
-          ctx.lineWidth = 1.8;
-          ctx.stroke();
-        }
-
         ctx.beginPath();
         ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
         ctx.fillStyle = lensClassification?.color || node.color || "#00FF88";
@@ -934,30 +917,9 @@ export default function ForceGraphCanvas({
           ctx.lineWidth = 0.4;
         }
       } else {
-        // Natural resting state - ultra-clean, lightweight constellation trails
-        if (isMultiHop) {
-          ctx.strokeStyle =
-            link.hopStep === 1
-              ? "rgba(0, 245, 155, 0.65)"
-              : link.hopStep === 2
-              ? "rgba(0, 210, 255, 0.65)"
-              : "rgba(255, 87, 34, 0.65)";
-          ctx.lineWidth = highlightBridges ? 2.0 : 1.6;
-        } else if (isTrigger) {
-          ctx.strokeStyle = "rgba(255, 71, 87, 0.35)";
-          ctx.lineWidth = 1.0;
-        } else if (isMonetization) {
-          ctx.strokeStyle = "rgba(255, 184, 0, 0.22)";
-          ctx.lineWidth = 0.8;
-        } else if (isCrossGame) {
-          ctx.strokeStyle = highlightBridges
-            ? "rgba(0, 240, 255, 0.55)"
-            : "rgba(0, 240, 255, 0.18)";
-          ctx.lineWidth = highlightBridges ? 1.4 : 0.7;
-        } else {
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-          ctx.lineWidth = 0.6;
-        }
+        // Natural resting state - ultra-clean, subtle constellation trails (bright lines only appear on hover/select)
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+        ctx.lineWidth = 0.5;
       }
 
       ctx.stroke();
@@ -1137,7 +1099,7 @@ export default function ForceGraphCanvas({
           nodeCanvasObject={paintNode2D}
           nodeCanvasObjectMode={() => "replace"}
           linkCanvasObject={paintLink2D}
-          linkCanvasObjectMode={() => "after"}
+          linkCanvasObjectMode={() => "replace"}
           linkDirectionalParticles={getLinkParticles}
           linkDirectionalParticleSpeed={getLinkParticleSpeed}
           linkDirectionalParticleColor={getLinkParticleColor}
