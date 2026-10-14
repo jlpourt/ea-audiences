@@ -2893,72 +2893,7 @@ export function FocusGroupModal({
           </div>
         </div>
 
-        {/* Inline Graph Twins Popover Strip (ScaNN + gemini-embedding-001) */}
-        {(twinsResult || twinsError) && (
-          <div className="border-t border-white/[0.08] bg-[#14141B] px-5 py-2 flex flex-wrap items-center justify-between gap-2 text-xs shrink-0">
-            {twinsError ? (
-              <span className="text-loss-red font-mono text-[11px]">{twinsError}</span>
-            ) : twinsResult ? (
-              <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono">
-                <span className="px-2 py-0.5 rounded bg-win-green/15 text-win-green border border-win-green/30 font-semibold tabular-nums">
-                  {(twinsResult.avg_cosine_similarity * 100).toFixed(1)}% Cosine Match
-                </span>
-                <span className="text-white/85 font-semibold tabular-nums">
-                  +{twinsResult.added_count} Graph Twins Found
-                </span>
-                <span className="text-white/30">·</span>
-                <span className="text-vc-gold font-semibold tabular-nums">
-                  +${(twinsResult.incremental_bookings_usd / 1000).toFixed(1)}K Est. Bookings
-                </span>
-                <span className="text-white/30">·</span>
-                <div className="flex items-center gap-1 flex-wrap">
-                  {twinsResult.top_twins.slice(0, 4).map((tw) => (
-                    <button
-                      key={tw.player_id}
-                      type="button"
-                      onClick={() => {
-                        if (onOpenGraphTwins && twinsResult.rawPayload) {
-                          onOpenGraphTwins(twinsResult.rawPayload, tw.player_id);
-                        }
-                      }}
-                      className="px-1.5 py-0.5 rounded bg-white/[0.05] hover:bg-cyan-500/20 border border-white/[0.08] hover:border-cyan-400/40 text-[10px] text-white/80 hover:text-white transition-colors"
-                    >
-                      @{tw.gamer_tag.replace(/^@/, "")} ({tw.myplayer_ovr} OVR)
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            <div className="flex items-center gap-2">
-              {twinsResult?.rawPayload && onOpenGraphTwins && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    onOpenGraphTwins(
-                      twinsResult.rawPayload,
-                      twinsResult.top_twins[0]?.player_id
-                    )
-                  }
-                  className="px-2.5 py-1 rounded-md bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-[11px] font-mono font-semibold text-cyan-300 transition-colors"
-                >
-                  Open Twins in Graph →
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setTwinsResult(null);
-                  setTwinsError(null);
-                }}
-                className="text-[10px] font-mono text-white/45 hover:text-white uppercase"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* FOOTER: Calm Status + Twin Finder, Creative Studio & Campaign Brief Handoff */}
+        {/* FOOTER: Calm Status + Creative Studio & Campaign Brief Handoff */}
         <div className="border-t border-white/[0.07] px-5 py-2.5 bg-white/[0.01] flex items-center justify-between gap-4 shrink-0">
           <div className="text-xs text-white/50 flex items-center gap-2 truncate">
             <span
@@ -2978,16 +2913,6 @@ export function FocusGroupModal({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={handleFindGraphTwins}
-              disabled={isFindingTwins}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-white/90 text-xs font-medium transition-all active:scale-[0.97] disabled:opacity-50"
-            >
-              <Users className="w-3.5 h-3.5 text-cyan-400" />
-              <span>{isFindingTwins ? "Finding Twins..." : "Find Graph Twins"}</span>
-            </button>
-
             {onOpenCreativeStudio && (
               <button
                 type="button"

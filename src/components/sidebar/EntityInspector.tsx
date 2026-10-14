@@ -25,6 +25,7 @@ import {
   Bookmark,
   Send,
   Award,
+  Sparkles,
 } from "lucide-react";
 
 export type InspectableGraphNode = GraphNode & {
@@ -46,6 +47,8 @@ export interface EntityInspectorProps {
   onSelectNode?: (node: GraphNode | null) => void;
   onClose: () => void;
   onLaunchFocusGroup?: (node?: GraphNode) => void;
+  onFindGraphTwins?: (node?: GraphNode) => void;
+  isFindingTwins?: boolean;
   onLaunchDeepSona?: (node?: GraphNode) => void;
   onEmitA2A: (node?: GraphNode) => void;
   onOpenCreativeStudio?: () => void;
@@ -67,6 +70,8 @@ export default function EntityInspector({
   onSelectNode,
   onClose,
   onLaunchFocusGroup,
+  onFindGraphTwins,
+  isFindingTwins = false,
   onLaunchDeepSona,
   onEmitA2A,
   onOpenCreativeStudio,
@@ -2182,30 +2187,60 @@ export default function EntityInspector({
 
       {/* 3. FIXED ACTION FOOTER */}
       <div className="p-4 pt-3 space-y-2 border-t border-white/10 shrink-0 bg-[#0C0F17]/90">
-        <button
-          type="button"
-          onClick={() => handleLaunchFocusGroup(node || undefined)}
-          disabled={isFocusLoading}
-          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-[#E4002B] text-white hover:bg-[#E4002B]/90 text-xs font-semibold shadow-lg transition-all disabled:opacity-70 active:scale-[0.98]"
+        <div
+          className={
+            onFindGraphTwins ? "grid grid-cols-2 gap-1.5" : "grid grid-cols-1"
+          }
         >
-          {isFocusLoading ? (
-            <>
-              <Loader2 className="w-4 h-4 courtside-Transfer-pulse text-white" />
-              <span>Running Focus Group...</span>
-            </>
-          ) : (
-            <>
-              <Target className="w-4 h-4 text-white" />
-              <span>
-                {isCohortView
-                  ? "Test Cohort in Focus Group"
-                  : isOffer
-                  ? "Test Offer in Focus Group"
-                  : "Launch Focus Group"}
-              </span>
-            </>
+          <button
+            type="button"
+            onClick={() => handleLaunchFocusGroup(node || undefined)}
+            disabled={isFocusLoading}
+            className="w-full flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#E4002B] text-white hover:bg-[#E4002B]/90 text-xs font-semibold shadow-lg transition-all disabled:opacity-70 active:scale-[0.98]"
+          >
+            {isFocusLoading ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 courtside-Transfer-pulse text-white shrink-0" />
+                <span className="truncate">Running...</span>
+              </>
+            ) : (
+              <>
+                <Target className="w-3.5 h-3.5 text-white shrink-0" />
+                <span className="truncate">
+                  {onFindGraphTwins
+                    ? "Launch Focus Group"
+                    : isCohortView
+                    ? "Test Cohort in Focus Group"
+                    : isOffer
+                    ? "Test Offer in Focus Group"
+                    : "Launch Focus Group"}
+                </span>
+              </>
+            )}
+          </button>
+
+          {onFindGraphTwins && (
+            <button
+              type="button"
+              onClick={() => onFindGraphTwins(node || undefined)}
+              disabled={isFindingTwins}
+              title="Expand with 3,072-d ScaNN Graph Twins on the Graph Canvas"
+              className="w-full flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/35 text-cyan-300 hover:text-cyan-200 text-xs font-semibold transition-all disabled:opacity-60 active:scale-[0.98]"
+            >
+              {isFindingTwins ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-300 shrink-0" />
+                  <span className="truncate">Finding Twins...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
+                  <span className="truncate">Graph Twins</span>
+                </>
+              )}
+            </button>
           )}
-        </button>
+        </div>
 
         <div className="grid grid-cols-3 gap-1.5">
           {onOpenCreativeStudio && (

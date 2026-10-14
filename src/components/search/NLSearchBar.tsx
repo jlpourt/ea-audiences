@@ -9,8 +9,9 @@ import {
   X,
   AlertTriangle,
   Target,
+  Sparkles,
 } from "lucide-react";
-import { GraphData, GameFranchise } from "@/lib/types";
+import { GraphData, GameFranchise, CohortContext } from "@/lib/types";
 import { TabularNumber } from "@/components/brand";
 
 interface NLSearchBarProps {
@@ -24,6 +25,9 @@ interface NLSearchBarProps {
     rawResponse?: any
   ) => void;
   onLaunchFocusGroup: () => void;
+  onFindGraphTwins?: () => void;
+  isFindingTwins?: boolean;
+  cohortContext?: Partial<CohortContext> | null;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
   isFocusGroupLoading?: boolean;
@@ -61,6 +65,9 @@ export default function NLSearchBar({
   selectedGame = "ALL",
   onSearchResults,
   onLaunchFocusGroup,
+  onFindGraphTwins,
+  isFindingTwins = false,
+  cohortContext,
   isLoading,
   setIsLoading,
   isFocusGroupLoading = false,
@@ -185,7 +192,7 @@ export default function NLSearchBar({
       )}
 
       {/* Unified 1-Line Cohort & Causal Uplift Summary Bar */}
-      {(summaryText || metrics) && (
+      {(summaryText || metrics || cohortContext) && (
         <div
           data-testid="causal-waterfall-ribbon"
           className="apple-glass-heavy glass-enter w-full rounded-2xl px-3.5 py-2 flex items-center justify-between gap-2.5"
@@ -193,7 +200,10 @@ export default function NLSearchBar({
           <div className="flex items-center gap-2 min-w-0 overflow-x-auto no-scrollbar">
             <span className="h-2 w-2 rounded-full bg-win-green shrink-0 animate-pulse" />
             <span className="text-xs font-semibold text-win-green font-mono tabular whitespace-nowrap">
-              <TabularNumber value={metrics?.matched_count || 0} /> matched
+              <TabularNumber
+                value={metrics?.matched_count || cohortContext?.matchedCount || 0}
+              />{" "}
+              matched
             </span>
 
             {metrics?.causal_waterfall && (
@@ -237,11 +247,33 @@ export default function NLSearchBar({
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            {onFindGraphTwins && (
+              <button
+                type="button"
+                onClick={onFindGraphTwins}
+                disabled={isFindingTwins}
+                title="Expand cohort with 3,072-d ScaNN Graph Twins on the Graph Canvas"
+                className="flex items-center gap-1.5 rounded-xl bg-cyan-500/15 border border-cyan-500/35 px-2.5 py-1 text-xs font-medium text-cyan-300 hover:bg-cyan-500/25 transition-colors disabled:opacity-50"
+              >
+                {isFindingTwins ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Twins…</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Graph Twins</span>
+                  </>
+                )}
+              </button>
+            )}
+
             <button
               type="button"
               onClick={onLaunchFocusGroup}
               disabled={isFocusGroupLoading}
-              className="flex items-center gap-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 px-2.5 py-1 text-xs font-medium text-amber-300 hover:bg-amber-500/30"
+              className="flex items-center gap-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 px-2.5 py-1 text-xs font-medium text-amber-300 hover:bg-amber-500/30 transition-colors"
             >
               {isFocusGroupLoading ? (
                 <>

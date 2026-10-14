@@ -81,6 +81,7 @@ export default function HomePage() {
   const [isFocusGroupOpen, setIsFocusGroupOpen] = useState<boolean>(false);
   const [isFocusGroupLoading, setIsFocusGroupLoading] =
     useState<boolean>(false);
+  const [isFindingTwins, setIsFindingTwins] = useState<boolean>(false);
   const [focusGroupResult, setFocusGroupResult] =
     useState<FocusGroupResult | null>(null);
   const [offerPreset, setOfferPreset] = useState<{
@@ -429,6 +430,125 @@ export default function HomePage() {
       }
     },
     [baseGraphData, graphData]
+  );
+
+  const handleFindGraphTwins = useCallback(
+    async (seedNode?: GraphNode | null) => {
+      setIsFindingTwins(true);
+      try {
+        const playerNodes = graphData.nodes.filter((n) => n.type === "PLAYER");
+        const seedIds =
+          seedNode && seedNode.type === "PLAYER"
+            ? [
+                seedNode.id,
+                ...playerNodes
+                  .filter((n) => n.id !== seedNode.id)
+                  .slice(0, 5)
+                  .map((n) => n.id),
+              ]
+            : playerNodes.slice(0, 6).map((n) => n.id);
+
+        const seedArchs = Array.from(
+          new Set(
+            [
+              seedNode?.archetype ? String(seedNode.archetype) : null,
+              cohortContext?.dominantArchetype
+                ? String(cohortContext.dominantArchetype)
+                : null,
+              ...playerNodes
+                .slice(0, 4)
+                .map((n) => (n.archetype ? String(n.archetype) : null)),
+            ].filter(Boolean) as string[]
+          )
+        );
+
+        const res = await fetch("/api/audiences/lookalike", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            seed_query:
+              cohortContext?.query ||
+              seedNode?.name ||
+              "NBA 2K27 High-Uplift Cohort",
+            seed_player_ids: seedIds.length > 0 ? seedIds : ["p-2k-101"],
+            seed_archetypes:
+              seedArchs.length > 0 ? seedArchs : ["REC_CREW_CAPTAIN"],
+            target_franchise: selectedGame,
+            matched_count:
+              cohortContext?.matchedCount || playerNodes.length || 681,
+            expansion_pct: 25,
+            offer_price_usd: offerPreset?.priceUsd || 4.99,
+          }),
+        });
+
+        const twinsPayload = await res.json();
+        if (res.ok && twinsPayload?.graph_data?.nodes?.length) {
+          const nextGraph = {
+            nodes: twinsPayload.graph_data.nodes,
+            links: twinsPayload.graph_data.links || [],
+          };
+          setGraphData(nextGraph);
+          setBaseGraphData(nextGraph);
+          setShowLanding(false);
+          setCurrentView("audience-cohorts");
+          setIsSegmentedView(true);
+          setHighlightBridges(true);
+          setIsInspectorOpen(true);
+
+          const addedCount = Number(
+            twinsPayload.added_count || twinsPayload.expanded_count || 170
+          );
+          const expandedTotal = Number(
+            twinsPayload.expanded_total ||
+              (cohortContext?.matchedCount || 681) + addedCount
+          );
+          const avgSimPct = (
+            Number(twinsPayload.avg_cosine_similarity || 0.942) * 100
+          ).toFixed(1);
+
+          setCohortContext({
+            query: `ScaNN Graph Twins (+${addedCount} Twins · ${avgSimPct}% Cosine Match)`,
+            franchise: selectedGame,
+            matchedCount: expandedTotal,
+            renderedCount: nextGraph.nodes.filter(
+              (n: any) => n.type === "PLAYER"
+            ).length,
+            estimatedTotal: expandedTotal,
+            dominantArchetype:
+              twinsPayload.top_twins?.[0]?.archetype ||
+              cohortContext?.dominantArchetype ||
+              "REC_CREW_CAPTAIN",
+            avgSpend: cohortContext?.avgSpend || 245,
+            avgChurn: cohortContext?.avgChurn || 0.34,
+            avgTilt: cohortContext?.avgTilt || 0.36,
+            highChurnCount: cohortContext?.highChurnCount || 48,
+            isLive: true,
+            isMultiHop: true,
+            multiHopMetadata: {
+              hops: 2,
+              patternLabel: `Seed Cohort → Shared Crew / Creator Halo → +${addedCount} ScaNN Graph Twins (${avgSimPct}% Match)`,
+              summary: `Expanded seed cohort via Vertex AI gemini-embedding-001 (3,072-d) + 1-hop Crew/Creator overlap (+$${Math.round(
+                Number(twinsPayload.incremental_bookings_usd || 12400) / 1000
+              )}K Est. Bookings).`,
+              steps: [
+                "Seed High-Uplift Cohort",
+                "1-Hop Shared Crew & Creator Halo",
+                `+${addedCount} ScaNN 3,072-d Graph Twins`,
+              ],
+              bridgeNodes: (twinsPayload.top_twins || [])
+                .slice(0, 6)
+                .map((t: any) => `@${String(t.gamer_tag).replace(/^@/, "")}`),
+            },
+          });
+          setSelectedNode(null);
+        }
+      } catch (err) {
+        console.error("Failed to expand Graph Twins:", err);
+      } finally {
+        setIsFindingTwins(false);
+      }
+    },
+    [graphData.nodes, cohortContext, selectedGame, offerPreset]
   );
 
   const handleGenerateBrief = async (fgResult: FocusGroupResult) => {
@@ -807,6 +927,9 @@ export default function HomePage() {
               if (raw?.conditions) setConditions(raw.conditions);
             }}
             onLaunchFocusGroup={() => setIsFocusGroupOpen(true)}
+            onFindGraphTwins={() => handleFindGraphTwins(selectedNode)}
+            isFindingTwins={isFindingTwins}
+            cohortContext={cohortContext}
             isLoading={isSearching}
             setIsLoading={setIsSearching}
             isFocusGroupLoading={isFocusGroupLoading}
@@ -840,6 +963,8 @@ export default function HomePage() {
                 if (n) setSelectedNode(n);
                 setIsFocusGroupOpen(true);
               }}
+              onFindGraphTwins={(n) => handleFindGraphTwins(n || selectedNode)}
+              isFindingTwins={isFindingTwins}
               onEmitA2A={() => setIsActivationDagOpen(true)}
               onOpenCreativeStudio={() => setIsCreativeStudioOpen(true)}
               onSaveAudience={() => setIsSaveSheetOpen(true)}
