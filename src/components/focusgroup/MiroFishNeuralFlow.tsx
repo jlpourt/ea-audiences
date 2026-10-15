@@ -100,8 +100,12 @@ interface MiroFishNeuralFlowProps {
   redditThreads: RedditThreadSummary[];
   contagionFlipsCount: number;
   round3FlipsCount: number;
-  crewMultiplier: number;
-  conversionLift: number;
+  /** Live result only; null until the simulation returns it (rendered as a dash). */
+  crewMultiplier: number | null;
+  /** Live result only; null until the simulation returns it (rendered as a dash). */
+  conversionLift: number | null;
+  /** Live TimesFM 30-day bookings forecast (USD); null until the server returns it. */
+  projected30dBookingsUsd?: number | null;
   buyCount: number;
   evalCount: number;
   passCount: number;
@@ -150,6 +154,7 @@ export default function MiroFishNeuralFlow({
   round3FlipsCount,
   crewMultiplier,
   conversionLift,
+  projected30dBookingsUsd = null,
   buyCount,
   evalCount,
   passCount,
@@ -160,6 +165,14 @@ export default function MiroFishNeuralFlow({
   prefersReducedMotion = false,
 }: MiroFishNeuralFlowProps) {
   const [selectedNodeId, setSelectedNodeId] = useState<NeuralNodeId | null>(null);
+  // Live-only rendering: nothing is computed or shown until real persona verdicts stream in.
+  const hasLiveData = activeReactions.length > 0;
+  // A $0 offer is a free retention gift: "purchase" means claiming it and staying with the crew.
+  const isFreeOffer = priceUsd === 0;
+  const buyWord = isFreeOffer ? "CLAIM" : "BUY";
+  const purchasedLabel = isFreeOffer ? "CLAIM + STAY" : "PURCHASED";
+  const priceLabel = isFreeOffer ? "FREE" : `$${priceUsd.toFixed(2)}`;
+  const fx = (n: number | null, d = 1) => (n === null ? "—" : n.toFixed(d));
   const [hoveredNodeId, setHoveredNodeId] = useState<NeuralNodeId | null>(null);
   const [thoughtTickIndex, setThoughtTickIndex] = useState<number>(0);
 
@@ -261,12 +274,7 @@ export default function MiroFishNeuralFlow({
         : []),
     ];
     if (states.length === 0) {
-      const scale = totalDenominator / 20;
-      const buy = Math.round(5 * scale);
-      const pass = Math.round(4 * scale);
-      const boycott = Math.round(2 * scale);
-      const evalC = Math.max(0, totalDenominator - buy - pass - boycott);
-      return { buy, eval: evalC, pass, boycott, total: totalDenominator };
+      return { buy: 0, eval: 0, pass: 0, boycott: 0, total: totalDenominator };
     }
     const rawTotal = Math.max(1, states.length);
     const scale = totalDenominator / rawTotal;
@@ -288,7 +296,7 @@ export default function MiroFishNeuralFlow({
 
     // Normalize so attributed flips sum cleanly to totalFlips when > 0
     if (totalFlips === 0) {
-      return { creators: 2, crews: 3, reddit: 1, lostFlips: 0, lostBoycotts: 0 };
+      return { creators: 0, crews: 0, reddit: 0, lostFlips: 0, lostBoycotts: 0 };
     }
     const c1 = Math.min(totalFlips, Math.max(1, Math.round(totalFlips * 0.42)));
     const c2 = Math.min(totalFlips - c1, Math.max(1, Math.round(totalFlips * 0.45)));
@@ -302,7 +310,7 @@ export default function MiroFishNeuralFlow({
     return {
       creators: c1,
       crews: c2,
-      reddit: Math.max(1, c3),
+      reddit: c3,
       lostFlips,
       lostBoycotts: mutedSignals.sig_reddit ? Math.min(boycottCount, 1) : 0,
     };
@@ -318,10 +326,13 @@ export default function MiroFishNeuralFlow({
     const effBoycott = Math.max(0, boycottCount - signalAttribution.lostBoycotts);
     const ratio =
       contagionFlipsCount > 0 ? effFlips / contagionFlipsCount : 1;
-    const effLift = Number((conversionLift * ratio).toFixed(1));
-    const effCascade = mutedSignals.sig_crews
-      ? 1.0
-      : Number((1 + (crewMultiplier - 1) * ratio).toFixed(1));
+    const effLift = conversionLift === null ? null : Number((conversionLift * ratio).toFixed(1));
+    const effCascade =
+      crewMultiplier === null
+        ? null
+        : mutedSignals.sig_crews
+          ? 1.0
+          : Number((1 + (crewMultiplier - 1) * ratio).toFixed(1));
 
     return {
       flips: effFlips,
@@ -347,33 +358,7 @@ export default function MiroFishNeuralFlow({
   ]);
 
   // Build unified list of inspectable reactions
-  const allInspectableReactions: FocusGroupReaction[] = useMemo(() => {
-    const base: FocusGroupReaction[] =
-      activeReactions.length > 0
-        ? activeReactions
-        : sampledPersonas.slice(0, 20).map(
-            (p, idx): FocusGroupReaction => ({
-              player_id: p.player_id || `p-${idx}`,
-              gamer_tag: p.gamer_tag || `Player_${idx + 1}`,
-              archetype: p.archetype || "MYCAREER_STORY_CASUAL",
-              crew_name: p.crew_name || "Bucket Getters",
-              creator_handle: p.creator_handle || "@Agent00",
-              myplayer_ovr: p.myplayer_ovr || 85,
-              round1_fsm_state: idx % 4 === 0 ? "PURCHASED" : "EVALUATING",
-              final_fsm_state: idx % 2 === 0 ? "PURCHASED" : "EVALUATING",
-              contagion_flipped: idx % 2 === 0 && idx % 4 !== 0,
-              contagion_driver:
-                idx % 3 === 0 ? "CREATOR_STREAM" : "CREW_CAPTAIN",
-              round1_quote: `At $${priceUsd.toFixed(2)}, I'm waiting to see if my ${p.crew_name || "Rec"} squad locks in before spending VC.`,
-              willingness_to_pay_usd: priceUsd,
-              verbatim_quote: `My ${p.crew_name || "Bucket Getters"} Captain locked in ${creativeTitle} for Rec tonight · flipping from EVAL to BUY.`,
-              authenticity_rating: 0.93,
-              churn_risk_score: 0.28,
-              sentiment_score: 0.68,
-            })
-          );
-    return base;
-  }, [activeReactions, sampledPersonas, priceUsd, creativeTitle]);
+  const allInspectableReactions: FocusGroupReaction[] = activeReactions;
 
   const flippedReactions = useMemo(
     () =>
@@ -409,10 +394,12 @@ export default function MiroFishNeuralFlow({
           : "sig_crews";
     const signalLabel =
       signalNode === "sig_creators"
-        ? p.creator_handle || creatorSignals[0]?.handle || "@Agent00"
+        ? p.creator_handle || creatorSignals[0]?.handle || "Creator co-stream"
         : signalNode === "sig_reddit"
           ? "r/NBA2K Thread"
-          : `${p.crew_name || "Bucket Getters"} Captain`;
+          : p.crew_name
+            ? `${p.crew_name} Captain`
+            : "Crew Captain";
     const r1State = shortStateBadge(p.round1_fsm_state || "EVALUATING");
     const r2State = shortStateBadge(p.final_fsm_state || "PURCHASED");
     const verdictNode: NeuralNodeId =
@@ -426,20 +413,16 @@ export default function MiroFishNeuralFlow({
 
     return {
       reaction: p,
-      tag: `@${String(p.gamer_tag || "SwishGod_2K").replace(/^@/, "")}`,
-      ovr: p.myplayer_ovr || 84,
-      crew: p.crew_name || "Bucket Getters",
+      tag: `@${String(p.gamer_tag || p.player_id).replace(/^@/, "")}`,
+      ovr: typeof p.myplayer_ovr === "number" ? p.myplayer_ovr : null,
+      crew: p.crew_name || null,
       r1State,
       r2State,
       signalNode,
       signalLabel,
       verdictNode,
-      r1Quote:
-        p.round1_quote ||
-        `Holding off at $${priceUsd.toFixed(2)} until I see what my squad is doing.`,
-      r2Quote:
-        p.verbatim_quote ||
-        `Saw ${signalLabel} lock in for Rec tonight · flipping from ${r1State} to ${r2State}.`,
+      r1Quote: p.round1_quote || p.verbatim_quote || "",
+      r2Quote: p.verbatim_quote || "",
     };
   }, [flippedReactions, allInspectableReactions, tracePlayerIndex, creatorSignals, priceUsd]);
 
@@ -451,12 +434,9 @@ export default function MiroFishNeuralFlow({
       : thoughtTickIndex % Math.max(1, pool.length);
     const r = pool[idx] || pool[0];
     return {
-      tag: `@${String(r?.gamer_tag || "SwishGod_2K").replace(/^@/, "")}`,
+      tag: r?.gamer_tag ? `@${String(r.gamer_tag).replace(/^@/, "")}` : "Streaming",
       state: shortStateBadge(r?.round1_fsm_state || r?.final_fsm_state),
-      quote:
-        r?.round1_quote ||
-        r?.verbatim_quote ||
-        `Checking ${creativeTitle} at $${priceUsd.toFixed(2)} before locking in.`,
+      quote: r?.round1_quote || r?.verbatim_quote || "Waiting for the first live persona verdict",
     };
   }, [allInspectableReactions, isRunning, thoughtTickIndex, creativeTitle, priceUsd]);
 
@@ -472,11 +452,9 @@ export default function MiroFishNeuralFlow({
           ? "via r/NBA2K"
           : `via ${r?.crew_name || "Crew"} Captain`;
     return {
-      tag: `@${String(r?.gamer_tag || "IsoKing_99").replace(/^@/, "")}`,
+      tag: r?.gamer_tag ? `@${String(r.gamer_tag).replace(/^@/, "")}` : "Streaming",
       driver,
-      quote:
-        r?.verbatim_quote ||
-        `Squad is running Rec tonight · flipping to ${shortStateBadge(r?.final_fsm_state)}.`,
+      quote: r?.verbatim_quote || "Waiting for Round 2 social verdicts",
     };
   }, [flippedReactions, allInspectableReactions, thoughtTickIndex]);
 
@@ -583,6 +561,16 @@ export default function MiroFishNeuralFlow({
   );
 
   const handleToggleVoiceWalkthrough = useCallback(async () => {
+    if (
+      !hasLiveData ||
+      !tracedPlayer ||
+      effectiveMetrics.lift === null ||
+      effectiveMetrics.cascade === null ||
+      projected30dBookingsUsd === null
+    ) {
+      setAudioError("Run the simulation to completion first; the walkthrough narrates live results only.");
+      return;
+    }
     setAudioError(null);
     // If already playing, pause
     if (isPlayingAudio && audioRef.current) {
@@ -615,7 +603,8 @@ export default function MiroFishNeuralFlow({
     // Synthesize live via Gemini 3.8 Flash + Gemini 3.1 Flash Multi-Speaker TTS
     setIsSynthesizingAudio(true);
     try {
-      const revenue30d = Math.round(effectiveMetrics.buy * priceUsd * 65);
+      // Live TimesFM 30-day bookings forecast from the server result (no client-side estimate).
+      const revenue30d = Math.round(projected30dBookingsUsd);
       const resp = await fetch("/api/synthetic/focus-group/explain", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -634,15 +623,13 @@ export default function MiroFishNeuralFlow({
           crewMultiplier: effectiveMetrics.cascade,
           conversionLift: effectiveMetrics.lift,
           revenue30d,
-          topCreator: creatorSignals[0]?.handle || "@Agent00",
-          featuredPlayerTag: tracedPlayer?.tag || "@SwishGod_2K",
-          featuredPlayerOvr: tracedPlayer?.ovr || 84,
-          featuredPlayerCrew: tracedPlayer?.crew || "Bucket Getters",
-          featuredPlayerR1State: tracedPlayer?.r1State || "EVAL",
-          featuredPlayerDriver: tracedPlayer?.signalLabel || "Crew Captain",
-          featuredPlayerQuote:
-            tracedPlayer?.r2Quote ||
-            "My Crew Captain locked in for Rec tonight, I'm in.",
+          topCreator: creatorSignals[0]?.handle ?? null,
+          featuredPlayerTag: tracedPlayer.tag,
+          featuredPlayerOvr: tracedPlayer.ovr,
+          featuredPlayerCrew: tracedPlayer.crew,
+          featuredPlayerR1State: tracedPlayer.r1State,
+          featuredPlayerDriver: tracedPlayer.signalLabel,
+          featuredPlayerQuote: tracedPlayer.r2Quote || tracedPlayer.r1Quote,
         }),
       });
       const data = await resp.json();
@@ -690,6 +677,8 @@ export default function MiroFishNeuralFlow({
     selectedCfLabel,
     creatorSignals,
     tracedPlayer,
+    hasLiveData,
+    projected30dBookingsUsd,
   ]);
 
   // Active Walkthrough Beat
@@ -774,7 +763,7 @@ export default function MiroFishNeuralFlow({
           color: mutedSignals.sig_crews ? "text-white/40" : "text-[#00F5D4]",
           text: mutedSignals.sig_crews
             ? `Crew Captains muted—losing ${signalAttribution.crews} squad-cascade conversions.`
-            : `Rec/Pro-Am Captains trigger a ${effectiveMetrics.cascade.toFixed(1)}x peer cascade in Discord, pulling +${signalAttribution.crews} squadmates into BUY.`,
+            : `Rec/Pro-Am Captains trigger a ${fx(effectiveMetrics.cascade)}x peer cascade in Discord, pulling +${signalAttribution.crews} squadmates into ${buyWord}.`,
         };
       case "sig_reddit":
         return {
@@ -788,7 +777,7 @@ export default function MiroFishNeuralFlow({
         return {
           badge: "STEP 4 · CONTAGION SHIFT (R2)",
           color: "text-[#E9D5FF]",
-          text: `Social proof flips +${effectiveMetrics.flips} hesitant players into BUY, boosting net conversion lift by +${effectiveMetrics.lift.toFixed(1)}%.`,
+          text: `Social proof flips +${effectiveMetrics.flips} hesitant players into BUY, boosting net conversion lift by +${fx(effectiveMetrics.lift)}%.`,
         };
       case "r3":
         return {
@@ -860,7 +849,7 @@ export default function MiroFishNeuralFlow({
       case "r1":
         return {
           title: `Layer 2 · Round 1 Isolated Neural Evaluation`,
-          subtitle: `Pre-social individual utility reactions (${r1Breakdown.buy} BUY · ${r1Breakdown.eval} EVAL · ${r1Breakdown.pass} PASS · ${r1Breakdown.boycott} BOYC)`,
+          subtitle: `Pre-social individual utility reactions (${r1Breakdown.buy} ${buyWord} · ${r1Breakdown.eval} EVAL · ${r1Breakdown.pass} PASS · ${r1Breakdown.boycott} BOYC)`,
           accent: "from-[#4285F4] to-[#669DF6]",
           players: allInspectableReactions,
           mode: "players_r1" as const,
@@ -877,7 +866,7 @@ export default function MiroFishNeuralFlow({
         };
       case "sig_crews":
         return {
-          title: `Layer 3B · Crew Captain Social Gravity (${effectiveMetrics.cascade.toFixed(1)}x Cascade)`,
+          title: `Layer 3B · Crew Captain Social Gravity (${fx(effectiveMetrics.cascade)}x Cascade)`,
           subtitle: `Discord & Rec Squad peer pressure pulling hesitant teammates into the offer`,
           accent: "from-[#4285F4] to-[#00F5D4]",
           players: allInspectableReactions.filter(
@@ -1706,7 +1695,7 @@ export default function MiroFishNeuralFlow({
               {creativeTitle}
             </span>
             <span className="font-mono text-xs font-semibold text-[#00F5D4] tabular-nums">
-              ${priceUsd.toFixed(2)}
+              {priceLabel}
               {isBattleMode && altPriceUsd ? ` vs $${altPriceUsd.toFixed(2)}` : ""}
             </span>
             <span className="px-2 py-0.5 rounded-full bg-[#4285F4]/20 border border-[#4285F4]/40 text-[10px] font-mono font-semibold text-[#A8C7FA] tabular-nums">
@@ -1752,9 +1741,14 @@ export default function MiroFishNeuralFlow({
                 </span>
               </div>
 
+              {!hasLiveData ? (
+                <span className="font-mono text-[10px] text-white/45">
+                  {isRunning ? "Waiting for live verdicts" : "Run the simulation to see verdicts"}
+                </span>
+              ) : (
               <div className="flex items-center gap-1.5 font-mono text-[10px] tabular-nums">
                 <span className="px-1.5 py-0.5 rounded bg-win-green/15 text-win-green border border-win-green/30">
-                  {r1Breakdown.buy.toLocaleString()} BUY
+                  {r1Breakdown.buy.toLocaleString()} {buyWord}
                 </span>
                 <span className="px-1.5 py-0.5 rounded bg-vc-gold/15 text-vc-gold border border-vc-gold/30">
                   {r1Breakdown.eval.toLocaleString()} EVAL
@@ -1766,6 +1760,7 @@ export default function MiroFishNeuralFlow({
                   {r1Breakdown.boycott.toLocaleString()} BOYC
                 </span>
               </div>
+              )}
             </div>
 
             {(isRunning || allInspectableReactions.length > 0) && (
@@ -1832,7 +1827,7 @@ export default function MiroFishNeuralFlow({
                     : "bg-win-green/15 border border-win-green/30 text-win-green"
                 }`}
               >
-                +{signalAttribution.creators.toLocaleString()}
+                {hasLiveData ? `+${signalAttribution.creators.toLocaleString()}` : "—"}
               </span>
               <button
                 type="button"
@@ -1878,7 +1873,7 @@ export default function MiroFishNeuralFlow({
                   Crew Captains
                 </div>
                 <div className="text-[10px] font-mono text-[#00F5D4] truncate tabular-nums">
-                  {effectiveMetrics.cascade.toFixed(1)}x Squad Cascade
+                  {effectiveMetrics.cascade === null ? "—" : `${fx(effectiveMetrics.cascade)}x`} Squad Cascade
                 </div>
               </div>
             </div>
@@ -1890,7 +1885,7 @@ export default function MiroFishNeuralFlow({
                     : "bg-win-green/15 border border-win-green/30 text-win-green"
                 }`}
               >
-                +{signalAttribution.crews.toLocaleString()}
+                {hasLiveData ? `+${signalAttribution.crews.toLocaleString()}` : "—"}
               </span>
               <button
                 type="button"
@@ -1936,7 +1931,8 @@ export default function MiroFishNeuralFlow({
                   Multi-Sub Reddit Pulse
                 </div>
                 <div className="text-[10px] font-mono text-white/50 truncate">
-                  {redditThreads.length || 8} Threads · 6 Subreddits
+                  {redditThreads.length} Threads ·{" "}
+                  {new Set(redditThreads.map((t) => t.subreddit).filter(Boolean)).size} Subreddits
                 </div>
               </div>
             </div>
@@ -1948,7 +1944,7 @@ export default function MiroFishNeuralFlow({
                     : "bg-vc-gold/15 border border-vc-gold/30 text-vc-gold"
                 }`}
               >
-                +{signalAttribution.reddit.toLocaleString()}
+                {hasLiveData ? `+${signalAttribution.reddit.toLocaleString()}` : "—"}
               </span>
               <button
                 type="button"
@@ -2014,10 +2010,10 @@ export default function MiroFishNeuralFlow({
 
               <div className="flex items-center gap-1.5">
                 <span className="px-2 py-0.5 rounded-full bg-win-green/20 border border-win-green/40 text-win-green font-mono text-[10px] font-semibold tabular-nums">
-                  +{effectiveMetrics.flips.toLocaleString()} Flips
+                  {hasLiveData ? `+${effectiveMetrics.flips.toLocaleString()}` : "—"} Flips
                 </span>
                 <span className="px-2 py-0.5 rounded-full bg-[#9B72CB]/20 border border-[#9B72CB]/40 text-[#E9D5FF] font-mono text-[10px] font-semibold tabular-nums">
-                  +{effectiveMetrics.lift.toFixed(1)}% Lift
+                  {effectiveMetrics.lift === null ? "—" : `+${fx(effectiveMetrics.lift)}%`} Lift
                 </span>
               </div>
             </div>
@@ -2080,7 +2076,7 @@ export default function MiroFishNeuralFlow({
                 </div>
                 <div className="mt-1 flex items-center justify-between text-[10px] font-mono text-[#A7F3D0]">
                   <span className="truncate">{selectedCfLabel}</span>
-                  <span className="text-white/75 shrink-0">→ BUY</span>
+                  <span className="text-white/75 shrink-0">→ {buyWord}</span>
                 </div>
               </motion.button>
             )}
@@ -2092,7 +2088,7 @@ export default function MiroFishNeuralFlow({
           {[
             {
               id: "verdict_buy" as const,
-              label: "PURCHASED",
+              label: purchasedLabel,
               count: effectiveMetrics.buy,
               pct: buyPct,
               icon: CheckCircle2,
@@ -2222,7 +2218,8 @@ export default function MiroFishNeuralFlow({
           ) : traceModeActive && tracedPlayer ? (
             <div className="flex items-center gap-2 min-w-0 flex-1 font-mono text-[10px]">
               <span className="text-[#00F5D4] font-semibold shrink-0">
-                {tracedPlayer.tag} ({tracedPlayer.ovr} OVR)
+                {tracedPlayer.tag}
+                {tracedPlayer.ovr !== null ? ` (${tracedPlayer.ovr} OVR)` : ""}
               </span>
               <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-white/75 shrink-0">
                 R1 Alone: {tracedPlayer.r1State}
@@ -2380,7 +2377,7 @@ export default function MiroFishNeuralFlow({
 
                         <div className="flex items-center gap-1 font-mono text-[10px] shrink-0">
                           <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-white/80">
-                            R1 {r1S}
+                            R1 {r1S === "BUY" ? buyWord : r1S}
                           </span>
                           <ArrowRight className="w-2.5 h-2.5 text-white/35" />
                           <span
@@ -2392,13 +2389,13 @@ export default function MiroFishNeuralFlow({
                                   : "bg-vc-gold/20 text-vc-gold"
                             }`}
                           >
-                            R2 {r2S}
+                            R2 {r2S === "BUY" ? buyWord : r2S}
                           </span>
                           {r3S && r3S !== r2S && (
                             <>
                               <ArrowRight className="w-2.5 h-2.5 text-white/35" />
                               <span className="px-1.5 py-0.5 rounded bg-win-green/25 text-win-green font-semibold">
-                                R3 {r3S}
+                                R3 {r3S === "BUY" ? buyWord : r3S}
                               </span>
                             </>
                           )}

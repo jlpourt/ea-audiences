@@ -63,6 +63,23 @@ export function BrandAttachCard({ playerId, className }: BrandAttachCardProps) {
                 {fmtPct(data.totals.branded_share)} of all VC spend · {brands.length} partners
               </p>
             </div>
+            {data.totals.social_multiplier_adjusted !== null && (
+              <div
+                className="text-right"
+                title={`Mantel-Haenszel risk ratio stratified by brand. Crude pooled ratio ${data.totals.social_multiplier_crude ?? "n/a"}x is inflated by brand popularity (Simpson's paradox).`}
+              >
+                <p className="text-[11px] uppercase tracking-[0.12em] text-v2-faint">Co-play multiplier</p>
+                <Ticker
+                  value={data.totals.social_multiplier_adjusted}
+                  decimals={2}
+                  suffix={"\u00d7"}
+                  className="v2-tabular text-[22px] font-semibold text-v2-accent"
+                />
+                <p className="text-[11px] text-v2-faint v2-tabular">
+                  {data.totals.social_adjusted_ci_low?.toFixed(2)} to {data.totals.social_adjusted_ci_high?.toFixed(2)} · brand-adjusted
+                </p>
+              </div>
+            )}
           </div>
 
           <BrandStrip brands={brands} selected={current.brand_id} onSelect={setSelected} />
@@ -124,7 +141,7 @@ function Wordmark({ b, active }: { b: BrandAttachRow; active: boolean }) {
         src={b.logo_url}
         alt={b.brand}
         onError={() => setImgOk(false)}
-        className="h-5 w-auto max-w-[88px] object-contain"
+        className="cb-logo h-5 w-auto max-w-[88px] object-contain"
         style={{ opacity: active ? 1 : 0.55, transition: "opacity 160ms ease" }}
       />
     );
@@ -149,6 +166,11 @@ function BrandStrip({
 }) {
   return (
     <div className="-mx-1 flex gap-1 overflow-x-auto pb-1" role="tablist" aria-label="Brand partners">
+      {/* Monochrome wordmarks so every partner logo reads on either theme. */}
+      <style>{`
+        .cb-logo { filter: brightness(0) invert(1); }
+        :root[data-theme="light"] .cb-logo { filter: brightness(0); }
+      `}</style>
       {brands.map((b, i) => {
         const active = b.brand_id === selected;
         return (

@@ -86,7 +86,7 @@ export function CreatorEngagementCard({ initialCreator, className }: CreatorEnga
           <ArmBars row={current} />
           <CreatorList rows={data.creators} selected={current.creator_id} onSelect={setSelected} />
           <footer className="flex items-center justify-between gap-3 text-[11px] text-v2-faint">
-            <span>Matched on archetype · OVR · spend · tenure · crew{data.as_of ? ` · as of ${data.as_of}` : ""}</span>
+            <span>Matched on day · archetype · prior activity, alive at t{data.as_of ? ` · as of ${data.as_of}` : ""}</span>
             <button
               onClick={() => setShowMethod((v) => !v)}
               className="v2-press rounded-v2-sm px-2 py-1 text-v2-dim hover:text-v2-text"
@@ -172,7 +172,7 @@ function PathStrip({ row }: { row: CreatorIncrementalRow }) {
   const reduce = useReducedMotion();
   const steps = [
     { icon: Radio, label: `@${row.handle.replace(/^@/, "")}`, sub: `${fmtCompact(row.followers)} followers` },
-    { icon: MonitorPlay, label: "Stream", sub: "20+ min watched" },
+    { icon: MonitorPlay, label: "Offer stream", sub: "20+ min watched" },
     { icon: Eye, label: `${fmtInt(row.treated_n)} viewers`, sub: "linked identity" },
     {
       icon: Gamepad2,
@@ -236,7 +236,7 @@ function ArmBars({ row }: { row: CreatorIncrementalRow }) {
   const max = Math.max(row.d30_treated, row.d30_control, 0.01) * 1.08;
   const arms = [
     { label: "Watched 20+ min", n: row.treated_n, v: row.d30_treated, color: "var(--accent)" },
-    { label: "Matched non-viewers", n: row.control_n, v: row.d30_control, color: "var(--text-faint)" },
+    { label: "Matched not-yet-viewers", n: row.control_n, v: row.d30_control, color: "var(--text-faint)" },
   ];
   return (
     <div className="grid grid-cols-[1fr_auto] items-center gap-x-5 gap-y-3">

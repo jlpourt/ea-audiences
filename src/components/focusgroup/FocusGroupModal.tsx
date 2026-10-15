@@ -34,10 +34,6 @@ import {
   CreatorBroadcast,
   SwarmCrowdAgent,
   RedditEchoItem,
-  CausalUpliftSummary,
-  SurvivalAnalysisSummary,
-  TimesFmForecastSummary,
-  UpliftQuadrant,
 } from "@/lib/types";
 import { archetypeColor, archetypeLabel } from "@/lib/archetypes";
 import { TabularNumber } from "@/components/brand/TabularNumber";
@@ -127,209 +123,16 @@ function shortStateBadge(state?: string | null): "BUY" | "EVAL" | "PASS" | "BOYC
   return "EVAL";
 }
 
-function classifyClientUpliftQuadrant(r1State: string, treatedState: string): UpliftQuadrant {
-  if (r1State === "PURCHASED" && treatedState === "PURCHASED") return "SURE_THING";
-  if (r1State !== "PURCHASED" && treatedState === "PURCHASED") return "PERSUADABLE";
-  if (treatedState === "BOYCOTT" || (r1State === "PURCHASED" && treatedState !== "PURCHASED")) {
-    return "SLEEPING_DOG";
-  }
-  return "LOST_CAUSE";
-}
-
-function computeClientCausalUplift(
-  reactions: FocusGroupReaction[],
-  crowdAgents: SwarmCrowdAgent[],
-  priceUsd: number,
-  cohortContext?: CohortContext | null
-): CausalUpliftSummary {
-  const allQuadrants: UpliftQuadrant[] = [
-    ...reactions.map((r) => {
-      const r1 = r.round1_fsm_state || r.final_fsm_state;
-      const treated = r.round3_fsm_state || r.final_fsm_state;
-      return r.uplift_quadrant || classifyClientUpliftQuadrant(r1, treated);
-    }),
-    ...crowdAgents.map((a) => {
-      const r1 = a.round1_state;
-      const treated = a.round3_state || a.final_fsm_state;
-      return a.uplift_quadrant || classifyClientUpliftQuadrant(r1, treated);
-    }),
-  ];
-  const total = Math.max(1, allQuadrants.length);
-  const persuadables_count = allQuadrants.filter((q) => q === "PERSUADABLE").length;
-  const sure_things_count = allQuadrants.filter((q) => q === "SURE_THING").length;
-  const lost_causes_count = allQuadrants.filter((q) => q === "LOST_CAUSE").length;
-  const sleeping_dogs_count = allQuadrants.filter((q) => q === "SLEEPING_DOG").length;
-  const persuadables_pct = Math.round((persuadables_count / total) * 1000) / 10;
-  const sure_things_pct = Math.round((sure_things_count / total) * 1000) / 10;
-  const lost_causes_pct = Math.round((lost_causes_count / total) * 1000) / 10;
-  const sleeping_dogs_pct = Math.round((sleeping_dogs_count / total) * 1000) / 10;
-  const cate_lift_pct =
-    Math.round(((persuadables_count - sleeping_dogs_count * 0.4) / total) * 1000) / 10;
-  const cohortScale = Math.max(
-    400,
-    Number(cohortContext?.matchedCount || (cohortContext as any)?.estimatedTotal || 1400)
+/** Idle shelf state: shown until the live simulation returns this panel's result. */
+function ShelfIdle({ label, running }: { label: string; running: boolean }) {
+  return (
+    <div className="rounded-xl border border-dashed border-white/[0.1] bg-white/[0.015] p-4 shrink-0">
+      <div className="text-xs font-semibold text-white/70">{label}</div>
+      <div className="mt-1 text-[11px] font-mono text-white/40">
+        {running ? "Waiting for live results…" : "Run the simulation to see live results."}
+      </div>
+    </div>
   );
-  const promoDiscountPerBuyer = Math.max(1.5, priceUsd * 0.25);
-  const margin_saved_usd = Math.round(
-    (sure_things_count / total) * cohortScale * promoDiscountPerBuyer
-  );
-  const backlash_avoided_pts = Math.max(
-    2,
-    Math.round((sleeping_dogs_count / total) * 100 * 0.85)
-  );
-  return {
-    persuadables_count,
-    sure_things_count,
-    lost_causes_count,
-    sleeping_dogs_count,
-    persuadables_pct,
-    sure_things_pct,
-    lost_causes_pct,
-    sleeping_dogs_pct,
-    cate_lift_pct,
-    margin_saved_usd,
-    backlash_avoided_pts,
-    takeaway: `Hold discount on ${sure_things_count} Sure Things (+$${margin_saved_usd.toLocaleString()} saved) · Suppress ${sleeping_dogs_count} Sleeping Dogs`,
-  };
-}
-
-function computeClientSurvivalAnalysis(
-  personas: any[],
-  reactions: FocusGroupReaction[],
-  crowdAgents: SwarmCrowdAgent[],
-  priceUsd: number
-): SurvivalAnalysisSummary {
-  const days = [1, 5, 10, 15, 20, 25, 30];
-  const betaWall = 0.62;
-  const betaTilt = 0.14;
-  const betaCrew = 0.545;
-  const baseScale = 16.5;
-  const shapeK = 1.35;
-
-  const agentHazards = [
-    ...reactions.map((r, idx) => {
-      const p = personas[idx] || {};
-      const ovr = Number(r.myplayer_ovr ?? p.myplayer_ovr ?? 84);
-      const lossStreak = Math.min(6, Number(p.loss_streak ?? p.recent_loss_streak ?? 1));
-      const churnBase = Number(r.churn_risk_score ?? p.churn_risk_score ?? 0.35);
-      const treatedState = r.round3_fsm_state || r.final_fsm_state;
-      const converted = treatedState === "PURCHASED" || treatedState === "EVALUATING";
-      const baseEta =
-        betaWall * (ovr < 85 ? 1 : 0) + betaTilt * lossStreak + 0.35 * (churnBase - 0.3);
-      const treatedEta = converted
-        ? baseEta - betaCrew - (ovr < 85 && priceUsd <= 19.99 ? 0.38 : 0.22)
-        : baseEta - 0.12;
-      return { baseMult: Math.exp(baseEta), treatedMult: Math.exp(treatedEta) };
-    }),
-    ...crowdAgents.map((a) => {
-      const ovr = Number(a.myplayer_ovr || 84);
-      const treatedState = a.round3_state || a.final_fsm_state;
-      const converted = treatedState === "PURCHASED" || treatedState === "EVALUATING";
-      const baseEta = betaWall * (ovr < 85 ? 1 : 0) + betaTilt * 1.2;
-      const treatedEta = converted
-        ? baseEta - betaCrew - (ovr < 85 ? 0.35 : 0.2)
-        : baseEta - 0.1;
-      return { baseMult: Math.exp(baseEta), treatedMult: Math.exp(treatedEta) };
-    }),
-  ];
-
-  const n = Math.max(1, agentHazards.length);
-  const survivalAtDay = (t: number, mode: "base" | "treated") => {
-    const sumS = agentHazards.reduce((acc, h) => {
-      const mult = mode === "base" ? h.baseMult : h.treatedMult;
-      return acc + Math.exp(-Math.pow(t / baseScale, shapeK) * mult);
-    }, 0);
-    return Math.round((sumS / n) * 1000) / 10;
-  };
-
-  const curve = days.map((day) => ({
-    day,
-    baseline_survival_pct: survivalAtDay(day, "base"),
-    treated_survival_pct: survivalAtDay(day, "treated"),
-  }));
-
-  const findT50 = (mode: "base" | "treated"): number => {
-    for (let d = 1; d <= 45; d += 0.5) {
-      if (survivalAtDay(d, mode) <= 50) return Number(d.toFixed(1));
-    }
-    return mode === "treated" ? 26.5 : 14.0;
-  };
-
-  const baseline_t50_days = findT50("base");
-  const treated_t50_days = Math.max(
-    Number((baseline_t50_days + 6.5).toFixed(1)),
-    findT50("treated")
-  );
-  const days_gained = Number((treated_t50_days - baseline_t50_days).toFixed(1));
-
-  return {
-    baseline_t50_days,
-    treated_t50_days,
-    days_gained,
-    crew_hazard_reduction_pct: 42,
-    build_wall_hazard_ratio: 1.86,
-    curve,
-  };
-}
-
-function computeClientTimesFmForecast(
-  reactions: FocusGroupReaction[],
-  crowdAgents: SwarmCrowdAgent[],
-  priceUsd: number,
-  creatorBroadcasts: CreatorBroadcast[],
-  cohortContext?: CohortContext | null
-): TimesFmForecastSummary {
-  const totalAgents = Math.max(1, reactions.length + crowdAgents.length);
-  const convertedCount =
-    reactions.filter((r) => (r.round3_fsm_state || r.final_fsm_state) === "PURCHASED").length +
-    crowdAgents.filter((a) => (a.round3_state || a.final_fsm_state) === "PURCHASED").length;
-  const conversionRate = convertedCount / totalAgents;
-  const cohortScale = Math.max(
-    600,
-    Number(cohortContext?.matchedCount || (cohortContext as any)?.estimatedTotal || 1800)
-  );
-  const avgWeeklyBasePerActive = Math.max(4.5, priceUsd * 0.42);
-  const horizons = ["Wk 1", "Wk 2", "Wk 3", "Wk 4", "Wk 5", "Wk 6"];
-  const baselineDecay = [1.0, 0.88, 0.74, 0.58, 0.49, 0.43];
-  const treatedRetentionBoost = [1.18, 1.32, 1.44, 1.52, 1.48, 1.45];
-
-  const points = horizons.map((label, idx) => {
-    const baseBookings = Math.round(
-      cohortScale * 0.28 * avgWeeklyBasePerActive * baselineDecay[idx]
-    );
-    const offerLiftMultiplier = 1 + conversionRate * 0.95;
-    const treatedBookings = Math.round(
-      baseBookings * treatedRetentionBoost[idx] * offerLiftMultiplier
-    );
-    const bandWidth = Math.round(treatedBookings * (0.11 + idx * 0.018));
-    return {
-      horizon_label: label,
-      baseline_bookings_usd: baseBookings,
-      treated_bookings_usd: treatedBookings,
-      ci_10_usd: Math.max(baseBookings, treatedBookings - bandWidth),
-      ci_90_usd: treatedBookings + bandWidth,
-    };
-  });
-
-  const projected_30d_bookings_usd = points
-    .slice(0, 4)
-    .reduce((sum, p) => sum + p.treated_bookings_usd, 0);
-  const ci_10_usd = points.slice(0, 4).reduce((sum, p) => sum + p.ci_10_usd, 0);
-  const ci_90_usd = points.slice(0, 4).reduce((sum, p) => sum + p.ci_90_usd, 0);
-  const base30d = points.slice(0, 4).reduce((sum, p) => sum + p.baseline_bookings_usd, 0);
-  const whale_decay_offset_pct =
-    Math.round(((projected_30d_bookings_usd - base30d) / Math.max(1, base30d)) * 1000) / 10;
-
-  return {
-    projected_30d_bookings_usd,
-    ci_10_usd,
-    ci_90_usd,
-    whale_decay_offset_pct,
-    points,
-    // Creator impact is measured live on the server (BigQuery matched control); the client
-    // preview never invents it.
-    creator_impact: { status: "pending", label: "Incremental D30 players · matched control", items: [] },
-  };
 }
 
 export interface FocusGroupModalProps {
@@ -1066,22 +869,18 @@ export function FocusGroupModal({
   const rawPassCount = allCurrentStates.filter((s) => s === "ABANDONED").length;
   const rawBoycottCount = allCurrentStates.filter((s) => s === "BOYCOTT").length;
 
-  const buyCount =
-    allCurrentStates.length > 0
-      ? Math.round(rawBuyCount * audienceScaleFactor)
-      : Math.round(11 * audienceScaleFactor);
-  const passCount =
-    allCurrentStates.length > 0
-      ? Math.round(rawPassCount * audienceScaleFactor)
-      : Math.round(3 * audienceScaleFactor);
+  // Live-only: every count is 0 until real persona verdicts stream in (no placeholder states).
+  const buyCount = allCurrentStates.length > 0 ? Math.round(rawBuyCount * audienceScaleFactor) : 0;
+  const passCount = allCurrentStates.length > 0 ? Math.round(rawPassCount * audienceScaleFactor) : 0;
   const boycottCount =
+    allCurrentStates.length > 0 ? Math.round(rawBoycottCount * audienceScaleFactor) : 0;
+  const evalCount =
     allCurrentStates.length > 0
-      ? Math.round(rawBoycottCount * audienceScaleFactor)
-      : Math.round(1 * audienceScaleFactor);
-  const evalCount = Math.max(
-    0,
-    totalDenominator - buyCount - passCount - boycottCount
-  );
+      ? Math.max(0, totalDenominator - buyCount - passCount - boycottCount)
+      : 0;
+  // A $0 offer is a free retention gift: "purchase" = claim it and keep playing with the crew.
+  const isFreeOffer = priceUsd === 0;
+  const buyWord = isFreeOffer ? "CLAIM" : "BUY";
 
   const rawBuyDeltaR2 =
     allR2States.filter((s) => s === "PURCHASED").length -
@@ -1091,10 +890,7 @@ export function FocusGroupModal({
     allR3States.filter((s) => s === "PURCHASED").length -
     allR2States.filter((s) => s === "PURCHASED").length;
 
-  const buyDeltaR2 = Math.max(
-    Math.round(2 * (totalDenominator / 20)),
-    Math.round(rawBuyDeltaR2 * audienceScaleFactor)
-  );
+  const buyDeltaR2 = Math.max(0, Math.round(rawBuyDeltaR2 * audienceScaleFactor));
   const buyDeltaR3 = Math.max(
     0,
     Math.round(rawBuyDeltaR3 * audienceScaleFactor)
@@ -1108,163 +904,86 @@ export function FocusGroupModal({
       ? Math.round(round3FlipsCount * audienceScaleFactor)
       : buyDeltaR3;
 
-  // WTP Curve data
-  const wtpCurve = currentResult?.wtp_curve || [
-    { price: 2.99, conversion_pct: 68 },
-    { price: 4.99, conversion_pct: 54 },
-    { price: 7.99, conversion_pct: 42 },
-    { price: 9.99, conversion_pct: 35 },
-    { price: 12.99, conversion_pct: 26 },
-    { price: 14.99, conversion_pct: 22 },
-    { price: 19.99, conversion_pct: 12 },
-    { price: 24.99, conversion_pct: 6 },
-  ];
+  // WTP Curve data (live result only)
+  const wtpCurve = currentResult?.wtp_curve || [];
 
-  const recommendedPrice =
-    currentResult?.recommended_price ?? (priceUsd <= 9.99 ? 4.99 : 14.99);
-  const highlightIdx = wtpCurve.findIndex(
-    (p) => Math.abs(p.price - recommendedPrice) < 0.5
-  );
+  const recommendedPrice: number | null = currentResult?.recommended_price ?? null;
+  const highlightIdx =
+    recommendedPrice === null
+      ? -1
+      : wtpCurve.findIndex((p) => Math.abs(p.price - recommendedPrice) < 0.5);
 
-  const backlashIndex = currentResult?.backlash_index ?? 15;
-  const baseConversionLift = currentResult?.predicted_conversion_lift ?? 26.5;
-  const baseCrewMultiplier = currentResult?.crew_contagion_multiplier ?? 3.1;
-
-  // Round-sensitive KPI values so toggling R1 <-> R2 <-> R3 physically ticks the 4 hero KPIs
-  const conversionLift =
-    activeRound === 1
-      ? Math.max(4.5, Number((baseConversionLift * 0.34).toFixed(1)))
-      : activeRound === 3
-        ? Number((baseConversionLift + Math.max(4.2, round3FlipsCount * 3.5)).toFixed(1))
-        : baseConversionLift;
-
-  const crewMultiplier =
-    activeRound === 1
-      ? 1.0
-      : activeRound === 3
-        ? Number((baseCrewMultiplier + 0.4).toFixed(1))
-        : baseCrewMultiplier;
+  const backlashIndex: number | null = currentResult?.backlash_index ?? null;
+  // Round-sensitive KPIs derived from the live per-round tallies (no invented per-round scaling):
+  // lift(Rn) = purchased(Rn) / purchased(R1) - 1; crew cascade(Rn) = purchased(Rn) / purchased(R1).
+  const roundTally = (r: 1 | 2 | 3) =>
+    r === 1 ? currentResult?.round1_tally : r === 2 ? currentResult?.round2_tally : currentResult?.round3_tally;
+  const r1Purchased = currentResult?.round1_tally?.purchased;
+  const activePurchased = roundTally(activeRound)?.purchased;
+  const roundRatio =
+    typeof r1Purchased === "number" && r1Purchased > 0 && typeof activePurchased === "number"
+      ? activePurchased / r1Purchased
+      : null;
+  const conversionLift: number | null =
+    roundRatio === null ? null : Number(((roundRatio - 1) * 100).toFixed(1));
+  const crewMultiplier: number | null = roundRatio === null ? null : Number(roundRatio.toFixed(2));
+  // The server forecasts bookings / survival for the final round only (R3 if a What-If ran, else R2).
+  const forecastRound: 2 | 3 = currentResult?.round3_tally ? 3 : 2;
 
   // Distribution bar percentages
   const evaluatedTotal = Math.max(1, allCurrentStates.length);
-  const buyPct = hasStreamedAny ? Math.round((buyCount / evaluatedTotal) * 100) : 54;
-  const evalPct = hasStreamedAny ? Math.round((evalCount / evaluatedTotal) * 100) : 24;
-  const passPct = hasStreamedAny ? Math.round((passCount / evaluatedTotal) * 100) : 14;
-  const boycottPct = hasStreamedAny
-    ? Math.max(0, 100 - buyPct - evalPct - passPct)
-    : 8;
+  const buyPct = hasStreamedAny ? Math.round((buyCount / evaluatedTotal) * 100) : 0;
+  const evalPct = hasStreamedAny ? Math.round((evalCount / evaluatedTotal) * 100) : 0;
+  const passPct = hasStreamedAny ? Math.round((passCount / evaluatedTotal) * 100) : 0;
+  const boycottPct = hasStreamedAny ? Math.max(0, 100 - buyPct - evalPct - passPct) : 0;
 
-  // Empirical / Live-Computed Ideas 5, 6 & 7 (Causal Uplift, Cox/Weibull Survival, TimesFM + Meridian)
-  const fallbackReactionsForStats: FocusGroupReaction[] =
-    activeReactions.length > 0
-      ? activeReactions
-      : sampledPersonas.slice(0, 20).map((p: any, idx: number) => ({
-          player_id: p.player_id || `persona-${idx + 1}`,
-          gamer_tag: p.gamer_tag || `Player_${idx + 1}`,
-          archetype: p.archetype || "MYCAREER_STORY_CASUAL",
-          crew_name: p.crew_name || "Bucket Getters",
-          creator_handle: p.creator_handle || "@Agent00",
-          myplayer_ovr: p.myplayer_ovr || 84,
-          round1_fsm_state:
-            idx % 5 === 0 ? "PURCHASED" : idx % 7 === 0 ? "BOYCOTT" : "EVALUATING",
-          final_fsm_state:
-            idx % 2 === 0
-              ? "PURCHASED"
-              : idx % 7 === 0
-                ? "BOYCOTT"
-                : idx % 3 === 0
-                  ? "EVALUATING"
-                  : "ABANDONED",
-          contagion_flipped: idx % 2 === 0 && idx % 5 !== 0,
-          willingness_to_pay_usd: priceUsd,
-          verbatim_quote: "",
-          sentiment_score: 0.65,
-          authenticity_rating: 0.94,
-          churn_risk_score: 0.32,
-        }));
+  // Causal uplift, survival and TimesFM come from the live server result only (no client previews).
+  const causalUplift = currentResult?.causal_uplift ?? null;
+  const survivalAnalysis = currentResult?.survival_analysis ?? null;
+  const timesFmForecast = currentResult?.timesfm_forecast ?? null;
 
-  const causalUplift =
-    currentResult?.causal_uplift ||
-    computeClientCausalUplift(
-      fallbackReactionsForStats,
-      crowdAgents,
-      priceUsd,
-      cohortContext
-    );
+  const activeBookingsK: number | null =
+    timesFmForecast && activeRound === forecastRound
+      ? timesFmForecast.projected_30d_bookings_usd / 1000
+      : null;
 
-  const survivalAnalysis =
-    currentResult?.survival_analysis ||
-    computeClientSurvivalAnalysis(
-      sampledPersonas,
-      fallbackReactionsForStats,
-      crowdAgents,
-      priceUsd
-    );
-
-  const timesFmForecast =
-    currentResult?.timesfm_forecast ||
-    computeClientTimesFmForecast(
-      fallbackReactionsForStats,
-      crowdAgents,
-      priceUsd,
-      creatorBroadcasts,
-      cohortContext
-    );
-
-  const bookingsScaleMultiplier =
-    swarmSize === 6500
-      ? 4.6
-      : swarmSize === 1000
-        ? 1.85
-        : swarmSize === 100
-          ? 1.18
-          : 1.0;
-
-  const activeBookingsK =
-    ((activeRound === 1
-      ? timesFmForecast.projected_30d_bookings_usd * 0.76
-      : activeRound === 3
-        ? timesFmForecast.projected_30d_bookings_usd * 1.12
-        : timesFmForecast.projected_30d_bookings_usd) *
-      bookingsScaleMultiplier) /
-    1000;
-
-  const activeLifespanGain =
-    activeRound === 1
-      ? Math.max(2.1, Number((survivalAnalysis.days_gained * 0.45).toFixed(1)))
-      : activeRound === 3
-        ? Number((survivalAnalysis.days_gained + 1.8).toFixed(1))
-        : survivalAnalysis.days_gained;
+  const activeLifespanGain: number | null =
+    survivalAnalysis && activeRound === forecastRound ? survivalAnalysis.days_gained : null;
 
   // 4 Hero KPI Animated Tabular Number Tickers (550ms cubic-out rAF interpolation)
-  const animatedBookingsStr = useAnimatedNumber(
-    activeBookingsK,
+  const animatedBookingsStrRaw = useAnimatedNumber(
+    activeBookingsK ?? 0,
     550,
     1,
     prefersReducedMotion
   );
-  const animatedConversionLiftStr = useAnimatedNumber(
-    conversionLift,
+  const animatedConversionLiftStrRaw = useAnimatedNumber(
+    conversionLift ?? 0,
     550,
     1,
     prefersReducedMotion
   );
-  const animatedCrewCascadeStr = useAnimatedNumber(
-    crewMultiplier,
+  const animatedCrewCascadeStrRaw = useAnimatedNumber(
+    crewMultiplier ?? 0,
     550,
     1,
     prefersReducedMotion
   );
-  const animatedLifespanStr = useAnimatedNumber(
-    activeLifespanGain,
+  const animatedLifespanStrRaw = useAnimatedNumber(
+    activeLifespanGain ?? 0,
     550,
     1,
     prefersReducedMotion
   );
+
+  const animatedBookingsStr = activeBookingsK === null ? "—" : animatedBookingsStrRaw;
+  const animatedConversionLiftStr = conversionLift === null ? "—" : animatedConversionLiftStrRaw;
+  const animatedCrewCascadeStr = crewMultiplier === null ? "—" : animatedCrewCascadeStrRaw;
+  const animatedLifespanStr = activeLifespanGain === null ? "—" : animatedLifespanStrRaw;
 
   // Creator Signal items: live broadcasts joined to live creator impact (matched-control
   // incremental D30 players from /api/v2/creator/incremental). Up to 6 creators.
-  const creatorImpact = timesFmForecast.creator_impact;
+  const creatorImpact = timesFmForecast?.creator_impact;
   const creatorSignalItems = useMemo(() => {
     const impactItems = creatorImpact?.items || [];
     const key = (h: string) => h.replace(/^@/, "").toLowerCase();
@@ -1294,14 +1013,14 @@ export function FocusGroupModal({
     setIsFindingTwins(true);
     setTwinsError(null);
     try {
-      const convertedReactions = fallbackReactionsForStats.filter((r) => {
+      const convertedReactions = activeReactions.filter((r) => {
         const st = r.round3_fsm_state || r.final_fsm_state;
         return st === "PURCHASED" || r.uplift_quadrant === "PERSUADABLE";
       });
       const seedPool =
         convertedReactions.length > 0
           ? convertedReactions
-          : fallbackReactionsForStats.slice(0, 6);
+          : activeReactions.slice(0, 6);
       const seedGamerTags = seedPool.map((r) => r.gamer_tag).filter(Boolean);
       const seedPlayerIds = seedPool.map((r) => r.player_id).filter(Boolean);
       const seedArchetypes = Array.from(
@@ -1317,7 +1036,7 @@ export function FocusGroupModal({
           seed_player_ids: seedPlayerIds,
           seed_archetypes: seedArchetypes,
           target_franchise: initialFranchise || "NBA2K",
-          matched_count: cohortContext?.matchedCount || 740,
+          matched_count: cohortContext?.matchedCount ?? null,
           expansion_pct: 25,
         }),
       });
@@ -1326,10 +1045,19 @@ export function FocusGroupModal({
         throw new Error(data.error || `Twin Finder failed (HTTP ${res.status})`);
       }
       const topTwinsList = Array.isArray(data.top_twins) ? data.top_twins : [];
+      const addedCount = data.added_count ?? data.expanded_count;
+      if (
+        typeof data.avg_cosine_similarity !== "number" ||
+        addedCount === undefined ||
+        addedCount === null ||
+        typeof data.incremental_bookings_usd !== "number"
+      ) {
+        throw new Error("Twin Finder response is missing avg_cosine_similarity / added_count / incremental_bookings_usd");
+      }
       setTwinsResult({
-        avg_cosine_similarity: Number(data.avg_cosine_similarity || 0.942),
-        added_count: Number(data.added_count || data.expanded_count || 185),
-        incremental_bookings_usd: Number(data.incremental_bookings_usd || 12400),
+        avg_cosine_similarity: Number(data.avg_cosine_similarity),
+        added_count: Number(addedCount),
+        incremental_bookings_usd: Number(data.incremental_bookings_usd),
         rawPayload: data,
         top_twins: topTwinsList,
       });
@@ -1491,7 +1219,11 @@ export function FocusGroupModal({
                     </option>
                   ))}
                   <option value="custom" className="bg-[#0E0E12] text-white">
-                    Custom (${priceUsd.toFixed(2)})
+                    {priceUsd === 0
+                      ? /keystone/i.test(creativeTitle)
+                        ? "Keystone Retention Gift · Free"
+                        : "Retention Gift · Free"
+                      : `Custom ($${priceUsd.toFixed(2)})`}
                   </option>
                 </select>
 
@@ -1540,15 +1272,15 @@ export function FocusGroupModal({
               {stageMode === "neural" && (
                 <div className="hidden xl:flex items-center gap-2.5 px-3 py-1 rounded-lg bg-black/45 border border-white/[0.07] text-[11px] font-mono tabular-nums">
                   <span className="text-win-green font-semibold">
-                    +${animatedBookingsStr}K 30d
+                    {activeBookingsK === null ? "—" : `+$${animatedBookingsStr}K`} 30d
                   </span>
                   <span className="text-white/20">·</span>
                   <span className="text-white/85">
-                    +{animatedConversionLiftStr}% Lift
+                    {conversionLift === null ? "—" : `+${animatedConversionLiftStr}%`} Lift
                   </span>
                   <span className="text-white/20">·</span>
                   <span className="text-[#00F5D4] font-semibold">
-                    {animatedCrewCascadeStr}x Crew
+                    {crewMultiplier === null ? "—" : `${animatedCrewCascadeStr}x`} Crew
                   </span>
                 </div>
               )}
@@ -1701,11 +1433,12 @@ export function FocusGroupModal({
               </div>
               <div className="flex items-baseline justify-between gap-2 mt-1">
                 <span className="text-xl font-bold text-win-green font-mono tabular-nums tracking-tight">
-                  ${animatedBookingsStr}K
+                  {activeBookingsK === null ? "—" : `$${animatedBookingsStr}K`}
                 </span>
                 <span className="text-[10px] font-mono text-white/45 tabular-nums truncate">
-                  [90% CI: ${(timesFmForecast.ci_10_usd / 1000).toFixed(0)}K–$
-                  {(timesFmForecast.ci_90_usd / 1000).toFixed(0)}K]
+                  {timesFmForecast
+                    ? `[90% CI: $${(timesFmForecast.ci_10_usd / 1000).toFixed(0)}K–$${(timesFmForecast.ci_90_usd / 1000).toFixed(0)}K]`
+                    : "Run the simulation"}
                 </span>
               </div>
             </div>
@@ -1717,12 +1450,12 @@ export function FocusGroupModal({
                   Conversion Lift &amp; Adoption
                 </span>
                 <span className="text-[10px] font-mono text-white/75 tabular-nums font-semibold">
-                  {buyCount}/{totalDenominator} BUY
+                  {buyCount}/{totalDenominator} {buyWord}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3 mt-1">
                 <span className="text-xl font-bold text-win-green font-mono tabular-nums tracking-tight shrink-0">
-                  +{animatedConversionLiftStr}%
+                  {conversionLift === null ? "—" : `+${animatedConversionLiftStr}%`}
                 </span>
                 <div className="flex-1 space-y-1">
                   <div className="h-1.5 w-full rounded-full bg-white/[0.07] overflow-hidden flex gap-0.5">
@@ -1744,7 +1477,7 @@ export function FocusGroupModal({
                     />
                   </div>
                   <div className="flex items-center justify-between text-[9px] font-mono text-white/45 tabular-nums">
-                    <span className="text-win-green">{buyCount} BUY</span>
+                    <span className="text-win-green">{buyCount} {buyWord}</span>
                     <span className="text-vc-gold">{evalCount} EVAL</span>
                     <span>{passCount} PASS</span>
                     <span className="text-loss-red">{boycottCount} BOYC</span>
@@ -1765,7 +1498,7 @@ export function FocusGroupModal({
               </div>
               <div className="flex items-baseline justify-between gap-2 mt-1">
                 <span className="text-xl font-bold text-white font-mono tabular-nums tracking-tight">
-                  {animatedCrewCascadeStr}x
+                  {crewMultiplier === null ? "—" : `${animatedCrewCascadeStr}x`}
                 </span>
                 <span className="text-[10px] text-white/45 truncate">
                   {round3FlipsCount > 0
@@ -1782,19 +1515,19 @@ export function FocusGroupModal({
                   Causal Net Lift &amp; Lifespan
                 </span>
                 <span className="text-[10px] font-mono text-cyan-300 tabular-nums">
-                  -{survivalAnalysis.crew_hazard_reduction_pct}% Crew Hazard
+                  {survivalAnalysis ? `-${survivalAnalysis.crew_hazard_reduction_pct}%` : "—"} Crew Hazard
                 </span>
               </div>
               <div className="flex items-baseline justify-between gap-2 mt-1">
                 <span className="text-xl font-bold text-white font-mono tabular-nums tracking-tight">
-                  +{animatedLifespanStr}d Lifespan
+                  {activeLifespanGain === null ? "—" : `+${animatedLifespanStr}d`} Lifespan
                 </span>
                 <span
                   className={`text-[10px] font-mono tabular-nums ${
-                    backlashIndex > 35 ? "text-loss-red" : "text-white/50"
+                    backlashIndex !== null && backlashIndex > 35 ? "text-loss-red" : "text-white/50"
                   }`}
                 >
-                  Backlash {backlashIndex}%
+                  Backlash {backlashIndex === null ? "—" : `${backlashIndex}%`}
                 </span>
               </div>
             </div>
@@ -1840,6 +1573,7 @@ export function FocusGroupModal({
                 round3FlipsCount={scaledRound3Flips}
                 crewMultiplier={crewMultiplier}
                 conversionLift={conversionLift}
+                projected30dBookingsUsd={timesFmForecast?.projected_30d_bookings_usd ?? null}
                 buyCount={buyCount}
                 evalCount={evalCount}
                 passCount={passCount}
@@ -2581,7 +2315,7 @@ export function FocusGroupModal({
 
                 {/* Scrollable Analytics Shelf Content */}
                 <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3 pr-0.5">
-                  {(analyticsTab === "all" || analyticsTab === "forecast_survival") && (
+                  {(analyticsTab === "all" || analyticsTab === "forecast_survival") && (survivalAnalysis && timesFmForecast ? (
                     <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 flex flex-col justify-between gap-3 shrink-0">
                   {/* Section A: Cox/Weibull 30-Day Survival Curve (Self-Drawing SVG) */}
                   <div className="space-y-2">
@@ -2812,12 +2546,14 @@ export function FocusGroupModal({
                   <p className="text-[11px] text-white/60 leading-snug pt-2 border-t border-white/[0.06]">
                     {currentResult?.contagion_summary ||
                       crewCaptainSummary ||
-                      "Crew Captains acted as critical social nodes, triggering a peer-pressure cascade that bypassed early price hesitation."}
+                      "Consensus narrative appears after the live run."}
                   </p>
                 </div>
-              )}
+              ) : (
+                <ShelfIdle label="Survival + TimesFM forecast" running={isRunning} />
+              ))}
 
-                  {(analyticsTab === "all" || analyticsTab === "price_uplift") && (
+                  {(analyticsTab === "all" || analyticsTab === "price_uplift") && (causalUplift && recommendedPrice !== null && wtpCurve.length > 0 ? (
                     <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 flex flex-col justify-between gap-3 shrink-0">
                   {/* Section A: Self-Drawing WTP Price Elasticity Curve */}
                   <div className="space-y-2">
@@ -2827,7 +2563,9 @@ export function FocusGroupModal({
                           WTP Price Elasticity Curve
                         </span>
                         <span className="text-[10px] font-mono text-white/45">
-                          Evaluated at ${priceUsd.toFixed(2)} proposed offer point
+                          {priceUsd === 0
+                            ? "Evaluated as a FREE retention gift"
+                            : `Evaluated at $${priceUsd.toFixed(2)} proposed offer point`}
                         </span>
                       </div>
                       <span className="text-[10px] font-mono text-vc-gold bg-vc-gold/10 px-2 py-0.5 rounded-md border border-vc-gold/25 tabular-nums shrink-0">
@@ -2928,7 +2666,7 @@ export function FocusGroupModal({
                             ${priceUsd.toFixed(2)}
                           </span>
                           <span className="font-mono font-semibold text-win-green tabular-nums">
-                            +{conversionLift.toFixed(1)}% lift
+                            {conversionLift === null ? "—" : `+${conversionLift.toFixed(1)}%`} lift
                           </span>
                         </div>
                         <div className="rounded-md bg-black/40 border border-white/[0.06] px-2.5 py-1.5 flex items-center justify-between">
@@ -2936,12 +2674,11 @@ export function FocusGroupModal({
                             ${(altPriceUsd ?? 19.99).toFixed(2)}
                           </span>
                           <span className="font-mono font-semibold text-loss-red tabular-nums">
-                            +
-                            {(
-                              currentResult?.alt_result?.predicted_conversion_lift ??
-                              conversionLift * 0.55
-                            ).toFixed(1)}
-                            % lift
+                            {currentResult?.alt_result?.predicted_conversion_lift !== undefined &&
+                            currentResult?.alt_result?.predicted_conversion_lift !== null
+                              ? `+${currentResult.alt_result.predicted_conversion_lift.toFixed(1)}%`
+                              : "—"}{" "}
+                            lift
                           </span>
                         </div>
                       </div>
@@ -3010,7 +2747,9 @@ export function FocusGroupModal({
                     </div>
                   </div>
                 </div>
-              )}
+              ) : (
+                <ShelfIdle label="WTP curve + causal uplift" running={isRunning} />
+              ))}
 
                   {(analyticsTab === "all" || analyticsTab === "reddit_pulse") && (
                     <div className="shrink-0">
@@ -3039,9 +2778,9 @@ export function FocusGroupModal({
             />
             <span className="truncate">
               {hasStreamedAny
-                ? `${totalDenominator}-agent simulation complete · +${conversionLift.toFixed(
-                    1
-                  )}% conversion lift (${contagionFlipsCount} R2 social flips${
+                ? `${totalDenominator}-agent simulation ${isRunning ? "streaming" : "complete"} · ${
+                    conversionLift === null ? "lift pending" : `+${conversionLift.toFixed(1)}% conversion lift`
+                  } (${contagionFlipsCount} R2 social flips${
                     round3FlipsCount > 0 ? ` · +${round3FlipsCount} R3 What-If rescues` : ""
                   })`
                 : `Ready · ${swarmSize}-agent 2-round social contagion simulation`}
@@ -3062,42 +2801,10 @@ export function FocusGroupModal({
 
             <button
               type="button"
-              disabled={isGeneratingBrief}
+              disabled={isGeneratingBrief || !currentResult}
+              title={currentResult ? undefined : "Run the simulation first; the brief is built from live results only"}
               onClick={() => {
-                if (currentResult) {
-                  onGenerateBrief(currentResult);
-                } else {
-                  const defaultRes: FocusGroupResult = {
-                    campaign_id: `fg-${Date.now()}`,
-                    franchise: initialFranchise || "NBA2K",
-                    creative_title: creativeTitle,
-                    target_cohort_query: cohortContext?.query,
-                    proposed_spend: priceUsd,
-                    target_roas: 3.4,
-                    reactions: sampledPersonas.map((p) => ({
-                      player_id: p.player_id,
-                      gamer_tag: p.gamer_tag,
-                      archetype: p.archetype,
-                      willingness_to_pay_usd: 4.99,
-                      final_fsm_state: "PURCHASED",
-                      authenticity_rating: 0.94,
-                      churn_risk_score: 0.22,
-                      verbatim_quote: "Solid value for the squad.",
-                      sentiment_score: 0.75,
-                    })),
-                    consensus_summary: `Strong cohort alignment for ${creativeTitle} at $${priceUsd.toFixed(
-                      2
-                    )}.`,
-                    predicted_conversion_lift: 26.5,
-                    sentiment_decay_index: 0.12,
-                    churn_mitigation_lift: 18.4,
-                    projected_revenue_impact_usd: 145000,
-                    causal_uplift: causalUplift,
-                    survival_analysis: survivalAnalysis,
-                    timesfm_forecast: timesFmForecast,
-                  };
-                  onGenerateBrief(defaultRes);
-                }
+                if (currentResult) onGenerateBrief(currentResult);
               }}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-white text-court-black hover:bg-white/90 text-xs font-semibold transition-all active:scale-[0.97] disabled:opacity-50"
             >

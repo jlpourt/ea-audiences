@@ -1143,9 +1143,8 @@ export async function evaluateCrowdSwarm80(
         contagion_driver: driver,
         contagion_source_tag: sourceTag,
         uplift_quadrant: classifyUpliftQuadrant(r1, r2),
-        verbatim_quote: a.verbatim_quote
-          ? String(a.verbatim_quote).replace(/—/g, "·")
-          : `Watching ${inp.crew_name} and ${inp.creator_handle} before locking in at $${priceUsd.toFixed(2)}.`,
+        // No invented text: if the model omitted a quote, leave it empty.
+        verbatim_quote: a.verbatim_quote ? String(a.verbatim_quote).replace(/—/g, "·") : "",
       };
     });
 
@@ -1481,16 +1480,20 @@ export function computeCausalUpliftSummary(
     400,
     Number(cohortContext?.matchedCount || cohortContext?.estimatedTotal || 1400)
   );
+  const isFreeGift = priceUsd === 0;
   const promoDiscountPerBuyer = Math.max(1.5, priceUsd * 0.25);
-  const margin_saved_usd = Math.round(
-    (sure_things_count / total) * cohortScale * promoDiscountPerBuyer
-  );
+  // A free retention gift has no discount to hold back, so nothing is "saved".
+  const margin_saved_usd = isFreeGift
+    ? 0
+    : Math.round((sure_things_count / total) * cohortScale * promoDiscountPerBuyer);
   const backlash_avoided_pts = Math.max(
     2,
     Math.round((sleeping_dogs_count / total) * 100 * 0.85)
   );
 
-  const takeaway = `Hold discount on ${sure_things_count} Sure Things (+$${margin_saved_usd.toLocaleString()} saved) · Suppress ${sleeping_dogs_count} Sleeping Dogs`;
+  const takeaway = isFreeGift
+    ? `${sure_things_count} Sure Things would stay without the gift · ${persuadables_count} Persuadables are the retention win · Suppress ${sleeping_dogs_count} Sleeping Dogs`
+    : `Hold discount on ${sure_things_count} Sure Things (+$${margin_saved_usd.toLocaleString()} saved) · Suppress ${sleeping_dogs_count} Sleeping Dogs`;
 
   return {
     persuadables_count,
@@ -1633,8 +1636,8 @@ export async function computeCreatorImpact(
 
   let live: Awaited<ReturnType<typeof getCreatorIncremental>> & { computed_at?: string };
   try {
-    live = await liveCached("creator-incremental", { minWatch: 20, k: 5, minTreated: 30 }, () =>
-      getCreatorIncremental({ minWatch: 20, k: 5, minTreated: 30 })
+    live = await liveCached("creator-incremental", { minWatch: 20, k: 3, minTreated: 30 }, () =>
+      getCreatorIncremental({ minWatch: 20, k: 3, minTreated: 30 })
     );
   } catch (e: any) {
     console.error("[focus-group] creator impact (BigQuery incremental) failed", e);
@@ -1953,7 +1956,7 @@ export async function synthesizeConsensus(
   const prompt = `You are the Lead Audience Intelligence & Pricing Strategist for 2K Games.
 Synthesize the results of a ${totalAgents}-agent Multi-Round Social Contagion Focus Group (${reactions.length} Core Personas + ${crowdAgents.length} Crowd Swarm Agents) evaluating:
 Offer Title: "${offerTitle}"
-Proposed Price: $${priceUsd.toFixed(2)} USD
+${priceUsd === 0 ? "Proposed Price: FREE retention gift (PURCHASED = claimed the gift and stayed with the crew; evaluate retention, not revenue per sale)" : `Proposed Price: $${priceUsd.toFixed(2)} USD`}
 Franchise: ${franchise}
 Target Cohort: ${cohortContext?.query || "NBA 2K27 Active Cohort"}
 Active Counterfactual Event: ${contagionMeta?.counterfactualEvent || "None (Baseline)"}

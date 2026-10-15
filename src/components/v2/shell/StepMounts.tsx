@@ -14,13 +14,15 @@
  *   ACT                 : <CrewActPanel />         src/components/v2/crew
  *   D_CONCEPT           : <PersonalizationFlow />  src/components/v2/concept (alias ConceptTest)
  */
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { BrandAttachCard, CreatorEngagementCard } from "../creatorbrand";
 import { CrewActPanel, CrewChurnPanel, LostCoreMemberCard } from "../crew";
 import { Player360 } from "../player360";
 import { PersonalizationFlow } from "../concept";
 import { Reveal } from "../motion";
 import { Home, type HomeProps } from "../home/Home";
+import { LiveErrorNote } from "../home/atoms";
+import { useLiveJson } from "../home/useLiveJson";
 import { STEP_META, useStoryline, type StorylineStep } from "./StorylineProvider";
 
 
@@ -66,8 +68,37 @@ function StepFrame({ step, children, heading = true }: { step: StorylineStep; ch
   );
 }
 
-export function StepContent({ homeProps }: { homeProps: HomeProps }) {
-  const { step, playerId } = useStoryline();
+/**
+ * ACT scene. If Jamie jumps straight to ACT (step indicator) with no crews
+ * selected, default the selection to the live "lost a core member this week"
+ * crews so Pressure-Test is never disabled. Live GET, errors shown inline.
+ */
+function ActScene() {
+  const { crewIds, setCrewIds } = useStoryline();
+  const need = crewIds.length === 0;
+  const { data, error, reload } = useLiveJson<{ crews: { clan_id: string }[] }>(
+    need ? "/api/v2/crew/lost-core-member?days=7" : null,
+  );
+  useEffect(() => {
+    if (need && data?.crews?.length) setCrewIds(data.crews.map((c) => c.clan_id));
+  }, [need, data, setCrewIds]);
+  return (
+    <div className="flex flex-col gap-3">
+      {need && error && <LiveErrorNote error={error} onRetry={reload} />}
+      {need && data && data.crews.length === 0 && (
+        <div className="text-[12.5px] text-[var(--text-faint)]">No crews lost a core member in the last 7 days.</div>
+      )}
+      <CrewActPanel crewIds={crewIds} />
+    </div>
+  );
+}
+
+/**
+ * Renders one scene. `step` is a prop (not read from context) so that while a
+ * scene is exiting it keeps rendering its own step rather than the new one.
+ */
+export function StepContent({ step, homeProps }: { step: StorylineStep; homeProps: HomeProps }) {
+  const { playerId } = useStoryline();
 
   switch (step) {
     case "A_HOME":
@@ -98,7 +129,7 @@ export function StepContent({ homeProps }: { homeProps: HomeProps }) {
     case "ACT":
       return (
         <StepFrame step={step}>
-          <CrewActPanel />
+          <ActScene />
         </StepFrame>
       );
     case "D_CONCEPT":

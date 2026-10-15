@@ -93,7 +93,7 @@ function ShellBody({ homeProps, onExplore, onClassic }: V2ShellProps) {
       <div ref={scroller} className="relative flex-1 overflow-y-auto overflow-x-hidden">
         <LayoutGroup id="storyline">
           <StepTransition stepKey={sceneOf(step)} direction={direction} className="min-h-full">
-            <StepContent homeProps={homeProps} />
+            <StepContent step={step} homeProps={homeProps} />
           </StepTransition>
         </LayoutGroup>
       </div>

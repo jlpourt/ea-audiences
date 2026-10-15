@@ -5,7 +5,7 @@ import { errorPayload, getCreatorIncremental, liveCached } from "@/lib/v2/creato
  * GET /api/v2/creator/incremental
  * Day-30 incremental retained players per creator vs. matched non-viewers (BigQuery CEM)
  * plus an off-stream difference-in-differences check. Creator metadata from Spanner.
- * Optional: ?min_watch=20&k=5&min_treated=30 · ?fresh=1 bypasses the 15-min live-result cache.
+ * Optional: ?min_watch=20&k=3&min_treated=30 · ?fresh=1 bypasses the 15-min live-result cache.
  */
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
   try {
     const opts = {
       minWatch: clampInt(url.searchParams.get("min_watch"), 20, 1, 240),
-      k: clampInt(url.searchParams.get("k"), 5, 1, 10),
+      k: clampInt(url.searchParams.get("k"), 3, 1, 10),
       minTreated: clampInt(url.searchParams.get("min_treated"), 30, 1, 10000),
     };
     const data = await liveCached(

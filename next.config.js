@@ -17,7 +17,7 @@ const csp = [
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} blob:`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "img-src 'self' data: blob: https://storage.googleapis.com https://*.googleapis.com https://*.gstatic.com",
+  "img-src 'self' data: blob: https://storage.googleapis.com https://*.googleapis.com https://*.gstatic.com https://upload.wikimedia.org",
   "media-src 'self' data: blob: https://storage.googleapis.com https://*.googleapis.com",
   "connect-src 'self' https://storage.googleapis.com https://*.googleapis.com" +
     (isDev ? " ws://127.0.0.1:* ws://localhost:*" : ""),

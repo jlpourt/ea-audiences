@@ -32,53 +32,89 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const creativeTitle = String(body.creativeTitle || "NBA 2K27 Offer");
-    const priceUsd = Number(body.priceUsd || 19.99);
-    const totalAgents = Number(body.totalDenominator || 20);
-    const r1Buy = Number(body.r1Buy ?? 5);
-    const r1Eval = Number(body.r1Eval ?? 9);
-    const r1Pass = Number(body.r1Pass ?? 4);
-    const finalBuy = Number(body.buyCount ?? 11);
-    const contagionFlips = Number(body.contagionFlipsCount ?? 6);
-    const round3Flips = Number(body.round3FlipsCount ?? 0);
-    const hasRound3 = Boolean(body.hasRound3);
-    const selectedCfLabel = String(body.selectedCfLabel || "+15K VC Squad Bonus");
-    const crewMultiplier = Number(body.crewMultiplier ?? 3.1);
-    const conversionLift = Number(body.conversionLift ?? 26.5);
-    const revenue30d = Number(body.revenue30d ?? 14300);
-    const topCreator = String(body.topCreator || "@Agent00");
+    // Every fact narrated must come from the live simulation: no server-side defaults.
+    const missing: string[] = [];
+    const reqNum = (key: string): number => {
+      const v = body?.[key];
+      const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
+      if (!Number.isFinite(n)) missing.push(key);
+      return n;
+    };
+    const reqStr = (key: string): string => {
+      const v = body?.[key];
+      if (typeof v !== "string" || v.trim() === "") {
+        missing.push(key);
+        return "";
+      }
+      return v.trim();
+    };
+    const optStr = (key: string): string | null => {
+      const v = body?.[key];
+      return typeof v === "string" && v.trim() !== "" ? v.trim() : null;
+    };
 
-    const featuredPlayerTag = String(
-      body.featuredPlayerTag || "@IsoKing_99"
-    ).replace(/^@/, "");
-    const featuredPlayerOvr = Number(body.featuredPlayerOvr || 82);
-    const featuredPlayerCrew = String(
-      body.featuredPlayerCrew || "Bucket Getters"
-    );
-    const featuredPlayerR1State = String(body.featuredPlayerR1State || "EVAL");
-    const featuredPlayerDriver = String(
-      body.featuredPlayerDriver || `Crew Captain & ${topCreator}`
-    );
-    const featuredPlayerQuote = String(
-      body.featuredPlayerQuote ||
-        "My Crew Captain locked in for Rec tonight, I can't be the only 82 OVR on the court."
-    );
+    const creativeTitle = reqStr("creativeTitle");
+    const priceUsd = reqNum("priceUsd");
+    const totalAgents = reqNum("totalDenominator");
+    const r1Buy = reqNum("r1Buy");
+    const r1Eval = reqNum("r1Eval");
+    const r1Pass = reqNum("r1Pass");
+    const finalBuy = reqNum("buyCount");
+    const contagionFlips = reqNum("contagionFlipsCount");
+    const round3Flips = reqNum("round3FlipsCount");
+    const hasRound3 = Boolean(body?.hasRound3);
+    const selectedCfLabel = hasRound3 ? reqStr("selectedCfLabel") : optStr("selectedCfLabel");
+    const crewMultiplier = reqNum("crewMultiplier");
+    const conversionLift = reqNum("conversionLift");
+    const revenue30d = reqNum("revenue30d");
+    const topCreator = optStr("topCreator");
+    const featuredPlayerTag = reqStr("featuredPlayerTag").replace(/^@/, "");
+    const featuredPlayerR1State = reqStr("featuredPlayerR1State");
+    const featuredPlayerDriver = reqStr("featuredPlayerDriver");
+    const featuredPlayerQuote = reqStr("featuredPlayerQuote");
+    const featuredPlayerOvrRaw = body?.featuredPlayerOvr;
+    const featuredPlayerOvr =
+      typeof featuredPlayerOvrRaw === "number" && Number.isFinite(featuredPlayerOvrRaw) ? featuredPlayerOvrRaw : null;
+    const featuredPlayerCrew = optStr("featuredPlayerCrew");
+
+    if (missing.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Explain Flow needs live simulation results; missing or invalid: ${missing.join(", ")}`,
+          missing,
+        },
+        { status: 400 }
+      );
+    }
+
+    const isFreeGift = priceUsd === 0;
+    const offerLine = isFreeGift
+      ? `Offer tested: "${creativeTitle}" as a FREE retention gift (players claim it and stay with their crew) across ${totalAgents} Spanner Graph player personas.`
+      : `Offer tested: "${creativeTitle}" at $${priceUsd.toFixed(2)} across ${totalAgents} Spanner Graph player personas.`;
+    const buyVerb = isFreeGift ? "claim it and stay" : "buy";
+    const buyNoun = isFreeGift ? "players who claim and stay" : "buyers";
+    const playerDesc = `${featuredPlayerOvr !== null ? `${featuredPlayerOvr} OVR` : "an NBA 2K player"}${
+      featuredPlayerCrew ? ` in crew "${featuredPlayerCrew}"` : ""
+    }`;
+    const signalSources = topCreator
+      ? `${topCreator}'s co-stream, r/NBA2K, and Rec Crew Captains`
+      : "r/NBA2K and Rec Crew Captains";
 
     const prompt = `You are writing a ultra-crisp, human-sounding 4-beat courtside audio walkthrough for an NBA 2K27 executive marketing simulation ("MiroFish Neural Flow").
 Two speakers will voice this in a single studio take:
 1. "Analyst" — a sharp, charismatic NBA 2K courtside strategist (think ESPN NBA Countdown meets Apple Keynote). Warm, natural, zero jargon, speaks in punchy conversational English.
-2. "Player" — @${featuredPlayerTag}, an authentic NBA 2K Rec/Park player (${featuredPlayerOvr} OVR in crew "${featuredPlayerCrew}") who started at ${featuredPlayerR1State} in Round 1 and flipped to BUY in Round 2 because of ${featuredPlayerDriver}.
+2. "Player" — @${featuredPlayerTag}, an authentic NBA 2K Rec/Park player (${playerDesc}) who started at ${featuredPlayerR1State} in Round 1 and flipped to ${isFreeGift ? "CLAIM + STAY" : "BUY"} in Round 2 because of ${featuredPlayerDriver}.
 
 SIMULATION FACTS TO EXPLAIN:
-- Offer tested: "${creativeTitle}" at $${priceUsd.toFixed(2)} across ${totalAgents} Spanner Graph player personas.
-- Beat 1 (Layer 2 · Round 1 Alone): In isolation, only ${r1Buy} of ${totalAgents} players buy on their own, while ${r1Eval} sit on the fence evaluating and ${r1Pass} pass.
-- Beat 2 (Layer 3 · Social Contagion Signals): When the offer hits ${topCreator}'s co-stream, r/NBA2K, and Rec Crew Captains, social gravity triggers a ${crewMultiplier.toFixed(1)}x squad cascade.
-- Beat 3 (Layer 4 · Single Player Flip Story): Player @${featuredPlayerTag} speaks in first-person gamer voice explaining why they flipped from ${featuredPlayerR1State} to BUY (adapt from their reaction: "${featuredPlayerQuote}").
-- Beat 4 (Layer 5 · Final Verdict): ${contagionFlips} players flip to BUY${
+- ${offerLine}
+- Beat 1 (Layer 2 · Round 1 Alone): In isolation, ${r1Buy} of ${totalAgents} players ${buyVerb} on their own, while ${r1Eval} sit on the fence evaluating and ${r1Pass} pass.
+- Beat 2 (Layer 3 · Social Contagion Signals): When the offer hits ${signalSources}, social gravity triggers a ${crewMultiplier.toFixed(1)}x squad cascade.
+- Beat 3 (Layer 4 · Single Player Flip Story): Player @${featuredPlayerTag} speaks in first-person gamer voice explaining why they flipped from ${featuredPlayerR1State} to ${isFreeGift ? "claiming the gift and staying" : "BUY"} (adapt from their reaction: "${featuredPlayerQuote}").
+- Beat 4 (Layer 5 · Final Verdict): ${contagionFlips} players flip to ${isFreeGift ? "claim and stay" : "BUY"}${
       hasRound3 && round3Flips > 0
         ? ` plus ${round3Flips} rescued by the ${selectedCfLabel} What-If shock`
         : ""
-    }, reaching ${finalBuy} of ${totalAgents} buyers (+${conversionLift.toFixed(1)}% lift and $${(revenue30d / 1000).toFixed(1)}K in 30-day bookings).
+    }, reaching ${finalBuy} of ${totalAgents} ${buyNoun} (+${conversionLift.toFixed(1)}% lift and $${(revenue30d / 1000).toFixed(1)}K in 30-day bookings, TimesFM forecast).
 
 RULES:
 - Each beat MUST be 14 to 22 words maximum so the entire 4-beat audio plays in ~18-22 seconds.

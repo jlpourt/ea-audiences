@@ -297,6 +297,13 @@ export function buildIndividualVoiceProfile(
 /**
  * Builds the personalized prompt for an individual persona evaluating an offer (Round 1 Isolated Gut Reaction).
  */
+/** Offer price wording for every round's prompt: a $0 offer is a FREE retention gift, not a purchase. */
+export function offerPricePhrase(priceUsd: number): string {
+  return priceUsd === 0
+    ? "as a FREE retention gift (PURCHASED = claim it and keep playing with the crew this season)"
+    : `at $${priceUsd.toFixed(2)}`;
+}
+
 export function buildPersonaPrompt(
   player: {
     gamer_tag?: string;
@@ -362,9 +369,18 @@ Output strict JSON with:
     ? `\nLIVE EVENT / PATCH INJECTION ACTIVE: "${counterfactualEvent}"\nFactor this live offer adjustment directly into your initial reaction.`
     : "";
 
+  // A $0 offer is a free retention gift (e.g. Keystone Retention), not a purchase.
+  const isFreeGift = priceUsd === 0;
+  const priceLine = isFreeGift
+    ? "Price: FREE retention gift (no purchase; 2K grants it to you directly)"
+    : `Price: $${priceUsd.toFixed(2)} USD`;
+  const freeGiftRules = isFreeGift
+    ? `\n\nFREE RETENTION GIFT RULES: This offer costs you nothing. Decide whether you would claim it AND keep playing with your crew this season. Use "PURCHASED" to mean "I claim it and stay with my crew", "EVALUATING" if you would claim it but are unsure you will stick around, "ABANDONED" if you would ignore it or are drifting away anyway, and "BOYCOTT" if a gift like this annoys you. Set willingness_to_pay_usd to 0. Do not talk about price, cost or spending VC; talk about the gift, your crew and whether you keep playing.`
+    : "";
+
   const prompt = `Proposed Marketing Offer:
 Title: "${offerTitle}"
-Price: $${priceUsd.toFixed(2)} USD
+${priceLine}
 Franchise: ${franchise}${cfBlock}
 
 Your Individual In-Game Telemetry:
@@ -381,7 +397,11 @@ Your Individual In-Game Telemetry:
 - Favorite NBA Team: ${player.favorite_team ?? "Los Angeles Lakers"}
 - Your Voice & Length Contract: ${voiceProfile.wordCountRange} (${voiceProfile.sentenceTarget}) · ${voiceProfile.personalHook}
 
-How do you react to this offer at $${priceUsd.toFixed(2)} in Round 1 (before seeing your Crew or Creator streams)? Return strict JSON.`;
+${
+    isFreeGift
+      ? "Would you claim this free gift and keep playing with your crew this season? Answer in Round 1 (before seeing your Crew or Creator streams)."
+      : `How do you react to this offer at $${priceUsd.toFixed(2)} in Round 1 (before seeing your Crew or Creator streams)?`
+  }${freeGiftRules} Return strict JSON.`;
 
   return { system, prompt, voiceProfile };
 }
@@ -512,7 +532,7 @@ CRITICAL VOICE VARIETY RULE:
 
   const prompt = `Offer under live stream review:
 Title: "${offerTitle}"
-Price: $${priceUsd.toFixed(2)} USD
+${priceUsd === 0 ? "Price: FREE retention gift (2K grants it; viewers decide whether to claim it and stay with their crew)" : `Price: $${priceUsd.toFixed(2)} USD`}
 Franchise: ${franchise}
 Round 1 Community Pulse: ${r1BuyCount}/20 buying, ${r1BoycottCount}/20 boycotting.
 ${counterfactualEvent ? `Live Event / Patch Injection: "${counterfactualEvent}"` : "No counterfactual bonus active."}
@@ -624,7 +644,7 @@ CRITICAL INDIVIDUAL VOICE & LENGTH VARIATION RULE:
           .join("\n")
       : "No live Reddit threads active.";
 
-  const prompt = `Offer: "${offerTitle}" at $${priceUsd.toFixed(2)} (${franchise})
+  const prompt = `Offer: "${offerTitle}" ${offerPricePhrase(priceUsd)} (${franchise})
 ${counterfactualEvent ? `ACTIVE COUNTERFACTUAL INJECTION: "${counterfactualEvent}"` : "Counterfactual Injection: None (Baseline)"}
 
 World 1 — Live Creator Stream Megaphone Broadcasts (FOLLOWS_CREATOR):
@@ -690,7 +710,7 @@ export function buildCrowdSwarmBatchPrompt(
 ): { system: string; prompt: string } {
   const system = `You evaluate a batch of 20 live NBA 2K / 2K catalog players from TakeTwoPlayerGraph for both Round 1 (isolated) and Round 2 (after Crew Captain, Creator stream, and r/NBA2K / r/MyTEAM / r/NBA2kTeamUp Reddit thread contagion). Output compact, strict JSON.`;
 
-  const prompt = `Offer: "${offerTitle}" at $${priceUsd.toFixed(2)} (${franchise})
+  const prompt = `Offer: "${offerTitle}" ${offerPricePhrase(priceUsd)} (${franchise})
 Creator & Crew Contagion Context: ${creatorStanceSummary}
 ${redditSummary ? `Live Reddit Pulse (r/NBA2K, r/MyTEAM, r/NBA2kTeamUp): ${redditSummary}` : ""}
 ${counterfactualEvent ? `Active Counterfactual Event: "${counterfactualEvent}"` : ""}
@@ -750,7 +770,7 @@ Evaluate how each of the Core Personas reacts in Round 3 to this specific What-I
 - Personas whose core identity still rejects the offer format (e.g. strict MyNBA sim purists on a MyTEAM pack) remain authentic to their archetype.
 - CRITICAL VOICE VARIETY RULE: Strictly obey each persona's "voice_word_range" and "voice_directive" so clipped players react in 4-10 words and analytical theorycrafters/GMs write 28-45 words! Zero em-dashes.`;
 
-  const prompt = `Base Offer: "${offerTitle}" at $${priceUsd.toFixed(2)} (${franchise})
+  const prompt = `Base Offer: "${offerTitle}" ${offerPricePhrase(priceUsd)} (${franchise})
 MID-SIMULATION GOD'S-EYE WHAT-IF SHOCK (ROUND 3):
 "${counterfactualEvent}"
 
@@ -794,7 +814,7 @@ export function buildRound3CounterfactualCrowdPrompt(
 ): { system: string; prompt: string } {
   const system = `You evaluate how a batch of live NBA 2K crowd swarm agents shifts from Round 2 into Round 3 after a mid-simulation What-If offer sweetener is injected. Output strict JSON.`;
 
-  const prompt = `Base Offer: "${offerTitle}" at $${priceUsd.toFixed(2)} (${franchise})
+  const prompt = `Base Offer: "${offerTitle}" ${offerPricePhrase(priceUsd)} (${franchise})
 ROUND 3 WHAT-IF INTERVENTION: "${counterfactualEvent}"
 
 Crowd Batch (${crowdBatch.length} agents):

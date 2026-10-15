@@ -173,6 +173,12 @@ export interface BrandAttachResponse {
     branded_vc_revenue: number;
     total_vc_revenue: number;
     branded_share: number;
+    /** Mantel-Haenszel risk ratio stratified by brand (the headline social multiplier). */
+    social_multiplier_adjusted: number | null;
+    social_adjusted_ci_low: number | null;
+    social_adjusted_ci_high: number | null;
+    /** Crude pooled ratio across brands, shown only for transparency (confounded by brand popularity). */
+    social_multiplier_crude: number | null;
   };
   players_like_you_bought: { player_id: string; gamer_tag: string | null; items: PlayersLikeYouItem[] } | null;
   definitions: Record<string, string>;
@@ -267,97 +273,93 @@ export async function getCreatorMeta(): Promise<Map<string, CreatorMeta>> {
 /* 1. Creator incremental retention (BigQuery)                         */
 /* ------------------------------------------------------------------ */
 
-/** Matching strata. Kept in one place so the method text and SQL never drift. */
-const OVR_EXPR = `SAFE_CAST(JSON_VALUE(p.game_telemetry, '$.myplayer_ovr') AS FLOAT64)`;
-
+/**
+ * Creator lift design (mirrors scripts/validate_dataset_v2.py):
+ *  - treated: watched >= @min_watch min of an offer-featuring stream; t = first such stream day,
+ *    t in [first day + 7, as-of - 30]
+ *  - eligible (both arms): >= 1 session in [t-7, t-1] AND alive at t (last session day >= t)
+ *  - controls: had NOT watched that creator by day t (no conditioning on future viewing),
+ *    exact-matched on index day x archetype x pre-period activity bucket (session days in
+ *    [t-14, t-1]: <=4 / <=8 / <=11 / more), up to @k per treated, ATT-weighted by stratum
+ *  - D30 active: >= 1 session in [t+24, t+30]
+ */
 function creatorIncrementalSql(): string {
   return `
--- Creator -> Stream -> Viewer -> Player: D30 retention lift vs matched non-viewers.
+-- Creator -> Stream -> Viewer -> Player: D30 retention lift vs matched not-yet-viewers.
 WITH bounds AS (
   SELECT MIN(date) AS min_d, MAX(date) AS max_d FROM ${bqt("v2_sessions_daily")}
 ),
-crew AS (
-  SELECT DISTINCT player_id FROM ${bqt("v2_member_of_clan")} WHERE is_active
+act AS (
+  SELECT player_id, date FROM ${bqt("v2_sessions_daily")} WHERE session_minutes > 0
 ),
-players AS (
-  SELECT
-    p.player_id,
-    CONCAT(
-      p.primary_archetype, '|',
-      CAST(LEAST(9, CAST(FLOOR(IFNULL(${OVR_EXPR}, 60) / 10) AS INT64)) AS STRING), '|',
-      CASE WHEN p.lifetime_spend_usd < 1 THEN 's0' WHEN p.lifetime_spend_usd < 50 THEN 's1'
-           WHEN p.lifetime_spend_usd < 200 THEN 's2' WHEN p.lifetime_spend_usd < 600 THEN 's3' ELSE 's4' END, '|',
-      CASE WHEN p.account_tenure_days < 90 THEN 't0' WHEN p.account_tenure_days < 365 THEN 't1'
-           WHEN p.account_tenure_days < 1095 THEN 't2' ELSE 't3' END, '|',
-      IF(c.player_id IS NULL, 'solo', 'crew')
-    ) AS stratum
-  FROM ${bqt("v2_players")} p
-  LEFT JOIN crew c USING (player_id)
+last_sess AS (
+  SELECT player_id, MAX(date) AS last_d FROM act GROUP BY player_id
 ),
 views AS (
-  SELECT s.creator_id, h.player_id, DATE(w.watched_at) AS d, w.watch_minutes
+  SELECT s.creator_id, h.player_id, DATE(s.started_at) AS d, w.watch_minutes,
+         s.featured_offer_id IS NOT NULL AS has_offer
   FROM ${bqt("v2_watched")} w
   JOIN ${bqt("v2_streams")} s USING (stream_id)
   JOIN ${bqt("v2_has_identity")} h USING (identity_id)
 ),
-exposures AS (
-  SELECT creator_id, player_id, MIN(d) AS t0
-  FROM views WHERE watch_minutes >= @min_watch
-  GROUP BY creator_id, player_id
+first_watch AS (
+  SELECT creator_id, player_id, MIN(d) AS fw FROM views GROUP BY creator_id, player_id
 ),
-any_view AS (
-  SELECT DISTINCT creator_id, player_id FROM views
+exposures AS (
+  SELECT v.creator_id, v.player_id, MIN(v.d) AS t
+  FROM views v CROSS JOIN bounds b
+  WHERE v.watch_minutes >= @min_watch AND v.has_offer
+    AND v.d BETWEEN DATE_ADD(b.min_d, INTERVAL 7 DAY) AND DATE_SUB(b.max_d, INTERVAL 30 DAY)
+  GROUP BY v.creator_id, v.player_id
+),
+index_days AS (
+  SELECT DISTINCT t FROM exposures
+),
+status AS (
+  -- Every player's activity around every index day (players x ~50 days: small).
+  SELECT p.player_id, p.primary_archetype AS arch, x.t,
+    COUNTIF(a.date BETWEEN DATE_SUB(x.t, INTERVAL 7 DAY) AND DATE_SUB(x.t, INTERVAL 1 DAY)) AS pre7,
+    COUNTIF(a.date BETWEEN DATE_SUB(x.t, INTERVAL 14 DAY) AND DATE_SUB(x.t, INTERVAL 1 DAY)) AS pre14,
+    COUNTIF(a.date BETWEEN DATE_ADD(x.t, INTERVAL 17 DAY) AND DATE_ADD(x.t, INTERVAL 30 DAY)) AS post14,
+    COUNTIF(a.date BETWEEN DATE_ADD(x.t, INTERVAL 24 DAY) AND DATE_ADD(x.t, INTERVAL 30 DAY)) AS d30_days
+  FROM ${bqt("v2_players")} p
+  CROSS JOIN index_days x
+  LEFT JOIN act a
+    ON a.player_id = p.player_id
+   AND a.date BETWEEN DATE_SUB(x.t, INTERVAL 14 DAY) AND DATE_ADD(x.t, INTERVAL 30 DAY)
+  GROUP BY p.player_id, arch, x.t
+),
+elig AS (
+  SELECT st.*,
+    CASE WHEN pre14 <= 4 THEN 0 WHEN pre14 <= 8 THEN 1 WHEN pre14 <= 11 THEN 2 ELSE 3 END AS bucket,
+    IF(d30_days > 0, 1, 0) AS d30, pre14 / 14 AS pre_rate, post14 / 14 AS post_rate
+  FROM status st JOIN last_sess ls USING (player_id)
+  WHERE st.pre7 > 0 AND ls.last_d >= st.t
 ),
 treated AS (
-  SELECT e.creator_id, e.player_id, e.t0, pl.stratum,
-         ROW_NUMBER() OVER (PARTITION BY e.creator_id, pl.stratum ORDER BY FARM_FINGERPRINT(e.player_id)) AS rn,
-         COUNT(*) OVER (PARTITION BY e.creator_id, pl.stratum) AS n_t
-  FROM exposures e
-  JOIN players pl USING (player_id)
-  CROSS JOIN bounds b
-  WHERE e.t0 BETWEEN DATE_ADD(b.min_d, INTERVAL 14 DAY) AND DATE_SUB(b.max_d, INTERVAL 30 DAY)
+  SELECT e.creator_id, el.player_id, el.t, el.arch, el.bucket, el.d30, el.pre_rate, el.post_rate
+  FROM exposures e JOIN elig el ON el.player_id = e.player_id AND el.t = e.t
 ),
 strata AS (
-  SELECT creator_id, stratum, ANY_VALUE(n_t) AS n_t FROM treated GROUP BY creator_id, stratum
-),
-pool AS (
-  SELECT st.creator_id, pl.player_id, pl.stratum, st.n_t,
-         ROW_NUMBER() OVER (PARTITION BY st.creator_id, pl.stratum
-                            ORDER BY FARM_FINGERPRINT(CONCAT(pl.player_id, ':', st.creator_id))) AS rn
-  FROM strata st
-  JOIN players pl USING (stratum)
-  LEFT JOIN any_view av ON av.creator_id = st.creator_id AND av.player_id = pl.player_id
-  WHERE av.player_id IS NULL
+  SELECT creator_id, t, arch, bucket, COUNT(*) AS n_t FROM treated GROUP BY creator_id, t, arch, bucket
 ),
 controls AS (
-  -- Up to @k controls per treated player; each inherits the index date of a treated player in its stratum.
-  SELECT c.creator_id, c.player_id, c.stratum, t.t0
-  FROM pool c
-  JOIN treated t
-    ON t.creator_id = c.creator_id AND t.stratum = c.stratum
-   AND t.rn = MOD(c.rn - 1, c.n_t) + 1
-  WHERE c.rn <= @k * c.n_t
+  SELECT * EXCEPT (rn, n_t) FROM (
+    SELECT st.creator_id, el.player_id, el.t, el.arch, el.bucket, el.d30, el.pre_rate, el.post_rate, st.n_t,
+           ROW_NUMBER() OVER (PARTITION BY st.creator_id, st.t, st.arch, st.bucket
+                              ORDER BY FARM_FINGERPRINT(CONCAT(el.player_id, ':', st.creator_id, ':', CAST(st.t AS STRING)))) AS rn
+    FROM strata st
+    JOIN elig el ON el.t = st.t AND el.arch = st.arch AND el.bucket = st.bucket
+    LEFT JOIN first_watch f ON f.creator_id = st.creator_id AND f.player_id = el.player_id
+    WHERE f.fw IS NULL OR f.fw > st.t
+  ) WHERE rn <= @k * n_t
 ),
 arms AS (
-  SELECT creator_id, player_id, stratum, t0, 1 AS treated FROM treated
+  SELECT creator_id, player_id, t, CONCAT(CAST(t AS STRING), '|', arch, '|', CAST(bucket AS STRING)) AS stratum,
+         d30, pre_rate, post_rate, 1 AS treated FROM treated
   UNION ALL
-  SELECT creator_id, player_id, stratum, t0, 0 AS treated FROM controls
-),
-outcomes AS (
-  SELECT a.creator_id, a.player_id, a.stratum, a.treated, a.t0,
-    COUNTIF(s.date BETWEEN DATE_SUB(a.t0, INTERVAL 14 DAY) AND DATE_SUB(a.t0, INTERVAL 1 DAY)) AS pre_days,
-    COUNTIF(s.date BETWEEN DATE_ADD(a.t0, INTERVAL 17 DAY) AND DATE_ADD(a.t0, INTERVAL 30 DAY)) AS post_days,
-    COUNTIF(s.date BETWEEN DATE_ADD(a.t0, INTERVAL 24 DAY) AND DATE_ADD(a.t0, INTERVAL 30 DAY)) AS d30_days
-  FROM arms a
-  LEFT JOIN ${bqt("v2_sessions_daily")} s
-    ON s.player_id = a.player_id AND s.session_minutes > 0
-   AND s.date BETWEEN DATE_SUB(a.t0, INTERVAL 14 DAY) AND DATE_ADD(a.t0, INTERVAL 30 DAY)
-  GROUP BY a.creator_id, a.player_id, a.stratum, a.treated, a.t0
-),
-eligible AS (
-  -- Both arms must have been active in the 14 days before the index date.
-  SELECT *, IF(d30_days > 0, 1, 0) AS d30, pre_days / 14 AS pre_rate, post_days / 14 AS post_rate
-  FROM outcomes WHERE pre_days > 0
+  SELECT creator_id, player_id, t, CONCAT(CAST(t AS STRING), '|', arch, '|', CAST(bucket AS STRING)) AS stratum,
+         d30, pre_rate, post_rate, 0 AS treated FROM controls
 ),
 by_stratum AS (
   SELECT creator_id, stratum,
@@ -367,7 +369,7 @@ by_stratum AS (
     AVG(IF(treated = 1, post_rate, NULL)) AS post_t, AVG(IF(treated = 0, post_rate, NULL)) AS post_c,
     VAR_SAMP(IF(treated = 1, post_rate - pre_rate, NULL)) AS var_dt,
     VAR_SAMP(IF(treated = 0, post_rate - pre_rate, NULL)) AS var_dc
-  FROM eligible GROUP BY creator_id, stratum
+  FROM arms GROUP BY creator_id, stratum
 ),
 supported AS (
   SELECT *, nt / SUM(nt) OVER (PARTITION BY creator_id) AS w
@@ -377,8 +379,8 @@ first_touch AS (
   -- Each eligible treated player credited once, to the first creator they watched 20+ min.
   SELECT creator_id, COUNT(*) AS first_touch_n FROM (
     SELECT creator_id, player_id,
-           ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY t0, creator_id) AS rn
-    FROM eligible WHERE treated = 1
+           ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY t, creator_id) AS rn
+    FROM treated
   ) WHERE rn = 1 GROUP BY creator_id
 )
 SELECT
@@ -387,6 +389,7 @@ SELECT
   SUM(nc) AS control_n,
   SUM(w * pt) AS d30_treated,
   SUM(w * pc) AS d30_control,
+  -- Binomial variance per stratum (a single-observation stratum still contributes p(1-p)/n).
   SUM(w * w * pt * (1 - pt) / nt) + SUM(w * w * pc * (1 - pc) / nc) AS var_diff,
   SUM(w * pre_t) AS pre_treated, SUM(w * post_t) AS post_treated,
   SUM(w * pre_c) AS pre_control, SUM(w * post_c) AS post_control,
@@ -401,12 +404,12 @@ ORDER BY creator_id`;
 }
 
 export const CREATOR_INCREMENTAL_METHOD =
-  "Treated: players whose linked identity (HAS_IDENTITY) watched at least 20 minutes of the creator's stream; index date = first qualifying watch, kept only when a full 30-day outcome window is observed. " +
-  "Control: non-viewers of that creator, coarsened-exact-matched on archetype x OVR band x spend band x tenure band x crew membership (up to 5 per treated, each inheriting a treated player's index date), ATT-weighted by stratum. " +
-  "Both arms must have played in the 14 days before the index date. D30 active = any session on days 24-30 after the index date. " +
-  "Incremental players = (D30 treated - D30 matched control) x treated N; 95% CI by normal approximation on the stratum-weighted difference. " +
+  "Treated: players whose linked identity (HAS_IDENTITY) watched at least 20 minutes of one of the creator's offer streams; index day t = first such stream, kept only when the full 30-day outcome window is observed. " +
+  "Eligible (both arms): played in [t-7, t-1] and still alive at t (last session on or after t). " +
+  "Control: players who had not watched that creator by day t (no conditioning on later viewing), exact-matched on index day x archetype x pre-period activity (session days in [t-14, t-1], 4 buckets), up to 3 per treated, ATT-weighted by stratum. " +
+  "D30 active = any session on days 24-30 after t. Incremental players = (D30 treated - D30 matched control) x treated N; 95% CI by normal approximation on the stratum-weighted difference. " +
   "Headline total uses first-touch attribution: each creator's lift applies only to players it reached first, so multi-creator viewers count once. " +
-  "Off-stream check: difference-in-differences of active-day share, each player's own 14 days before the index date vs days 17-30 after, treated minus control.";
+  "Off-stream check: difference-in-differences of active-day share, each player's own 14 days before t vs days 17-30 after, treated minus control.";
 
 export async function getCreatorIncremental(opts?: {
   minWatch?: number;
@@ -417,7 +420,7 @@ export async function getCreatorIncremental(opts?: {
   const sql = creatorIncrementalSql();
   const params = {
     min_watch: opts?.minWatch ?? 20,
-    k: opts?.k ?? 5,
+    k: opts?.k ?? 3,
     min_treated: opts?.minTreated ?? 30,
   };
 
@@ -505,9 +508,10 @@ export async function getCreatorIncremental(opts?: {
     as_of: asOf,
     method: CREATOR_INCREMENTAL_METHOD,
     definitions: {
-      treated: `watch_minutes >= ${params.min_watch} on any stream HOSTED by the creator (via HAS_IDENTITY)`,
-      control: `non-viewers of the creator, CEM on archetype, OVR band (10 pt), spend band, tenure band, crew; k=${params.k}`,
-      d30_active: "session on any of days 24-30 after the index date",
+      treated: `watch_minutes >= ${params.min_watch} on an offer-featuring stream HOSTED by the creator (via HAS_IDENTITY)`,
+      control: `had not watched the creator by day t, eligible at t, exact-matched on day x archetype x pre-period activity bucket; up to ${params.k}:1`,
+      d30_active: "session on any of days 24-30 after the index day",
+      eligible: "session in [t-7, t-1] and last session on or after t (both arms)",
       min_treated: `creators with fewer than ${params.min_treated} eligible treated players are omitted`,
     },
     query_sql: sql.trim(),
@@ -527,8 +531,9 @@ WITH crew AS (
   SELECT DISTINCT player_id FROM ${bqt("v2_member_of_clan")} WHERE is_active
 ),
 active_base AS (
-  -- Every player with a session in the observed window is exposed to the in-game store.
-  SELECT DISTINCT player_id FROM ${bqt("v2_sessions_daily")} WHERE session_minutes > 0
+  -- Unit = (NBA 2K player, brand): every NBA 2K player sees the branded store.
+  SELECT player_id FROM ${bqt("v2_players")}
+  WHERE EXISTS (SELECT 1 FROM UNNEST(franchises_played) f WHERE f IN ('NBA2K', 'NBA2K26', 'NBA2KMOBILE'))
 ),
 purchases AS (
   SELECT i.brand_id, b.player_id, b.item_id, b.vc_amount
@@ -689,6 +694,34 @@ export async function getBrandAttach(opts?: { playerId?: string | null }): Promi
     };
   });
 
+  // Mantel-Haenszel RR stratified by brand + Greenland-Robins variance; crude pooled for contrast.
+  let mhNum = 0;
+  let mhDen = 0;
+  let grVar = 0;
+  let ae = 0;
+  let an = 0;
+  let ue = 0;
+  let un = 0;
+  for (const r of rows as any[]) {
+    const x1 = num(r.nb_buyers);
+    const n1 = num(r.nb_n);
+    const x0 = num(r.no_nb_buyers);
+    const n0 = num(r.no_nb_n);
+    ae += x1;
+    an += n1;
+    ue += x0;
+    un += n0;
+    const N = n1 + n0;
+    if (n1 > 0 && n0 > 0) {
+      mhNum += (x1 * n0) / N;
+      mhDen += (x0 * n1) / N;
+      grVar += (n1 * n0 * (x1 + x0) - x1 * x0 * N) / (N * N);
+    }
+  }
+  const mh = mhNum > 0 && mhDen > 0 ? mhNum / mhDen : null;
+  const mhSe = mh !== null ? Math.sqrt(grVar / (mhNum * mhDen)) : null;
+  const crude = an > 0 && un > 0 && ue > 0 ? ae / an / (ue / un) : null;
+
   const brandById = new Map(brands.map((b) => [b.brand_id, b]));
   const branded = brands.reduce((a, b) => a + b.branded_vc_revenue, 0);
   const total = rows.length ? num((rows[0] as any).total_vc_revenue) : 0;
@@ -720,15 +753,21 @@ export async function getBrandAttach(opts?: { playerId?: string | null }): Promi
       branded_vc_revenue: branded,
       total_vc_revenue: total,
       branded_share: round(rate(branded, total)),
+      social_multiplier_adjusted: mh === null ? null : round(mh, 2),
+      social_adjusted_ci_low: mh === null || mhSe === null ? null : round(mh * Math.exp(-1.96 * mhSe), 2),
+      social_adjusted_ci_high: mh === null || mhSe === null ? null : round(mh * Math.exp(1.96 * mhSe), 2),
+      social_multiplier_crude: crude === null ? null : round(crude, 2),
     },
     players_like_you_bought: ply,
     definitions: {
       branded_vc_revenue: "SUM(BOUGHT.vc_amount) where Item.is_branded, grouped by Item.brand_id",
-      exposed: "every player with a session in the observed v2_sessions_daily window (the active store audience), plus any buyer of the brand",
+      exposed: "unit = (NBA 2K player, brand): every NBA 2K player, plus any buyer of the brand",
       attach_rate: "distinct buyers of any of the brand's items / exposed players",
       in_crew: "player has an active MEMBER_OF_CLAN edge",
       social_multiplier:
-        "attach when at least one PLAYED_WITH neighbor bought the same brand / attach when none did (95% CI on the log risk ratio)",
+        "per brand: attach when at least one PLAYED_WITH neighbor bought the same brand / attach when none did (95% CI on the log risk ratio)",
+      social_multiplier_adjusted:
+        "all brands: Mantel-Haenszel risk ratio stratified by brand (adjusts for brand popularity, which otherwise inflates the pooled ratio via Simpson's paradox); Greenland-Robins 95% CI",
     },
     query_sql: sql.trim(),
     gql: plyGql,

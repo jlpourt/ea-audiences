@@ -9,14 +9,20 @@
  * Reduced motion: opacity crossfade only.
  *
  * Usage:
- *   <StepTransition stepKey={step} direction={dir}>{renderStep(step)}</StepTransition>
+ *   <StepTransition stepKey={scene} direction={dir}>{renderScene(step)}</StepTransition>
  *
- * Shared-element morphs between steps: give the source and target element the
- * same `layoutId` (see layoutIds in ./springs) and wrap the tree in
- * <LayoutGroup>. mode="popLayout" keeps both mounted briefly so the morph works.
+ * Guarantees (QA):
+ *  - mode="wait": the exiting scene fully unmounts before the next one mounts,
+ *    so there is exactly one instance of a scene in the DOM at rest and never
+ *    two interactive copies stacked on top of each other.
+ *  - While exiting, the scene is inert + aria-hidden + pointer-events:none,
+ *    so it can never intercept a click or be read by assistive tech.
+ *  - Exit is fast (160ms); enter carries the motion (320ms).
+ *  - Pass content whose step is fixed by props (not read from context) so the
+ *    exiting copy keeps rendering its own step, not the incoming one.
  */
 import type { ReactNode } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "framer-motion";
 import { ease } from "./springs";
 
 export interface StepTransitionProps {
@@ -27,33 +33,51 @@ export interface StepTransitionProps {
   className?: string;
 }
 
-export function StepTransition({ stepKey, direction = 1, children, className }: StepTransitionProps) {
+function Scene({ direction, className, children }: { direction: 1 | -1; className?: string; children: ReactNode }) {
   const reduce = !!useReducedMotion();
+  const present = useIsPresent();
   const d = 24 * direction;
+  const inertProps = present ? {} : ({ inert: "", "aria-hidden": true } as Record<string, unknown>);
   return (
-    <AnimatePresence mode="popLayout" initial={false} custom={direction}>
-      <motion.div
-        key={stepKey}
-        className={className}
-        initial={
-          reduce
-            ? { opacity: 0 }
-            : { opacity: 0, transform: `translateX(${d}px)`, filter: "blur(6px)" }
-        }
-        animate={
-          reduce
-            ? { opacity: 1 }
-            : { opacity: 1, transform: "translateX(0px)", filter: "blur(0px)" }
-        }
-        exit={
-          reduce
-            ? { opacity: 0 }
-            : { opacity: 0, transform: `translateX(${-d}px)`, filter: "blur(6px)" }
-        }
-        transition={{ duration: reduce ? 0.18 : 0.34, ease: ease.out }}
-      >
+    <motion.div
+      className={className}
+      style={{ pointerEvents: present ? undefined : "none" }}
+      {...inertProps}
+      initial={
+        reduce ? { opacity: 0 } : { opacity: 0, transform: `translateX(${d}px)`, filter: "blur(6px)" }
+      }
+      animate={
+        reduce
+          ? { opacity: 1, transition: { duration: 0.18, ease: ease.out } }
+          : {
+              opacity: 1,
+              transform: "translateX(0px)",
+              filter: "blur(0px)",
+              transition: { duration: 0.32, ease: ease.out },
+            }
+      }
+      exit={
+        reduce
+          ? { opacity: 0, transition: { duration: 0.12 } }
+          : {
+              opacity: 0,
+              transform: `translateX(${-d * 0.5}px)`,
+              filter: "blur(4px)",
+              transition: { duration: 0.16, ease: ease.out },
+            }
+      }
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+export function StepTransition({ stepKey, direction = 1, children, className }: StepTransitionProps) {
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <Scene key={stepKey} direction={direction} className={className}>
         {children}
-      </motion.div>
+      </Scene>
     </AnimatePresence>
   );
 }

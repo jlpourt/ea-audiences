@@ -32,15 +32,11 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next-3103/types/**/*.ts",
-    ".next-3102/types/**/*.ts",
-    ".next-3104/types/**/*.ts",
-    ".next-3101/types/**/*.ts",
-    ".next-3105/types/**/*.ts"
+    ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    "agents"
+    ".next-*",
+    "agents",
+    "node_modules"
   ]
 }
