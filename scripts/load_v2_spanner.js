@@ -6,6 +6,8 @@
  *   node scripts/load_v2_spanner.js --load       # insert data/*.json (v1 base) + data/v2/*.json
  *   node scripts/load_v2_spanner.js --truncate   # delete all rows first (v2 DB only)
  *   node scripts/load_v2_spanner.js --verify     # row counts + sample GQL
+ *   node scripts/load_v2_spanner.js --replace    # zero-downtime reload: UPSERT every row, then delete
+ *                                                # stale keys (DB never empty while other apps read it)
  *
  * Hard guard: this script refuses to touch any database other than
  * twok_graph_db_v2. v1 twok_graph_db backs the live demo and is never modified.
@@ -61,16 +63,43 @@ async function createDb(instance) {
   console.log(`  ${DATABASE} created.`);
 }
 
+// Primary keys (schema/twok_graph_db_v2.ddl), used by --replace to prune stale rows.
+const KEYS = {
+  Players: ["player_id"], Games: ["game_id"], Creators: ["creator_id"], Clans: ["clan_id"], Offers: ["offer_id"],
+  Identities: ["identity_id"], TelemetryEvents: ["event_id"], Seasons: ["season_id"], Matches: ["match_id"],
+  Streams: ["stream_id"], Brands: ["brand_id"], BrandActivations: ["activation_id"], Items: ["item_id"],
+  CrewMembershipEvents: ["event_id"], PlaysGame: ["player_id", "game_id"], FollowsCreator: ["player_id", "creator_id"],
+  MemberOfClan: ["player_id", "clan_id"], HasIdentity: ["player_id", "identity_id"],
+  PlayedWith: ["player_id", "other_player_id"], FriendsWith: ["player_id", "other_player_id"],
+  Messaged: ["player_id", "other_player_id"], CompetedIn: ["clan_id", "match_id"], InSeason: ["match_id", "season_id"],
+  SplitFrom: ["clan_id", "parent_clan_id"], Hosted: ["creator_id", "stream_id"], Watched: ["identity_id", "stream_id"],
+  Sponsors: ["brand_id", "activation_id"], Features: ["activation_id", "item_id"],
+  Bought: ["player_id", "item_id", "bought_at"], Equipped: ["player_id", "item_id"],
+};
+const TS_KEYS = new Set(["bought_at"]);
+let MODE = "insert"; // or "upsert" (--replace)
+const LOADED_KEYS = {}; // table -> Set of key strings written in this run
+
+const keyStr = (row, cols) =>
+  cols.map((c) => {
+    const v = row[c];
+    if (!TS_KEYS.has(c)) return String(v);
+    return (v instanceof Date ? new Date(v.getTime()) : new Date(String(v))).toISOString();
+  }).join("\u0001");
+
 async function insertAll(database, tableName, rows, chunkSize = 600, concurrency = 6) {
   if (!rows.length) throw new Error(`${tableName}: zero rows to insert (refusing to load an empty table)`);
   const table = database.table(tableName);
+  const cols = KEYS[tableName];
+  if (!cols) throw new Error(`No primary key registered for ${tableName}`);
+  LOADED_KEYS[tableName] = new Set(rows.map((r) => keyStr(r, cols)));
   const chunks = [];
   for (let i = 0; i < rows.length; i += chunkSize) chunks.push(rows.slice(i, i + chunkSize));
   let done = 0;
   for (let i = 0; i < chunks.length; i += concurrency) {
     await Promise.all(
       chunks.slice(i, i + concurrency).map(async (c) => {
-        await table.insert(c);
+        await (MODE === "upsert" ? table.upsert(c) : table.insert(c));
         done += c.length;
         process.stdout.write(`\r  ${tableName}: ${done}/${rows.length}`);
       })
@@ -92,6 +121,25 @@ async function truncate(database) {
   for (const t of ALL_TABLES) {
     await database.runPartitionedUpdate({ sql: `DELETE FROM ${t} WHERE TRUE` });
     console.log(`  cleared ${t}`);
+  }
+}
+
+async function prune(database) {
+  console.log("\nPruning stale rows (keys not in this load)...");
+  for (const t of ALL_TABLES) {
+    const cols = KEYS[t];
+    const want = LOADED_KEYS[t];
+    if (!want) throw new Error(`prune: ${t} was not loaded in this run; refusing to prune`);
+    const [rows] = await database.run({ sql: `SELECT ${cols.join(", ")} FROM ${t}` });
+    const stale = [];
+    for (const r of rows) {
+      const o = r.toJSON();
+      if (!want.has(keyStr(o, cols))) stale.push(cols.map((c) => o[c]));
+    }
+    for (let i = 0; i < stale.length; i += 2000) {
+      await database.table(t).deleteRows(stale.slice(i, i + 2000).map((k) => (k.length === 1 ? k[0] : k)));
+    }
+    console.log(`  ${t.padEnd(22)} kept ${want.size}  deleted ${stale.length}`);
   }
 }
 
@@ -316,6 +364,11 @@ async function main() {
   if (args.has("--create")) await createDb(instance);
   const database = instance.database(DATABASE);
   if (args.has("--truncate")) await truncate(database);
+  if (args.has("--replace")) {
+    MODE = "upsert";
+    await load(database);
+    await prune(database);
+  }
   if (args.has("--load")) await load(database);
   if (args.has("--verify")) await verify(database);
   await database.close();

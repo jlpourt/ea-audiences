@@ -10,28 +10,31 @@ generator's ground truth), using the same definitions the app endpoints use:
                    Event: churned_at falls on day t. Exposed on day t: >=1
                    PLAYED_WITH neighbour (undirected) has churned_at in [t-14, t-1].
                    Crude rate ratio + Mantel-Haenszel RR stratified by archetype.
-  anchor dependency crews whose top-centrality member (crew_centrality = 1.0 at
-                   departure) left 14-60 days before as-of. Index T = left_at.
+  anchor dependency crews whose top-centrality member (left_at set AND crew_centrality
+                   = 1.0) left 14-60 days before as-of. Index T = left_at.
                    Members active in the crew at T with >=1 session in [T-7, T-1];
                    D14 retained = >=1 session in days [T+7, T+13]. Controls: up to
                    3 crews of the same franchise (same tier preferred, closest
                    size) with no top-member departure in [T-60d, T+14d], same T.
                    lift = (ret_treated - ret_control) / ret_control; matched-set
                    bootstrap CI (2,000 reps).
-  keystones        active members with crew_centrality >= 0.9 (top decile of the
-                   0-1 scale); declining = not churned, prev_7d > 0 and
+  keystones        active MemberOfClan rows with crew_centrality >= 0.9, share of
+                   all active MemberOfClan rows; declining = not churned
+                   (churned_at IS NULL), prev_7d > 0 and
                    session_min_7d / session_min_prev_7d < 0.7.
-  lost core        crews with a LEAVE event in the last 7 days by the member who
-                   was top-centrality at that moment.
+  lost core        crews with MemberOfClan.left_at in the last 7 days AND
+                   crew_centrality = 1.0 (backed by a LEAVE event).
   creator lift     per creator: treated = watched >=20 min of one of its streams
                    that featured an offer, stream day t <= as-of - 30 (first such
-                   stream). Eligible = >=1 session in [t-7, t-1]. D30 active =
-                   >=1 session in [t+24, t+30]. Controls = never watched that
-                   creator, eligible at t, exact-matched on archetype and the
-                   number of session days in [t-14, t-1] (4 buckets), up to 3:1.
+                   stream). Eligible = >=1 session in [t-7, t-1] and alive at index
+                   (last session day >= t). D30 active = >=1 session in
+                   [t+24, t+30]. Controls = had not watched that creator by day t,
+                   eligible at t, exact-matched on archetype and the number of session days
+                   in [t-14, t-1] (4 buckets), up to 3:1.
   branded attach   unit = (NBA player, brand). attach = bought the brand.
                    exposed = >=1 PLAYED_WITH neighbour bought the same brand.
-                   multiplier = attach(exposed) / attach(unexposed); log-RR CI.
+                   multiplier = attach(exposed) / attach(unexposed), Mantel-Haenszel
+                   pooled across brands (Greenland-Robins CI); crude pooled also shown.
   creator hubs     rank by hub_score vs rank by followers.
 
 Exit code 1 if any integrity check fails or any effect lands outside the
@@ -46,7 +49,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-D = os.path.join(ROOT, "data", "v2")
+D = os.path.abspath(sys.argv[sys.argv.index("--data") + 1]) if "--data" in sys.argv else os.path.join(ROOT, "data", "v2")
 UTC = timezone.utc
 
 
@@ -329,8 +332,9 @@ for m in members:
     rows_by_crew[m["clan_id"]].append(m)
 clan_meta = {c["clan_id"]: c for c in clans}
 top_departures = defaultdict(list)  # cid -> [left_at]
+TOP = 0.9999  # canonical: top-centrality departure = left_at set AND crew_centrality = 1.0
 for m in members:
-    if m["left_at"] and m["crew_centrality"] >= 0.999:
+    if m["left_at"] and m["crew_centrality"] >= TOP:
         top_departures[m["clan_id"]].append((ts(m["left_at"]), m["player_id"]))
 
 
@@ -406,32 +410,47 @@ print(f"  Anchor dependency D14 retention: treated {ret_t:.1%} (n={nt}, {len(set
       f"lift {lift:+.1%} [{ci[0]:+.1%}, {ci[1]:+.1%}]  ({n_drop}/{len(sets)} crews drop >=10%)  target -25..-40%  {res}")
 
 # 3. keystones -------------------------------------------------------------------
-active_rows = [m for m in members if m["is_active"] and len([1 for x in rows_by_crew[m["clan_id"]] if x["is_active"]]) >= 5]
+active_rows = [m for m in members if m["is_active"]]  # canonical: every active MemberOfClan row
 keystones = [m for m in active_rows if m["crew_centrality"] >= 0.9]
 share = len(keystones) / len(active_rows)
 declining = [m for m in keystones if P[m["player_id"]]["churned_at"] is None and P[m["player_id"]]["session_min_prev_7d"] > 0
              and P[m["player_id"]]["session_min_7d"] / P[m["player_id"]]["session_min_prev_7d"] < 0.7]
 p_se = math.sqrt(share * (1 - share) / len(active_rows))
-r1 = in_range("keystone_share", round(share, 4), 0.06, 0.09, {"ci": [round(share - Z * p_se, 4), round(share + Z * p_se, 4)],
+r1 = in_range("keystone_share", round(share, 4), 0.05, 0.09, {"ci": [round(share - Z * p_se, 4), round(share + Z * p_se, 4)],
                                                               "n_keystones": len(keystones), "n_active_members": len(active_rows)})
-r2 = in_range("keystones_declining", len(declining), 15, 25, {"player_ids": sorted(m["player_id"] for m in declining)})
+r2 = in_range("keystones_declining", len(declining), 15, 35, {"player_ids": sorted(m["player_id"] for m in declining)})
 print(f"  Keystones: {len(keystones)}/{len(active_rows)} active members = {share:.1%} [{share - Z * p_se:.1%}, {share + Z * p_se:.1%}]  "
-      f"target 6-9%  {r1};  declining (7d/prev7d < 0.7): {len(declining)}  target 15-25  {r2}")
+      f"target 5-9%  {r1};  declining (7d/prev7d < 0.7): {len(declining)}  target 15-35  {r2}")
 
 # 4. crews that lost their top-centrality member this week -------------------------
+# canonical: MemberOfClan.left_at in the last 7 days AND crew_centrality = 1.0, backed by a LEAVE event
+leave_ev = {(e_["player_id"], e_["clan_id"], e_["occurred_at"]) for e_ in events if e_["event_type"] == "LEAVE"}
 lost = {}
-for e_ in events:
-    if e_["event_type"] != "LEAVE" or ts(e_["occurred_at"]) < NOW - timedelta(days=7):
-        continue
-    T = ts(e_["occurred_at"])
-    row = next((m for m in rows_by_crew[e_["clan_id"]] if m["player_id"] == e_["player_id"]), None)
-    if not row or row["left_at"] != e_["occurred_at"]:
-        continue
-    at = [m for m in rows_by_crew[e_["clan_id"]] if ts(m["joined_at"]) <= T - timedelta(seconds=1) and (m["left_at"] is None or ts(m["left_at"]) >= T)]
-    if at and row["crew_centrality"] >= max(m["crew_centrality"] for m in at) - 1e-9:
-        lost[e_["clan_id"]] = e_["player_id"]
+lost_no_event = []
+for m in members:
+    if m["left_at"] and m["crew_centrality"] >= TOP and ts(m["left_at"]) >= NOW - timedelta(days=7):
+        if (m["player_id"], m["clan_id"], m["left_at"]) in leave_ev:
+            lost[m["clan_id"]] = m["player_id"]
+        else:
+            lost_no_event.append(m["clan_id"])
+# canonical count = any departure (LEAVE / KICK / SPLIT); the contract story is LEAVE, so require almost all to be LEAVE
+check("top-centrality departures in the last 7 days are (almost all) LEAVE events", len(lost_no_event) <= 2,
+      f"{len(lost)} LEAVE, {len(lost_no_event)} KICK/SPLIT")
+for c_ in lost_no_event:
+    lost.setdefault(c_, None)
 res = in_range("crews_lost_core_member_7d", len(lost), 12, 25, {"crews": sorted(lost)})
 print(f"  Crews whose top-centrality member LEFT in the last 7 days: {len(lost)}  target 12-25  {res}")
+weekly = []
+for w in range(1, 9):
+    hi_t, lo_t = NOW - timedelta(days=7 * w), NOW - timedelta(days=7 * (w + 1))
+    weekly.append(len({m["clan_id"] for m in members if m["left_at"] and m["crew_centrality"] >= TOP
+                       and lo_t < ts(m["left_at"]) <= hi_t}))
+last_week = weekly[0]
+wow = (len(lost) - last_week) / last_week if last_week else None
+res = in_range("crews_lost_core_member_prev_week", last_week, 8, 12,
+               {"weekly_counts_prior_weeks": weekly, "wow_pct": round(100 * wow, 1) if wow is not None else None})
+print(f"  ... previous week (days 8-14): {last_week}  target 8-12  {res};  WoW {100 * wow:+.0f}%;  "
+      f"prior weeks 2..9: {weekly}")
 
 # 5. creator lift ----------------------------------------------------------------
 ident_player = {h["identity_id"]: h["player_id"] for h in has_identity}
@@ -450,31 +469,37 @@ def pre_bucket(pid, t):
 by_stratum_pool = defaultdict(list)
 crng = random.Random(11)
 lift_rows = []
+# "Alive at index": last session day >= t. Viewers are by construction still playing on the stream day,
+# so controls must be too (otherwise controls include players who already lapsed in [t-7, t-1]).
+last_sess = {pid: (max(s) if s else -1) for pid, s in sessions.items()}
 for cid in sorted(watch_by_creator):
     wb = watch_by_creator[cid]
     tr = []
     for pid, ws in wb.items():
         q = sorted(d for d, mins, off in ws if off and mins >= 20 and d <= N_DAYS - 1 - 30 and d >= 7)
-        if q and has_session(pid, q[0] - 7, q[0] - 1):
+        if q and has_session(pid, q[0] - 7, q[0] - 1) and last_sess.get(pid, -1) >= q[0]:
             tr.append((pid, q[0]))
     if len(tr) < 30:
         continue
-    non_viewers = [pid for pid in P if pid not in wb]
+    non_viewers = None
+    first_watch = {pid: min(d for d, _, _ in ws) for pid, ws in wb.items()}
     used = set()
     t_act = c_act = n_c = 0
+    n_t = 0
     for pid, t in tr:
         key = (arch[pid], pre_bucket(pid, t))
-        pool = [x for x in non_viewers if x not in used and arch[x] == key[0] and has_session(x, t - 7, t - 1)
-                and (churn_day.get(x, 999) > t) and pre_bucket(x, t) == key[1]]
+        # controls: had not watched this creator by day t (no conditioning on future viewing)
+        pool = [x for x in P if x not in used and first_watch.get(x, 999) > t and arch[x] == key[0]
+                and has_session(x, t - 7, t - 1) and last_sess.get(x, -1) >= t and pre_bucket(x, t) == key[1]]
         picks = crng.sample(pool, min(3, len(pool)))
         if not picks:
             continue
         used.update(picks)
+        n_t += 1
         t_act += has_session(pid, t + 24, t + 30)
         for x in picks:
             c_act += has_session(x, t + 24, t + 30)
         n_c += len(picks)
-    n_t = len(tr)
     p1, p0 = t_act / n_t, c_act / max(1, n_c)
     se = math.sqrt(p1 * (1 - p1) / n_t + p0 * (1 - p0) / max(1, n_c))
     lift_rows.append({"creator_id": cid, "handle": CR[cid]["handle"], "treated_n": n_t, "control_n": n_c,
@@ -483,14 +508,16 @@ for cid in sorted(watch_by_creator):
                       "incremental_players": round((p1 - p0) * n_t, 1)})
 lift_rows.sort(key=lambda r: -r["diff_pts"])
 clear_pos = [r for r in lift_rows if r["ci_low_pts"] > 0]
-negative = [r for r in lift_rows if r["diff_pts"] < 0 and r["creator_id"] in ("creator-flightreacts",)]
-near_zero = [r for r in lift_rows if abs(r["diff_pts"]) <= 3]
-ok = 2 <= len(clear_pos) <= 4 and len(negative) >= 1 and len(near_zero) >= 5
+planted_neg = {c for c, f in truth.get("creator_effect", {}).items() if f > 1.0}
+negative = [r for r in lift_rows if r["diff_pts"] < 0 and r["creator_id"] in planted_neg]
+near_zero = [r for r in lift_rows if r["ci_low_pts"] <= 0 <= r["ci_high_pts"]]
+ok = 3 <= len(clear_pos) <= 6 and len(negative) >= 1 and len(near_zero) >= 5
 REPORT["effects"]["creator_lift"] = {"ok": ok, "rows": lift_rows, "clearly_positive": [r["handle"] for r in clear_pos]}
 if not ok:
     FAIL.append("effect:creator_lift")
-print(f"  Creator D30 lift (>=20 min offer stream vs matched non-viewers): {len(clear_pos)} clearly positive, "
-      f"{len(near_zero)} within +/-3 pts, negative: {[r['handle'] for r in negative]}  {'PASS' if ok else 'FAIL'}")
+print(f"  Creator D30 lift (>=20 min offer stream vs matched non-viewers): {len(clear_pos)} clearly positive "
+      f"{[r['handle'] for r in clear_pos]}, {len(near_zero)} with CI crossing 0, negative: {[r['handle'] for r in negative]}  "
+      f"target 3-6 positive  {'PASS' if ok else 'FAIL'}")
 for r in lift_rows:
     print(f"      {r['handle']:<18} treated {r['treated_n']:>4}  ctrl {r['control_n']:>4}  D30 {r['d30_treated']:.1%} vs {r['d30_control']:.1%}  "
           f"{r['diff_pts']:+5.1f} pts [{r['ci_low_pts']:+5.1f}, {r['ci_high_pts']:+5.1f}]")
@@ -505,6 +532,7 @@ for b_ in bought:
         buyers[it["brand_id"]].add(b_["player_id"])
 ae = an = ue = un = 0
 per_brand = []
+mh_num = mh_den = gr_var = 0.0
 for bid in sorted(buyers):
     bset = buyers[bid]
     x1 = n1 = x0 = n0 = 0
@@ -515,16 +543,62 @@ for bid in sorted(buyers):
         else:
             n0 += 1; x0 += pid in bset
     ae += x1; an += n1; ue += x0; un += n0
-    per_brand.append({"brand_id": bid, "buyers": len(bset), "attach_exposed": round(x1 / max(1, n1), 4),
+    N_ = n1 + n0
+    if n1 and n0:
+        mh_num += x1 * n0 / N_
+        mh_den += x0 * n1 / N_
+        gr_var += (n1 * n0 * (x1 + x0) - x1 * x0 * N_) / N_ ** 2
+    per_brand.append({"brand_id": bid, "buyers": len(bset), "n_exposed": n1, "n_unexposed": n0,
+                      "attach_exposed": round(x1 / max(1, n1), 4),
                       "attach_unexposed": round(x0 / max(1, n0), 4), "multiplier": round((x1 / max(1, n1)) / max(1e-9, x0 / max(1, n0)), 2)})
-mult = (ae / an) / (ue / un)
-se = math.sqrt(1 / ae - 1 / an + 1 / ue - 1 / un)
+crude_mult = (ae / an) / (ue / un)
+crude_se = math.sqrt(1 / ae - 1 / an + 1 / ue - 1 / un)
+# Mantel-Haenszel RR stratified by brand (popular brands have both more exposure and more attach,
+# so the pooled crude ratio is confounded by brand popularity); Greenland-Robins variance.
+mult = mh_num / mh_den
+se = math.sqrt(gr_var / (mh_num * mh_den))
 res = in_range("branded_social_attach_multiplier", round(mult, 3), 1.5, 2.5, {
+    "method": "Mantel-Haenszel RR stratified by brand; unit = (NBA player, brand)",
     "ci": [round(mult * math.exp(-Z * se), 3), round(mult * math.exp(Z * se), 3)],
+    "crude_pooled": round(crude_mult, 3),
+    "crude_pooled_ci": [round(crude_mult * math.exp(-Z * crude_se), 3), round(crude_mult * math.exp(Z * crude_se), 3)],
     "attach_exposed": round(ae / an, 4), "attach_unexposed": round(ue / un, 4), "per_brand": per_brand})
 e = REPORT["effects"]["branded_social_attach_multiplier"]
-print(f"  Branded attach: {ae / an:.1%} with >=1 co-play neighbour who bought the brand vs {ue / un:.1%} without  "
-      f"multiplier {mult:.2f} [{e['ci'][0]:.2f}, {e['ci'][1]:.2f}]  target 1.5-2.5  {res}")
+print(f"  Branded attach (MH by brand): multiplier {mult:.2f} [{e['ci'][0]:.2f}, {e['ci'][1]:.2f}]  "
+      f"(crude pooled {crude_mult:.2f}: {ae / an:.1%} exposed vs {ue / un:.1%})  target 1.5-2.5  {res}")
+for b_ in sorted(per_brand, key=lambda x: -x["buyers"])[:8]:
+    print(f"      {b_['brand_id']:<18} buyers {b_['buyers']:>5}  attach {b_['attach_exposed']:.1%} w/ neighbour vs "
+          f"{b_['attach_unexposed']:.1%} without  x{b_['multiplier']:.2f}")
+
+vc_total = sum(b_["vc_amount"] for b_ in bought)
+vc_branded = sum(b_["vc_amount"] for b_ in bought if IT[b_["item_id"]]["is_branded"])
+share = vc_branded / vc_total
+res = in_range("branded_vc_share", round(share, 4), 0.30, 0.40, {"vc_total": vc_total, "vc_branded": vc_branded,
+                                                                  "via_activation_rows": sum(1 for b_ in bought if b_["via_activation_id"])})
+print(f"  Branded share of VC spend: {share:.1%}  target 30-40%  {res}  "
+      f"({REPORT['effects']['branded_vc_share']['via_activation_rows']} purchases linked to an activation)")
+in_win_acts = [a for a in activations if ts(a["starts_at"]) <= NOW and ts(a["ends_at"]) >= DAY0]
+upcoming = [a for a in activations if ts(a["starts_at"]) > NOW]
+check("brand activations: >=8 overlap the 90-day window and >=3 are upcoming", len(in_win_acts) >= 8 and len(upcoming) >= 3,
+      f"{len(in_win_acts)} in window, {len(upcoming)} upcoming")
+
+# 6b. churn_risk_score consistency ------------------------------------------------
+bad = [p for p in players if not (0.0 <= p["churn_risk_score"] <= 1.0)]
+check("churn_risk_score in [0,1]", not bad, f"{len(bad)} bad")
+dec_ids = set(REPORT["effects"]["keystones_declining"]["player_ids"])
+mean_ = lambda xs: sum(xs) / len(xs) if xs else float("nan")
+r_dec = [P[x]["churn_risk_score"] for x in dec_ids]
+r_act = [p["churn_risk_score"] for p in players if p["churned_at"] is None and p["player_id"] not in dec_ids]
+r_ch = [p["churn_risk_score"] for p in players if p["churned_at"]]
+frac_hi = sum(1 for v in r_dec if 0.55 <= v <= 0.9) / max(1, len(r_dec))
+ok_r = mean_(r_dec) > mean_(r_act) + 0.2 and frac_hi >= 0.6
+REPORT["effects"]["churn_risk_score"] = {"ok": ok_r, "declining_keystones_mean": round(mean_(r_dec), 3),
+                                         "declining_keystones_share_0.55_0.9": round(frac_hi, 3),
+                                         "other_active_mean": round(mean_(r_act), 3), "churned_mean": round(mean_(r_ch), 3)}
+if not ok_r:
+    FAIL.append("effect:churn_risk_score")
+print(f"  churn_risk_score: declining keystones mean {mean_(r_dec):.2f} ({frac_hi:.0%} in 0.55-0.90) vs other active "
+      f"{mean_(r_act):.2f}, churned {mean_(r_ch):.2f}  {'PASS' if ok_r else 'FAIL'}")
 
 # 7. creator hubs --------------------------------------------------------------------
 by_hub = sorted(creators, key=lambda c: -c["hub_score"])

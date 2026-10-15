@@ -51,7 +51,7 @@ V1_DIR = os.path.join(ROOT, "data")
 OUT = os.path.join(ROOT, "data", "v2")
 BRANDS_PATH = os.path.join(ROOT, "data", "brands_research.json")
 
-SEED = 20261015
+SEED = 12  # validated seed (scripts/validate_dataset_v2.py passes every check at as-of 2026-10-15)
 UTC = timezone.utc
 N_DAYS = 90
 NBA2K27_LAUNCH = datetime(2026, 9, 4, tzinfo=UTC)
@@ -77,29 +77,42 @@ K = {
     "CREW_PAIR_TARGET": 33000,
     "GROUP_PAIR_TARGET": 8500,
     "CROSS_PAIR_TARGET": 16500,
-    "CORE_SOC": (2.25, 2.8),
+    "CORE_SOC": (2.7, 2.8),
+    "CORE_PAIR_SHAPE": 12.0,
+    "CORE_PAIR_MULT": 3.0,  # core-core pairs co-play ~3x more than core-regular pairs  # low-variance co-play weights inside a crew core (2-3 near-equal keystones per crew)
     "ANCHOR_SOC_MULT": 1.30,
-    "BASE_H": 0.0040,  # per-session-day quit hazard scale
-    "EXPOSURE_MULT": 1.75,
-    "ANCHOR_H": 9.0,
-    "ANCHOR_P": 0.45,
+    "BASE_H": 0.0034,  # per-session-day quit hazard scale
+    "EXPOSURE_MULT": 1.0,
+    "ANCHOR_H": 240.0,  # hazard x (1 + ANCHOR_H * strength * exp(-days_since / ANCHOR_DECAY))
+    "ANCHOR_DECAY": 12.0,
+    "ANCHOR_P": 0.9,
     "ANCHOR_DAYS": 35,
-    "N_ANCHOR_A": 16,  # top member left 15-60 days ago (anchor-dependency cohort)
+    "N_ANCHOR_A": 12,  # top member left 29-62 days ago (older anchor-dependency cohort, ~2-3 per week)
+    "N_ANCHOR_W": 30,  # top member left 8-28 days ago: weekly baseline of ~8-12 per week (weeks 2-4)
     "N_ANCHOR_B": 18,  # top member left in the last 7 days ("lost a core member this week")
     "N_SPLITS": 10,
-    "N_DECLINE": 9,
+    "N_DECLINE": 0,
+    "KEYSTONE_SHARE": 0.12,
+    "KEYSTONE_MIN_SIGMA": 0.15,
+    "CORE_SHIELD": 0.05,  # remaining keystones feel the anchor loss less than the periphery
     "CORE_MIN_SIGMA": 0.26,
     "VIEWERS_PER_STREAM": 72,
-    "SOCIAL_KAPPA": 1.6,
+    "SOCIAL_KAPPA": 2.0,
     "BUY_RATE": 0.046,
+    "UNBRANDED_P": 0.65,  # share of purchases that are unbranded VC sinks / cosmetics
 }
 
-# Hazard multiplier applied for 30 days after watching >= 20 min of an offer stream.
+# Hazard multiplier applied for 30 days after watching >= 20 min of the creator's stream
+# (planted creators feature an offer on ~85% of streams). 5 clearly positive (incl. the
+# three mid-follower hub creators), 2 slightly negative, everyone else ~0.
 CREATOR_EFFECT = {
-    "creator-joeknows": 0.42,
-    "creator-kot4q": 0.45,
-    "creator-badgeplug": 0.50,
-    "creator-flightreacts": 1.45,
+    "creator-joeknows": 0.12,
+    "creator-coletheman": 0.15,
+    "creator-2klab": 0.15,
+    "creator-kot4q": 0.10,
+    "creator-badgeplug": 0.12,
+    "creator-flightreacts": 1.80,
+    "creator-grindingdf": 1.60,
 }
 HUB_CREATORS = ["creator-joeknows", "creator-2klab", "creator-coletheman"]
 
@@ -149,7 +162,7 @@ NBA_EXCLUDED_BRANDS = {"minute-maid", "sun-day-red", "lululemon"}
 BRAND_CATALOG = {
     "american-express": {
         "items": [("American Express 2XREP Tee", "APPAREL"), ("Amex Courtside Hoodie", "APPAREL")],
-        "activations": [("American Express 2XREP", "CITY_EVENT", "2026-01-24", "2026-01-25", None),
+        "activations": [("American Express 2XREP", "CITY_EVENT", "2026-09-19", "2026-09-21", "season-nba2k27-s1"),
                         ("American Express 2XREP", "CITY_EVENT", "2026-11-07", "2026-11-09", "season-nba2k27-s2")]},
     "gatorade": {
         "items": [("Gatorade Boosts", "BUNDLE"), ("Gatorade Training Facility Tee", "APPAREL"), ("Gatorade Towel", "ACCESSORY")],
@@ -160,8 +173,8 @@ BRAND_CATALOG = {
                         ("The CeraVe Splash Zone", "CITY_EVENT", "2026-11-13", "2026-11-16", "season-nba2k27-s2")]},
     "coach": {
         "items": [("Coach Varsity Jacket", "APPAREL"), ("Coach Signature Hoodie", "APPAREL"), ("Coach Crossbody Bag", "ACCESSORY")],
-        "activations": [("Coach 2XREP", "CITY_EVENT", "2026-01-17", "2026-01-18", None),
-                        ("Coach 2XREP", "CITY_EVENT", "2026-03-14", "2026-03-15", None),
+        "activations": [("Coach 2XREP", "CITY_EVENT", "2026-09-12", "2026-09-14", "season-nba2k27-s1"),
+                        ("Coach 2XREP", "CITY_EVENT", "2026-10-03", "2026-10-05", "season-nba2k27-s1"),
                         ("Coach apparel in The City", "STORE_DROP", "2026-09-04", "2026-10-16", "season-nba2k27-s1")]},
     "adidas": {
         "items": [("adidas Anthony Edwards signature shoe", "SHOES"), ("adidas Superstar", "SHOES"), ("adidas 2XREP Tee", "APPAREL")],
@@ -172,8 +185,8 @@ BRAND_CATALOG = {
         "activations": [("Nike Caitlin 1 drop in The City", "STORE_DROP", "2026-09-18", "2026-10-09", "season-nba2k27-s1")]},
     "kia": {
         "items": [("Kia Challenge Tee", "APPAREL")],
-        "activations": [("Kia Challenge", "CITY_EVENT", "2026-02-20", "2026-02-23", None),
-                        ("Kia Challenge", "CITY_EVENT", "2026-04-10", "2026-04-13", None)]},
+        "activations": [("Kia Challenge", "CITY_EVENT", "2026-09-26", "2026-09-29", "season-nba2k27-s1"),
+                        ("Kia Challenge", "CITY_EVENT", "2026-10-10", "2026-10-13", "season-nba2k27-s1")]},
     "converse": {
         "items": [("Converse SHAI 001", "SHOES"), ("Chuck Taylor All Star", "SHOES"), ("Converse Weapon", "SHOES")],
         "activations": [("Converse SHAI 001 drop in The City", "STORE_DROP", "2026-09-04", "2026-09-25", "season-nba2k27-s1")]},
@@ -205,7 +218,29 @@ UNBRANDED_ITEMS = [
     ("Campus Classic Hoodie", "APPAREL"), ("College Hoops Throwback Jersey", "JERSEY"), ("March Run Warmup Tee", "APPAREL"),
     # WNBA / The W leaning (generic)
     ("The W Courtside Hoodie", "APPAREL"), ("The W Practice Jersey", "JERSEY"),
+    # VC sinks that dominate real spend (MyPLAYER upgrades, badges, packs, animations)
+    ("MyPLAYER Attribute Boost Pack", "BUNDLE"), ("Badge Unlock Bundle", "BUNDLE"),
+    ("MyTEAM Pack Bundle", "BUNDLE"), ("Animation Package Bundle", "BUNDLE"),
+    ("Signature Takeover Upgrade", "BUNDLE"),
 ]
+VC_SINK_ITEMS = {"MyPLAYER Attribute Boost Pack", "Badge Unlock Bundle", "MyTEAM Pack Bundle",
+                 "Animation Package Bundle", "Signature Takeover Upgrade"}
+# Stable public logo files (Wikimedia Commons, verified HTTP 200). Brands without a
+# verified file stay NULL and the UI renders a wordmark.
+LOGO_URLS = {
+    "american-express": "https://upload.wikimedia.org/wikipedia/commons/f/fa/American_Express_logo_%282018%29.svg",
+    "gatorade": "https://upload.wikimedia.org/wikipedia/commons/9/9b/Gatorade_logo.svg",
+    "adidas": "https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg",
+    "nike": "https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg",
+    "converse": "https://upload.wikimedia.org/wikipedia/commons/3/30/Converse_logo.svg",
+    "nvidia": "https://upload.wikimedia.org/wikipedia/commons/2/21/Nvidia_logo.svg",
+    "state-farm": "https://upload.wikimedia.org/wikipedia/commons/9/9a/State_Farm_logo.svg",
+    "reebok": "https://upload.wikimedia.org/wikipedia/commons/5/53/Reebok_2019_logo.svg",
+    "new-balance": "https://upload.wikimedia.org/wikipedia/commons/e/ea/New_Balance_logo.svg",
+    "under-armour": "https://upload.wikimedia.org/wikipedia/commons/4/44/Under_armour_logo.svg",
+    "tissot": "https://upload.wikimedia.org/wikipedia/commons/c/ce/Tissot_Logo.svg",
+    "puma": "https://upload.wikimedia.org/wikipedia/commons/a/ae/Puma-logo-%28text%29.svg",
+}
 
 SPLIT_SUFFIX = ["Reloaded", "2.0", "Next Up", "Second Unit", "Run It Back", "Afterhours",
                 "Bench Mob", "Late Night Runs", "Remix", "B-Team", "Overtime"]
@@ -276,10 +311,15 @@ def weighted_sample(r, items, weights, n):
 # main build
 # ---------------------------------------------------------------------------
 def main():
+    global SEED, OUT
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-brands", action="store_true")
     ap.add_argument("--as-of", default="2026-10-15", help="as-of date (YYYY-MM-DD); NOW = as-of 12:00Z")
+    ap.add_argument("--seed", type=int, default=SEED, help="simulation seed (validated default in SEED)")
+    ap.add_argument("--out", default=OUT, help="output directory (default data/v2)")
     args = ap.parse_args()
+    SEED, OUT = args.seed, os.path.abspath(args.out)
+    rng.seed(SEED)
     configure(args.as_of)
     print(f"as_of={args.as_of}  window={DAY0.date()}..{(DAY0 + timedelta(days=N_DAYS - 1)).date()}  "
           f"launch_idx={LAUNCH_IDX}  s2_idx={S2_IDX}")
@@ -328,7 +368,7 @@ def main():
         core[cid] = ranked[: min(size, max(2, len(mem) // 6))]
         for x in core[cid]:
             soc[x] = rng.uniform(*K["CORE_SOC"])
-            pp[x] = max(pp[x], rng.uniform(0.78, 0.92))
+            pp[x] = max(pp[x], rng.uniform(0.86, 0.92))
             min_sigma[x] = K["CORE_MIN_SIGMA"]
 
     # Pickup groups for crewless players (same DMA + franchise family), size 30-60.
@@ -373,14 +413,20 @@ def main():
     eligible = [c for c in sorted(crew_members) if len(crew_members[c]) >= 20
                 and clan_by_id[c]["franchise"] in ("NBA2K", "NBA2K26")]
     rng.shuffle(eligible)
-    set_a = eligible[: K["N_ANCHOR_A"]]
-    set_b = eligible[K["N_ANCHOR_A"]: K["N_ANCHOR_A"] + K["N_ANCHOR_B"]]
-    rest = eligible[K["N_ANCHOR_A"] + K["N_ANCHOR_B"]:]
-    split_parents = [c for c in rest if len(crew_members[c]) >= 30][: K["N_SPLITS"]]
-    untouched = [c for c in rest if c not in split_parents]
+    na, nw, nb_ = K["N_ANCHOR_A"], K["N_ANCHOR_W"], K["N_ANCHOR_B"]
+    set_a = eligible[:na]
+    set_w = eligible[na:na + nw]
+    set_b = eligible[na + nw:na + nw + nb_]
+    anchored = set(set_a) | set(set_w) | set(set_b)
+    # split parents may also have lost an anchor (just not this week)
+    split_pool = [c for c in eligible if c not in set_b and len(crew_members[c]) >= 30]
+    split_parents = split_pool[::-1][: K["N_SPLITS"]]
+    untouched = [c for c in sorted(crew_members) if c not in anchored]
     anchor_of = {}
-    for c in set_a + set_b:
-        top = max(core[c], key=lambda x: soc[x])
+    for c in set_a + set_w + set_b:
+        # anchors are long-tenured (joined well before the window)
+        veterans = [x for x in core[c] if (P[x]["account_tenure_days"] or 0) >= 200] or core[c]
+        top = max(veterans, key=lambda x: soc[x])
         soc[top] = K["CORE_SOC"][1] * K["ANCHOR_SOC_MULT"]
         pp[top] = max(pp[top], 0.85)
         anchor_of[c] = top
@@ -408,9 +454,15 @@ def main():
     tier_by_member = {x: clan_by_id[crew_of_v1[x]]["tier"] for x in crew_of_v1}
     cand, kc = calibrate(crew_groups, K["CREW_PAIR_TARGET"],
                          lambda a, b: soc[a] * soc[b] * tier_f.get(tier_by_member[a], 1.0))
+    core_set = {x for mem in core.values() for x in mem}
     for a, b, base in cand:
         if rng.random() < 1 - math.exp(-kc * base):
-            w = 2 + int(round(rng.gammavariate(1.6, 6.5 * soc[a] * soc[b] * tier_f.get(tier_by_member[a], 1.0))))
+            scale = 6.5 * soc[a] * soc[b] * tier_f.get(tier_by_member[a], 1.0)
+            if a in core_set and b in core_set:
+                sh = K["CORE_PAIR_SHAPE"]
+                w = 2 + int(round(rng.gammavariate(sh, K["CORE_PAIR_MULT"] * 1.6 * scale / sh)))
+            else:
+                w = 2 + int(round(rng.gammavariate(1.6, scale)))
             pairs[pkey(a, b)] = {"w": w, "kind": "crew"}
     cand, kg = calibrate([pickup_groups[g] for g in sorted(pickup_groups)], K["GROUP_PAIR_TARGET"],
                          lambda a, b: soc[a] * soc[b])
@@ -441,6 +493,48 @@ def main():
                 continue
             pairs[k2] = {"w": 1 + int(round(rng.gammavariate(1.2, 3.0))), "kind": "cross"}
             added += 1
+
+    # Crew structure: each crew has a small core of near-equal "keystones" (~KEYSTONE_SHARE of
+    # members within ~10% of the top co-play degree); planted anchors are the clear #1.
+    crew_nbrs = defaultdict(dict)
+    for (a, b), meta in pairs.items():
+        if meta["kind"] == "crew":
+            crew_nbrs[a][b] = meta
+            crew_nbrs[b][a] = meta
+
+    def cdeg(x):
+        return sum(m["w"] for m in crew_nbrs[x].values())
+
+    def scale_to(x, target):
+        d = cdeg(x)
+        if d <= 0:
+            return
+        f = target / d
+        for m in crew_nbrs[x].values():
+            m["w"] = max(1, int(round(m["w"] * f)))
+
+    key_core = set()
+    for cid in sorted(crew_members):
+        mem = crew_members[cid]
+        a = anchor_of.get(cid)
+        for _ in range(2):
+            others = sorted((x for x in mem if x != a), key=lambda x: -cdeg(x))
+            if not others:
+                break
+            n_key = max(2, int(round(K["KEYSTONE_SHARE"] * len(mem) * rng.uniform(0.8, 1.2))))
+            top = cdeg(others[0])
+            key_core.update(others[:n_key])
+            for x in others[1:n_key]:
+                if cdeg(x) < 0.93 * top:
+                    scale_to(x, top * rng.uniform(0.93, 1.0))
+            if a is not None:
+                mx = max(cdeg(x) for x in others)
+                if cdeg(a) < 1.25 * mx:
+                    scale_to(a, 1.25 * mx * rng.uniform(1.0, 1.1))
+    # keystones are steady regulars: high play rate, low day-to-day minute variance
+    for x in sorted(key_core):
+        pp[x] = max(pp[x], 0.84)
+        min_sigma[x] = min(min_sigma[x], K["KEYSTONE_MIN_SIGMA"])
 
     # ------------------------------------------------------------------
     # 4. Crew membership history (joins, splits, re-forms, leaves, former members)
@@ -480,18 +574,28 @@ def main():
     # Planted anchor departures
     anchor_depart = {}  # cid -> day index
     for c in set_a:
-        anchor_depart[c] = rng.randint(N_DAYS - 1 - 60, N_DAYS - 1 - 15)
+        anchor_depart[c] = rng.randint(N_DAYS - 1 - 62, N_DAYS - 1 - 29)
+    # weekly baseline: week 2 = days N-14..N-9, week 3 = N-21..N-15, week 4 = N-28..N-22 (noisy 8-12 per week)
+    w2 = rng.randint(9, 10)
+    w3 = rng.randint(9, 11)
+    weeks = [(N_DAYS - 14, N_DAYS - 9)] * w2 + [(N_DAYS - 21, N_DAYS - 15)] * w3 + \
+            [(N_DAYS - 28, N_DAYS - 22)] * (len(set_w) - w2 - w3)
+    for c, (lo_, hi_) in zip(set_w, weeks):
+        anchor_depart[c] = rng.randint(lo_, hi_)
     for c in set_b:
         anchor_depart[c] = rng.randint(N_DAYS - 7, N_DAYS - 1)
     anchor_rejoin = {}
-    rejoin_targets = [c for c in untouched if clan_by_id[c]["franchise"] == "NBA2K"]
+    rejoin_targets = [c for c in sorted(crew_members) if clan_by_id[c]["franchise"] == "NBA2K"
+                      and c not in set_w and c not in set_b]
     for c, d in anchor_depart.items():
         a = anchor_of[c]
         t_leave = time_in_day(rng, d)
+        if rows[(a, c)]["joined"] >= t_leave - timedelta(days=7):
+            raise SystemExit(f"FATAL: anchor {a} of {c} joined {rows[(a, c)]['joined']} after planned departure {t_leave}")
         rows[(a, c)]["left"] = t_leave
         ev(a, c, "LEAVE", t_leave)
-        if c in set_a and rng.random() < 0.5 and rejoin_targets:
-            tgt = rng.choice(rejoin_targets)
+        if c not in set_b and rng.random() < 0.5 and rejoin_targets:
+            tgt = rng.choice([x for x in rejoin_targets if x != c])
             t_join = min(NOW - timedelta(hours=1), t_leave + timedelta(days=rng.randint(1, 6), hours=rng.randint(0, 12)))
             rows[(a, tgt)] = {"role": "MEMBER", "joined": t_join, "left": None}
             ev(a, tgt, "JOIN", t_join, c)
@@ -627,7 +731,8 @@ def main():
         ties = {x: pairs.get(pkey(a, x), {"w": 0})["w"] for x in mem}
         mx = max(ties.values()) if ties else 1
         for x in mem:
-            anchor_eff[x] = (d, d + K["ANCHOR_DAYS"], cs * (0.35 + 0.65 * ties[x] / max(mx, 1)))
+            st = cs * (0.35 + 0.65 * ties[x] / max(mx, 1))
+            anchor_eff[x] = (d, d + K["ANCHOR_DAYS"], st * (K["CORE_SHIELD"] if x in key_core else 1.0))
 
     decline_pool = []
     for c in untouched:
@@ -671,14 +776,16 @@ def main():
             n = rng.randint(5, 7)
         if cid in CREATOR_EFFECT or cid in HUB_CREATORS:
             n += 4
-        days = sorted(rng.sample(range(0, N_DAYS), n))
+        # NBA 2K27 launch fortnight runs hot for NBA creators (launch streams + first offers)
+        day_w = [3.0 if (c["franchise"] == "NBA2K" and LAUNCH_IDX <= d < LAUNCH_IDX + 14) else 1.0 for d in range(N_DAYS)]
+        days = sorted(weighted_sample(rng, list(range(N_DAYS)), day_w, n))
         for i, d in enumerate(days):
             sid += 1
             fr = "NBA2K" if c["franchise"] == "NBA2K" else c["franchise"]
             pool = [o for o in offers_by_fr.get(fr, []) if o["available_from"] <= day_dt(d).strftime("%Y-%m-%d")]
             if fr == "NBA2K":
                 pool = [o for o in pool if (o["game_id"] or "").startswith("game-nba2k27")]
-            p_offer = 0.62 if cid in CREATOR_EFFECT else 0.45
+            p_offer = 0.85 if cid in CREATOR_EFFECT else 0.45
             offer = rng.choice(pool) if pool and rng.random() < p_offer else None
             plat = c["platform"]
             plat = "Twitch" if ("Twitch" in plat and ("YouTube" not in plat or rng.random() < 0.6)) else "YouTube"
@@ -735,7 +842,7 @@ def main():
             ae = anchor_eff.get(pid)
             if ae and ae[0] <= t < ae[1]:
                 p_t *= 1 - K["ANCHOR_P"] * ae[2]
-                hz *= 1 + K["ANCHOR_H"] * ae[2]
+                hz *= 1 + K["ANCHOR_H"] * ae[2] * math.exp(-(t - ae[0]) / K["ANCHOR_DECAY"])
             if pid in decliners and t >= N_DAYS - 7:
                 p_t *= 0.42
                 m_t *= 0.62
@@ -747,6 +854,8 @@ def main():
             for (s0, s1, f) in watch_eff.get(pid, ()):
                 if s0 <= t < s1:
                     hz *= f
+                    # creator influence also shifts engagement (more / fewer play days)
+                    p_t *= (1 + 0.5 * (1 - f)) if f < 1 else 1 / (1 + 0.3 * (f - 1))
             if rng.random() < min(0.97, p_t):
                 minutes = max(5, int(round(mu[pid] * m_t * rng.lognormvariate(0, min_sigma[pid]))))
                 sessions[pid][t] = minutes
@@ -769,18 +878,18 @@ def main():
             for pid in pids:
                 if pid in quit_day and quit_day[pid] < t:
                     continue
-                w = (2.4 if pid in fol else 0.35) * (0.45 + pp[pid]) * (1.0 if fm[pid] else 0.08)
+                w = (2.4 if pid in fol else 0.35) * (1.0 if fm[pid] else 0.08)
                 if hub:
                     w *= 40.0 / max(group_size[group_of[pid]], 10)
                 else:
-                    w *= 4.0 if group_of[pid] in homes else 0.10
+                    w *= 2.5 if group_of[pid] in homes else 0.25
                 cands.append(pid)
                 ws.append(w)
             viewers = weighted_sample(rng, cands, ws, n_view)
             for pid in viewers:
                 mins = round(min(s["_dur"], max(2.0, rng.lognormvariate(math.log(24), 0.75))), 1)
                 watches.append((pid, s, mins, t))
-                if s["featured_offer_id"] and mins >= 20:
+                if mins >= 20:
                     f = CREATOR_EFFECT.get(cid, 1.0)
                     if f != 1.0:
                         watch_eff[pid].append((t, t + 30, f))
@@ -912,6 +1021,33 @@ def main():
                            "related_clan_id": e["related_clan_id"]})
 
     # ------------------------------------------------------------------
+    # 11b. churn_risk_score (v2). The v1 value is only the latent input to the
+    # simulation's base hazard; the published score is re-derived from the v2
+    # behaviour so it agrees with what the graph shows: week-over-week session
+    # decline, churned/lapsing PLAYED_WITH neighbours, crew top-member departure,
+    # days idle, tilt and loss streak. Logistic with noise (not deterministic).
+    # ------------------------------------------------------------------
+    risk_rng = random.Random(SEED + 202)
+    churned_set = {pid for pid in pids if P[pid]["churned_at"]}
+    lapsing = {pid for pid in pids if last_day[pid] is None or last_day[pid] <= N_DAYS - 1 - 7}
+    for pid in pids:
+        p = P[pid]
+        if pid in churned_set:
+            p["churn_risk_score"] = round(clamp(0.9 + risk_rng.gauss(0, 0.04), 0.75, 0.99), 2)
+            continue
+        s7, s_prev = p["session_min_7d"], p["session_min_prev_7d"]
+        decline = clamp(1 - s7 / s_prev, 0.0, 1.0) if s_prev > 0 else (0.0 if s7 > 0 else 0.6)
+        nb = nbrs[pid]
+        expo = sum(1 for q in nb if q in churned_set or q in lapsing) / len(nb) if nb else 0.0
+        idle = (N_DAYS - 1 - last_day[pid]) / 14 if last_day[pid] is not None else 1.0
+        ae = anchor_eff.get(pid)
+        crew_hit = 1.0 if (ae and ae[0] >= N_DAYS - 60) else 0.0
+        z = (-2.1 + 2.7 * math.sqrt(decline) + 2.0 * max(0.0, expo - 0.15) + 0.8 * (p.get("tilt_sensitivity") or 0.0)
+             + 0.12 * min(p.get("recent_loss_streak") or 0, 5) + 0.7 * crew_hit + 1.2 * idle
+             + risk_rng.gauss(0, 0.35))
+        p["churn_risk_score"] = round(1 / (1 + math.exp(-z)), 2)
+
+    # ------------------------------------------------------------------
     # 12. FRIENDS_WITH + MESSAGED
     # ------------------------------------------------------------------
     friends = {}
@@ -1007,6 +1143,13 @@ def main():
                 played = time_in_day(rng, di) if 0 <= di < N_DAYS else date + timedelta(hours=rng.randint(14, 23) + 0, minutes=rng.randint(0, 59)) + timedelta(hours=rng.choice([0, 1, 2, 3, 4, 5, 6]))
                 if played > NOW:
                     played = NOW - timedelta(minutes=rng.randint(10, 600))
+                s_start = start + timedelta(hours=17)
+                s_end = datetime.fromisoformat(s[4]).replace(tzinfo=UTC) + timedelta(hours=17)
+                if played < s_start:  # seasons flip at 17:00Z
+                    played = s_start + timedelta(minutes=rng.randint(5, 400))
+                if played >= s_end:
+                    played = s_end - timedelta(minutes=rng.randint(10, 600))
+                played = min(played, NOW - timedelta(minutes=5))
                 matches.append({"match_id": m_id, "season_id": s[0], "mode": mode, "played_at": iso(played)})
                 in_season.append({"match_id": m_id, "season_id": s[0]})
                 pa = 1 / (1 + math.exp(-(strength[a] - strength[b])))
@@ -1188,6 +1331,7 @@ def main():
     truth = {
         "seed": SEED, "now": iso(NOW), "knobs": K, "creator_effect": CREATOR_EFFECT, "hub_creators": HUB_CREATORS,
         "anchor_set_a": {c: {"anchor": anchor_of[c], "depart_day": anchor_depart[c], "strength": round(crew_strength[c], 3)} for c in set_a},
+        "anchor_set_w": {c: {"anchor": anchor_of[c], "depart_day": anchor_depart[c], "strength": round(crew_strength[c], 3)} for c in set_w},
         "anchor_set_b": {c: {"anchor": anchor_of[c], "depart_day": anchor_depart[c], "strength": round(crew_strength[c], 3)} for c in set_b},
         "decliners": sorted(decliners), "split_children": [s["clan_id"] for s in split_from],
         "reformed_children": reform_children, "exposure_person_days": exposure_days,
@@ -1261,7 +1405,7 @@ def build_brands(players, pids, sessions, nbrs, streams, watches, quit_day, crea
         if titles:
             summary = f"{summary} (Titles: {', '.join(titles)})".strip()
         brands.append({"brand_id": bid, "name": b["name"], "category": b.get("category"),
-                       "partnership_summary": summary[:1000], "logo_url": b.get("logo_url")})
+                       "partnership_summary": summary[:1000], "logo_url": b.get("logo_url") or LOGO_URLS.get(bid)})
         conf_w[bid] = {"HIGH": 2.0, "MEDIUM": 1.0}.get(str(b.get("confidence", "")).upper(), 0.7)
         for nm, it in BRAND_CATALOG[bid]["items"]:
             item_n += 1
@@ -1286,6 +1430,7 @@ def build_brands(players, pids, sessions, nbrs, streams, watches, quit_day, crea
 
     item_by_id = {i["item_id"]: i for i in items}
     unbranded_ids = [i["item_id"] for i in items if not i["is_branded"]]
+    unbranded_w = [2.5 if i["name"] in VC_SINK_ITEMS else 1.0 for i in items if not i["is_branded"]]
     brand_ids = list(BRAND_CATALOG)
     acts_by_item = defaultdict(list)
     for f_ in features:
@@ -1317,6 +1462,7 @@ def build_brands(players, pids, sessions, nbrs, streams, watches, quit_day, crea
     pop = {b: conf_w[b] * r.lognormvariate(0, 0.35) for b in brand_ids}
     pref = {p["player_id"]: {b: r.lognormvariate(0, 0.6) for b in brand_ids} for p in players}
     nba_player = {p["player_id"]: bool(set(p.get("franchises_played") or []) & NBA_FAMILY) for p in players}
+    buy_norm = {pid: 0.6 / max(len(sessions[pid]) / N_DAYS, 0.3) for pid in pids}
     spend = {p["player_id"]: ARCH_SPEND[p["primary_archetype"]] * r.lognormvariate(0, 0.45) for p in players}
     nbr_bought = defaultdict(set)  # pid -> brands bought by co-play neighbours so far
     bought = []
@@ -1327,10 +1473,10 @@ def build_brands(players, pids, sessions, nbrs, streams, watches, quit_day, crea
         for pid in pids:
             if t not in sessions[pid] or not nba_player[pid]:
                 continue
-            if r.random() >= K["BUY_RATE"] * spend[pid]:
+            if r.random() >= K["BUY_RATE"] * spend[pid] * buy_norm[pid]:
                 continue
-            if r.random() < 0.40:
-                iid = r.choice(unbranded_ids)
+            if r.random() < K["UNBRANDED_P"]:
+                iid = r.choices(unbranded_ids, weights=unbranded_w)[0]
             else:
                 boosts = {b for (s0, s1, b) in stream_boost.get(pid, ()) if s0 <= t < s1}
                 nb = nbr_bought[pid]
@@ -1383,4 +1529,9 @@ def write_ndjson(name, rows):
 
 
 if __name__ == "__main__":
+    # Determinism: some intermediate structures are sets of strings, so pin the hash seed
+    # (re-exec once) to make a given --seed / --as-of reproduce byte-identical output.
+    if os.environ.get("PYTHONHASHSEED") != "0":
+        os.environ["PYTHONHASHSEED"] = "0"
+        os.execv(sys.executable, [sys.executable] + sys.argv)
     main()

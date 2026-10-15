@@ -222,8 +222,8 @@
       "detail": ""
     },
     "Matches.played_at inside its season": {
-      "ok": false,
-      "detail": "151 bad"
+      "ok": true,
+      "detail": "0 bad"
     },
     "Watched.watched_at inside the stream": {
       "ok": true,
@@ -251,614 +251,784 @@
     },
     "MAX(last_active_at) falls on the as-of date": {
       "ok": true,
-      "detail": "2026-10-15T11:51:21+00:00"
+      "detail": "2026-10-15T11:53:38+00:00"
+    },
+    "top-centrality departures in the last 7 days are (almost all) LEAVE events": {
+      "ok": true,
+      "detail": "17 LEAVE, 0 KICK/SPLIT"
+    },
+    "brand activations: >=8 overlap the 90-day window and >=3 are upcoming": {
+      "ok": true,
+      "detail": "13 in window, 3 upcoming"
+    },
+    "churn_risk_score in [0,1]": {
+      "ok": true,
+      "detail": "0 bad"
     }
   },
   "effects": {
     "churn_exposure_hazard_ratio": {
-      "value": 2.073,
+      "value": 1.851,
       "range": [
         1.6,
         2.0
       ],
-      "ok": false,
-      "crude": 2.11,
+      "ok": true,
+      "crude": 1.926,
       "crude_ci": [
-        1.899,
-        2.345
+        1.723,
+        2.152
       ],
       "mh_ci": [
-        1.866,
-        2.305
+        1.656,
+        2.068
       ],
-      "events_exposed": 929,
-      "person_days_exposed": 195321,
-      "events_unexposed": 551,
-      "person_days_unexposed": 244474
+      "events_exposed": 634,
+      "person_days_exposed": 158686,
+      "events_unexposed": 614,
+      "person_days_unexposed": 295914
     },
     "anchor_dependency_d14_retention_lift": {
-      "value": -0.064,
+      "value": -0.287,
       "range": [
         -0.4,
         -0.25
       ],
-      "ok": false,
+      "ok": true,
       "ci": [
-        -0.09,
-        -0.039
+        -0.344,
+        -0.229
       ],
-      "ret_treated": 0.873,
-      "ret_control": 0.933,
-      "n_treated_crews": 15,
-      "n_treated_members": 576,
-      "n_control_members": 1745,
-      "crews_with_>=10pct_drop": 5
+      "ret_treated": 0.667,
+      "ret_control": 0.936,
+      "n_treated_crews": 33,
+      "n_treated_members": 1293,
+      "n_control_members": 4038,
+      "crews_with_>=10pct_drop": 26
     },
     "keystone_share": {
-      "value": 0.0456,
+      "value": 0.067,
       "range": [
-        0.06,
+        0.05,
         0.09
       ],
-      "ok": false,
+      "ok": true,
       "ci": [
-        0.0386,
-        0.0526
+        0.0586,
+        0.0753
       ],
-      "n_keystones": 156,
-      "n_active_members": 3419
+      "n_keystones": 231,
+      "n_active_members": 3449
     },
     "keystones_declining": {
-      "value": 24,
+      "value": 16,
       "range": [
         15,
-        25
+        35
       ],
       "ok": true,
       "player_ids": [
-        "t2-usr-00064",
-        "t2-usr-00231",
-        "t2-usr-00277",
-        "t2-usr-00323",
-        "t2-usr-00560",
-        "t2-usr-00609",
-        "t2-usr-00746",
-        "t2-usr-01378",
-        "t2-usr-01686",
-        "t2-usr-01784",
-        "t2-usr-01824",
-        "t2-usr-01897",
-        "t2-usr-02313",
-        "t2-usr-02928",
-        "t2-usr-03423",
-        "t2-usr-03566",
-        "t2-usr-03948",
-        "t2-usr-04081",
-        "t2-usr-04624",
-        "t2-usr-04634",
-        "t2-usr-05039",
-        "t2-usr-05103",
-        "t2-usr-05171",
-        "t2-usr-05188"
+        "t2-usr-00198",
+        "t2-usr-00346",
+        "t2-usr-00523",
+        "t2-usr-01025",
+        "t2-usr-01345",
+        "t2-usr-01363",
+        "t2-usr-01867",
+        "t2-usr-01999",
+        "t2-usr-02808",
+        "t2-usr-02901",
+        "t2-usr-03481",
+        "t2-usr-03567",
+        "t2-usr-03647",
+        "t2-usr-03992",
+        "t2-usr-04828",
+        "t2-usr-05963"
       ]
     },
     "crews_lost_core_member_7d": {
-      "value": 16,
+      "value": 17,
       "range": [
         12,
         25
       ],
       "ok": true,
       "crews": [
-        "crew-012",
-        "crew-014",
-        "crew-017",
-        "crew-019",
-        "crew-023",
-        "crew-035",
-        "crew-048",
-        "crew-050",
-        "crew-055",
-        "crew-058",
-        "crew-059",
-        "crew-061",
-        "crew-065",
+        "crew-001",
+        "crew-004",
+        "crew-007",
+        "crew-010",
+        "crew-015",
+        "crew-018",
+        "crew-021",
+        "crew-040",
+        "crew-041",
+        "crew-042",
+        "crew-045",
+        "crew-056",
+        "crew-062",
+        "crew-066",
+        "crew-067",
         "crew-069",
-        "crew-071",
         "crew-072"
       ]
     },
+    "crews_lost_core_member_prev_week": {
+      "value": 9,
+      "range": [
+        8,
+        12
+      ],
+      "ok": true,
+      "weekly_counts_prior_weeks": [
+        9,
+        11,
+        11,
+        3,
+        3,
+        1,
+        3,
+        1
+      ],
+      "wow_pct": 88.9
+    },
     "creator_lift": {
-      "ok": false,
+      "ok": true,
       "rows": [
-        {
-          "creator_id": "creator-joeknows",
-          "handle": "JoeKnows",
-          "treated_n": 57,
-          "control_n": 171,
-          "d30_treated": 1.0,
-          "d30_control": 0.8713,
-          "diff_pts": 12.87,
-          "ci_low_pts": 7.85,
-          "ci_high_pts": 17.88,
-          "incremental_players": 7.3
-        },
-        {
-          "creator_id": "creator-gamerability",
-          "handle": "GamerAbility",
-          "treated_n": 52,
-          "control_n": 156,
-          "d30_treated": 0.9808,
-          "d30_control": 0.8526,
-          "diff_pts": 12.82,
-          "ci_low_pts": 6.12,
-          "ci_high_pts": 19.52,
-          "incremental_players": 6.7
-        },
-        {
-          "creator_id": "creator-uncledemi",
-          "handle": "UncleDemi",
-          "treated_n": 42,
-          "control_n": 126,
-          "d30_treated": 0.9762,
-          "d30_control": 0.8571,
-          "diff_pts": 11.9,
-          "ci_low_pts": 4.25,
-          "ci_high_pts": 19.56,
-          "incremental_players": 5.0
-        },
         {
           "creator_id": "creator-badgeplug",
           "handle": "BadgePlug",
-          "treated_n": 72,
-          "control_n": 216,
-          "d30_treated": 0.9583,
-          "d30_control": 0.8611,
-          "diff_pts": 9.72,
-          "ci_low_pts": 3.2,
-          "ci_high_pts": 16.25,
-          "incremental_players": 7.0
-        },
-        {
-          "creator_id": "creator-potatomcwhiskey",
-          "handle": "PotatoMcWhiskey",
-          "treated_n": 84,
-          "control_n": 252,
-          "d30_treated": 0.9643,
-          "d30_control": 0.8849,
-          "diff_pts": 7.94,
-          "ci_low_pts": 2.34,
-          "ci_high_pts": 13.53,
-          "incremental_players": 6.7
-        },
-        {
-          "creator_id": "creator-dbg",
-          "handle": "DBG",
-          "treated_n": 82,
-          "control_n": 246,
-          "d30_treated": 0.9024,
-          "d30_control": 0.8333,
-          "diff_pts": 6.91,
-          "ci_low_pts": -1.02,
-          "ci_high_pts": 14.84,
-          "incremental_players": 5.7
-        },
-        {
-          "creator_id": "creator-bde",
-          "handle": "BDE",
-          "treated_n": 81,
-          "control_n": 243,
-          "d30_treated": 0.9136,
-          "d30_control": 0.8601,
-          "diff_pts": 5.35,
-          "ci_low_pts": -2.16,
-          "ci_high_pts": 12.86,
-          "incremental_players": 4.3
-        },
-        {
-          "creator_id": "creator-moxsy",
-          "handle": "Moxsy",
-          "treated_n": 85,
-          "control_n": 255,
-          "d30_treated": 0.9176,
-          "d30_control": 0.8824,
-          "diff_pts": 3.53,
-          "ci_low_pts": -3.53,
-          "ci_high_pts": 10.59,
-          "incremental_players": 3.0
+          "treated_n": 239,
+          "control_n": 716,
+          "d30_treated": 0.9833,
+          "d30_control": 0.8785,
+          "diff_pts": 10.48,
+          "ci_low_pts": 7.58,
+          "ci_high_pts": 13.37,
+          "incremental_players": 25.0
         },
         {
           "creator_id": "creator-kot4q",
           "handle": "KOT4Q",
-          "treated_n": 65,
-          "control_n": 195,
-          "d30_treated": 0.8923,
-          "d30_control": 0.8667,
-          "diff_pts": 2.56,
-          "ci_low_pts": -6.36,
-          "ci_high_pts": 11.48,
-          "incremental_players": 1.7
+          "treated_n": 181,
+          "control_n": 543,
+          "d30_treated": 0.9558,
+          "d30_control": 0.86,
+          "diff_pts": 9.58,
+          "ci_low_pts": 5.4,
+          "ci_high_pts": 13.76,
+          "incremental_players": 17.3
         },
         {
-          "creator_id": "creator-tydebo",
-          "handle": "Tydebo",
-          "treated_n": 53,
-          "control_n": 159,
-          "d30_treated": 0.9245,
-          "d30_control": 0.9057,
-          "diff_pts": 1.89,
-          "ci_low_pts": -6.55,
-          "ci_high_pts": 10.33,
+          "creator_id": "creator-joeknows",
+          "handle": "JoeKnows",
+          "treated_n": 203,
+          "control_n": 609,
+          "d30_treated": 0.9803,
+          "d30_control": 0.8966,
+          "diff_pts": 8.37,
+          "ci_low_pts": 5.29,
+          "ci_high_pts": 11.46,
+          "incremental_players": 17.0
+        },
+        {
+          "creator_id": "creator-2klab",
+          "handle": "NBA2KLab",
+          "treated_n": 260,
+          "control_n": 780,
+          "d30_treated": 0.9654,
+          "d30_control": 0.8833,
+          "diff_pts": 8.21,
+          "ci_low_pts": 5.04,
+          "ci_high_pts": 11.37,
+          "incremental_players": 21.3
+        },
+        {
+          "creator_id": "creator-coletheman",
+          "handle": "ColeTheMan",
+          "treated_n": 249,
+          "control_n": 746,
+          "d30_treated": 0.9679,
+          "d30_control": 0.8928,
+          "diff_pts": 7.51,
+          "ci_low_pts": 4.39,
+          "ci_high_pts": 10.63,
+          "incremental_players": 18.7
+        },
+        {
+          "creator_id": "creator-bde",
+          "handle": "BDE",
+          "treated_n": 49,
+          "control_n": 147,
+          "d30_treated": 0.9592,
+          "d30_control": 0.8912,
+          "diff_pts": 6.8,
+          "ci_low_pts": -0.68,
+          "ci_high_pts": 14.29,
+          "incremental_players": 3.3
+        },
+        {
+          "creator_id": "creator-moxsy",
+          "handle": "Moxsy",
+          "treated_n": 43,
+          "control_n": 129,
+          "d30_treated": 0.9767,
+          "d30_control": 0.9225,
+          "diff_pts": 5.43,
+          "ci_low_pts": -1.02,
+          "ci_high_pts": 11.88,
+          "incremental_players": 2.3
+        },
+        {
+          "creator_id": "creator-lakerfan",
+          "handle": "LakerFan",
+          "treated_n": 31,
+          "control_n": 93,
+          "d30_treated": 0.871,
+          "d30_control": 0.828,
+          "diff_pts": 4.3,
+          "ci_low_pts": -9.77,
+          "ci_high_pts": 18.38,
+          "incremental_players": 1.3
+        },
+        {
+          "creator_id": "creator-ki11ersix",
+          "handle": "Ki11erSix",
+          "treated_n": 31,
+          "control_n": 93,
+          "d30_treated": 0.9677,
+          "d30_control": 0.9355,
+          "diff_pts": 3.23,
+          "ci_low_pts": -4.75,
+          "ci_high_pts": 11.2,
           "incremental_players": 1.0
         },
         {
-          "creator_id": "creator-callmeagent",
-          "handle": "CallMeAgent",
-          "treated_n": 36,
-          "control_n": 108,
-          "d30_treated": 0.8333,
-          "d30_control": 0.8148,
-          "diff_pts": 1.85,
-          "ci_low_pts": -12.36,
-          "ci_high_pts": 16.06,
-          "incremental_players": 0.7
+          "creator_id": "creator-doubleh",
+          "handle": "DoubleH",
+          "treated_n": 73,
+          "control_n": 219,
+          "d30_treated": 0.8767,
+          "d30_control": 0.8584,
+          "diff_pts": 1.83,
+          "ci_low_pts": -7.02,
+          "ci_high_pts": 10.67,
+          "incremental_players": 1.3
         },
         {
-          "creator_id": "creator-smacktalks",
-          "handle": "Smacktalks",
-          "treated_n": 61,
-          "control_n": 183,
-          "d30_treated": 0.918,
-          "d30_control": 0.9126,
-          "diff_pts": 0.55,
-          "ci_low_pts": -7.46,
-          "ci_high_pts": 8.55,
-          "incremental_players": 0.3
+          "creator_id": "creator-troydan",
+          "handle": "Troydan",
+          "treated_n": 181,
+          "control_n": 543,
+          "d30_treated": 0.9006,
+          "d30_control": 0.884,
+          "diff_pts": 1.66,
+          "ci_low_pts": -3.47,
+          "ci_high_pts": 6.78,
+          "incremental_players": 3.0
         },
         {
-          "creator_id": "creator-agent00",
-          "handle": "Agent00",
-          "treated_n": 62,
-          "control_n": 186,
-          "d30_treated": 0.871,
-          "d30_control": 0.8656,
-          "diff_pts": 0.54,
-          "ci_low_pts": -9.14,
-          "ci_high_pts": 10.22,
-          "incremental_players": 0.3
+          "creator_id": "creator-dukedennis",
+          "handle": "DukeDennis",
+          "treated_n": 211,
+          "control_n": 633,
+          "d30_treated": 0.891,
+          "d30_control": 0.8815,
+          "diff_pts": 0.95,
+          "ci_low_pts": -3.95,
+          "ci_high_pts": 5.85,
+          "incremental_players": 2.0
         },
         {
-          "creator_id": "creator-joltzdude139",
-          "handle": "Joltzdude139",
-          "treated_n": 41,
-          "control_n": 123,
-          "d30_treated": 0.9512,
-          "d30_control": 0.9512,
-          "diff_pts": 0.0,
-          "ci_low_pts": -7.61,
-          "ci_high_pts": 7.61,
-          "incremental_players": 0.0
+          "creator_id": "creator-cashnasty",
+          "handle": "CashNasty",
+          "treated_n": 123,
+          "control_n": 369,
+          "d30_treated": 0.8699,
+          "d30_control": 0.8618,
+          "diff_pts": 0.81,
+          "ci_low_pts": -6.1,
+          "ci_high_pts": 7.72,
+          "incremental_players": 1.0
         },
         {
-          "creator_id": "creator-powerdf",
-          "handle": "PowerDF",
-          "treated_n": 54,
-          "control_n": 162,
-          "d30_treated": 0.8704,
-          "d30_control": 0.8765,
-          "diff_pts": -0.62,
-          "ci_low_pts": -10.91,
-          "ci_high_pts": 9.67,
-          "incremental_players": -0.3
-        },
-        {
-          "creator_id": "creator-assemble",
-          "handle": "Assemble",
-          "treated_n": 41,
-          "control_n": 123,
-          "d30_treated": 0.9024,
-          "d30_control": 0.9187,
-          "diff_pts": -1.63,
-          "ci_low_pts": -11.91,
-          "ci_high_pts": 8.66,
+          "creator_id": "creator-htb",
+          "handle": "HTB",
+          "treated_n": 69,
+          "control_n": 207,
+          "d30_treated": 0.8986,
+          "d30_control": 0.9082,
+          "diff_pts": -0.97,
+          "ci_low_pts": -9.1,
+          "ci_high_pts": 7.17,
           "incremental_players": -0.7
         },
         {
-          "creator_id": "creator-solodf",
-          "handle": "Solo",
-          "treated_n": 36,
-          "control_n": 108,
-          "d30_treated": 0.8611,
-          "d30_control": 0.8981,
-          "diff_pts": -3.7,
-          "ci_low_pts": -16.36,
-          "ci_high_pts": 8.95,
-          "incremental_players": -1.3
+          "creator_id": "creator-dbg",
+          "handle": "DBG",
+          "treated_n": 54,
+          "control_n": 162,
+          "d30_treated": 0.8333,
+          "d30_control": 0.8519,
+          "diff_pts": -1.85,
+          "ci_low_pts": -13.2,
+          "ci_high_pts": 9.49,
+          "incremental_players": -1.0
         },
         {
-          "creator_id": "creator-flightreacts",
-          "handle": "FlightReacts",
-          "treated_n": 190,
-          "control_n": 570,
-          "d30_treated": 0.7842,
-          "d30_control": 0.8474,
-          "diff_pts": -6.32,
-          "ci_low_pts": -12.87,
-          "ci_high_pts": 0.24,
-          "incremental_players": -12.0
+          "creator_id": "creator-uncledemi",
+          "handle": "UncleDemi",
+          "treated_n": 108,
+          "control_n": 324,
+          "d30_treated": 0.8611,
+          "d30_control": 0.8827,
+          "diff_pts": -2.16,
+          "ci_low_pts": -9.56,
+          "ci_high_pts": 5.24,
+          "incremental_players": -2.3
         },
         {
           "creator_id": "creator-grindingdf",
           "handle": "GrindingDF",
+          "treated_n": 98,
+          "control_n": 294,
+          "d30_treated": 0.8265,
+          "d30_control": 0.8503,
+          "diff_pts": -2.38,
+          "ci_low_pts": -10.92,
+          "ci_high_pts": 6.15,
+          "incremental_players": -2.3
+        },
+        {
+          "creator_id": "creator-ipodkingcarter",
+          "handle": "iPodKingCarter",
+          "treated_n": 31,
+          "control_n": 93,
+          "d30_treated": 0.7742,
+          "d30_control": 0.8065,
+          "diff_pts": -3.23,
+          "ci_low_pts": -19.99,
+          "ci_high_pts": 13.54,
+          "incremental_players": -1.0
+        },
+        {
+          "creator_id": "creator-quitalovessports",
+          "handle": "QuitaLovesSports",
+          "treated_n": 33,
+          "control_n": 99,
+          "d30_treated": 0.8788,
+          "d30_control": 0.9192,
+          "diff_pts": -4.04,
+          "ci_low_pts": -16.4,
+          "ci_high_pts": 8.32,
+          "incremental_players": -1.3
+        },
+        {
+          "creator_id": "creator-sixringsofsteel",
+          "handle": "SixRingsofSteel",
+          "treated_n": 61,
+          "control_n": 183,
+          "d30_treated": 0.8033,
+          "d30_control": 0.8525,
+          "diff_pts": -4.92,
+          "ci_low_pts": -16.14,
+          "ci_high_pts": 6.3,
+          "incremental_players": -3.0
+        },
+        {
+          "creator_id": "creator-potatomcwhiskey",
+          "handle": "PotatoMcWhiskey",
+          "treated_n": 90,
+          "control_n": 270,
+          "d30_treated": 0.8778,
+          "d30_control": 0.9333,
+          "diff_pts": -5.56,
+          "ci_low_pts": -12.95,
+          "ci_high_pts": 1.84,
+          "incremental_players": -5.0
+        },
+        {
+          "creator_id": "creator-swante",
+          "handle": "Swante",
+          "treated_n": 45,
+          "control_n": 135,
+          "d30_treated": 0.7556,
+          "d30_control": 0.8148,
+          "diff_pts": -5.93,
+          "ci_low_pts": -20.09,
+          "ci_high_pts": 8.24,
+          "incremental_players": -2.7
+        },
+        {
+          "creator_id": "creator-nadexe",
+          "handle": "Nadexe",
+          "treated_n": 74,
+          "control_n": 222,
+          "d30_treated": 0.8243,
+          "d30_control": 0.9009,
+          "diff_pts": -7.66,
+          "ci_low_pts": -17.18,
+          "ci_high_pts": 1.86,
+          "incremental_players": -5.7
+        },
+        {
+          "creator_id": "creator-flightreacts",
+          "handle": "FlightReacts",
+          "treated_n": 544,
+          "control_n": 1624,
+          "d30_treated": 0.7776,
+          "d30_control": 0.8658,
+          "diff_pts": -8.82,
+          "ci_low_pts": -12.69,
+          "ci_high_pts": -4.95,
+          "incremental_players": -48.0
+        },
+        {
+          "creator_id": "creator-smacktalks",
+          "handle": "Smacktalks",
           "treated_n": 39,
           "control_n": 117,
           "d30_treated": 0.7692,
-          "d30_control": 0.8547,
-          "diff_pts": -8.55,
-          "ci_low_pts": -23.23,
-          "ci_high_pts": 6.14,
-          "incremental_players": -3.3
+          "d30_control": 0.8803,
+          "diff_pts": -11.11,
+          "ci_low_pts": -25.58,
+          "ci_high_pts": 3.36,
+          "incremental_players": -4.3
+        },
+        {
+          "creator_id": "creator-tydebo",
+          "handle": "Tydebo",
+          "treated_n": 30,
+          "control_n": 90,
+          "d30_treated": 0.7333,
+          "d30_control": 0.8778,
+          "diff_pts": -14.44,
+          "ci_low_pts": -31.65,
+          "ci_high_pts": 2.77,
+          "incremental_players": -4.3
         }
       ],
       "clearly_positive": [
-        "JoeKnows",
-        "GamerAbility",
-        "UncleDemi",
         "BadgePlug",
-        "PotatoMcWhiskey"
+        "KOT4Q",
+        "JoeKnows",
+        "NBA2KLab",
+        "ColeTheMan"
       ]
     },
     "branded_social_attach_multiplier": {
-      "value": 4.943,
+      "value": 2.317,
       "range": [
         1.5,
         2.5
       ],
-      "ok": false,
+      "ok": true,
+      "method": "Mantel-Haenszel RR stratified by brand; unit = (NBA player, brand)",
       "ci": [
-        4.655,
-        5.248
+        2.153,
+        2.493
       ],
-      "attach_exposed": 0.1128,
-      "attach_unexposed": 0.0228,
+      "crude_pooled": 5.786,
+      "crude_pooled_ci": [
+        5.424,
+        6.173
+      ],
+      "attach_exposed": 0.0971,
+      "attach_unexposed": 0.0168,
       "per_brand": [
         {
           "brand_id": "adidas",
-          "buyers": 819,
-          "attach_exposed": 0.1491,
-          "attach_unexposed": 0.0721,
-          "multiplier": 2.07
-        },
-        {
-          "brand_id": "american-express",
-          "buyers": 1011,
-          "attach_exposed": 0.1778,
-          "attach_unexposed": 0.1071,
-          "multiplier": 1.66
-        },
-        {
-          "brand_id": "bape",
-          "buyers": 113,
-          "attach_exposed": 0.036,
-          "attach_unexposed": 0.0124,
-          "multiplier": 2.89
-        },
-        {
-          "brand_id": "cerave",
-          "buyers": 175,
-          "attach_exposed": 0.0425,
-          "attach_unexposed": 0.0219,
-          "multiplier": 1.94
-        },
-        {
-          "brand_id": "coach",
-          "buyers": 1047,
-          "attach_exposed": 0.1875,
-          "attach_unexposed": 0.0737,
-          "multiplier": 2.55
-        },
-        {
-          "brand_id": "converse",
-          "buyers": 833,
-          "attach_exposed": 0.1507,
-          "attach_unexposed": 0.0781,
-          "multiplier": 1.93
-        },
-        {
-          "brand_id": "denim-tears",
-          "buyers": 402,
-          "attach_exposed": 0.0798,
-          "attach_unexposed": 0.0458,
-          "multiplier": 1.74
-        },
-        {
-          "brand_id": "gatorade",
-          "buyers": 1152,
-          "attach_exposed": 0.2016,
-          "attach_unexposed": 0.1127,
-          "multiplier": 1.79
-        },
-        {
-          "brand_id": "jordan-brand",
-          "buyers": 84,
-          "attach_exposed": 0.0308,
-          "attach_unexposed": 0.0098,
-          "multiplier": 3.14
-        },
-        {
-          "brand_id": "kia",
-          "buyers": 550,
-          "attach_exposed": 0.1054,
-          "attach_unexposed": 0.057,
-          "multiplier": 1.85
-        },
-        {
-          "brand_id": "new-balance",
-          "buyers": 80,
-          "attach_exposed": 0.0296,
-          "attach_unexposed": 0.0095,
-          "multiplier": 3.12
-        },
-        {
-          "brand_id": "nike",
-          "buyers": 348,
-          "attach_exposed": 0.0747,
-          "attach_unexposed": 0.0365,
-          "multiplier": 2.04
-        },
-        {
-          "brand_id": "nvidia",
-          "buyers": 118,
-          "attach_exposed": 0.0391,
-          "attach_unexposed": 0.0126,
-          "multiplier": 3.11
-        },
-        {
-          "brand_id": "puma",
-          "buyers": 71,
-          "attach_exposed": 0.0182,
-          "attach_unexposed": 0.0106,
-          "multiplier": 1.73
-        },
-        {
-          "brand_id": "reebok",
-          "buyers": 202,
-          "attach_exposed": 0.0499,
-          "attach_unexposed": 0.0228,
-          "multiplier": 2.19
-        },
-        {
-          "brand_id": "state-farm",
-          "buyers": 429,
-          "attach_exposed": 0.0915,
-          "attach_unexposed": 0.0367,
-          "multiplier": 2.49
-        },
-        {
-          "brand_id": "tissot",
-          "buyers": 79,
-          "attach_exposed": 0.0264,
-          "attach_unexposed": 0.0102,
-          "multiplier": 2.58
-        },
-        {
-          "brand_id": "true-religion",
-          "buyers": 297,
-          "attach_exposed": 0.0653,
-          "attach_unexposed": 0.0305,
+          "buyers": 679,
+          "n_exposed": 4712,
+          "n_unexposed": 1217,
+          "attach_exposed": 0.1286,
+          "attach_unexposed": 0.06,
           "multiplier": 2.14
         },
         {
-          "brand_id": "under-armour",
+          "brand_id": "american-express",
+          "buyers": 532,
+          "n_exposed": 4199,
+          "n_unexposed": 1730,
+          "attach_exposed": 0.1098,
+          "attach_unexposed": 0.041,
+          "multiplier": 2.68
+        },
+        {
+          "brand_id": "bape",
+          "buyers": 22,
+          "n_exposed": 364,
+          "n_unexposed": 5565,
+          "attach_exposed": 0.0082,
+          "attach_unexposed": 0.0034,
+          "multiplier": 2.41
+        },
+        {
+          "brand_id": "cerave",
+          "buyers": 157,
+          "n_exposed": 1910,
+          "n_unexposed": 4019,
+          "attach_exposed": 0.0429,
+          "attach_unexposed": 0.0187,
+          "multiplier": 2.3
+        },
+        {
+          "brand_id": "coach",
+          "buyers": 1167,
+          "n_exposed": 5461,
+          "n_unexposed": 468,
+          "attach_exposed": 0.204,
+          "attach_unexposed": 0.1132,
+          "multiplier": 1.8
+        },
+        {
+          "brand_id": "converse",
+          "buyers": 335,
+          "n_exposed": 3479,
+          "n_unexposed": 2450,
+          "attach_exposed": 0.0736,
+          "attach_unexposed": 0.0322,
+          "multiplier": 2.28
+        },
+        {
+          "brand_id": "denim-tears",
+          "buyers": 131,
+          "n_exposed": 1736,
+          "n_unexposed": 4193,
+          "attach_exposed": 0.0421,
+          "attach_unexposed": 0.0138,
+          "multiplier": 3.04
+        },
+        {
+          "brand_id": "gatorade",
+          "buyers": 939,
+          "n_exposed": 5180,
+          "n_unexposed": 749,
+          "attach_exposed": 0.1718,
+          "attach_unexposed": 0.0654,
+          "multiplier": 2.63
+        },
+        {
+          "brand_id": "jordan-brand",
+          "buyers": 79,
+          "n_exposed": 1113,
+          "n_unexposed": 4816,
+          "attach_exposed": 0.0341,
+          "attach_unexposed": 0.0085,
+          "multiplier": 4.01
+        },
+        {
+          "brand_id": "kia",
+          "buyers": 270,
+          "n_exposed": 2995,
+          "n_unexposed": 2934,
+          "attach_exposed": 0.0631,
+          "attach_unexposed": 0.0276,
+          "multiplier": 2.29
+        },
+        {
+          "brand_id": "new-balance",
           "buyers": 97,
-          "attach_exposed": 0.0367,
-          "attach_unexposed": 0.0093,
-          "multiplier": 3.94
+          "n_exposed": 1259,
+          "n_unexposed": 4670,
+          "attach_exposed": 0.027,
+          "attach_unexposed": 0.0135,
+          "multiplier": 2.0
+        },
+        {
+          "brand_id": "nike",
+          "buyers": 152,
+          "n_exposed": 2106,
+          "n_unexposed": 3823,
+          "attach_exposed": 0.0385,
+          "attach_unexposed": 0.0186,
+          "multiplier": 2.07
+        },
+        {
+          "brand_id": "nvidia",
+          "buyers": 63,
+          "n_exposed": 940,
+          "n_unexposed": 4989,
+          "attach_exposed": 0.0245,
+          "attach_unexposed": 0.008,
+          "multiplier": 3.05
+        },
+        {
+          "brand_id": "puma",
+          "buyers": 69,
+          "n_exposed": 975,
+          "n_unexposed": 4954,
+          "attach_exposed": 0.0215,
+          "attach_unexposed": 0.0097,
+          "multiplier": 2.22
+        },
+        {
+          "brand_id": "reebok",
+          "buyers": 295,
+          "n_exposed": 3269,
+          "n_unexposed": 2660,
+          "attach_exposed": 0.0691,
+          "attach_unexposed": 0.0259,
+          "multiplier": 2.67
+        },
+        {
+          "brand_id": "state-farm",
+          "buyers": 399,
+          "n_exposed": 3769,
+          "n_unexposed": 2160,
+          "attach_exposed": 0.0865,
+          "attach_unexposed": 0.0338,
+          "multiplier": 2.56
+        },
+        {
+          "brand_id": "tissot",
+          "buyers": 20,
+          "n_exposed": 288,
+          "n_unexposed": 5641,
+          "attach_exposed": 0.0139,
+          "attach_unexposed": 0.0028,
+          "multiplier": 4.9
+        },
+        {
+          "brand_id": "true-religion",
+          "buyers": 206,
+          "n_exposed": 2560,
+          "n_unexposed": 3369,
+          "attach_exposed": 0.0426,
+          "attach_unexposed": 0.0288,
+          "multiplier": 1.48
+        },
+        {
+          "brand_id": "under-armour",
+          "buyers": 32,
+          "n_exposed": 423,
+          "n_unexposed": 5506,
+          "attach_exposed": 0.0047,
+          "attach_unexposed": 0.0054,
+          "multiplier": 0.87
         }
       ]
+    },
+    "branded_vc_share": {
+      "value": 0.3189,
+      "range": [
+        0.3,
+        0.4
+      ],
+      "ok": true,
+      "vc_total": 162064400,
+      "vc_branded": 51685000,
+      "via_activation_rows": 2300
+    },
+    "churn_risk_score": {
+      "ok": true,
+      "declining_keystones_mean": 0.786,
+      "declining_keystones_share_0.55_0.9": 0.625,
+      "other_active_mean": 0.462,
+      "churned_mean": 0.898
     },
     "creator_hubs": {
       "ok": true,
       "top_hubs": [
         {
-          "handle": "JoeKnows",
-          "hub_score": 1.0,
-          "community_span": 137,
-          "followers": 1300000,
-          "follower_rank": 15
-        },
-        {
-          "handle": "ColeTheMan",
-          "hub_score": 0.9891,
-          "community_span": 130,
-          "followers": 1080000,
-          "follower_rank": 20
-        },
-        {
-          "handle": "NBA2KLab",
-          "hub_score": 0.9842,
-          "community_span": 127,
-          "followers": 1150000,
-          "follower_rank": 17
-        },
-        {
           "handle": "FlightReacts",
-          "hub_score": 0.983,
-          "community_span": 131,
+          "hub_score": 1.0,
+          "community_span": 148,
           "followers": 6900000,
           "follower_rank": 1
         },
         {
-          "handle": "DukeDennis",
-          "hub_score": 0.9332,
-          "community_span": 104,
-          "followers": 4500000,
-          "follower_rank": 3
+          "handle": "NBA2KLab",
+          "hub_score": 0.9975,
+          "community_span": 144,
+          "followers": 1150000,
+          "follower_rank": 17
+        },
+        {
+          "handle": "ColeTheMan",
+          "hub_score": 0.9947,
+          "community_span": 142,
+          "followers": 1080000,
+          "follower_rank": 20
+        },
+        {
+          "handle": "JoeKnows",
+          "hub_score": 0.9946,
+          "community_span": 142,
+          "followers": 1300000,
+          "follower_rank": 15
         },
         {
           "handle": "BadgePlug",
-          "hub_score": 0.8953,
-          "community_span": 89,
+          "hub_score": 0.9643,
+          "community_span": 126,
           "followers": 2250000,
           "follower_rank": 8
         },
         {
-          "handle": "CashNasty",
-          "hub_score": 0.8754,
-          "community_span": 80,
-          "followers": 4200000,
-          "follower_rank": 4
+          "handle": "DukeDennis",
+          "hub_score": 0.9633,
+          "community_span": 124,
+          "followers": 4500000,
+          "follower_rank": 3
         },
         {
           "handle": "Agent00",
-          "hub_score": 0.8657,
-          "community_span": 78,
+          "hub_score": 0.9501,
+          "community_span": 117,
           "followers": 2600000,
           "follower_rank": 6
+        },
+        {
+          "handle": "KOT4Q",
+          "hub_score": 0.9422,
+          "community_span": 114,
+          "followers": 2400000,
+          "follower_rank": 7
         }
       ],
       "top_follower_creators_hub_rank": {
-        "FlightReacts": 4,
-        "ChrisSmoove": 11,
-        "DukeDennis": 5,
-        "CashNasty": 7
+        "FlightReacts": 1,
+        "ChrisSmoove": 13,
+        "DukeDennis": 6,
+        "CashNasty": 10
       }
     },
     "concept_affinity": {
       "ok": true,
       "top_wnba_archetype": "THE_W_LOYALIST",
       "top_franchise_archetype": "MYNBA_FRANCHISE_SIM",
-      "college_mean_age_le_21": 0.449,
+      "college_mean_age_le_21": 0.448,
       "college_mean_age_ge_28": 0.199
     }
   },
   "counts": {
     "players": 6500,
-    "clans": 95,
+    "clans": 94,
     "creators": 40,
-    "identities": 23587,
-    "has_identity": 23587,
-    "member_of_clan": 4322,
-    "crew_membership_events": 5268,
-    "played_with": 58903,
-    "friends_with": 21329,
-    "messaged": 14329,
+    "identities": 24666,
+    "has_identity": 24666,
+    "member_of_clan": 4321,
+    "crew_membership_events": 5239,
+    "played_with": 58745,
+    "friends_with": 23766,
+    "messaged": 15953,
     "seasons": 6,
-    "matches": 19811,
-    "competed_in": 39622,
-    "in_season": 19811,
-    "split_from": 11,
-    "streams": 390,
-    "hosted": 390,
-    "watched": 30580,
+    "matches": 19782,
+    "competed_in": 39564,
+    "in_season": 19782,
+    "split_from": 10,
+    "streams": 400,
+    "hosted": 400,
+    "watched": 32229,
     "brands": 19,
     "brand_activations": 16,
     "sponsors": 16,
-    "items": 57,
+    "items": 62,
     "features": 38,
-    "bought": 16129,
-    "equipped": 6490,
-    "sessions_daily": 270259,
-    "churned_players": 1480
+    "bought": 18610,
+    "equipped": 7914,
+    "sessions_daily": 297623,
+    "churned_players": 1248
   }
 }

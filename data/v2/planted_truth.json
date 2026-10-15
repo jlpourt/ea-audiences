@@ -1,34 +1,45 @@
 {
-  "seed": 20261015,
+  "seed": 12,
   "now": "2026-10-15T12:00:00Z",
   "knobs": {
     "CREW_PAIR_TARGET": 33000,
     "GROUP_PAIR_TARGET": 8500,
     "CROSS_PAIR_TARGET": 16500,
     "CORE_SOC": [
-      2.25,
+      2.7,
       2.8
     ],
+    "CORE_PAIR_SHAPE": 12.0,
+    "CORE_PAIR_MULT": 3.0,
     "ANCHOR_SOC_MULT": 1.3,
-    "BASE_H": 0.004,
-    "EXPOSURE_MULT": 1.75,
-    "ANCHOR_H": 9.0,
-    "ANCHOR_P": 0.45,
+    "BASE_H": 0.0034,
+    "EXPOSURE_MULT": 1.0,
+    "ANCHOR_H": 240.0,
+    "ANCHOR_DECAY": 12.0,
+    "ANCHOR_P": 0.9,
     "ANCHOR_DAYS": 35,
-    "N_ANCHOR_A": 16,
+    "N_ANCHOR_A": 12,
+    "N_ANCHOR_W": 30,
     "N_ANCHOR_B": 18,
     "N_SPLITS": 10,
-    "N_DECLINE": 9,
+    "N_DECLINE": 0,
+    "KEYSTONE_SHARE": 0.12,
+    "KEYSTONE_MIN_SIGMA": 0.15,
+    "CORE_SHIELD": 0.05,
     "CORE_MIN_SIGMA": 0.26,
     "VIEWERS_PER_STREAM": 72,
-    "SOCIAL_KAPPA": 1.6,
-    "BUY_RATE": 0.046
+    "SOCIAL_KAPPA": 2.0,
+    "BUY_RATE": 0.046,
+    "UNBRANDED_P": 0.65
   },
   "creator_effect": {
-    "creator-joeknows": 0.42,
-    "creator-kot4q": 0.45,
-    "creator-badgeplug": 0.5,
-    "creator-flightreacts": 1.45
+    "creator-joeknows": 0.12,
+    "creator-coletheman": 0.15,
+    "creator-2klab": 0.15,
+    "creator-kot4q": 0.1,
+    "creator-badgeplug": 0.12,
+    "creator-flightreacts": 1.8,
+    "creator-grindingdf": 1.6
   },
   "hub_creators": [
     "creator-joeknows",
@@ -36,190 +47,312 @@
     "creator-coletheman"
   ],
   "anchor_set_a": {
-    "crew-054": {
-      "anchor": "t2-usr-05255",
-      "depart_day": 68,
-      "strength": 0.819
+    "crew-003": {
+      "anchor": "t2-usr-04521",
+      "depart_day": 50,
+      "strength": 0.986
     },
-    "crew-026": {
-      "anchor": "t2-usr-04862",
-      "depart_day": 29,
-      "strength": 0.009
+    "crew-070": {
+      "anchor": "t2-usr-00560",
+      "depart_day": 34,
+      "strength": 0.876
     },
-    "crew-002": {
-      "anchor": "t2-usr-03024",
-      "depart_day": 33,
-      "strength": 0.878
+    "crew-038": {
+      "anchor": "t2-usr-02622",
+      "depart_day": 46,
+      "strength": 0.075
     },
-    "crew-039": {
-      "anchor": "t2-usr-02119",
-      "depart_day": 72,
-      "strength": 0.149
-    },
-    "crew-004": {
-      "anchor": "t2-usr-04693",
-      "depart_day": 74,
-      "strength": 0.827
-    },
-    "crew-064": {
-      "anchor": "t2-usr-00322",
-      "depart_day": 57,
-      "strength": 0.992
-    },
-    "crew-043": {
-      "anchor": "t2-usr-03344",
-      "depart_day": 37,
-      "strength": 0.852
-    },
-    "crew-042": {
-      "anchor": "t2-usr-06143",
-      "depart_day": 39,
-      "strength": 0.878
-    },
-    "crew-031": {
-      "anchor": "t2-usr-02258",
-      "depart_day": 29,
-      "strength": 0.884
-    },
-    "crew-067": {
-      "anchor": "t2-usr-03554",
-      "depart_day": 45,
-      "strength": 0.849
-    },
-    "crew-027": {
-      "anchor": "t2-usr-04298",
-      "depart_day": 37,
-      "strength": 0.868
-    },
-    "crew-008": {
-      "anchor": "t2-usr-00307",
-      "depart_day": 61,
-      "strength": 0.863
-    },
-    "crew-041": {
-      "anchor": "t2-usr-03915",
-      "depart_day": 37,
-      "strength": 0.817
-    },
-    "crew-022": {
-      "anchor": "t2-usr-03804",
-      "depart_day": 53,
-      "strength": 0.949
-    },
-    "crew-063": {
-      "anchor": "t2-usr-05862",
-      "depart_day": 61,
-      "strength": 0.918
-    },
-    "crew-007": {
-      "anchor": "t2-usr-04561",
-      "depart_day": 69,
-      "strength": 0.187
-    }
-  },
-  "anchor_set_b": {
-    "crew-059": {
-      "anchor": "t2-usr-03889",
-      "depart_day": 88,
-      "strength": 0.932
-    },
-    "crew-061": {
-      "anchor": "t2-usr-03077",
-      "depart_day": 87,
-      "strength": 0.88
-    },
-    "crew-072": {
-      "anchor": "t2-usr-03355",
-      "depart_day": 83,
-      "strength": 0.853
-    },
-    "crew-021": {
-      "anchor": "t2-usr-04902",
-      "depart_day": 83,
-      "strength": 0.799
-    },
-    "crew-055": {
-      "anchor": "t2-usr-00193",
-      "depart_day": 85,
-      "strength": 0.126
-    },
-    "crew-069": {
-      "anchor": "t2-usr-00029",
-      "depart_day": 85,
-      "strength": 0.797
+    "crew-024": {
+      "anchor": "t2-usr-01158",
+      "depart_day": 30,
+      "strength": 0.837
     },
     "crew-019": {
-      "anchor": "t2-usr-04441",
-      "depart_day": 87,
-      "strength": 0.776
+      "anchor": "t2-usr-04798",
+      "depart_day": 58,
+      "strength": 0.833
     },
-    "crew-012": {
-      "anchor": "t2-usr-04896",
-      "depart_day": 87,
-      "strength": 0.907
-    },
-    "crew-050": {
-      "anchor": "t2-usr-04783",
-      "depart_day": 89,
-      "strength": 0.96
-    },
-    "crew-035": {
-      "anchor": "t2-usr-00097",
-      "depart_day": 86,
-      "strength": 0.195
-    },
-    "crew-065": {
-      "anchor": "t2-usr-02363",
-      "depart_day": 85,
+    "crew-030": {
+      "anchor": "t2-usr-03464",
+      "depart_day": 33,
       "strength": 0.11
     },
-    "crew-009": {
-      "anchor": "t2-usr-02623",
-      "depart_day": 85,
-      "strength": 0.864
+    "crew-020": {
+      "anchor": "t2-usr-04388",
+      "depart_day": 58,
+      "strength": 0.967
+    },
+    "crew-051": {
+      "anchor": "t2-usr-00064",
+      "depart_day": 58,
+      "strength": 0.849
+    },
+    "crew-071": {
+      "anchor": "t2-usr-01316",
+      "depart_day": 38,
+      "strength": 0.787
+    },
+    "crew-050": {
+      "anchor": "t2-usr-04396",
+      "depart_day": 50,
+      "strength": 0.836
     },
     "crew-058": {
       "anchor": "t2-usr-03360",
-      "depart_day": 86,
-      "strength": 0.832
+      "depart_day": 48,
+      "strength": 0.892
     },
-    "crew-023": {
-      "anchor": "t2-usr-01286",
-      "depart_day": 88,
-      "strength": 0.035
-    },
-    "crew-017": {
-      "anchor": "t2-usr-06009",
-      "depart_day": 89,
-      "strength": 0.787
-    },
-    "crew-048": {
-      "anchor": "t2-usr-00538",
-      "depart_day": 88,
-      "strength": 0.889
-    },
-    "crew-071": {
-      "anchor": "t2-usr-04316",
-      "depart_day": 86,
-      "strength": 0.831
-    },
-    "crew-014": {
-      "anchor": "t2-usr-01951",
-      "depart_day": 83,
-      "strength": 0.878
+    "crew-032": {
+      "anchor": "t2-usr-01134",
+      "depart_day": 36,
+      "strength": 0.043
     }
   },
-  "decliners": [
-    "t2-usr-01406",
-    "t2-usr-01824",
-    "t2-usr-01829",
-    "t2-usr-01897",
-    "t2-usr-02332",
-    "t2-usr-03566",
-    "t2-usr-04624",
-    "t2-usr-04931",
-    "t2-usr-06415"
-  ],
+  "anchor_set_w": {
+    "crew-044": {
+      "anchor": "t2-usr-04931",
+      "depart_day": 81,
+      "strength": 0.156
+    },
+    "crew-063": {
+      "anchor": "t2-usr-05862",
+      "depart_day": 77,
+      "strength": 0.885
+    },
+    "crew-061": {
+      "anchor": "t2-usr-01147",
+      "depart_day": 78,
+      "strength": 0.004
+    },
+    "crew-005": {
+      "anchor": "t2-usr-03591",
+      "depart_day": 76,
+      "strength": 0.89
+    },
+    "crew-016": {
+      "anchor": "t2-usr-05202",
+      "depart_day": 77,
+      "strength": 0.798
+    },
+    "crew-065": {
+      "anchor": "t2-usr-03402",
+      "depart_day": 76,
+      "strength": 0.119
+    },
+    "crew-060": {
+      "anchor": "t2-usr-05949",
+      "depart_day": 77,
+      "strength": 0.834
+    },
+    "crew-006": {
+      "anchor": "t2-usr-00909",
+      "depart_day": 77,
+      "strength": 0.068
+    },
+    "crew-055": {
+      "anchor": "t2-usr-02518",
+      "depart_day": 79,
+      "strength": 0.891
+    },
+    "crew-039": {
+      "anchor": "t2-usr-05183",
+      "depart_day": 80,
+      "strength": 0.044
+    },
+    "crew-047": {
+      "anchor": "t2-usr-05329",
+      "depart_day": 74,
+      "strength": 0.917
+    },
+    "crew-012": {
+      "anchor": "t2-usr-00373",
+      "depart_day": 70,
+      "strength": 0.813
+    },
+    "crew-009": {
+      "anchor": "t2-usr-02623",
+      "depart_day": 69,
+      "strength": 0.981
+    },
+    "crew-029": {
+      "anchor": "t2-usr-03836",
+      "depart_day": 72,
+      "strength": 0.97
+    },
+    "crew-025": {
+      "anchor": "t2-usr-06168",
+      "depart_day": 72,
+      "strength": 0.029
+    },
+    "crew-023": {
+      "anchor": "t2-usr-02470",
+      "depart_day": 72,
+      "strength": 0.887
+    },
+    "crew-034": {
+      "anchor": "t2-usr-05221",
+      "depart_day": 73,
+      "strength": 0.975
+    },
+    "crew-013": {
+      "anchor": "t2-usr-02399",
+      "depart_day": 75,
+      "strength": 0.887
+    },
+    "crew-037": {
+      "anchor": "t2-usr-05481",
+      "depart_day": 71,
+      "strength": 0.951
+    },
+    "crew-026": {
+      "anchor": "t2-usr-04862",
+      "depart_day": 63,
+      "strength": 0.811
+    },
+    "crew-053": {
+      "anchor": "t2-usr-03243",
+      "depart_day": 62,
+      "strength": 0.191
+    },
+    "crew-011": {
+      "anchor": "t2-usr-03173",
+      "depart_day": 67,
+      "strength": 0.843
+    },
+    "crew-052": {
+      "anchor": "t2-usr-01836",
+      "depart_day": 64,
+      "strength": 0.804
+    },
+    "crew-014": {
+      "anchor": "t2-usr-00726",
+      "depart_day": 68,
+      "strength": 0.029
+    },
+    "crew-043": {
+      "anchor": "t2-usr-04706",
+      "depart_day": 63,
+      "strength": 0.149
+    },
+    "crew-035": {
+      "anchor": "t2-usr-06353",
+      "depart_day": 64,
+      "strength": 0.987
+    },
+    "crew-059": {
+      "anchor": "t2-usr-00922",
+      "depart_day": 62,
+      "strength": 0.805
+    },
+    "crew-046": {
+      "anchor": "t2-usr-01815",
+      "depart_day": 64,
+      "strength": 0.961
+    },
+    "crew-049": {
+      "anchor": "t2-usr-04998",
+      "depart_day": 67,
+      "strength": 0.78
+    },
+    "crew-064": {
+      "anchor": "t2-usr-00681",
+      "depart_day": 67,
+      "strength": 0.06
+    }
+  },
+  "anchor_set_b": {
+    "crew-018": {
+      "anchor": "t2-usr-01426",
+      "depart_day": 84,
+      "strength": 0.958
+    },
+    "crew-015": {
+      "anchor": "t2-usr-01461",
+      "depart_day": 83,
+      "strength": 0.156
+    },
+    "crew-045": {
+      "anchor": "t2-usr-04557",
+      "depart_day": 86,
+      "strength": 0.793
+    },
+    "crew-056": {
+      "anchor": "t2-usr-01829",
+      "depart_day": 84,
+      "strength": 0.914
+    },
+    "crew-040": {
+      "anchor": "t2-usr-01824",
+      "depart_day": 84,
+      "strength": 0.144
+    },
+    "crew-062": {
+      "anchor": "t2-usr-01188",
+      "depart_day": 85,
+      "strength": 0.785
+    },
+    "crew-042": {
+      "anchor": "t2-usr-06143",
+      "depart_day": 89,
+      "strength": 0.079
+    },
+    "crew-054": {
+      "anchor": "t2-usr-06440",
+      "depart_day": 85,
+      "strength": 0.935
+    },
+    "crew-041": {
+      "anchor": "t2-usr-05095",
+      "depart_day": 87,
+      "strength": 0.034
+    },
+    "crew-010": {
+      "anchor": "t2-usr-05370",
+      "depart_day": 83,
+      "strength": 0.788
+    },
+    "crew-004": {
+      "anchor": "t2-usr-02318",
+      "depart_day": 87,
+      "strength": 0.126
+    },
+    "crew-072": {
+      "anchor": "t2-usr-01559",
+      "depart_day": 86,
+      "strength": 0.898
+    },
+    "crew-021": {
+      "anchor": "t2-usr-04237",
+      "depart_day": 87,
+      "strength": 0.184
+    },
+    "crew-007": {
+      "anchor": "t2-usr-02949",
+      "depart_day": 85,
+      "strength": 0.139
+    },
+    "crew-001": {
+      "anchor": "t2-usr-00439",
+      "depart_day": 84,
+      "strength": 0.079
+    },
+    "crew-069": {
+      "anchor": "t2-usr-01204",
+      "depart_day": 85,
+      "strength": 0.863
+    },
+    "crew-066": {
+      "anchor": "t2-usr-03685",
+      "depart_day": 84,
+      "strength": 0.868
+    },
+    "crew-067": {
+      "anchor": "t2-usr-04009",
+      "depart_day": 83,
+      "strength": 0.054
+    }
+  },
+  "decliners": [],
   "split_children": [
     "crew-101",
     "crew-102",
@@ -230,13 +363,12 @@
     "crew-107",
     "crew-108",
     "crew-109",
-    "crew-110",
-    "crew-111"
+    "crew-110"
   ],
   "reformed_children": [
     "crew-101",
     "crew-103",
     "crew-105"
   ],
-  "exposure_person_days": 218521
+  "exposure_person_days": 187836
 }
