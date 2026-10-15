@@ -39,6 +39,9 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Per-process build dir so parallel dev servers don't clobber each other's chunks
+  // (e.g. NEXT_DIST_DIR=.next-3102 npx next dev -p 3102). Production uses .next.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   reactStrictMode: true,
   output: "standalone",
   poweredByHeader: false,

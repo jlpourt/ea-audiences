@@ -814,3 +814,83 @@ For each agent in the exact same order, return their Round 3 state, updated WTP,
 
   return { system, prompt };
 }
+
+// ---------------------------------------------------------------------------
+// v2 Section D · Concept Test additions (ADDITIVE ONLY).
+// Nothing above this line changes behavior. These helpers let the 3-arm
+// Concept Test (NBA vs. WNBA vs. College) give college-hoops-leaning players a
+// distinct voice, driven by the live `college_hoops_affinity` column in
+// `twok_graph_db_v2`. When the column is absent (v1 DB) the overlay is simply
+// not applied; no affinity is ever invented.
+// ---------------------------------------------------------------------------
+
+export interface ConceptAffinitySignals {
+  gamer_tag?: string | null;
+  archetype?: string | null;
+  age?: number | null;
+  college_hoops_affinity?: number | null;
+  wnba_affinity?: number | null;
+  franchise_mode_affinity?: number | null;
+}
+
+/** Live affinity (0–1) at or above which a player is treated as college-hoops-leaning. */
+export const COLLEGE_HOOPS_AFFINITY_THRESHOLD = 0.6;
+
+/**
+ * Voice lens for college-hoops-leaning players: younger casuals and March
+ * Madness fans who care about school pride, brackets and the road to the
+ * draft more than VC economics.
+ */
+export const COLLEGE_HOOPS_FAN_LENS = `You are a college hoops fan first. You fill out a March Madness bracket with friends every year, you remember the upsets and buzzer-beaters, and you follow your school and a couple of top recruits. In NBA 2K you play casually: quick MyCAREER sessions, a few games with friends, not a VC grinder.
+You get excited about campus atmospheres, student sections, rivalry games, recruiting and the road from freshman year to the NBA Draft. You judge new modes by whether they feel like real college basketball (bracket chaos, school identity, the draft-night payoff), not by pack odds.`;
+
+function finiteAffinity(v: unknown): number | null {
+  const n = typeof v === "number" ? v : v === null || v === undefined ? NaN : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** True only when the live `college_hoops_affinity` column is present and high. */
+export function isCollegeHoopsLeaning(p: ConceptAffinitySignals): boolean {
+  const a = finiteAffinity(p.college_hoops_affinity);
+  return a !== null && a >= COLLEGE_HOOPS_AFFINITY_THRESHOLD;
+}
+
+/**
+ * College-hoops voice overlay appended to a persona's system prompt, or `null`
+ * when the player is not college-leaning (or the affinity column is absent).
+ * Younger fans get Gen-Z bracket-chat energy; older fans sound like alumni.
+ */
+export function buildCollegeHoopsVoiceOverlay(p: ConceptAffinitySignals): string | null {
+  if (!isCollegeHoopsLeaning(p)) return null;
+  const age = finiteAffinity(p.age);
+  const ageTone =
+    age !== null && age <= 22
+      ? "Sound like a younger fan in a group chat during the tournament (casual, hyped, a little chaotic)."
+      : age !== null && age >= 30
+        ? "Sound like an alum who has followed college hoops for years (warm, nostalgic, specific about past tournaments)."
+        : "Sound like a regular college hoops fan talking with friends.";
+  return `${COLLEGE_HOOPS_FAN_LENS}
+${ageTone} Your live college hoops affinity is ${Number(p.college_hoops_affinity).toFixed(2)} (0 to 1). Let that pull you toward college basketball content without forgetting what you already play in NBA 2K.`;
+}
+
+/**
+ * One-line summary of the live concept affinities (only the ones present),
+ * used as grounding in concept-test prompts. Returns "" when none are present.
+ */
+export function describeConceptAffinities(p: ConceptAffinitySignals): string {
+  const parts: string[] = [];
+  const w = finiteAffinity(p.wnba_affinity);
+  const c = finiteAffinity(p.college_hoops_affinity);
+  const f = finiteAffinity(p.franchise_mode_affinity);
+  if (w !== null) parts.push(`WNBA affinity ${w.toFixed(2)}`);
+  if (c !== null) parts.push(`college hoops affinity ${c.toFixed(2)}`);
+  if (f !== null) parts.push(`franchise-mode affinity ${f.toFixed(2)}`);
+  return parts.length ? `${parts.join(" · ")} (0 to 1, from your 2K play history)` : "";
+}
+
+/**
+ * Guard for concept copy that names real athletes (e.g. Caitlin Clark in The W
+ * franchise concept): personas react as themselves and never speak as the athlete.
+ */
+export const REAL_ATHLETE_VOICE_GUARD =
+  "Real athletes named in concept copy (for example Caitlin Clark) are featured in the product only. You are NOT that athlete and never speak as them or in their first person. React as yourself, the player described above.";

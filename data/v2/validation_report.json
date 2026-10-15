@@ -1,0 +1,864 @@
+{
+  "as_of": "2026-10-15T12:00:00Z",
+  "integrity": {
+    "players == 6,500": {
+      "ok": true,
+      "detail": "6500"
+    },
+    "creators == 40": {
+      "ok": true,
+      "detail": "40"
+    },
+    "Players primary key unique": {
+      "ok": true,
+      "detail": ""
+    },
+    "Clans primary key unique": {
+      "ok": true,
+      "detail": ""
+    },
+    "Identities primary key unique": {
+      "ok": true,
+      "detail": ""
+    },
+    "MemberOfClan primary key unique": {
+      "ok": true,
+      "detail": ""
+    },
+    "HasIdentity primary key unique": {
+      "ok": true,
+      "detail": ""
+    },
+    "PlayedWith primary key unique": {
+      "ok": true,
+      "detail": ""
+    },
+    "FriendsWith primary key unique": {
+      "ok": true,
+      "detail": ""
+    },
+    "Messaged primary key unique": {
+      "ok": true,
+      "detail": ""
+    },
+    "CompetedIn primary key unique": {
+      "ok": true,
+      "detail": ""
+    },
+    "Watched primary key unique": {
+      "ok": true,
+      "detail": ""
+    },
+    "Bought primary key unique": {
+      "ok": true,
+      "detail": ""
+    },
+    "Equipped primary key unique": {
+      "ok": true,
+      "detail": ""
+    },
+    "CrewMembershipEvents primary key unique": {
+      "ok": true,
+      "detail": ""
+    },
+    "Matches primary key unique": {
+      "ok": true,
+      "detail": ""
+    },
+    "Streams primary key unique": {
+      "ok": true,
+      "detail": ""
+    },
+    "Items primary key unique": {
+      "ok": true,
+      "detail": ""
+    },
+    "MemberOfClan refs": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "CrewMembershipEvents refs": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "HasIdentity refs": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "PlayedWith refs / ordering (player_id < other_player_id) / no self-edges": {
+      "ok": true,
+      "detail": "refs=0 order=0 self=0"
+    },
+    "FriendsWith refs / ordering (player_id < other_player_id) / no self-edges": {
+      "ok": true,
+      "detail": "refs=0 order=0 self=0"
+    },
+    "Messaged refs / ordering (player_id < other_player_id) / no self-edges": {
+      "ok": true,
+      "detail": "refs=0 order=0 self=0"
+    },
+    "CompetedIn refs": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "every match has exactly one W and one L crew": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "InSeason refs consistent with Matches.season_id": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "SplitFrom refs": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "Streams refs (creator/offer/item)": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "Hosted refs": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "Watched refs": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "BrandActivations refs": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "Sponsors refs": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "Features refs": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "Items brand consistency": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "Bought refs": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "Equipped only bought items": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "Players.followed_creators resolve": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "Brands not labelled synthetic": {
+      "ok": true,
+      "detail": ""
+    },
+    "MemberOfClan timestamps <= as-of": {
+      "ok": true,
+      "detail": "0 in future"
+    },
+    "CrewMembershipEvents timestamps <= as-of": {
+      "ok": true,
+      "detail": "0 in future"
+    },
+    "PlayedWith timestamps <= as-of": {
+      "ok": true,
+      "detail": "0 in future"
+    },
+    "FriendsWith timestamps <= as-of": {
+      "ok": true,
+      "detail": "0 in future"
+    },
+    "Messaged timestamps <= as-of": {
+      "ok": true,
+      "detail": "0 in future"
+    },
+    "Matches timestamps <= as-of": {
+      "ok": true,
+      "detail": "0 in future"
+    },
+    "Streams timestamps <= as-of": {
+      "ok": true,
+      "detail": "0 in future"
+    },
+    "Watched timestamps <= as-of": {
+      "ok": true,
+      "detail": "0 in future"
+    },
+    "Bought timestamps <= as-of": {
+      "ok": true,
+      "detail": "0 in future"
+    },
+    "Equipped timestamps <= as-of": {
+      "ok": true,
+      "detail": "0 in future"
+    },
+    "SplitFrom timestamps <= as-of": {
+      "ok": true,
+      "detail": "0 in future"
+    },
+    "Players timestamps <= as-of": {
+      "ok": true,
+      "detail": "0 in future"
+    },
+    "MemberOfClan left_at > joined_at": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "MemberOfClan is_active == (left_at IS NULL)": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "at most one active crew per player": {
+      "ok": true,
+      "detail": ""
+    },
+    "crew_centrality in [0,1]": {
+      "ok": true,
+      "detail": ""
+    },
+    "Matches.played_at inside its season": {
+      "ok": false,
+      "detail": "151 bad"
+    },
+    "Watched.watched_at inside the stream": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "Bought.bought_at inside the 90-day window": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "sessions_daily covers exactly the 90-day window": {
+      "ok": true,
+      "detail": ""
+    },
+    "last_active_at == last sessions_daily day": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "churned_at == last_active_at + 14d (NULL if active)": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "session_min_7d / prev_7d match sessions_daily": {
+      "ok": true,
+      "detail": "0 bad"
+    },
+    "MAX(last_active_at) falls on the as-of date": {
+      "ok": true,
+      "detail": "2026-10-15T11:51:21+00:00"
+    }
+  },
+  "effects": {
+    "churn_exposure_hazard_ratio": {
+      "value": 2.073,
+      "range": [
+        1.6,
+        2.0
+      ],
+      "ok": false,
+      "crude": 2.11,
+      "crude_ci": [
+        1.899,
+        2.345
+      ],
+      "mh_ci": [
+        1.866,
+        2.305
+      ],
+      "events_exposed": 929,
+      "person_days_exposed": 195321,
+      "events_unexposed": 551,
+      "person_days_unexposed": 244474
+    },
+    "anchor_dependency_d14_retention_lift": {
+      "value": -0.064,
+      "range": [
+        -0.4,
+        -0.25
+      ],
+      "ok": false,
+      "ci": [
+        -0.09,
+        -0.039
+      ],
+      "ret_treated": 0.873,
+      "ret_control": 0.933,
+      "n_treated_crews": 15,
+      "n_treated_members": 576,
+      "n_control_members": 1745,
+      "crews_with_>=10pct_drop": 5
+    },
+    "keystone_share": {
+      "value": 0.0456,
+      "range": [
+        0.06,
+        0.09
+      ],
+      "ok": false,
+      "ci": [
+        0.0386,
+        0.0526
+      ],
+      "n_keystones": 156,
+      "n_active_members": 3419
+    },
+    "keystones_declining": {
+      "value": 24,
+      "range": [
+        15,
+        25
+      ],
+      "ok": true,
+      "player_ids": [
+        "t2-usr-00064",
+        "t2-usr-00231",
+        "t2-usr-00277",
+        "t2-usr-00323",
+        "t2-usr-00560",
+        "t2-usr-00609",
+        "t2-usr-00746",
+        "t2-usr-01378",
+        "t2-usr-01686",
+        "t2-usr-01784",
+        "t2-usr-01824",
+        "t2-usr-01897",
+        "t2-usr-02313",
+        "t2-usr-02928",
+        "t2-usr-03423",
+        "t2-usr-03566",
+        "t2-usr-03948",
+        "t2-usr-04081",
+        "t2-usr-04624",
+        "t2-usr-04634",
+        "t2-usr-05039",
+        "t2-usr-05103",
+        "t2-usr-05171",
+        "t2-usr-05188"
+      ]
+    },
+    "crews_lost_core_member_7d": {
+      "value": 16,
+      "range": [
+        12,
+        25
+      ],
+      "ok": true,
+      "crews": [
+        "crew-012",
+        "crew-014",
+        "crew-017",
+        "crew-019",
+        "crew-023",
+        "crew-035",
+        "crew-048",
+        "crew-050",
+        "crew-055",
+        "crew-058",
+        "crew-059",
+        "crew-061",
+        "crew-065",
+        "crew-069",
+        "crew-071",
+        "crew-072"
+      ]
+    },
+    "creator_lift": {
+      "ok": false,
+      "rows": [
+        {
+          "creator_id": "creator-joeknows",
+          "handle": "JoeKnows",
+          "treated_n": 57,
+          "control_n": 171,
+          "d30_treated": 1.0,
+          "d30_control": 0.8713,
+          "diff_pts": 12.87,
+          "ci_low_pts": 7.85,
+          "ci_high_pts": 17.88,
+          "incremental_players": 7.3
+        },
+        {
+          "creator_id": "creator-gamerability",
+          "handle": "GamerAbility",
+          "treated_n": 52,
+          "control_n": 156,
+          "d30_treated": 0.9808,
+          "d30_control": 0.8526,
+          "diff_pts": 12.82,
+          "ci_low_pts": 6.12,
+          "ci_high_pts": 19.52,
+          "incremental_players": 6.7
+        },
+        {
+          "creator_id": "creator-uncledemi",
+          "handle": "UncleDemi",
+          "treated_n": 42,
+          "control_n": 126,
+          "d30_treated": 0.9762,
+          "d30_control": 0.8571,
+          "diff_pts": 11.9,
+          "ci_low_pts": 4.25,
+          "ci_high_pts": 19.56,
+          "incremental_players": 5.0
+        },
+        {
+          "creator_id": "creator-badgeplug",
+          "handle": "BadgePlug",
+          "treated_n": 72,
+          "control_n": 216,
+          "d30_treated": 0.9583,
+          "d30_control": 0.8611,
+          "diff_pts": 9.72,
+          "ci_low_pts": 3.2,
+          "ci_high_pts": 16.25,
+          "incremental_players": 7.0
+        },
+        {
+          "creator_id": "creator-potatomcwhiskey",
+          "handle": "PotatoMcWhiskey",
+          "treated_n": 84,
+          "control_n": 252,
+          "d30_treated": 0.9643,
+          "d30_control": 0.8849,
+          "diff_pts": 7.94,
+          "ci_low_pts": 2.34,
+          "ci_high_pts": 13.53,
+          "incremental_players": 6.7
+        },
+        {
+          "creator_id": "creator-dbg",
+          "handle": "DBG",
+          "treated_n": 82,
+          "control_n": 246,
+          "d30_treated": 0.9024,
+          "d30_control": 0.8333,
+          "diff_pts": 6.91,
+          "ci_low_pts": -1.02,
+          "ci_high_pts": 14.84,
+          "incremental_players": 5.7
+        },
+        {
+          "creator_id": "creator-bde",
+          "handle": "BDE",
+          "treated_n": 81,
+          "control_n": 243,
+          "d30_treated": 0.9136,
+          "d30_control": 0.8601,
+          "diff_pts": 5.35,
+          "ci_low_pts": -2.16,
+          "ci_high_pts": 12.86,
+          "incremental_players": 4.3
+        },
+        {
+          "creator_id": "creator-moxsy",
+          "handle": "Moxsy",
+          "treated_n": 85,
+          "control_n": 255,
+          "d30_treated": 0.9176,
+          "d30_control": 0.8824,
+          "diff_pts": 3.53,
+          "ci_low_pts": -3.53,
+          "ci_high_pts": 10.59,
+          "incremental_players": 3.0
+        },
+        {
+          "creator_id": "creator-kot4q",
+          "handle": "KOT4Q",
+          "treated_n": 65,
+          "control_n": 195,
+          "d30_treated": 0.8923,
+          "d30_control": 0.8667,
+          "diff_pts": 2.56,
+          "ci_low_pts": -6.36,
+          "ci_high_pts": 11.48,
+          "incremental_players": 1.7
+        },
+        {
+          "creator_id": "creator-tydebo",
+          "handle": "Tydebo",
+          "treated_n": 53,
+          "control_n": 159,
+          "d30_treated": 0.9245,
+          "d30_control": 0.9057,
+          "diff_pts": 1.89,
+          "ci_low_pts": -6.55,
+          "ci_high_pts": 10.33,
+          "incremental_players": 1.0
+        },
+        {
+          "creator_id": "creator-callmeagent",
+          "handle": "CallMeAgent",
+          "treated_n": 36,
+          "control_n": 108,
+          "d30_treated": 0.8333,
+          "d30_control": 0.8148,
+          "diff_pts": 1.85,
+          "ci_low_pts": -12.36,
+          "ci_high_pts": 16.06,
+          "incremental_players": 0.7
+        },
+        {
+          "creator_id": "creator-smacktalks",
+          "handle": "Smacktalks",
+          "treated_n": 61,
+          "control_n": 183,
+          "d30_treated": 0.918,
+          "d30_control": 0.9126,
+          "diff_pts": 0.55,
+          "ci_low_pts": -7.46,
+          "ci_high_pts": 8.55,
+          "incremental_players": 0.3
+        },
+        {
+          "creator_id": "creator-agent00",
+          "handle": "Agent00",
+          "treated_n": 62,
+          "control_n": 186,
+          "d30_treated": 0.871,
+          "d30_control": 0.8656,
+          "diff_pts": 0.54,
+          "ci_low_pts": -9.14,
+          "ci_high_pts": 10.22,
+          "incremental_players": 0.3
+        },
+        {
+          "creator_id": "creator-joltzdude139",
+          "handle": "Joltzdude139",
+          "treated_n": 41,
+          "control_n": 123,
+          "d30_treated": 0.9512,
+          "d30_control": 0.9512,
+          "diff_pts": 0.0,
+          "ci_low_pts": -7.61,
+          "ci_high_pts": 7.61,
+          "incremental_players": 0.0
+        },
+        {
+          "creator_id": "creator-powerdf",
+          "handle": "PowerDF",
+          "treated_n": 54,
+          "control_n": 162,
+          "d30_treated": 0.8704,
+          "d30_control": 0.8765,
+          "diff_pts": -0.62,
+          "ci_low_pts": -10.91,
+          "ci_high_pts": 9.67,
+          "incremental_players": -0.3
+        },
+        {
+          "creator_id": "creator-assemble",
+          "handle": "Assemble",
+          "treated_n": 41,
+          "control_n": 123,
+          "d30_treated": 0.9024,
+          "d30_control": 0.9187,
+          "diff_pts": -1.63,
+          "ci_low_pts": -11.91,
+          "ci_high_pts": 8.66,
+          "incremental_players": -0.7
+        },
+        {
+          "creator_id": "creator-solodf",
+          "handle": "Solo",
+          "treated_n": 36,
+          "control_n": 108,
+          "d30_treated": 0.8611,
+          "d30_control": 0.8981,
+          "diff_pts": -3.7,
+          "ci_low_pts": -16.36,
+          "ci_high_pts": 8.95,
+          "incremental_players": -1.3
+        },
+        {
+          "creator_id": "creator-flightreacts",
+          "handle": "FlightReacts",
+          "treated_n": 190,
+          "control_n": 570,
+          "d30_treated": 0.7842,
+          "d30_control": 0.8474,
+          "diff_pts": -6.32,
+          "ci_low_pts": -12.87,
+          "ci_high_pts": 0.24,
+          "incremental_players": -12.0
+        },
+        {
+          "creator_id": "creator-grindingdf",
+          "handle": "GrindingDF",
+          "treated_n": 39,
+          "control_n": 117,
+          "d30_treated": 0.7692,
+          "d30_control": 0.8547,
+          "diff_pts": -8.55,
+          "ci_low_pts": -23.23,
+          "ci_high_pts": 6.14,
+          "incremental_players": -3.3
+        }
+      ],
+      "clearly_positive": [
+        "JoeKnows",
+        "GamerAbility",
+        "UncleDemi",
+        "BadgePlug",
+        "PotatoMcWhiskey"
+      ]
+    },
+    "branded_social_attach_multiplier": {
+      "value": 4.943,
+      "range": [
+        1.5,
+        2.5
+      ],
+      "ok": false,
+      "ci": [
+        4.655,
+        5.248
+      ],
+      "attach_exposed": 0.1128,
+      "attach_unexposed": 0.0228,
+      "per_brand": [
+        {
+          "brand_id": "adidas",
+          "buyers": 819,
+          "attach_exposed": 0.1491,
+          "attach_unexposed": 0.0721,
+          "multiplier": 2.07
+        },
+        {
+          "brand_id": "american-express",
+          "buyers": 1011,
+          "attach_exposed": 0.1778,
+          "attach_unexposed": 0.1071,
+          "multiplier": 1.66
+        },
+        {
+          "brand_id": "bape",
+          "buyers": 113,
+          "attach_exposed": 0.036,
+          "attach_unexposed": 0.0124,
+          "multiplier": 2.89
+        },
+        {
+          "brand_id": "cerave",
+          "buyers": 175,
+          "attach_exposed": 0.0425,
+          "attach_unexposed": 0.0219,
+          "multiplier": 1.94
+        },
+        {
+          "brand_id": "coach",
+          "buyers": 1047,
+          "attach_exposed": 0.1875,
+          "attach_unexposed": 0.0737,
+          "multiplier": 2.55
+        },
+        {
+          "brand_id": "converse",
+          "buyers": 833,
+          "attach_exposed": 0.1507,
+          "attach_unexposed": 0.0781,
+          "multiplier": 1.93
+        },
+        {
+          "brand_id": "denim-tears",
+          "buyers": 402,
+          "attach_exposed": 0.0798,
+          "attach_unexposed": 0.0458,
+          "multiplier": 1.74
+        },
+        {
+          "brand_id": "gatorade",
+          "buyers": 1152,
+          "attach_exposed": 0.2016,
+          "attach_unexposed": 0.1127,
+          "multiplier": 1.79
+        },
+        {
+          "brand_id": "jordan-brand",
+          "buyers": 84,
+          "attach_exposed": 0.0308,
+          "attach_unexposed": 0.0098,
+          "multiplier": 3.14
+        },
+        {
+          "brand_id": "kia",
+          "buyers": 550,
+          "attach_exposed": 0.1054,
+          "attach_unexposed": 0.057,
+          "multiplier": 1.85
+        },
+        {
+          "brand_id": "new-balance",
+          "buyers": 80,
+          "attach_exposed": 0.0296,
+          "attach_unexposed": 0.0095,
+          "multiplier": 3.12
+        },
+        {
+          "brand_id": "nike",
+          "buyers": 348,
+          "attach_exposed": 0.0747,
+          "attach_unexposed": 0.0365,
+          "multiplier": 2.04
+        },
+        {
+          "brand_id": "nvidia",
+          "buyers": 118,
+          "attach_exposed": 0.0391,
+          "attach_unexposed": 0.0126,
+          "multiplier": 3.11
+        },
+        {
+          "brand_id": "puma",
+          "buyers": 71,
+          "attach_exposed": 0.0182,
+          "attach_unexposed": 0.0106,
+          "multiplier": 1.73
+        },
+        {
+          "brand_id": "reebok",
+          "buyers": 202,
+          "attach_exposed": 0.0499,
+          "attach_unexposed": 0.0228,
+          "multiplier": 2.19
+        },
+        {
+          "brand_id": "state-farm",
+          "buyers": 429,
+          "attach_exposed": 0.0915,
+          "attach_unexposed": 0.0367,
+          "multiplier": 2.49
+        },
+        {
+          "brand_id": "tissot",
+          "buyers": 79,
+          "attach_exposed": 0.0264,
+          "attach_unexposed": 0.0102,
+          "multiplier": 2.58
+        },
+        {
+          "brand_id": "true-religion",
+          "buyers": 297,
+          "attach_exposed": 0.0653,
+          "attach_unexposed": 0.0305,
+          "multiplier": 2.14
+        },
+        {
+          "brand_id": "under-armour",
+          "buyers": 97,
+          "attach_exposed": 0.0367,
+          "attach_unexposed": 0.0093,
+          "multiplier": 3.94
+        }
+      ]
+    },
+    "creator_hubs": {
+      "ok": true,
+      "top_hubs": [
+        {
+          "handle": "JoeKnows",
+          "hub_score": 1.0,
+          "community_span": 137,
+          "followers": 1300000,
+          "follower_rank": 15
+        },
+        {
+          "handle": "ColeTheMan",
+          "hub_score": 0.9891,
+          "community_span": 130,
+          "followers": 1080000,
+          "follower_rank": 20
+        },
+        {
+          "handle": "NBA2KLab",
+          "hub_score": 0.9842,
+          "community_span": 127,
+          "followers": 1150000,
+          "follower_rank": 17
+        },
+        {
+          "handle": "FlightReacts",
+          "hub_score": 0.983,
+          "community_span": 131,
+          "followers": 6900000,
+          "follower_rank": 1
+        },
+        {
+          "handle": "DukeDennis",
+          "hub_score": 0.9332,
+          "community_span": 104,
+          "followers": 4500000,
+          "follower_rank": 3
+        },
+        {
+          "handle": "BadgePlug",
+          "hub_score": 0.8953,
+          "community_span": 89,
+          "followers": 2250000,
+          "follower_rank": 8
+        },
+        {
+          "handle": "CashNasty",
+          "hub_score": 0.8754,
+          "community_span": 80,
+          "followers": 4200000,
+          "follower_rank": 4
+        },
+        {
+          "handle": "Agent00",
+          "hub_score": 0.8657,
+          "community_span": 78,
+          "followers": 2600000,
+          "follower_rank": 6
+        }
+      ],
+      "top_follower_creators_hub_rank": {
+        "FlightReacts": 4,
+        "ChrisSmoove": 11,
+        "DukeDennis": 5,
+        "CashNasty": 7
+      }
+    },
+    "concept_affinity": {
+      "ok": true,
+      "top_wnba_archetype": "THE_W_LOYALIST",
+      "top_franchise_archetype": "MYNBA_FRANCHISE_SIM",
+      "college_mean_age_le_21": 0.449,
+      "college_mean_age_ge_28": 0.199
+    }
+  },
+  "counts": {
+    "players": 6500,
+    "clans": 95,
+    "creators": 40,
+    "identities": 23587,
+    "has_identity": 23587,
+    "member_of_clan": 4322,
+    "crew_membership_events": 5268,
+    "played_with": 58903,
+    "friends_with": 21329,
+    "messaged": 14329,
+    "seasons": 6,
+    "matches": 19811,
+    "competed_in": 39622,
+    "in_season": 19811,
+    "split_from": 11,
+    "streams": 390,
+    "hosted": 390,
+    "watched": 30580,
+    "brands": 19,
+    "brand_activations": 16,
+    "sponsors": 16,
+    "items": 57,
+    "features": 38,
+    "bought": 16129,
+    "equipped": 6490,
+    "sessions_daily": 270259,
+    "churned_players": 1480
+  }
+}

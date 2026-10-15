@@ -43,3 +43,7 @@ env/
 
 # Model smoke outputs
 scripts/.smoke/
+.next-*/
+
+# v2 BigQuery NDJSON staging (scripts/mirror_v2_bigquery.js)
+data/v2/_bq/

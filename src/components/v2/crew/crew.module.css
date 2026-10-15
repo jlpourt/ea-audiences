@@ -1,0 +1,75 @@
+/* Crew · Churn motion that should run off the main thread (CSS, not JS). */
+
+/* Keystone glyph: a slow ring pulse. Ambient state indication, not decoration
+   on a frequent control. Transform + opacity only. */
+.pulseRing {
+  position: absolute;
+  inset: -5px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--accent);
+  opacity: 0;
+  transform: scale(0.8);
+  animation: crewPulse 2.4s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+  pointer-events: none;
+}
+.pulseRingDelay {
+  animation-delay: 1.2s;
+}
+
+@keyframes crewPulse {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+/* Live dot used in the "1 query" badge. */
+.liveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--good);
+  box-shadow: 0 0 0 0 var(--good-soft);
+  animation: crewLive 1.8s ease-out infinite;
+}
+@keyframes crewLive {
+  0% {
+    box-shadow: 0 0 0 0 var(--good-soft);
+  }
+  100% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+
+.sql {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: pre;
+  tab-size: 2;
+}
+
+/* Rows: hover tint only on fine pointers. */
+@media (hover: hover) and (pointer: fine) {
+  .row:hover {
+    background: var(--surface-hover);
+  }
+}
+.row {
+  transition: background-color 160ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulseRing,
+  .liveDot {
+    animation: none;
+  }
+  .pulseRing {
+    opacity: 0.35;
+    transform: scale(1.15);
+  }
+}

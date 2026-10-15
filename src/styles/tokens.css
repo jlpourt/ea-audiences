@@ -1,0 +1,263 @@
+/* ------------------------------------------------------------------ */
+/* 2K Courtside v2 design tokens                                        */
+/* Dark is the default. Light is opt-in via data-theme="light" on html. */
+/* All v2 components consume these through var(--token) only.          */
+/* Contract: docs/v2/CONTRACT.md section 4.                            */
+/* ------------------------------------------------------------------ */
+
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Surfaces: a cool near-black court, three elevation steps. */
+  --bg: #0a0a0c;
+  --bg-elevated: #0e0e11;
+  --surface: #131317;
+  --surface-2: #1a1a1f;
+  --surface-3: #222228;
+  --surface-hover: #1e1e24;
+  --overlay: rgba(10, 10, 12, 0.72);
+
+  /* Lines */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --hairline-hi: rgba(255, 255, 255, 0.10); /* light catching a top edge */
+
+  /* Type */
+  --text: #f4f3ef;
+  --text-dim: rgba(244, 243, 239, 0.62);
+  --text-faint: rgba(244, 243, 239, 0.40);
+  --text-on-accent: #ffffff;
+
+  /* Accents: 2K red is the hero. accent-2 is a cool steel for data. */
+  --accent: #e4002b;
+  --accent-hover: #ff1a44;
+  --accent-soft: rgba(228, 0, 43, 0.14);
+  --accent-ring: rgba(228, 0, 43, 0.38);
+  --accent-2: #8fb4ff;
+  --accent-2-soft: rgba(143, 180, 255, 0.14);
+
+  /* Semantic */
+  --good: #2fd38a;
+  --good-soft: rgba(47, 211, 138, 0.14);
+  --warn: #f5b400;
+  --warn-soft: rgba(245, 180, 0, 0.14);
+  --bad: #ff4d5e;
+  --bad-soft: rgba(255, 77, 94, 0.14);
+
+  /* Graph / chart helpers */
+  --edge: rgba(244, 243, 239, 0.22);
+  --edge-active: var(--accent);
+  --grid: rgba(255, 255, 255, 0.04);
+
+  /* Radius scale: inputs 10, cards 16, sheets 22, interactive pills full. */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius: 16px;
+  --radius-lg: 22px;
+  --radius-pill: 9999px;
+
+  /* Shadows: tinted to the background, never pure black on light. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  --shadow-lg: 0 24px 60px -12px rgba(0, 0, 0, 0.7), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+  --shadow-accent: 0 10px 30px -10px rgba(228, 0, 43, 0.55);
+
+  /* Ambient glow behind the home greeting. */
+  --glow-1: rgba(228, 0, 43, 0.16);
+  --glow-2: rgba(143, 180, 255, 0.08);
+
+  /* Glass chrome */
+  --glass: rgba(19, 19, 23, 0.66);
+  --glass-blur: 20px;
+
+  /* Motion (mirrors src/components/v2/motion/springs.ts) */
+  --v2-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --v2-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --v2-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --v2-dur-press: 120ms;
+  --v2-dur-hover: 160ms;
+  --v2-dur-panel: 260ms;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f6f6f4;
+  --bg-elevated: #fbfbfa;
+  --surface: #ffffff;
+  --surface-2: #f1f1ee;
+  --surface-3: #e8e8e4;
+  --surface-hover: #f4f4f1;
+  --overlay: rgba(246, 246, 244, 0.78);
+
+  --border: rgba(16, 16, 20, 0.09);
+  --border-strong: rgba(16, 16, 20, 0.16);
+  --hairline-hi: rgba(255, 255, 255, 0.9);
+
+  --text: #111114;
+  --text-dim: rgba(17, 17, 20, 0.62);
+  --text-faint: rgba(17, 17, 20, 0.42);
+  --text-on-accent: #ffffff;
+
+  --accent: #d0002a;
+  --accent-hover: #b00023;
+  --accent-soft: rgba(208, 0, 42, 0.09);
+  --accent-ring: rgba(208, 0, 42, 0.30);
+  --accent-2: #2f5bd3;
+  --accent-2-soft: rgba(47, 91, 211, 0.10);
+
+  --good: #0f9d63;
+  --good-soft: rgba(15, 157, 99, 0.10);
+  --warn: #b77900;
+  --warn-soft: rgba(183, 121, 0, 0.12);
+  --bad: #d92d3f;
+  --bad-soft: rgba(217, 45, 63, 0.10);
+
+  --edge: rgba(17, 17, 20, 0.22);
+  --grid: rgba(17, 17, 20, 0.05);
+
+  --shadow-sm: 0 1px 2px rgba(40, 40, 60, 0.08);
+  --shadow: 0 8px 24px -10px rgba(40, 40, 60, 0.18), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  --shadow-lg: 0 24px 60px -16px rgba(40, 40, 60, 0.24), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  --shadow-accent: 0 10px 30px -12px rgba(208, 0, 42, 0.45);
+
+  --glow-1: rgba(208, 0, 42, 0.08);
+  --glow-2: rgba(47, 91, 211, 0.06);
+
+  --glass: rgba(255, 255, 255, 0.72);
+}
+
+/* Theme swap: ease dark/light so the brightness change is not abrupt. */
+:root.theme-transition,
+:root.theme-transition *,
+:root.theme-transition *::before,
+:root.theme-transition *::after {
+  transition:
+    background-color 240ms ease,
+    border-color 240ms ease,
+    color 240ms ease,
+    fill 240ms ease,
+    stroke 240ms ease !important;
+}
+
+/* ------------------------------------------------------------------ */
+/* v2 utility classes (token-driven)                                    */
+/* ------------------------------------------------------------------ */
+.v2-root {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.v2-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.v2-glass {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+}
+
+.v2-tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero";
+}
+
+/* Press feedback, transform only. */
+.v2-press {
+  transition:
+    transform var(--v2-dur-press) var(--v2-ease-out),
+    background-color var(--v2-dur-hover) ease,
+    border-color var(--v2-dur-hover) ease,
+    color var(--v2-dur-hover) ease;
+}
+.v2-press:active {
+  transform: scale(0.97);
+}
+
+/* Skeleton shimmer for live-loading shapes (never fake data). */
+@keyframes v2-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+.v2-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+.v2-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+  animation: v2-shimmer 1.2s linear infinite;
+}
+
+/* Flowing dash for AnimatedEdge (runs off the main thread). */
+@keyframes v2-dash-flow {
+  to {
+    stroke-dashoffset: calc(var(--v2-dash-cycle, 16) * -1px);
+  }
+}
+.v2-edge-flow {
+  animation: v2-dash-flow var(--v2-dash-speed, 900ms) linear infinite;
+}
+
+/* Live dot */
+@keyframes v2-live-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  80%,
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+.v2-live-dot {
+  position: relative;
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--good);
+}
+.v2-live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  animation: v2-live-ping 1.8s var(--v2-ease-out) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v2-press:active {
+    transform: none;
+    opacity: 0.85;
+  }
+  .v2-skeleton::after,
+  .v2-edge-flow,
+  .v2-live-dot::after {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .v2-glass {
+    background: var(--surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

@@ -1,14 +1,79 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runRawGql, toNumber, SpannerUnavailableError } from "@/lib/gcp/spanner-client";
-import { generateText } from "@/lib/gcp/genai-client";
+import { generateText, GenAIError } from "@/lib/gcp/genai-client";
 import { GRAPH_NAME } from "@/lib/gcp/catalog";
+import { GCP_CONFIG } from "@/lib/config";
 import { DynamicCohortFinding, GameFranchise } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+/* ------------------------------------------------------------------ */
+/* Per-process result cache (v2). Each entry is a LIVE computation      */
+/* (Spanner Graph + Gemini) stamped with computed_at; it is reused for  */
+/* CACHE_TTL_MS so the Home card does not wait on 6 GQL queries + a     */
+/* Gemini call on every load. Never populated from static data, never   */
+/* served after expiry, never populated by a failed computation.        */
+/* Concurrent requests for the same key share one in-flight compute.    */
+/* ------------------------------------------------------------------ */
+const CACHE_TTL_MS = 15 * 60 * 1000;
+type Built = Awaited<ReturnType<typeof buildFindings>>;
+// Held on globalThis so a dev-server module reload does not drop it.
+const g = globalThis as unknown as {
+  __coreFindingCache?: Map<string, { at: number; value: Built }>;
+  __coreFindingInflight?: Map<string, Promise<Built>>;
+};
+const cache = (g.__coreFindingCache ??= new Map<string, { at: number; value: Built }>());
+const inflight = (g.__coreFindingInflight ??= new Map<string, Promise<Built>>());
+
+function cacheKey(franchise: string) {
+  return `${GCP_CONFIG.projectId}/${GCP_CONFIG.spannerInstanceId}/${GCP_CONFIG.spannerDatabaseId}/${franchise}`;
+}
+
+async function getFindings(franchise: GameFranchise, fresh: boolean) {
+  const key = cacheKey(franchise);
+  const hit = cache.get(key);
+  if (!fresh && hit && Date.now() - hit.at < CACHE_TTL_MS) {
+    return { ...hit.value, cache: "hit" as const, computed_at: new Date(hit.at).toISOString(), cache_ttl_s: CACHE_TTL_MS / 1000 };
+  }
+  let p = inflight.get(key);
+  if (!p) {
+    p = buildFindings(franchise).finally(() => inflight.delete(key));
+    inflight.set(key, p);
+  }
+  const value = await p;
+  const at = Date.now();
+  cache.set(key, { at, value });
+  return { ...value, cache: "miss" as const, computed_at: new Date(at).toISOString(), cache_ttl_s: CACHE_TTL_MS / 1000 };
+}
+
+function errorResponse(e: unknown) {
+  const err = e as Error;
+  console.error("[core-finding] failed", err);
+  const isSpanner = err instanceof SpannerUnavailableError;
+  const isGenAI = err instanceof GenAIError;
+  return NextResponse.json(
+    {
+      error: "Core finding failed",
+      service: isSpanner ? "cloud-spanner" : isGenAI ? "vertex-ai" : "unknown",
+      project: GCP_CONFIG.projectId,
+      resource: isSpanner
+        ? `projects/${GCP_CONFIG.projectId}/instances/${GCP_CONFIG.spannerInstanceId}/databases/${GCP_CONFIG.spannerDatabaseId}`
+        : isGenAI
+          ? `model ${(err as GenAIError).modelId}`
+          : null,
+      message: err?.message || String(e),
+      details: err?.message || String(e),
+    },
+    { status: isSpanner ? 503 : 502 }
+  );
+}
+
 async function buildFindings(franchise: GameFranchise) {
   const started = Date.now();
 
+  // All six queries run in parallel. Play 5 is anchored on the (few) NBA2K
+  // creators and walks FOLLOWS_CREATOR backwards: identical result, ~0.2s
+  // instead of ~13s scanning every Player's outgoing follows.
   const [play1Rows, play2Rows, play3Rows, play4Rows, play5Rows, baseRows] = await Promise.all([
     runRawGql(`
       GRAPH ${GRAPH_NAME}
@@ -56,9 +121,8 @@ async function buildFindings(franchise: GameFranchise) {
     `),
     runRawGql(`
       GRAPH ${GRAPH_NAME}
-      MATCH (p:Player)-[:FOLLOWS_CREATOR]->(c:Creator)
-      WHERE c.franchise = 'NBA2K'
-        AND p.lifetime_spend_usd >= 200
+      MATCH (c:Creator {franchise: 'NBA2K'})<-[:FOLLOWS_CREATOR]-(p:Player)
+      WHERE p.lifetime_spend_usd >= 200
       RETURN COUNT(DISTINCT p.player_id) AS n,
              AVG(p.lifetime_spend_usd) AS avg_spend,
              AVG(p.churn_risk_score) AS avg_churn
@@ -68,6 +132,8 @@ async function buildFindings(franchise: GameFranchise) {
       FROM Players
     `),
   ]);
+
+  const spannerMs = Date.now() - started;
 
   const p1N = toNumber(play1Rows[0]?.n) ?? 0;
   const p1Spend = toNumber(play1Rows[0]?.avg_spend) ?? 0;
@@ -91,6 +157,7 @@ async function buildFindings(franchise: GameFranchise) {
 
   const totalN = toNumber(baseRows[0]?.total_players) ?? 0;
 
+  const genStarted = Date.now();
   const gen = await generateText({
     role: "FAST",
     prompt: `Write a sharp, 2-sentence executive marketing insight for 2K Courtside using these exact live telemetry graph counts across our 2K portfolio (scope: ${franchise}):
@@ -102,6 +169,7 @@ Keep it direct, numbers-first, strictly 2K brands only, zero fluff.`,
     thinkingBudget: 0,
   });
 
+  const geminiMs = Date.now() - genStarted;
   const executiveSummary = gen.text.trim();
   if (!executiveSummary) {
     throw new Error(`Gemini (${gen.modelUsed}) returned an empty executive summary.`);
@@ -336,6 +404,7 @@ Keep it direct, numbers-first, strictly 2K brands only, zero fluff.`,
     },
     is_live: true,
     execution_ms: Date.now() - started,
+    timings_ms: { spanner: spannerMs, gemini: geminiMs },
   };
 }
 
@@ -343,14 +412,23 @@ export async function GET(request: NextRequest) {
   const franchise = (
     request.nextUrl.searchParams.get("franchise") || "ALL"
   ).toUpperCase() as GameFranchise;
-  const data = await buildFindings(franchise);
-  return NextResponse.json(data);
+  const fresh = request.nextUrl.searchParams.get("fresh") === "1";
+  try {
+    const data = await getFindings(franchise, fresh);
+    return NextResponse.json(data, { headers: { "Cache-Control": "no-store" } });
+  } catch (e) {
+    return errorResponse(e);
+  }
 }
 
 export async function POST(request: NextRequest) {
-  const rawText = await request.text();
-  const body = rawText ? JSON.parse(rawText) : {};
-  const franchise = String(body?.franchise || "ALL").toUpperCase() as GameFranchise;
-  const data = await buildFindings(franchise);
-  return NextResponse.json(data);
+  try {
+    const rawText = await request.text();
+    const body = rawText ? JSON.parse(rawText) : {};
+    const franchise = String(body?.franchise || "ALL").toUpperCase() as GameFranchise;
+    const data = await getFindings(franchise, body?.fresh === true);
+    return NextResponse.json(data, { headers: { "Cache-Control": "no-store" } });
+  } catch (e) {
+    return errorResponse(e);
+  }
 }

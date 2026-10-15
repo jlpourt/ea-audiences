@@ -1,0 +1,430 @@
+[
+  {
+    "brand_id": "american-express",
+    "name": "American Express",
+    "category": "FINANCIAL",
+    "titles": [
+      "NBA 2K26",
+      "NBA 2K27"
+    ],
+    "year": 2026,
+    "integration": "Multiyear NBA renewal (Feb 2026) adds NBA Take-Two Media and 'reimagined NBA 2K in-game perks and experiences beginning with 2K27'; branded wear-Amex-apparel 2XREP events in The City / Event Center",
+    "example_items": [
+      "American Express 2XREP (2K27 Season 2, Nov 7-8)",
+      "American Express 2XREP (2K26, Jan 24, Event Center)",
+      "Amex apparel"
+    ],
+    "sources": [
+      "https://www.americanexpress.com/en-us/newsroom/articles/entertainment-and-experiences/nba-and-american-express-announce-multiyear-partnership-extensio.html",
+      "https://nba.2k.com/2k27/seasons/",
+      "https://web.archive.org/web/20260211121453/https://nba.2k.com/2k26/seasons/"
+    ],
+    "confidence": "HIGH"
+  },
+  {
+    "brand_id": "gatorade",
+    "name": "Gatorade",
+    "category": "BEVERAGE",
+    "titles": [
+      "NBA 2K26",
+      "NBA 2K27"
+    ],
+    "year": 2026,
+    "integration": "Named City building (training/stamina gym) plus a VC consumable boost type bundled in game editions and season rewards",
+    "example_items": [
+      "Gatorade Training Facility",
+      "Gatorade Boosts (25x 3 types in 2K27 editions)"
+    ],
+    "sources": [
+      "https://nba.2k.com/2k26/courtside-report/the-city/",
+      "https://nba.2k.com/2k27/",
+      "https://realsport101.com/article/nba-2k27-how-to-unlock-the-workout-warrior-badge"
+    ],
+    "confidence": "HIGH"
+  },
+  {
+    "brand_id": "cerave",
+    "name": "CeraVe",
+    "category": "LIFESTYLE",
+    "titles": [
+      "NBA 2K27"
+    ],
+    "year": 2026,
+    "integration": "Branded Event Center event and MyCAREER endorsement; NBA official skincare partner since Oct 2025",
+    "example_items": [
+      "The CeraVe Splash Zone (Nov 13-15)",
+      "CeraVe endorsement challenge"
+    ],
+    "sources": [
+      "https://nba.2k.com/2k27/seasons/",
+      "https://www.nba.com/news/cerave-official-skincare-partner",
+      "https://www.businessoffashion.com/briefings/sports/how-nba-2k-became-a-fashion-playground/"
+    ],
+    "confidence": "HIGH"
+  },
+  {
+    "brand_id": "coach",
+    "name": "Coach",
+    "category": "APPAREL",
+    "titles": [
+      "NBA 2K26",
+      "NBA 2K27"
+    ],
+    "year": 2026,
+    "integration": "Luxury apparel in The City; branded wear-to-earn 2XREP events",
+    "example_items": [
+      "Coach 2XREP (2K26, Jan 17 2026)",
+      "Coach 2XREP (2K26, Mar 14 2026)",
+      "Coach apparel (2K27)"
+    ],
+    "sources": [
+      "https://web.archive.org/web/20260211121453/https://nba.2k.com/2k26/seasons/",
+      "https://web.archive.org/web/20260314162247/https://nba.2k.com/2k26/seasons/",
+      "https://wwd.com/footwear-news/sneaker-news/nba-2k27-new-sneakers-brands-1239199455/",
+      "https://www.linkedin.com/posts/r2k_how-nba-2k-became-a-fashion-playground-activity-7503187269227282433-SJDU"
+    ],
+    "confidence": "HIGH"
+  },
+  {
+    "brand_id": "adidas",
+    "name": "adidas",
+    "category": "FOOTWEAR",
+    "titles": [
+      "NBA 2K26",
+      "NBA 2K27"
+    ],
+    "year": 2026,
+    "integration": "Sneakers and apparel; branded 2XREP events; athlete signature lines",
+    "example_items": [
+      "Adidas 2XREP (2K27 Season 2, Oct 23-24)",
+      "Anthony Edwards signature",
+      "adidas Superstar"
+    ],
+    "sources": [
+      "https://nba.2k.com/2k27/seasons/",
+      "https://web.archive.org/web/20251201185609/https://nba.2k.com/2k26/seasons/",
+      "https://wwd.com/footwear-news/sneaker-news/nba-2k27-new-sneakers-brands-1239199455/"
+    ],
+    "confidence": "HIGH"
+  },
+  {
+    "brand_id": "nike",
+    "name": "Nike",
+    "category": "FOOTWEAR",
+    "titles": [
+      "NBA 2K27"
+    ],
+    "year": 2026,
+    "integration": "Largest sneaker catalog; Caitlin Clark wears the unreleased Nike Caitlin 1 'Yellow Zest' on the 2K27 Deluxe Edition cover (first in-game appearance)",
+    "example_items": [
+      "Nike Caitlin 1",
+      "Nike Air Foamposite One",
+      "Nike Dunk High"
+    ],
+    "sources": [
+      "https://wwd.com/footwear-news/sneaker-news/nba-2k27-caitlin-clark-cover-nike-caitlin-1-1239078515/",
+      "https://wwd.com/footwear-news/sneaker-news/nba-2k27-new-sneakers-brands-1239199455/",
+      "https://newsroom.2k.com/news/nbar-2k27-cover-athletes-revealed-victor-wembanyama-caitlin-clark-and-derrick-rose"
+    ],
+    "confidence": "HIGH"
+  },
+  {
+    "brand_id": "kia",
+    "name": "Kia",
+    "category": "AUTO",
+    "titles": [
+      "NBA 2K25",
+      "NBA 2K26"
+    ],
+    "year": 2026,
+    "integration": "Branded Event Center challenge event (Trampoline Ball, Beat the Pros, etc.)",
+    "example_items": [
+      "Kia Challenge (2K26, Feb 20-22 2026)",
+      "Kia Challenge (2K26, Apr 10-12 2026)"
+    ],
+    "sources": [
+      "https://web.archive.org/web/20260314162247/https://nba.2k.com/2k26/seasons/",
+      "https://web.archive.org/web/20260410104325/https://nba.2k.com/2k26/seasons/",
+      "https://hoopsgamers.com/nba-2k25-kia-challenge-event-guide-rewards-start-date-more"
+    ],
+    "confidence": "HIGH"
+  },
+  {
+    "brand_id": "converse",
+    "name": "Converse",
+    "category": "FOOTWEAR",
+    "titles": [
+      "NBA 2K26",
+      "NBA 2K27"
+    ],
+    "year": 2026,
+    "integration": "SGA's unreleased SHAI 001 shown on the 2K26 cover (per NBA 2K GM Zak Armitage); Converse catalog in 2K27",
+    "example_items": [
+      "Converse SHAI 001",
+      "Chuck Taylor All Star",
+      "Converse Weapon"
+    ],
+    "sources": [
+      "https://www.sportsbusinessjournal.com/Articles/2025/09/12/2k-sports-brings-in-more-brands-promotions-for-nba-2k26-cover-athletes/",
+      "https://wwd.com/footwear-news/sneaker-news/nba-2k27-new-sneakers-brands-1239199455/"
+    ],
+    "confidence": "HIGH"
+  },
+  {
+    "brand_id": "nvidia",
+    "name": "NVIDIA",
+    "category": "TECH",
+    "titles": [
+      "NBA 2K27"
+    ],
+    "year": 2026,
+    "integration": "DLSS 5 3D-Guided Neural Rendering developed in close collaboration with Visual Concepts (RTX 50 Series / GeForce NOW Ultimate)",
+    "example_items": [
+      "generic"
+    ],
+    "sources": [
+      "https://newsroom.2k.com/news/ball-over-everything-in-nbar-2k27-now-available"
+    ],
+    "confidence": "HIGH"
+  },
+  {
+    "brand_id": "state-farm",
+    "name": "State Farm",
+    "category": "FINANCIAL",
+    "titles": [
+      "NBA 2K26"
+    ],
+    "year": 2026,
+    "integration": "MyCAREER sponsor endorsement quest featuring Jake from State Farm; promoted on brand's official social accounts",
+    "example_items": [
+      "State Farm endorsement",
+      "Jake from State Farm quest"
+    ],
+    "sources": [
+      "https://x.com/JakeStateFarm/status/2027077259082010809",
+      "https://www.tiktok.com/@jakefromstatefarm/video/7546744694894611725",
+      "https://www.youtube.com/watch?v=rQ5RuAJ0AK4"
+    ],
+    "confidence": "MEDIUM"
+  },
+  {
+    "brand_id": "reebok",
+    "name": "Reebok",
+    "category": "FOOTWEAR",
+    "titles": [
+      "NBA 2K26",
+      "NBA 2K27"
+    ],
+    "year": 2026,
+    "integration": "Angel Reese debuted her first signature shoe on the 2K26 WNBA Edition cover; Reebok signature and classics in 2K27",
+    "example_items": [
+      "Reebok Angel Reese 1",
+      "Reebok Pump",
+      "Reebok Blast"
+    ],
+    "sources": [
+      "https://bleacherreport.com/articles/25224358-nba-2k26-reveals-sga-angel-reese-and-carmelo-anthony-covers-and-release-date",
+      "https://wwd.com/footwear-news/sneaker-news/nba-2k27-new-sneakers-brands-1239199455/"
+    ],
+    "confidence": "MEDIUM"
+  },
+  {
+    "brand_id": "jordan-brand",
+    "name": "Jordan Brand",
+    "category": "FOOTWEAR",
+    "titles": [
+      "NBA 2K27"
+    ],
+    "year": 2026,
+    "integration": "Every Air Jordan model from AJ1 to AJ40 available in-game",
+    "example_items": [
+      "Air Jordan 1",
+      "Air Jordan 40"
+    ],
+    "sources": [
+      "https://wwd.com/footwear-news/sneaker-news/nba-2k27-new-sneakers-brands-1239199455/"
+    ],
+    "confidence": "MEDIUM"
+  },
+  {
+    "brand_id": "puma",
+    "name": "Puma",
+    "category": "FOOTWEAR",
+    "titles": [
+      "NBA 2K27"
+    ],
+    "year": 2026,
+    "integration": "Signature, performance and classic sneakers",
+    "example_items": [
+      "LaMelo Ball signature",
+      "Puma Suede"
+    ],
+    "sources": [
+      "https://wwd.com/footwear-news/sneaker-news/nba-2k27-new-sneakers-brands-1239199455/"
+    ],
+    "confidence": "MEDIUM"
+  },
+  {
+    "brand_id": "new-balance",
+    "name": "New Balance",
+    "category": "FOOTWEAR",
+    "titles": [
+      "NBA 2K27"
+    ],
+    "year": 2026,
+    "integration": "Signature, performance and lifestyle sneakers",
+    "example_items": [
+      "New Balance P400",
+      "New Balance 550",
+      "New Balance 990v6"
+    ],
+    "sources": [
+      "https://wwd.com/footwear-news/sneaker-news/nba-2k27-new-sneakers-brands-1239199455/"
+    ],
+    "confidence": "MEDIUM"
+  },
+  {
+    "brand_id": "under-armour",
+    "name": "Under Armour (Curry Brand)",
+    "category": "FOOTWEAR",
+    "titles": [
+      "NBA 2K27"
+    ],
+    "year": 2026,
+    "integration": "Curry signature line and De'Aaron Fox signatures",
+    "example_items": [
+      "Curry signature line",
+      "De'Aaron Fox signature"
+    ],
+    "sources": [
+      "https://wwd.com/footwear-news/sneaker-news/nba-2k27-new-sneakers-brands-1239199455/"
+    ],
+    "confidence": "MEDIUM"
+  },
+  {
+    "brand_id": "bape",
+    "name": "BAPE (A Bathing Ape)",
+    "category": "LIFESTYLE",
+    "titles": [
+      "NBA 2K27"
+    ],
+    "year": 2026,
+    "integration": "Streetwear apparel in The City",
+    "example_items": [
+      "generic"
+    ],
+    "sources": [
+      "https://wwd.com/footwear-news/sneaker-news/nba-2k27-new-sneakers-brands-1239199455/",
+      "https://www.linkedin.com/posts/r2k_how-nba-2k-became-a-fashion-playground-activity-7503187269227282433-SJDU"
+    ],
+    "confidence": "MEDIUM"
+  },
+  {
+    "brand_id": "tissot",
+    "name": "Tissot",
+    "category": "OTHER",
+    "titles": [
+      "NBA 2K27"
+    ],
+    "year": 2026,
+    "integration": "MyCAREER Tissot endorsement objectives (clutch / 4th-quarter scoring); Tissot is the NBA official timekeeper (shot clock). No official 2K announcement found",
+    "example_items": [
+      "Tissot endorsement"
+    ],
+    "sources": [
+      "https://steamcommunity.com/app/4356430/discussions/0/590690697298953725/",
+      "https://www.youtube.com/watch?v=xH8sw7dpNNI",
+      "https://www.nba.com/news/tissot-expands-global-multiyear-marketing-partnership-nba-wnba-g-league"
+    ],
+    "confidence": "MEDIUM"
+  },
+  {
+    "brand_id": "denim-tears",
+    "name": "Denim Tears",
+    "category": "LIFESTYLE",
+    "titles": [
+      "NBA 2K26",
+      "NBA 2K27"
+    ],
+    "year": 2026,
+    "integration": "Streetwear apparel in The City (new in 2K26, retained in 2K27)",
+    "example_items": [
+      "generic"
+    ],
+    "sources": [
+      "https://www.sportsbusinessjournal.com/Articles/2025/09/12/2k-sports-brings-in-more-brands-promotions-for-nba-2k26-cover-athletes/",
+      "https://wwd.com/footwear-news/sneaker-news/nba-2k27-new-sneakers-brands-1239199455/"
+    ],
+    "confidence": "MEDIUM"
+  },
+  {
+    "brand_id": "true-religion",
+    "name": "True Religion",
+    "category": "APPAREL",
+    "titles": [
+      "NBA 2K26",
+      "NBA 2K27"
+    ],
+    "year": 2026,
+    "integration": "Apparel in The City (new in 2K26, retained in 2K27)",
+    "example_items": [
+      "generic"
+    ],
+    "sources": [
+      "https://www.sportsbusinessjournal.com/Articles/2025/09/12/2k-sports-brings-in-more-brands-promotions-for-nba-2k26-cover-athletes/",
+      "https://wwd.com/footwear-news/sneaker-news/nba-2k27-new-sneakers-brands-1239199455/"
+    ],
+    "confidence": "MEDIUM"
+  },
+  {
+    "brand_id": "minute-maid",
+    "name": "Minute Maid",
+    "category": "BEVERAGE",
+    "titles": [
+      "WWE 2K25"
+    ],
+    "year": 2025,
+    "integration": "WWE exclusive juice sponsorship includes in-game integrations in WWE 2K25",
+    "example_items": [
+      "generic"
+    ],
+    "sources": [
+      "https://www.marketingdive.com/news/minute-maid-teaming-with-wwe-punch-up-new-brand-platform/744866/"
+    ],
+    "confidence": "MEDIUM"
+  },
+  {
+    "brand_id": "sun-day-red",
+    "name": "Sun Day Red",
+    "category": "APPAREL",
+    "titles": [
+      "PGA TOUR 2K25"
+    ],
+    "year": 2025,
+    "integration": "Tiger Woods' brand added to PGA TOUR 2K25's 28-brand apparel/equipment roster",
+    "example_items": [
+      "generic"
+    ],
+    "sources": [
+      "https://www.sportsbusinessjournal.com/Articles/2025/02/06/pga-tour-2k25s-biannual-release-cycle-allows-for-fresh-players-courses-brands/"
+    ],
+    "confidence": "MEDIUM"
+  },
+  {
+    "brand_id": "lululemon",
+    "name": "Lululemon",
+    "category": "APPAREL",
+    "titles": [
+      "PGA TOUR 2K25"
+    ],
+    "year": 2025,
+    "integration": "Added to PGA TOUR 2K25 gear roster",
+    "example_items": [
+      "generic"
+    ],
+    "sources": [
+      "https://www.sportsbusinessjournal.com/Articles/2025/02/06/pga-tour-2k25s-biannual-release-cycle-allows-for-fresh-players-courses-brands/"
+    ],
+    "confidence": "MEDIUM"
+  }
+]

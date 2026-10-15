@@ -13,6 +13,9 @@ import NBAMarketMap from "@/components/map/NBAMarketMap";
 import ActivationFeed from "@/components/activation/ActivationFeed";
 import ActivationDAG from "@/components/activation/ActivationDAG";
 import CourtsideLanding from "@/components/landing/CourtsideLanding";
+/* v2 storyline shell (Home / Design System agent). Contract: docs/v2/CONTRACT.md */
+import { V2Shell } from "@/components/v2/shell/V2Shell";
+import { StorylineProvider } from "@/components/v2/shell/StorylineProvider";
 import { SaveAudienceSheet } from "@/components/audience/SaveAudienceSheet";
 import { SavedAudiencesDrawer } from "@/components/audience/SavedAudiencesDrawer";
 import SpannerStatusPill from "@/components/common/SpannerStatusPill";
@@ -39,8 +42,20 @@ import {
   X,
 } from "lucide-react";
 
+/* v2: StorylineProvider wraps the whole app so the storyline state (step,
+   selected player, selected crews) survives trips into the graph workspace. */
 export default function HomePage() {
+  return (
+    <StorylineProvider>
+      <CourtsideApp />
+    </StorylineProvider>
+  );
+}
+
+function CourtsideApp() {
   const [showLanding, setShowLanding] = useState<boolean>(true);
+  /* v2: the storyline Home is the default landing; "Classic" shows the previous one. */
+  const [storylineMode, setStorylineMode] = useState<boolean>(true);
   const [currentView, setCurrentView] =
     useState<ContextualViewType>("audience-cohorts");
   const [selectedGame, setSelectedGame] = useState<GameFranchise>("ALL");
@@ -673,6 +688,39 @@ export default function HomePage() {
   if (showLanding) {
     return (
       <>
+        {storylineMode ? (
+          <V2Shell
+            homeProps={{
+              onSearch: (q, f) => {
+                const fr = (f as GameFranchise) || selectedGame;
+                setSelectedGame(fr);
+                runAudienceQuery(q, fr, [], true);
+              },
+              isSearching,
+              searchError: builderError,
+              onDismissSearchError: () => setBuilderError(null),
+              onOpenCreativeStudio: () => setIsCreativeStudioOpen(true),
+            }}
+            onExplore={() => {
+              setIsSegmentedView(false);
+              setCohortContext(null);
+              setSelectedNode(null);
+              setArchetypeFilter("ALL");
+              setCurrentView("audience-cohorts");
+              setShowLanding(false);
+            }}
+            onClassic={() => setStorylineMode(false)}
+          />
+        ) : (
+        <>
+        <button
+          type="button"
+          onClick={() => setStorylineMode(true)}
+          className="v2-press fixed bottom-5 right-5 z-[60] inline-flex items-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--surface)] px-4 py-2 text-[12.5px] font-medium text-[var(--text)] shadow-[var(--shadow-lg)] hover:bg-[var(--surface-hover)]"
+        >
+          <ArrowLeft size={14} />
+          Back to storyline
+        </button>
         <CourtsideLanding
           onSearchQuery={(q, f) => {
             setSelectedGame(f);
@@ -724,6 +772,8 @@ export default function HomePage() {
           conditions={conditions}
           errorMessage={builderError}
         />
+        </>
+        )}
 
         <FocusGroupModal
           isOpen={isFocusGroupOpen}
