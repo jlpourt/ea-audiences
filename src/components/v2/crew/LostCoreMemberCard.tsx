@@ -210,7 +210,7 @@ export function LostCoreMemberCard({ days = 7, onAct, className }: LostCoreMembe
               <div className="text-[26px] font-semibold leading-none text-[var(--accent)]">
                 <Ticker value={data.totals.bookings_at_risk_usd} format={fmtUsd} />
               </div>
-              <div className="mt-1 text-[11px] text-[var(--text-faint)]">90d bookings at risk</div>
+              <div className="mt-1 text-[11px] text-[var(--text-faint)]">annual bookings at risk</div>
             </div>
           </div>
 

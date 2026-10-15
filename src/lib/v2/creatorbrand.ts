@@ -88,6 +88,8 @@ export interface CreatorIncrementalRow {
   platform: string;
   followers: number;
   treated_n: number;
+  /** Treated players whose first 20+ minute watch was this creator. */
+  first_touch_n: number;
   control_n: number;
   d30_treated: number;
   d30_control: number;
@@ -112,12 +114,14 @@ export interface CreatorIncrementalRow {
 
 export interface CreatorIncrementalResponse {
   creators: CreatorIncrementalRow[];
+  /** First-touch attributed total (each treated player counted once). */
   totals: {
     treated_n: number;
-    control_n: number;
     incremental_players: number;
     ci_low: number;
     ci_high: number;
+    creators_positive: number;
+    creators_flat_or_negative: number;
   };
   as_of: string | null;
   method: string;
@@ -340,7 +344,7 @@ arms AS (
   SELECT creator_id, player_id, stratum, t0, 0 AS treated FROM controls
 ),
 outcomes AS (
-  SELECT a.creator_id, a.player_id, a.stratum, a.treated,
+  SELECT a.creator_id, a.player_id, a.stratum, a.treated, a.t0,
     COUNTIF(s.date BETWEEN DATE_SUB(a.t0, INTERVAL 14 DAY) AND DATE_SUB(a.t0, INTERVAL 1 DAY)) AS pre_days,
     COUNTIF(s.date BETWEEN DATE_ADD(a.t0, INTERVAL 17 DAY) AND DATE_ADD(a.t0, INTERVAL 30 DAY)) AS post_days,
     COUNTIF(s.date BETWEEN DATE_ADD(a.t0, INTERVAL 24 DAY) AND DATE_ADD(a.t0, INTERVAL 30 DAY)) AS d30_days
@@ -368,6 +372,14 @@ by_stratum AS (
 supported AS (
   SELECT *, nt / SUM(nt) OVER (PARTITION BY creator_id) AS w
   FROM by_stratum WHERE nt > 0 AND nc > 0
+),
+first_touch AS (
+  -- Each eligible treated player credited once, to the first creator they watched 20+ min.
+  SELECT creator_id, COUNT(*) AS first_touch_n FROM (
+    SELECT creator_id, player_id,
+           ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY t0, creator_id) AS rn
+    FROM eligible WHERE treated = 1
+  ) WHERE rn = 1 GROUP BY creator_id
 )
 SELECT
   creator_id,
@@ -379,8 +391,10 @@ SELECT
   SUM(w * pre_t) AS pre_treated, SUM(w * post_t) AS post_treated,
   SUM(w * pre_c) AS pre_control, SUM(w * post_c) AS post_control,
   SUM(w * w * IFNULL(var_dt, 0) / nt) + SUM(w * w * IFNULL(var_dc, 0) / nc) AS var_did,
-  (SELECT CAST(max_d AS STRING) FROM bounds) AS as_of
+  (SELECT CAST(max_d AS STRING) FROM bounds) AS as_of,
+  ANY_VALUE(ft.first_touch_n) AS first_touch_n
 FROM supported
+LEFT JOIN first_touch ft USING (creator_id)
 GROUP BY creator_id
 HAVING SUM(nt) >= @min_treated
 ORDER BY creator_id`;
@@ -391,6 +405,7 @@ export const CREATOR_INCREMENTAL_METHOD =
   "Control: non-viewers of that creator, coarsened-exact-matched on archetype x OVR band x spend band x tenure band x crew membership (up to 5 per treated, each inheriting a treated player's index date), ATT-weighted by stratum. " +
   "Both arms must have played in the 14 days before the index date. D30 active = any session on days 24-30 after the index date. " +
   "Incremental players = (D30 treated - D30 matched control) x treated N; 95% CI by normal approximation on the stratum-weighted difference. " +
+  "Headline total uses first-touch attribution: each creator's lift applies only to players it reached first, so multi-creator viewers count once. " +
   "Off-stream check: difference-in-differences of active-day share, each player's own 14 days before the index date vs days 17-30 after, treated minus control.";
 
 export async function getCreatorIncremental(opts?: {
@@ -417,7 +432,7 @@ export async function getCreatorIncremental(opts?: {
 
   const Z = 1.96;
   let asOf: string | null = null;
-  const creators: CreatorIncrementalRow[] = rows.map((r: any) => {
+  const mapped: CreatorIncrementalRow[] = rows.map((r: any) => {
     asOf = asOf ?? (r.as_of ? String(r.as_of) : null);
     const m = meta.get(String(r.creator_id));
     const treated_n = num(r.treated_n);
@@ -436,6 +451,7 @@ export async function getCreatorIncremental(opts?: {
       platform: m?.platform ?? "",
       followers: m?.followers ?? 0,
       treated_n,
+      first_touch_n: num(r.first_touch_n),
       control_n: num(r.control_n),
       d30_treated: round(pt),
       d30_control: round(pc),
@@ -458,23 +474,30 @@ export async function getCreatorIncremental(opts?: {
       },
     };
   });
+  const creators = mapped;
   creators.sort((a, b) => b.incremental_players - a.incremental_players);
 
-  const totals = creators.reduce(
-    (acc, c) => {
-      acc.treated_n += c.treated_n;
-      acc.control_n += c.control_n;
-      acc.incremental_players += c.incremental_players;
-      return acc;
-    },
-    { treated_n: 0, control_n: 0, incremental_players: 0, ci_low: 0, ci_high: 0 }
-  );
-  // Creator estimates use disjoint matched comparisons per creator; combine SEs in quadrature.
-  const seSum = Math.sqrt(
-    creators.reduce((acc, c) => acc + Math.pow((c.ci_high - c.ci_low) / (2 * Z), 2), 0)
-  );
-  totals.ci_low = Math.round(totals.incremental_players - Z * seSum);
-  totals.ci_high = Math.round(totals.incremental_players + Z * seSum);
+  // Headline: first-touch attribution. Each creator's lift is applied only to the players it
+  // reached first, so a player who watched several creators is counted once. SEs combine in
+  // quadrature (creator comparisons treated as independent).
+  let inc = 0;
+  let varSum = 0;
+  let ftN = 0;
+  for (const c of creators) {
+    const n = c.first_touch_n;
+    const se = (c.ci_high - c.ci_low) / (2 * Z) / Math.max(1, c.treated_n);
+    inc += (c.lift_pp / 100) * n;
+    varSum += Math.pow(se * n, 2);
+    ftN += n;
+  }
+  const totals = {
+    treated_n: ftN,
+    incremental_players: Math.round(inc),
+    ci_low: Math.round(inc - Z * Math.sqrt(varSum)),
+    ci_high: Math.round(inc + Z * Math.sqrt(varSum)),
+    creators_positive: creators.filter((c) => c.significant && c.lift_pp > 0).length,
+    creators_flat_or_negative: creators.filter((c) => !c.significant || c.lift_pp <= 0).length,
+  };
 
   return {
     creators,
@@ -503,14 +526,9 @@ function brandAttachSql(): string {
 WITH crew AS (
   SELECT DISTINCT player_id FROM ${bqt("v2_member_of_clan")} WHERE is_active
 ),
-windows AS (
-  SELECT brand_id, DATE(starts_at) AS s, DATE(ends_at) AS e FROM ${bqt("v2_brand_activations")}
-),
-active_in_window AS (
-  SELECT DISTINCT w.brand_id, sd.player_id
-  FROM windows w
-  JOIN ${bqt("v2_sessions_daily")} sd
-    ON sd.session_minutes > 0 AND sd.date BETWEEN w.s AND w.e
+active_base AS (
+  -- Every player with a session in the observed window is exposed to the in-game store.
+  SELECT DISTINCT player_id FROM ${bqt("v2_sessions_daily")} WHERE session_minutes > 0
 ),
 purchases AS (
   SELECT i.brand_id, b.player_id, b.item_id, b.vc_amount
@@ -523,7 +541,7 @@ buyers AS (
   FROM purchases GROUP BY brand_id, player_id
 ),
 exposed AS (
-  SELECT brand_id, player_id FROM active_in_window
+  SELECT br.brand_id, ab.player_id FROM ${bqt("v2_brands")} br CROSS JOIN active_base ab
   UNION DISTINCT
   SELECT brand_id, player_id FROM buyers
 ),
@@ -706,7 +724,7 @@ export async function getBrandAttach(opts?: { playerId?: string | null }): Promi
     players_like_you_bought: ply,
     definitions: {
       branded_vc_revenue: "SUM(BOUGHT.vc_amount) where Item.is_branded, grouped by Item.brand_id",
-      exposed: "players active during any of the brand's activation windows, plus all of the brand's buyers",
+      exposed: "every player with a session in the observed v2_sessions_daily window (the active store audience), plus any buyer of the brand",
       attach_rate: "distinct buyers of any of the brand's items / exposed players",
       in_crew: "player has an active MEMBER_OF_CLAN edge",
       social_multiplier:
@@ -1032,4 +1050,60 @@ export function errorPayload(e: unknown, endpoint: string) {
       endpoint,
     },
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Per-process live-result cache                                       */
+/* Each entry is a LIVE BigQuery / Spanner computation stamped with     */
+/* computed_at and reused for CACHE_TTL_MS. Never populated from static */
+/* data, never served after expiry, never populated by a failure.       */
+/* Concurrent requests for the same key share one in-flight compute.    */
+/* ------------------------------------------------------------------ */
+
+export const CACHE_TTL_MS = 15 * 60 * 1000;
+
+type CacheEntry = { at: number; value: unknown };
+const cbGlobal = globalThis as unknown as {
+  __creatorBrandCache?: Map<string, CacheEntry>;
+  __creatorBrandInflight?: Map<string, Promise<unknown>>;
+};
+const cbCache = (cbGlobal.__creatorBrandCache ??= new Map<string, CacheEntry>());
+const cbInflight = (cbGlobal.__creatorBrandInflight ??= new Map<string, Promise<unknown>>());
+
+export type Cached<T> = T & { cache: "hit" | "miss"; computed_at: string; cache_ttl_s: number };
+
+export async function liveCached<T extends object>(
+  name: string,
+  params: Record<string, unknown>,
+  compute: () => Promise<T>,
+  fresh = false
+): Promise<Cached<T>> {
+  const key = [
+    GCP_CONFIG.projectId,
+    GCP_CONFIG.spannerInstanceId,
+    GCP_CONFIG.spannerDatabaseId,
+    GCP_CONFIG.bqDatasetId,
+    name,
+    JSON.stringify(params),
+  ].join("/");
+  const now = Date.now();
+  const hit = cbCache.get(key);
+  if (!fresh && hit && now - hit.at < CACHE_TTL_MS) {
+    return {
+      ...(hit.value as T),
+      cache: "hit",
+      computed_at: new Date(hit.at).toISOString(),
+      cache_ttl_s: CACHE_TTL_MS / 1000,
+    };
+  }
+  if (hit && now - hit.at >= CACHE_TTL_MS) cbCache.delete(key);
+  let p = cbInflight.get(key) as Promise<T> | undefined;
+  if (!p) {
+    p = compute().finally(() => cbInflight.delete(key));
+    cbInflight.set(key, p);
+  }
+  const value = await p; // a rejection propagates and nothing is cached
+  const at = Date.now();
+  cbCache.set(key, { at, value });
+  return { ...value, cache: "miss", computed_at: new Date(at).toISOString(), cache_ttl_s: CACHE_TTL_MS / 1000 };
 }

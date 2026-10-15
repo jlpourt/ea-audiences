@@ -9,8 +9,9 @@ export const runtime = "nodejs";
  * Crew lineage (SPLIT_FROM, up to 3 levels each way) + weekly JOIN/LEAVE/KICK/SPLIT
  * counts from CrewMembershipEvents. Answers "crews are dynamic: they split and re-form".
  */
-export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
-  const id = decodeURIComponent(params.id || "").trim();
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id: rawId } = await params;
+  const id = decodeURIComponent(rawId || "").trim();
   if (!id || id.length > 128) {
     return NextResponse.json({ error: "Invalid crew id" }, { status: 400 });
   }

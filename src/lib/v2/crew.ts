@@ -78,6 +78,53 @@ export class CrewServiceError extends Error {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* 15-min per-process cache of LIVE results (same contract as Home's   */
+/* weekly-briefing): stamped computed_at, never from static data, never */
+/* served past TTL, never populated by a failure; `fresh` recomputes.   */
+/* ------------------------------------------------------------------ */
+const CACHE_TTL_MS = 15 * 60 * 1000;
+const gCache = globalThis as unknown as {
+  __crewLiveCache?: Map<string, { at: number; value: unknown }>;
+  __crewLiveInflight?: Map<string, Promise<{ at: number; value: unknown }>>;
+};
+const liveCache = (gCache.__crewLiveCache ??= new Map());
+const liveInflight = (gCache.__crewLiveInflight ??= new Map());
+
+export async function cachedLive<V>(
+  name: string,
+  params: Record<string, string | number>,
+  fresh: boolean,
+  compute: () => Promise<V>,
+): Promise<{ value: V; cache: "hit" | "miss"; computed_at: string }> {
+  const key = JSON.stringify([
+    name,
+    GCP_CONFIG.projectId,
+    GCP_CONFIG.spannerInstanceId,
+    GCP_CONFIG.spannerDatabaseId,
+    GCP_CONFIG.bqDatasetId,
+    SPANNER_CONNECTION,
+    params,
+  ]);
+  const hit = liveCache.get(key);
+  if (!fresh && hit && Date.now() - hit.at < CACHE_TTL_MS) {
+    return { value: hit.value as V, cache: "hit", computed_at: new Date(hit.at).toISOString() };
+  }
+  let p = liveInflight.get(key);
+  if (!p) {
+    p = compute()
+      .then((value) => {
+        const entry = { at: Date.now(), value };
+        liveCache.set(key, entry);
+        return entry;
+      })
+      .finally(() => liveInflight.delete(key));
+    liveInflight.set(key, p);
+  }
+  const entry = await p;
+  return { value: entry.value as V, cache: "miss", computed_at: new Date(entry.at).toISOString() };
+}
+
 /** Map any thrown error to an explicit HTTP error body (never a canned payload). */
 export function crewErrorBody(e: unknown, route: string): { status: number; body: Record<string, any> } {
   if (e instanceof CrewServiceError) {
@@ -900,7 +947,10 @@ export interface LostCoreMemberCrew {
   centrality: number;
   crewmates: number;
   members_at_risk: number;
+  /** Annual bookings run-rate of the remaining crewmates (lifetime spend / tenure x 365, v2_players). */
   bookings_at_risk_usd: number;
+  /** Trailing-90d in-game VC purchases of the crewmates, in USD (v2_bought, 75,000 VC = $19.99). */
+  vc_bookings_90d_usd: number;
   /** Weekly active rate of remaining crewmates, oldest -> newest (6 weeks). */
   retention_trend: number[];
   session_change_pct: number | null;
@@ -924,32 +974,40 @@ export interface LostCoreMemberResponse {
 
 export function lostCoreMemberSql(): string {
   return `-- Section C: crews that lost a core member, live Spanner membership + BigQuery history, ONE statement
-WITH live_spanner AS (
-  SELECT *
-  FROM EXTERNAL_QUERY(
-    '${SPANNER_CONNECTION}',
-    """
-    SELECT e.clan_id, c.name AS crew_name, c.tier AS tier,
-           e.player_id AS lost_player_id, lp.gamer_tag AS lost_gamer_tag,
-           m.crew_centrality AS lost_centrality, e.occurred_at AS left_at,
-           mm.player_id AS mate_id, asof.t AS as_of
-    FROM CrewMembershipEvents e
-    CROSS JOIN (SELECT MAX(last_active_at) AS t FROM Players) asof
-    JOIN MemberOfClan m ON m.player_id = e.player_id AND m.clan_id = e.clan_id
-    JOIN Clans c ON c.clan_id = e.clan_id
-    JOIN Players lp ON lp.player_id = e.player_id
-    JOIN MemberOfClan mm
-      ON mm.clan_id = e.clan_id AND mm.is_active = TRUE AND mm.player_id != e.player_id
-    WHERE e.event_type = 'LEAVE'
-      AND e.occurred_at >= TIMESTAMP_SUB(asof.t, INTERVAL 30 DAY)
-      AND m.left_at IS NOT NULL
-      AND m.crew_centrality = 1.0
-    """
-  )
+-- Each EXTERNAL_QUERY is a root-partitionable single-table read of LIVE Spanner (Data Boost);
+-- the relational join to BigQuery history happens right here, in the same statement.
+WITH sp_events AS (
+  SELECT * FROM EXTERNAL_QUERY('${SPANNER_CONNECTION}',
+    """SELECT clan_id, player_id, occurred_at FROM CrewMembershipEvents WHERE event_type = 'LEAVE'""")
 ),
+sp_members AS (
+  SELECT * FROM EXTERNAL_QUERY('${SPANNER_CONNECTION}',
+    """SELECT player_id, clan_id, crew_centrality, is_active, left_at FROM MemberOfClan""")
+),
+sp_clans AS (
+  SELECT * FROM EXTERNAL_QUERY('${SPANNER_CONNECTION}',
+    """SELECT clan_id, name, tier FROM Clans""")
+),
+sp_players AS (
+  SELECT * FROM EXTERNAL_QUERY('${SPANNER_CONNECTION}',
+    """SELECT player_id, gamer_tag, last_active_at FROM Players""")
+),
+live_as_of AS (SELECT MAX(last_active_at) AS t FROM sp_players),
+-- top-centrality departure: the LEAVE of a member whose MemberOfClan row has left_at set AND crew_centrality = 1.0
 lost AS (
-  SELECT * FROM live_spanner
-  WHERE left_at >= TIMESTAMP_SUB(as_of, INTERVAL @days DAY)
+  SELECT e.clan_id, c.name AS crew_name, c.tier AS tier,
+         e.player_id AS lost_player_id, lp.gamer_tag AS lost_gamer_tag,
+         m.crew_centrality AS lost_centrality, e.occurred_at AS left_at,
+         mm.player_id AS mate_id, a.t AS as_of
+  FROM sp_events e
+  CROSS JOIN live_as_of a
+  JOIN sp_members m ON m.player_id = e.player_id AND m.clan_id = e.clan_id
+  JOIN sp_clans c ON c.clan_id = e.clan_id
+  JOIN sp_players lp ON lp.player_id = e.player_id
+  JOIN sp_members mm ON mm.clan_id = e.clan_id AND mm.is_active AND mm.player_id != e.player_id
+  WHERE m.left_at IS NOT NULL
+    AND m.crew_centrality = 1.0
+    AND e.occurred_at >= TIMESTAMP_SUB(a.t, INTERVAL @days DAY)
 ),
 as_of AS (SELECT MAX(date) AS d FROM ${T("v2_sessions_daily")}),
 mates AS (SELECT DISTINCT clan_id, mate_id FROM lost),
@@ -984,6 +1042,14 @@ bookings AS (
     ON b.player_id = m.mate_id AND DATE(b.bought_at) > DATE_SUB(a.d, INTERVAL 90 DAY)
   GROUP BY m.clan_id
 ),
+runrate AS (
+  -- annual bookings run-rate per crewmate: lifetime spend / tenure, annualized (v2_players)
+  SELECT m.clan_id,
+    SUM(SAFE_DIVIDE(p.lifetime_spend_usd, GREATEST(p.account_tenure_days, 30)) * 365) AS annual_usd
+  FROM mates m
+  JOIN ${T("v2_players")} p ON p.player_id = m.mate_id
+  GROUP BY m.clan_id
+),
 crew AS (
   SELECT clan_id,
     ANY_VALUE(crew_name) AS name, ANY_VALUE(tier) AS tier,
@@ -1009,11 +1075,13 @@ trend AS (
 SELECT c.clan_id, c.name, c.tier, c.lost_player_id, c.lost_gamer_tag, c.centrality, c.left_at, c.crewmates, c.as_of,
   IFNULL(r.members_at_risk, 0) AS members_at_risk,
   r.session_change,
-  ROUND(IFNULL(b.vc_90d, 0) * 19.99 / 75000, 2) AS bookings_at_risk_usd,
+  ROUND(IFNULL(rr.annual_usd, 0), 2) AS bookings_at_risk_usd,
+  ROUND(IFNULL(b.vc_90d, 0) * 19.99 / 75000, 2) AS vc_bookings_90d_usd,
   t.retention_trend
 FROM crew c
 LEFT JOIN risk r USING (clan_id)
 LEFT JOIN bookings b USING (clan_id)
+LEFT JOIN runrate rr USING (clan_id)
 LEFT JOIN trend t USING (clan_id)
 ORDER BY bookings_at_risk_usd DESC, c.centrality DESC`;
 }
@@ -1032,6 +1100,7 @@ export async function getLostCoreMembers(days = 7): Promise<LostCoreMemberRespon
     crewmates: num(r.crewmates),
     members_at_risk: num(r.members_at_risk),
     bookings_at_risk_usd: round(num(r.bookings_at_risk_usd), 2),
+    vc_bookings_90d_usd: round(num(r.vc_bookings_90d_usd), 2),
     retention_trend: Array.isArray(r.retention_trend) ? r.retention_trend.map((x: any) => round(num(x), 3)) : [],
     session_change_pct:
       r.session_change === null || r.session_change === undefined ? null : round(num(r.session_change) * 100, 1),
@@ -1054,7 +1123,7 @@ export async function getLostCoreMembers(days = 7): Promise<LostCoreMemberRespon
     bytes_processed: run.bytesProcessed,
     latency_ms: run.elapsedMs,
     method:
-      "Spanner (via EXTERNAL_QUERY): LEAVE events for each crew's top-centrality member + its active crewmates. BigQuery: crewmate session trend (v2_sessions_daily) and trailing-90d VC bookings (v2_bought, 75,000 VC = $19.99). Members at risk: crewmates whose last-7d minutes fell below 70% of the prior 7d.",
+      "Spanner (live, via EXTERNAL_QUERY + Data Boost): LEAVE events, MemberOfClan (centrality, active), Clans, Players; LEAVE of a crew_centrality 1.0 member in the last @days days, joined to its active crewmates. BigQuery: crewmate session trend (v2_sessions_daily), annual bookings run-rate at risk (v2_players lifetime spend / tenure x 365) and trailing-90d VC bookings (v2_bought, 75,000 VC = $19.99). Members at risk: crewmates whose last-7d minutes fell below 70% of the prior 7d.",
   };
 }
 

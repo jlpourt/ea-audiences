@@ -25,9 +25,11 @@ import {
   SurvivalCurvePoint,
   SurvivalAnalysisSummary,
   TimesFmForecastPoint,
-  CreatorMroasItem,
+  CreatorImpactItem,
+  CreatorImpactSummary,
   TimesFmForecastSummary,
 } from "@/lib/types";
+import { CreatorBrandQueryError, getCreatorIncremental, liveCached } from "@/lib/v2/creatorbrand";
 
 export type {
   UpliftQuadrant,
@@ -35,7 +37,8 @@ export type {
   SurvivalCurvePoint,
   SurvivalAnalysisSummary,
   TimesFmForecastPoint,
-  CreatorMroasItem,
+  CreatorImpactItem,
+  CreatorImpactSummary,
   TimesFmForecastSummary,
 };
 
@@ -1600,111 +1603,102 @@ export function computeCohortSurvivalAnalysis(
 }
 
 /**
- * Idea 7: Live BigQuery `AI.FORECAST(..., model => 'TimesFM 3.0')` 30-Day Seasonal Spend Velocity Fan Chart
- * & `Meridian` Creator Co-Stream mROAS.
+ * Creator impact for the Meridian shelf: live matched-control D30 incremental players per
+ * creator from `/api/v2/creator/incremental` (BigQuery CEM, shared 15-min live cache).
+ * Replaces the old heuristic "x mROAS" (hardcoded weights). On failure this returns an
+ * explicit error state, never a number.
  */
-export function computeCreatorMroas(
+export const CREATOR_IMPACT_LABEL = "Incremental D30 players · matched control";
+
+export async function computeCreatorImpact(
   reactions: FocusGroupReaction[],
   crowdAgents: SwarmCrowdAgent[],
   creatorBroadcasts: CreatorBroadcast[]
-): CreatorMroasItem[] {
-  const defaultCreators =
-    creatorBroadcasts && creatorBroadcasts.length > 0
-      ? creatorBroadcasts.slice(0, 6)
-      : [
-          {
-            creator_id: "creator-agent00",
-            handle: "@Agent00",
-            name: "Agent 00",
-            platform: "Twitch",
-            stance: "ENDORSE" as const,
-            headline: "",
-            influence_reach: 2600000,
-          },
-          {
-            creator_id: "creator-troydan",
-            handle: "@Troydan",
-            name: "Troydan",
-            platform: "YouTube",
-            stance: "MIXED" as const,
-            headline: "",
-            influence_reach: 3100000,
-          },
-          {
-            creator_id: "creator-dbg",
-            handle: "@DBG",
-            name: "DBG",
-            platform: "YouTube",
-            stance: "ENDORSE" as const,
-            headline: "",
-            influence_reach: 1850000,
-          },
-          {
-            creator_id: "creator-nba2klab",
-            handle: "@NBA2KLab",
-            name: "NBA 2K Lab",
-            platform: "YouTube",
-            stance: "MIXED" as const,
-            headline: "",
-            influence_reach: 1200000,
-          },
-          {
-            creator_id: "creator-badgeplug",
-            handle: "@BadgePlug",
-            name: "BadgePlug",
-            platform: "YouTube",
-            stance: "ENDORSE" as const,
-            headline: "",
-            influence_reach: 2150000,
-          },
-          {
-            creator_id: "creator-joeknows",
-            handle: "@JoeKnows",
-            name: "Joe Knows",
-            platform: "YouTube",
-            stance: "ENDORSE" as const,
-            headline: "",
-            influence_reach: 1450000,
-          },
-        ];
-
-  const baseMroasWeights = [4.8, 4.4, 4.1, 3.9, 3.6, 3.4];
-  const budgetShares =
-    defaultCreators.length > 3
-      ? [26, 20, 17, 14, 12, 11]
-      : [42, 33, 25];
-
-  return defaultCreators.map((cr, idx) => {
-    const normHandle = normalizeCreatorHandle(cr.handle);
-    const attributed =
+): Promise<CreatorImpactSummary> {
+  const flipsFor = (handle: string) => {
+    const h = handle.toLowerCase();
+    return (
       reactions.filter(
         (r) =>
           (r.contagion_flipped || r.round3_flipped) &&
-          normalizeCreatorHandle(r.creator_handle).toLowerCase() ===
-            normHandle.toLowerCase()
+          normalizeCreatorHandle(r.creator_handle).toLowerCase() === h
       ).length +
       crowdAgents.filter(
         (a) =>
           (a.contagion_flipped || a.round3_flipped) &&
-          normalizeCreatorHandle(a.creator_handle).toLowerCase() ===
-            normHandle.toLowerCase()
-      ).length;
-
-    const stanceBoost = cr.stance === "ENDORSE" ? 0.3 : cr.stance === "CALLOUT" ? -0.2 : 0;
-    const mroas = Number(
-      (baseMroasWeights[idx % baseMroasWeights.length] + stanceBoost + attributed * 0.04).toFixed(1)
+          normalizeCreatorHandle(a.creator_handle).toLowerCase() === h
+      ).length
     );
+  };
 
+  let live: Awaited<ReturnType<typeof getCreatorIncremental>> & { computed_at?: string };
+  try {
+    live = await liveCached("creator-incremental", { minWatch: 20, k: 5, minTreated: 30 }, () =>
+      getCreatorIncremental({ minWatch: 20, k: 5, minTreated: 30 })
+    );
+  } catch (e: any) {
+    console.error("[focus-group] creator impact (BigQuery incremental) failed", e);
     return {
-      handle: normHandle,
-      platform: cr.platform || "YouTube",
-      mroas,
-      attributed_flips: Math.max(2, attributed),
-      optimal_budget_pct: budgetShares[idx % budgetShares.length],
+      status: "error",
+      label: CREATOR_IMPACT_LABEL,
+      error: e?.message || String(e),
+      service: e instanceof CreatorBrandQueryError ? e.service : undefined,
+      resource: e instanceof CreatorBrandQueryError ? e.resource : undefined,
+      items: [],
+    };
+  }
+
+  const strip = (h: string) => normalizeCreatorHandle(h).replace(/^@/, "").toLowerCase();
+  const byHandle = new Map(live.creators.map((c) => [strip(c.handle), c]));
+  // Creators broadcasting in this focus group first; otherwise the top measured creators.
+  const source =
+    creatorBroadcasts.length > 0
+      ? creatorBroadcasts.slice(0, 6).map((b) => ({ handle: normalizeCreatorHandle(b.handle), platform: b.platform }))
+      : live.creators.slice(0, 6).map((c) => ({ handle: normalizeCreatorHandle(c.handle), platform: c.platform }));
+
+  const items: CreatorImpactItem[] = source.map((s) => {
+    const row = byHandle.get(strip(s.handle));
+    return {
+      handle: s.handle,
+      platform: s.platform || row?.platform || "",
+      measured: Boolean(row),
+      incremental_players: row ? row.incremental_players : null,
+      ci_low: row ? row.ci_low : null,
+      ci_high: row ? row.ci_high : null,
+      lift_pp: row ? row.lift_pp : null,
+      significant: row ? row.significant : false,
+      treated_n: row ? row.treated_n : null,
+      budget_share_pct: null,
+      attributed_flips: flipsFor(s.handle),
     };
   });
+  const positive = items.reduce(
+    (acc, it) => acc + (it.significant && (it.incremental_players ?? 0) > 0 ? it.incremental_players! : 0),
+    0
+  );
+  for (const it of items) {
+    it.budget_share_pct =
+      positive > 0 && it.significant && (it.incremental_players ?? 0) > 0
+        ? Math.round((it.incremental_players! / positive) * 100)
+        : it.measured
+          ? 0
+          : null;
+  }
+
+  return {
+    status: "ok",
+    label: CREATOR_IMPACT_LABEL,
+    method: live.method,
+    as_of: live.as_of,
+    computed_at: live.computed_at ?? null,
+    items,
+  };
 }
 
+/**
+ * Idea 7: Live BigQuery `AI.FORECAST(..., model => 'TimesFM 3.0')` 30-Day Seasonal Spend Velocity
+ * Fan Chart, plus live creator impact (matched-control incremental D30 players) in parallel.
+ */
 export async function runLiveBigQueryTimesFm3Forecast(
   reactions: FocusGroupReaction[],
   crowdAgents: SwarmCrowdAgent[],
@@ -1713,6 +1707,8 @@ export async function runLiveBigQueryTimesFm3Forecast(
   cohortContext?: any,
   personas?: any[]
 ): Promise<TimesFmForecastSummary> {
+  // Live creator impact (BigQuery matched control) runs in parallel with AI.FORECAST.
+  const creatorImpactPromise = computeCreatorImpact(reactions, crowdAgents, creatorBroadcasts);
   const totalAgents = Math.max(1, reactions.length + crowdAgents.length);
   const convertedCount =
     reactions.filter((r) => (r.round3_fsm_state || r.final_fsm_state) === "PURCHASED").length +
@@ -1835,7 +1831,7 @@ export async function runLiveBigQueryTimesFm3Forecast(
   const whale_decay_offset_pct =
     Math.round(((projected_30d_bookings_usd - base30d) / Math.max(1, base30d)) * 1000) / 10;
 
-  const creator_mroas = computeCreatorMroas(reactions, crowdAgents, creatorBroadcasts);
+  const creator_impact = await creatorImpactPromise;
 
   return {
     projected_30d_bookings_usd,
@@ -1844,7 +1840,7 @@ export async function runLiveBigQueryTimesFm3Forecast(
     whale_decay_offset_pct,
     model_used: "TimesFM 3.0 (BigQuery AI.FORECAST)",
     points,
-    creator_mroas,
+    creator_impact,
   };
 }
 

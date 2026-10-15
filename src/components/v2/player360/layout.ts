@@ -15,6 +15,13 @@ export type Stage = "ego" | "pillars" | "social" | "metrics";
 export const VIEW = { w: 1400, h: 960 } as const;
 export const VIEWBOX = `${-VIEW.w / 2} ${-VIEW.h / 2} ${VIEW.w} ${VIEW.h}`;
 
+/**
+ * Focal card footprint in viewBox units (232px card at 0.86 scale on a ~1200px
+ * canvas, plus margin). Labels are nudged out of this box so the card never
+ * clips them.
+ */
+export const CARD_BOX = { hw: 132, hh: 96 } as const;
+
 export interface LNode {
   id: string;
   kind: P360NodeKind;

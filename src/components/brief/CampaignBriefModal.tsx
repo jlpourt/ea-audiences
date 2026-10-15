@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { CampaignBrief } from "@/lib/types";
 import { X, Download, Copy, Check, ShieldAlert, Volume2, Loader2 } from "lucide-react";
 import { ModelBadge } from "@/components/brand/ModelBadge";
@@ -25,6 +25,33 @@ export default function CampaignBriefModal({
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioError, setAudioError] = useState<string | null>(null);
+  // Top creator by live matched-control incremental D30 players (BigQuery, /api/v2/creator/incremental).
+  const [topCreator, setTopCreator] = useState<
+    | { status: "loading" }
+    | { status: "ok"; handle: string; incremental: number; ciLow: number; ciHigh: number }
+    | { status: "error"; message: string }
+  >({ status: "loading" });
+  useEffect(() => {
+    const ctrl = new AbortController();
+    fetch("/api/v2/creator/incremental", { cache: "no-store", signal: ctrl.signal })
+      .then(async (res) => {
+        const body = await res.json();
+        if (!res.ok) throw new Error(body?.message || body?.error || `HTTP ${res.status}`);
+        const top = (body.creators || [])[0];
+        if (!top) throw new Error("No creator met the minimum treated sample");
+        setTopCreator({
+          status: "ok",
+          handle: `@${String(top.handle).replace(/^@/, "")}`,
+          incremental: top.incremental_players,
+          ciLow: top.ci_low,
+          ciHigh: top.ci_high,
+        });
+      })
+      .catch((e) => {
+        if (!ctrl.signal.aborted) setTopCreator({ status: "error", message: e?.message || String(e) });
+      });
+    return () => ctrl.abort();
+  }, []);
 
   if (!isOpen || !brief) return null;
 
@@ -78,12 +105,6 @@ export default function CampaignBriefModal({
   const sureThingsCount = Math.round(baseAudience * 0.28);
   const sureThingsMarginSaved = Math.round(sureThingsCount * 9.99 * 0.35);
   const sleepingDogsSuppressed = Math.max(3, Math.round(baseAudience * 0.08));
-  const topCreatorHandle = brief.franchise?.toLowerCase().includes("wwe")
-    ? "@ChrisDenker"
-    : brief.franchise?.toLowerCase().includes("gta")
-    ? "@TGG"
-    : "@Agent00";
-  const topCreatorMroas = Number(Math.max(3.4, (brief.projected_roi || 3.8) * 1.18).toFixed(1));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl p-4 sm:p-6 font-sans">
@@ -229,10 +250,23 @@ export default function CampaignBriefModal({
             </div>
             <div className="p-2 rounded-lg bg-amber-500/[0.06] border border-amber-500/20">
               <span className="text-[9px] text-vc-gold uppercase font-semibold block">
-                Top Creator mROAS
+                Top Creator · Incremental D30
               </span>
-              <span className="text-xs font-bold text-chalk tabular block mt-0.5">
-                {topCreatorHandle} · <span className="text-vc-gold">{topCreatorMroas}x</span>
+              <span className="text-xs font-bold text-chalk tabular block mt-0.5" title="Matched-control incremental D30 players (95% CI)">
+                {topCreator.status === "ok" ? (
+                  <>
+                    {topCreator.handle} ·{" "}
+                    <span className="text-vc-gold">
+                      {topCreator.incremental > 0 ? "+" : ""}
+                      {topCreator.incremental}
+                    </span>{" "}
+                    <span className="text-white/40 font-normal">[{topCreator.ciLow}, {topCreator.ciHigh}]</span>
+                  </>
+                ) : topCreator.status === "loading" ? (
+                  <span className="text-white/40 font-normal">Measuring in BigQuery…</span>
+                ) : (
+                  <span className="text-rose-400 font-normal">Unavailable: {topCreator.message}</span>
+                )}
               </span>
             </div>
           </div>

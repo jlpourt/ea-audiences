@@ -103,7 +103,7 @@ export function StepContent({ homeProps }: { homeProps: HomeProps }) {
       );
     case "D_CONCEPT":
       return (
-        <StepFrame step={step}>
+        <StepFrame step={step} heading={false}>
           <PersonalizationFlow />
         </StepFrame>
       );

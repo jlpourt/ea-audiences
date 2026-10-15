@@ -352,13 +352,46 @@ export interface TimesFmForecastPoint {
   ci_90_usd: number;
 }
 
-export interface CreatorMroasItem {
+/**
+ * Creator impact measured live by /api/v2/creator/incremental (BigQuery matched-control
+ * D30 retention). Replaces the old heuristic "x mROAS". No creator cost data exists, so
+ * this is incremental players, never a dollar ROAS.
+ */
+export interface CreatorImpactItem {
   handle: string;
   platform: string;
-  mroas: number;
+  /** False when the creator had too few eligible viewers to measure. */
+  measured: boolean;
+  incremental_players: number | null;
+  ci_low: number | null;
+  ci_high: number | null;
+  lift_pp: number | null;
+  significant: boolean;
+  treated_n: number | null;
+  /** Share of the listed creators' positive incremental players, in %. */
+  budget_share_pct: number | null;
+  /** Simulated focus-group flips attributed to this creator's broadcast. */
   attributed_flips: number;
-  optimal_budget_pct: number;
 }
+
+export type CreatorImpactSummary =
+  | {
+      status: "ok";
+      label: string;
+      method: string;
+      as_of: string | null;
+      computed_at: string | null;
+      items: CreatorImpactItem[];
+    }
+  | { status: "pending"; label: string; items: CreatorImpactItem[] }
+  | {
+      status: "error";
+      label: string;
+      error: string;
+      service?: string;
+      resource?: string;
+      items: CreatorImpactItem[];
+    };
 
 export interface TimesFmForecastSummary {
   projected_30d_bookings_usd: number;
@@ -367,7 +400,7 @@ export interface TimesFmForecastSummary {
   whale_decay_offset_pct: number;
   model_used?: string;
   points: TimesFmForecastPoint[];
-  creator_mroas: CreatorMroasItem[];
+  creator_impact: CreatorImpactSummary;
 }
 
 export interface RedditEchoItem {

@@ -18,8 +18,9 @@ export const runtime = "nodejs";
 
 const ID_RE = /^[A-Za-z0-9_.:-]{1,64}$/;
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const id = decodeURIComponent(params.id ?? "");
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id: rawId } = await params;
+  const id = decodeURIComponent(rawId ?? "");
   if (id === "featured") {
     // Static segment wins in Next, but guard anyway.
     return NextResponse.json({ error: "Use /api/v2/player/featured" }, { status: 400 });

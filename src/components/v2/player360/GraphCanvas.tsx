@@ -38,7 +38,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { springs } from "@/components/v2/motion";
-import { VIEW, VIEWBOX, edgePath, type LEdge, type LNode, type Layout, type Stage } from "./layout";
+import { CARD_BOX, VIEW, VIEWBOX, edgePath, type LEdge, type LNode, type Layout, type Stage } from "./layout";
 
 // ---------------------------------------------------------------------------
 // Position registry
@@ -226,6 +226,21 @@ const GraphNode = memo(function GraphNode({ n, entry, tx, ty, delay, dim, faded,
   const anchor = below ? "middle" : cos > 0.35 ? "start" : cos < -0.35 ? "end" : "middle";
   const lx = below ? 0 : cos * (n.r + 7);
   const ly = below ? n.r + 16 : sin * (n.r + 7) + (anchor === "middle" ? (sin > 0 ? 10 : -4) : 4);
+  // Keep labels clear of the focal card: estimate the label box at its target
+  // position and slide it horizontally out of the card footprint if they meet.
+  let labelX = lx;
+  const fontSize = n.hop === 2 ? 11 : 12.5;
+  if (n.showLabel && n.kind !== "player") {
+    const w = n.label.length * fontSize * 0.58;
+    const wx = tx + lx;
+    const wy = ty + ly;
+    const left = anchor === "middle" ? wx - w / 2 : anchor === "start" ? wx : wx - w;
+    const right = left + w;
+    const top = wy - fontSize;
+    const bottom = wy + 3;
+    const hitsCard = right > -CARD_BOX.hw && left < CARD_BOX.hw && bottom > -CARD_BOX.hh && top < CARD_BOX.hh;
+    if (hitsCard) labelX += wx < 0 ? -CARD_BOX.hw - right : CARD_BOX.hw - left;
+  }
   const baseOpacity = n.kind === "neighbor" && n.churned && !n.churnedRecent ? 0.5 : n.muted ? 0.55 : 1;
   const isCenter = n.kind === "player";
 
@@ -289,10 +304,10 @@ const GraphNode = memo(function GraphNode({ n, entry, tx, ty, delay, dim, faded,
         )}
         {n.showLabel && !isCenter && (
           <text
-            x={lx}
+            x={labelX}
             y={ly}
             textAnchor={anchor}
-            fontSize={n.hop === 2 ? 11 : 12.5}
+            fontSize={fontSize}
             fill={n.hop === 2 ? "var(--text-faint)" : n.churned ? "var(--bad)" : "var(--text-dim)"}
             style={{ pointerEvents: "none", fontWeight: n.kind === "neighbor" ? 500 : 450 }}
           >

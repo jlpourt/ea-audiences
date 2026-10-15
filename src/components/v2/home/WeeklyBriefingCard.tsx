@@ -129,7 +129,7 @@ function KpiTile({ k }: { k: Kpi }) {
               className="text-[34px] font-semibold leading-none tracking-[-0.03em] text-[var(--text)]"
             />
             {k.unit === "vc" && <span className="mb-1 text-[12px] text-[var(--text-faint)]">VC</span>}
-            <DeltaPill delta={k.delta_pct} goodDirection={k.good_direction} />
+            <DeltaPill delta={k.delta_pct} goodDirection={k.good_direction} previous={k.previous} value={k.value} />
           </>
         )}
       </div>
@@ -137,7 +137,31 @@ function KpiTile({ k }: { k: Kpi }) {
   );
 }
 
-function DeltaPill({ delta, goodDirection }: { delta: number | null; goodDirection: "up" | "down" }) {
+function DeltaPill({
+  delta,
+  goodDirection,
+  previous,
+  value,
+}: {
+  delta: number | null;
+  goodDirection: "up" | "down";
+  previous: number | null;
+  value: number | null;
+}) {
+  // Prior week was zero: a % change is undefined, so show the absolute move.
+  if (delta == null && previous === 0 && value != null && value !== 0) {
+    const good = (value > 0 && goodDirection === "up") || (value < 0 && goodDirection === "down");
+    return (
+      <span
+        className="mb-1 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11.5px] font-medium v2-tabular"
+        style={{ color: good ? "var(--good)" : "var(--bad)", background: good ? "var(--good-soft)" : "var(--bad-soft)" }}
+        title="Last week: 0"
+      >
+        <ArrowUpRight size={12} strokeWidth={2} />
+        from 0
+      </span>
+    );
+  }
   if (delta == null) {
     return (
       <span className="mb-1 inline-flex items-center gap-0.5 rounded-full bg-[var(--surface-2)] px-1.5 py-0.5 text-[11px] text-[var(--text-faint)]">

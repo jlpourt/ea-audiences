@@ -19,7 +19,7 @@
  *  - Any BigQuery or Vertex AI failure returns HTTP 502 with the service,
  *    resource and error message. Nothing is canned.
  */
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getBigQueryClient, queryBigQuery } from "@/lib/gcp/bigquery-client";
 import { generateText } from "@/lib/gcp/genai-client";
 import { GCP_CONFIG } from "@/lib/config";
@@ -140,20 +140,20 @@ WITH edges AS (
 ),
 p AS (SELECT player_id, churned_at FROM ${t("v2_players")}),
 anchors AS (
-  SELECT 'this' AS wk, @as_of AS at
+  SELECT 'this' AS wk, @as_of AS anchor_ts
   UNION ALL
-  SELECT 'last' AS wk, TIMESTAMP_SUB(@as_of, INTERVAL 7 DAY) AS at
+  SELECT 'last' AS wk, TIMESTAMP_SUB(@as_of, INTERVAL 7 DAY) AS anchor_ts
 ),
 per_player AS (
   SELECT an.wk, e.a,
          AVG(IF(nb.churned_at IS NOT NULL
-                AND nb.churned_at <= an.at
-                AND nb.churned_at > TIMESTAMP_SUB(an.at, INTERVAL 14 DAY), 1.0, 0.0)) AS exposure
+                AND nb.churned_at <= an.anchor_ts
+                AND nb.churned_at > TIMESTAMP_SUB(an.anchor_ts, INTERVAL 14 DAY), 1.0, 0.0)) AS exposure
   FROM edges e
   CROSS JOIN anchors an
   JOIN p me ON me.player_id = e.a
   JOIN p nb ON nb.player_id = e.b
-  WHERE me.churned_at IS NULL OR me.churned_at > an.at
+  WHERE me.churned_at IS NULL OR me.churned_at > an.anchor_ts
   GROUP BY an.wk, e.a
 )
 SELECT
@@ -216,9 +216,60 @@ function describe(k: WeeklyKpi): string {
   }; lower is better: ${k.good_direction === "down"}).`;
 }
 
-export async function GET() {
-  const started = Date.now();
+/* 15 min per-process cache of a LIVE computation (same contract as
+   core-finding): stamped computed_at, never from static data, never served
+   past TTL, never populated by a failure. `?fresh=1` forces a recompute. */
+const CACHE_TTL_MS = 15 * 60 * 1000;
+const g = globalThis as unknown as {
+  __briefingCache?: Map<string, { at: number; value: WeeklyBriefingResponse }>;
+  __briefingInflight?: Map<string, Promise<WeeklyBriefingResponse>>;
+};
+const cache = (g.__briefingCache ??= new Map());
+const inflight = (g.__briefingInflight ??= new Map());
+
+export async function GET(req: NextRequest) {
+  const key = `${PROJECT}/${DATASET}`;
+  const fresh = req.nextUrl.searchParams.get("fresh") === "1";
   try {
+    const hit = cache.get(key);
+    if (!fresh && hit && Date.now() - hit.at < CACHE_TTL_MS) {
+      return NextResponse.json(
+        { ...hit.value, cache: "hit", computed_at: new Date(hit.at).toISOString() },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    let p = inflight.get(key);
+    if (!p) {
+      p = computeBriefing().finally(() => inflight.delete(key));
+      inflight.set(key, p);
+    }
+    const value = await p;
+    const at = Date.now();
+    cache.set(key, { at, value });
+    return NextResponse.json(
+      { ...value, cache: "miss", computed_at: new Date(at).toISOString() },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (e) {
+    const err = e as StageError;
+    console.error("[weekly-briefing] failed", err);
+    return NextResponse.json(
+      {
+        error: "Weekly briefing failed",
+        service: err.service ?? "unknown",
+        project: PROJECT,
+        dataset: DATASET,
+        resource: err.resource ?? null,
+        message: err.message,
+      },
+      { status: 502 },
+    );
+  }
+}
+
+async function computeBriefing(): Promise<WeeklyBriefingResponse> {
+  const started = Date.now();
+  {
     const { asOf, source } = await resolveAsOf();
     const anchor = asOf ?? new Date();
     const kpis = await Promise.all([
@@ -276,9 +327,12 @@ export async function GET() {
             .map(describe)
             .join("\n")}`,
           temperature: 0.4,
-          maxOutputTokens: 256,
+          maxOutputTokens: 1024,
           thinkingBudget: 0,
         });
+        if (gen.finishReason === "MAX_TOKENS") {
+          throw new Error(`Gemini (${gen.modelUsed}) truncated the headline (MAX_TOKENS).`);
+        }
         headline = gen.text.trim().replace(/^["']|["']$/g, "").replace(/\u2014/g, ",") || null;
         modelUsed = gen.modelUsed;
         if (!headline) {
@@ -304,20 +358,6 @@ export async function GET() {
       engine: "bigquery",
       latency_ms: Date.now() - started,
     };
-    return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
-  } catch (e) {
-    const err = e as StageError;
-    console.error("[weekly-briefing] failed", err);
-    return NextResponse.json(
-      {
-        error: "Weekly briefing failed",
-        service: err.service ?? "unknown",
-        project: PROJECT,
-        dataset: DATASET,
-        resource: err.resource ?? null,
-        message: err.message,
-      },
-      { status: 502 },
-    );
+    return body;
   }
 }

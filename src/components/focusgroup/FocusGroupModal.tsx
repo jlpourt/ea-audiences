@@ -320,71 +320,15 @@ function computeClientTimesFmForecast(
   const whale_decay_offset_pct =
     Math.round(((projected_30d_bookings_usd - base30d) / Math.max(1, base30d)) * 1000) / 10;
 
-  const defaultCreators =
-    creatorBroadcasts && creatorBroadcasts.length >= 3
-      ? creatorBroadcasts.slice(0, 3)
-      : [
-          {
-            creator_id: "cr-agent00",
-            handle: "@Agent00",
-            platform: "Twitch",
-            stance: "MIXED" as const,
-            headline:
-              "If your Rec squad splits the REP boost it pays off, otherwise wait for Season 2 super-packs.",
-          },
-          {
-            creator_id: "cr-cashnasty",
-            handle: "@CashNasty",
-            platform: "YouTube",
-            stance: "CALLOUT" as const,
-            headline:
-              "Check the pack odds and VC per dollar before locking in unless you need immediate Cap Breakers.",
-          },
-          {
-            creator_id: "cr-chrissmoove",
-            handle: "@ChrisSmoove",
-            platform: "YouTube",
-            stance: "ENDORSE" as const,
-            headline:
-              "That 2x Crew REP multiplier with the squad actually saves 15 hours of Rec grinding.",
-          },
-        ];
-  const baseMroasWeights = [4.6, 4.0, 3.8];
-  const budgetShares = [42, 33, 25];
-
-  const creator_mroas = defaultCreators.map((cr, idx) => {
-    const normHandle = cr.handle.startsWith("@") ? cr.handle : `@${cr.handle}`;
-    const attributed =
-      reactions.filter(
-        (r) =>
-          (r.contagion_flipped || r.round3_flipped) &&
-          (r.creator_handle || "").toLowerCase() === normHandle.toLowerCase()
-      ).length +
-      crowdAgents.filter(
-        (a) =>
-          (a.contagion_flipped || a.round3_flipped) &&
-          (a.creator_handle || "").toLowerCase() === normHandle.toLowerCase()
-      ).length;
-    const stanceBoost = cr.stance === "ENDORSE" ? 0.3 : cr.stance === "CALLOUT" ? -0.2 : 0;
-    const mroas = Number(
-      (baseMroasWeights[idx % baseMroasWeights.length] + stanceBoost + attributed * 0.04).toFixed(1)
-    );
-    return {
-      handle: normHandle,
-      platform: cr.platform || "YouTube",
-      mroas,
-      attributed_flips: Math.max(2, attributed),
-      optimal_budget_pct: budgetShares[idx % budgetShares.length],
-    };
-  });
-
   return {
     projected_30d_bookings_usd,
     ci_10_usd,
     ci_90_usd,
     whale_decay_offset_pct,
     points,
-    creator_mroas,
+    // Creator impact is measured live on the server (BigQuery matched control); the client
+    // preview never invents it.
+    creator_impact: { status: "pending", label: "Incremental D30 players · matched control", items: [] },
   };
 }
 
@@ -1318,79 +1262,30 @@ export function FocusGroupModal({
     prefersReducedMotion
   );
 
-  // Unified Creator Signal items combining live broadcasts + Meridian mROAS (supports up to 6 creators)
+  // Creator Signal items: live broadcasts joined to live creator impact (matched-control
+  // incremental D30 players from /api/v2/creator/incremental). Up to 6 creators.
+  const creatorImpact = timesFmForecast.creator_impact;
   const creatorSignalItems = useMemo(() => {
-    const mroasList = timesFmForecast.creator_mroas || [];
-    const baseBroadcasts =
-      creatorBroadcasts.length > 0
-        ? creatorBroadcasts
-        : [
-            {
-              creator_id: "cr-1",
-              handle: "@Agent00",
-              platform: "Twitch",
-              stance: "MIXED" as const,
-              headline:
-                "Paying full price only makes sense if your Rec squad stacks the 2x Crew REP multiplier together.",
-            },
-            {
-              creator_id: "cr-2",
-              handle: "@CashNasty",
-              platform: "YouTube",
-              stance: "CALLOUT" as const,
-              headline:
-                "Wait for verified pack odds or a VC squad bonus unless your build is stuck at the 84 OVR cliff.",
-            },
-            {
-              creator_id: "cr-3",
-              handle: "@ChrisSmoove",
-              platform: "YouTube",
-              stance: "MIXED" as const,
-              headline:
-                "Solid value for active Pro-Am captains grinding Season 2 Cap Breakers this weekend.",
-            },
-            {
-              creator_id: "cr-4",
-              handle: "@NBA2KLab",
-              platform: "YouTube",
-              stance: "MIXED" as const,
-              headline:
-                "At 3,750 VC per dollar this clears standard store rates only if you need immediate Gold shooting badges.",
-            },
-            {
-              creator_id: "cr-5",
-              handle: "@BadgePlug",
-              platform: "YouTube",
-              stance: "ENDORSE" as const,
-              headline:
-                "DO NOT MAKE A REBIRTH BUILD BEFORE SEEING THIS: fastest way past the 85 OVR gate right now.",
-            },
-            {
-              creator_id: "cr-6",
-              handle: "@JoeKnows",
-              platform: "YouTube",
-              stance: "ENDORSE" as const,
-              headline:
-                "For 5-out Pro-Am spacing, getting your 6'8\" swing to 92 OVR day one changes the whole rotation.",
-            },
-          ];
-
-    return baseBroadcasts.slice(0, 6).map((cb, idx) => {
-      const matchedMroas =
-        mroasList.find(
-          (m) => m.handle.toLowerCase() === cb.handle.toLowerCase()
-        ) || mroasList[idx];
+    const impactItems = creatorImpact?.items || [];
+    const key = (h: string) => h.replace(/^@/, "").toLowerCase();
+    return creatorBroadcasts.slice(0, 6).map((cb, idx) => {
+      const handle = cb.handle.startsWith("@") ? cb.handle : `@${cb.handle}`;
+      const impact = impactItems.find((m) => key(m.handle) === key(handle)) || null;
       return {
         id: cb.creator_id || `creator-${idx}`,
-        handle: cb.handle.startsWith("@") ? cb.handle : `@${cb.handle}`,
-        platform: cb.platform || matchedMroas?.platform || "YouTube",
+        handle,
+        platform: cb.platform || impact?.platform || "",
         stance: cb.stance,
         headline: cb.headline,
-        mroas: matchedMroas?.mroas ?? Number((4.8 - idx * 0.25).toFixed(1)),
-        attributed_flips: matchedMroas?.attributed_flips ?? Math.max(2, 5 - idx),
+        incremental_players: impact?.measured ? impact.incremental_players : null,
+        ci_low: impact?.measured ? impact.ci_low : null,
+        ci_high: impact?.measured ? impact.ci_high : null,
+        significant: Boolean(impact?.significant),
+        impact_status: creatorImpact?.status ?? "pending",
+        attributed_flips: impact?.attributed_flips ?? 0,
       };
     });
-  }, [creatorBroadcasts, timesFmForecast.creator_mroas]);
+  }, [creatorBroadcasts, creatorImpact]);
 
   if (!isOpen) return null;
 
@@ -2003,8 +1898,23 @@ export function FocusGroupModal({
                           {cr.stance}
                         </span>
                         <span className="text-white/30">·</span>
-                        <span className="text-vc-gold font-semibold tabular-nums">
-                          {cr.mroas.toFixed(1)}x mROAS
+                        <span
+                          className={`font-semibold tabular-nums ${
+                            cr.incremental_players === null
+                              ? "text-white/40"
+                              : cr.significant
+                                ? "text-win-green"
+                                : "text-white/45"
+                          }`}
+                          title="Incremental D30 players · matched control (95% CI)"
+                        >
+                          {cr.impact_status === "error"
+                            ? "impact unavailable"
+                            : cr.impact_status === "pending"
+                              ? "measuring D30"
+                              : cr.incremental_players === null
+                                ? "not measured"
+                                : `${cr.incremental_players > 0 ? "+" : ""}${cr.incremental_players} D30 [${cr.ci_low}, ${cr.ci_high}]`}
                         </span>
                       </button>
 
@@ -2849,32 +2759,53 @@ export function FocusGroupModal({
                     </div>
                   </div>
 
-                  {/* Section C: Meridian Creator mROAS Allocation */}
+                  {/* Section C: Creator impact (live matched-control incremental D30 players) */}
                   <div className="pt-3 border-t border-white/[0.07] space-y-1.5">
                     <div className="flex items-center justify-between text-[10px] font-mono text-white/50">
-                      <span>MERIDIAN CREATOR mROAS</span>
-                      <span>OPTIMAL BUDGET SPLIT</span>
+                      <span>INCREMENTAL D30 PLAYERS · MATCHED CONTROL</span>
+                      <span>SPLIT BY LIFT</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-1.5 font-mono text-[10px]">
-                      {(timesFmForecast.creator_mroas || []).slice(0, 3).map((cr) => (
-                        <div
-                          key={cr.handle}
-                          className="rounded-lg bg-black/40 border border-white/[0.06] px-2.5 py-1.5 flex flex-col justify-between"
-                        >
-                          <span className="text-white/85 font-semibold truncate">
-                            {cr.handle}
-                          </span>
-                          <div className="flex items-center justify-between pt-0.5">
-                            <span className="text-vc-gold font-bold tabular-nums">
-                              {cr.mroas.toFixed(1)}x
-                            </span>
-                            <span className="text-[9px] text-white/40 tabular-nums">
-                              {cr.optimal_budget_pct}%
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    {creatorImpact?.status === "error" ? (
+                      <div className="rounded-lg border border-loss-red/30 bg-loss-red/10 px-2.5 py-1.5 font-mono text-[10px] text-loss-red">
+                        Creator impact query failed ({creatorImpact.service || "BigQuery"}): {creatorImpact.error}
+                      </div>
+                    ) : creatorImpact?.status === "pending" ? (
+                      <div className="rounded-lg bg-black/40 border border-white/[0.06] px-2.5 py-1.5 font-mono text-[10px] text-white/45">
+                        Measuring creator D30 lift in BigQuery…
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-1.5 font-mono text-[10px]">
+                        {(creatorImpact?.items || [])
+                          .filter((cr) => cr.measured)
+                          .sort((a, b) => (b.incremental_players ?? 0) - (a.incremental_players ?? 0))
+                          .slice(0, 3)
+                          .map((cr) => (
+                            <div
+                              key={cr.handle}
+                              className="rounded-lg bg-black/40 border border-white/[0.06] px-2.5 py-1.5 flex flex-col justify-between"
+                              title={`95% CI ${cr.ci_low} to ${cr.ci_high} · ${cr.lift_pp ?? 0} pts D30 lift`}
+                            >
+                              <span className="text-white/85 font-semibold truncate">
+                                {cr.handle}
+                              </span>
+                              <div className="flex items-center justify-between pt-0.5">
+                                <span
+                                  className={`font-bold tabular-nums ${cr.significant ? "text-win-green" : "text-white/45"}`}
+                                >
+                                  {(cr.incremental_players ?? 0) > 0 ? "+" : ""}
+                                  {cr.incremental_players}
+                                </span>
+                                <span className="text-[9px] text-white/40 tabular-nums">
+                                  {cr.budget_share_pct ?? 0}%
+                                </span>
+                              </div>
+                              <span className="text-[9px] text-white/35 tabular-nums">
+                                [{cr.ci_low}, {cr.ci_high}]
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Consensus Narrative */}

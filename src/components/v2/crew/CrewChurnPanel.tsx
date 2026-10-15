@@ -83,7 +83,7 @@ function ExposureHistogram({ data }: { data: CrewChurnResponse }) {
             <div className="text-[28px] font-semibold leading-none text-[var(--accent)]">
               <Ticker value={s.hazard_ratio} decimals={1} suffix="×" />
             </div>
-            <div className="v2-tabular mt-1 text-[11px] text-[var(--text-faint)]">
+            <div className="v2-tabular mt-1 whitespace-nowrap text-[11px] text-[var(--text-faint)]">
               churn hazard · CI {s.hr_ci_low?.toFixed(1)}–{s.hr_ci_high?.toFixed(1)}
             </div>
           </div>
@@ -218,18 +218,18 @@ function AnchorDependencyCard({ data }: { data: CrewChurnResponse }) {
 
       <div className="grid grid-cols-2 gap-3 text-[12px]">
         <div className="rounded-[var(--radius-md)] bg-[var(--surface-2)] px-3 py-2">
-          <div className="text-[var(--text-faint)]">Anchor left · baseline → D14</div>
+          <div className="text-[var(--text-faint)]">Anchor left</div>
           <div className="v2-tabular text-[var(--text)]">
             {(a.retention_treated_pre * 100).toFixed(0)}% → {(a.retention_treated_post * 100).toFixed(0)}%
           </div>
-          <div className="v2-tabular text-[11px] text-[var(--text-faint)]">{a.n_treated} crews</div>
+          <div className="v2-tabular text-[11px] text-[var(--text-faint)]">{a.n_treated} crews · baseline → D14</div>
         </div>
         <div className="rounded-[var(--radius-md)] bg-[var(--surface-2)] px-3 py-2">
-          <div className="text-[var(--text-faint)]">Matched · anchor stayed</div>
+          <div className="text-[var(--text-faint)]">Matched, stayed</div>
           <div className="v2-tabular text-[var(--text)]">
             {(a.retention_control_pre * 100).toFixed(0)}% → {(a.retention_control_post * 100).toFixed(0)}%
           </div>
-          <div className="v2-tabular text-[11px] text-[var(--text-faint)]">{a.n_control} crews</div>
+          <div className="v2-tabular text-[11px] text-[var(--text-faint)]">{a.n_control} crews · baseline → D14</div>
         </div>
       </div>
       <div className="v2-tabular text-[11px] text-[var(--text-faint)]">

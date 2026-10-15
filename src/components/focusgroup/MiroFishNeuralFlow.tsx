@@ -49,8 +49,19 @@ export interface CreatorSignalSummary {
   platform: string;
   stance: "ENDORSE" | "MIXED" | "CALLOUT";
   headline: string;
-  mroas: number;
+  /** Live matched-control incremental D30 players (null = not measured / pending / error). */
+  incremental_players: number | null;
+  ci_low: number | null;
+  ci_high: number | null;
+  significant: boolean;
+  impact_status: "ok" | "pending" | "error";
   attributed_flips: number;
+}
+
+/** "+26 D30 players" when measured; empty otherwise (never a placeholder number). */
+function creatorImpactText(c?: CreatorSignalSummary): string {
+  if (!c || c.incremental_players === null) return "";
+  return `${c.incremental_players > 0 ? "+" : ""}${c.incremental_players} D30 players`;
 }
 
 export interface RedditThreadSummary {
@@ -753,7 +764,7 @@ export default function MiroFishNeuralFlow({
           color: mutedSignals.sig_creators ? "text-white/40" : "text-[#D96570]",
           text: mutedSignals.sig_creators
             ? `Creator Co-Streams muted—losing ${signalAttribution.creators} attributed R2 conversions.`
-            : `${creatorSignals[0]?.handle || "@Agent00"} co-stream validates the build meta, flipping +${signalAttribution.creators} fence-sitters (${creatorSignals[0]?.mroas?.toFixed(1) || "3.8"}x mROAS).`,
+            : `${creatorSignals[0]?.handle || "@Agent00"} co-stream validates the build meta, flipping +${signalAttribution.creators} fence-sitters${creatorImpactText(creatorSignals[0]) ? ` (${creatorImpactText(creatorSignals[0])} vs matched control)` : ""}.`,
         };
       case "sig_crews":
         return {
@@ -1807,10 +1818,9 @@ export default function MiroFishNeuralFlow({
                   Creator Co-Streams
                 </div>
                 <div className="text-[10px] font-mono text-white/50 truncate">
-                  {creatorSignals.length || 6} Live · {creatorSignals[0]?.handle || "@Agent00"}{" "}
-                  {creatorSignals[0]?.mroas
-                    ? `${creatorSignals[0].mroas.toFixed(1)}x`
-                    : "4.8x"}
+                  {creatorSignals.length} Live
+                  {creatorSignals[0] ? ` · ${creatorSignals[0].handle}` : ""}
+                  {creatorImpactText(creatorSignals[0]) ? ` ${creatorImpactText(creatorSignals[0])}` : ""}
                 </div>
               </div>
             </div>

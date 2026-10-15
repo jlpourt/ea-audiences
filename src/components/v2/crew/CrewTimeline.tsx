@@ -28,10 +28,10 @@ export interface CrewTimelineProps {
   className?: string;
 }
 
-const W = 560;
-const H = 176;
-const PAD_X = 46;
-const PAD_Y = 26;
+const W = 640;
+const PAD_X = 40;
+const PAD_Y = 34;
+const ROW = 64;
 
 function daysAgo(isoStr: string | null): string {
   if (!isoStr) return "";
@@ -54,18 +54,20 @@ export function CrewTimeline({ crewId, splits90d, reforms90d, answer, className 
       arr.push(n);
       byDepth.set(n.depth, arr);
     }
+    const maxRow = Math.max(1, ...Array.from(byDepth.values()).map((a) => a.length));
+    const H = PAD_Y * 2 + (maxRow - 1) * ROW + 20;
     const pos = new Map<string, { x: number; y: number; r: number }>();
     const maxMembers = Math.max(1, ...data.nodes.map((n) => n.active_members));
     byDepth.forEach((arr, depth) => {
       arr.sort((a, b) => a.clan_id.localeCompare(b.clan_id));
       arr.forEach((n, i) => {
-        const x = PAD_X + (depth / maxDepth) * (W - PAD_X * 2 - 90);
-        const y = arr.length === 1 ? H / 2 : PAD_Y + (i / (arr.length - 1)) * (H - PAD_Y * 2);
+        const x = data.nodes.length === 1 ? W / 2 : PAD_X + 30 + (depth / maxDepth) * (W - PAD_X * 2 - 60);
+        const y = PAD_Y + ((maxRow - arr.length) / 2 + i) * ROW;
         const r = 5 + Math.sqrt(n.active_members / maxMembers) * 9;
         pos.set(n.clan_id, { x, y, r });
       });
     });
-    return { pos, maxDepth };
+    return { pos, maxDepth, H };
   }, [data]);
 
   const maxWeek = useMemo(() => {
@@ -98,7 +100,7 @@ export function CrewTimeline({ crewId, splits90d, reforms90d, answer, className 
 
       {!crewId && <div className="text-[12px] text-[var(--text-faint)]">No crew lineage selected.</div>}
 
-      {crewId && loading && !data && <div className="v2-skeleton h-[176px] w-full" />}
+      {crewId && loading && !data && <div className="v2-skeleton h-[120px] w-full" />}
 
       {error && (
         <div className="rounded-[var(--radius-md)] bg-[var(--bad-soft)] px-3 py-2 text-[12px] text-[var(--bad)]">
@@ -109,7 +111,7 @@ export function CrewTimeline({ crewId, splits90d, reforms90d, answer, className 
 
       {data && layout && (
         <>
-          <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="Crew lineage">
+          <svg viewBox={`0 0 ${W} ${layout.H}`} className="h-auto w-full" role="img" aria-label="Crew lineage">
             {data.edges.map((e) => {
               const p = layout.pos.get(e.parent);
               const c = layout.pos.get(e.child);
@@ -130,7 +132,7 @@ export function CrewTimeline({ crewId, splits90d, reforms90d, answer, className 
                   />
                   <motion.text
                     x={(p.x + c.x) / 2}
-                    y={(p.y + c.y) / 2 - 6}
+                    y={(p.y + c.y) / 2 - 12}
                     textAnchor="middle"
                     className="v2-tabular"
                     fontSize="9.5"
@@ -164,16 +166,20 @@ export function CrewTimeline({ crewId, splits90d, reforms90d, answer, className 
                     stroke={n.is_focus ? "var(--accent-2)" : "var(--border-strong)"}
                     strokeWidth={n.is_focus ? 1.75 : 1}
                   />
-                  <text x={p.x + p.r + 6} y={p.y - 1} fontSize="11" fill={n.is_focus ? "var(--text)" : "var(--text-dim)"}>
+                  <text x={p.x} y={p.y + p.r + 14} textAnchor="middle" fontSize="11" fill={n.is_focus ? "var(--text)" : "var(--text-dim)"}>
                     {n.name.length > 22 ? `${n.name.slice(0, 21)}…` : n.name}
                   </text>
-                  <text x={p.x + p.r + 6} y={p.y + 12} fontSize="9.5" fill="var(--text-faint)" className="v2-tabular">
+                  <text x={p.x} y={p.y + p.r + 27} textAnchor="middle" fontSize="9.5" fill="var(--text-faint)" className="v2-tabular">
                     {n.active_members} active
                   </text>
                 </motion.g>
               );
             })}
           </svg>
+
+          {data.edges.length === 0 && (
+            <div className="-mt-1 text-center text-[11px] text-[var(--text-faint)]">No splits on record for this crew · membership events below</div>
+          )}
 
           {/* 12-week membership event strip */}
           <div className="flex flex-col gap-1">

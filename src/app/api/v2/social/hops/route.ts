@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { errorPayload, getSocialHops, pickDefaultHopPair } from "@/lib/v2/creatorbrand";
+import { errorPayload, getSocialHops, liveCached, pickDefaultHopPair } from "@/lib/v2/creatorbrand";
 
 /**
  * GET /api/v2/social/hops?from=&to=
@@ -13,8 +13,8 @@ const TOKEN = /^[A-Za-z0-9_:\-\.]{1,96}$/;
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  let from = url.searchParams.get("from");
-  let to = url.searchParams.get("to");
+  const from = url.searchParams.get("from");
+  const to = url.searchParams.get("to");
   if ((from && !TOKEN.test(from)) || (to && !TOKEN.test(to))) {
     return NextResponse.json({ error: "Invalid from/to token" }, { status: 400 });
   }
@@ -22,12 +22,16 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Provide both from and to, or neither" }, { status: 400 });
   }
   try {
-    if (!from || !to) {
-      const pair = await pickDefaultHopPair();
-      from = pair.from;
-      to = pair.to;
-    }
-    const data = await getSocialHops(from, to);
+    const fresh = url.searchParams.get("fresh") === "1";
+    const data = await liveCached(
+      "social-hops",
+      { from: from ?? null, to: to ?? null },
+      async () => {
+        const pair = from && to ? { from, to } : await pickDefaultHopPair();
+        return getSocialHops(pair.from, pair.to);
+      },
+      fresh
+    );
     return NextResponse.json(data);
   } catch (e) {
     console.error("[v2/social/hops]", e);

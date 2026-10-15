@@ -22,6 +22,8 @@ import {
 import { Minus, Plus, RotateCcw, Hand } from "lucide-react";
 /** Mirrors springs.gentle (src/components/v2/motion/springs.ts) typed for animate(motionValue). */
 const GENTLE = { type: "spring" as const, stiffness: 220, damping: 28 };
+/** Auto-fit never goes below this zoom, so card text stays legible on a 1440×900 laptop. */
+const READABLE_ZOOM = 0.66;
 
 export interface FlowCanvasProps {
   children: ReactNode;
@@ -72,8 +74,12 @@ export function FlowCanvas({ children, world, minZoom = 0.3, maxZoom = 1.6, clas
       const ch = el.clientHeight;
       // Leave a top band for the zoom controls so they never cover a node.
       const TOP = 64;
-      const nz = clamp(Math.min((cw - 64) / world.w, (ch - TOP - 24) / world.h));
-      const nx = (cw - world.w * nz) / 2;
+      // Fit the width; only shrink for height down to a readable floor, then let the
+      // viewer pan down for the tail of the tallest column.
+      const widthFit = (cw - 48) / world.w;
+      const heightFit = (ch - TOP - 24) / world.h;
+      const nz = clamp(Math.min(widthFit, Math.max(heightFit, READABLE_ZOOM)));
+      const nx = Math.max(24, (cw - world.w * nz) / 2);
       const ny = TOP + Math.max(0, (ch - TOP - 24 - world.h * nz) / 2);
       if (instant) {
         x.set(nx);

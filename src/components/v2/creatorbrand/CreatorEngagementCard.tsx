@@ -148,7 +148,7 @@ function Headline({ data, current }: { data: CreatorIncrementalResponse; current
         </p>
       </div>
       <div className="text-right">
-        <p className="text-[11px] uppercase tracking-[0.12em] text-v2-faint">All creators</p>
+        <p className="text-[11px] uppercase tracking-[0.12em] text-v2-faint">All creators, first touch</p>
         <Ticker
           value={data.totals.incremental_players}
           format={(n) => signed(Math.round(n))}
@@ -334,21 +334,42 @@ function CreatorList({
   selected: string;
   onSelect: (id: string) => void;
 }) {
-  const maxAbs = Math.max(1, ...rows.map((r) => Math.abs(r.lift_pp)));
+  const [showAll, setShowAll] = useState(false);
+  const maxAbs = Math.max(1, ...rows.map((r) => Math.abs(r.incremental_players)));
+  const TOP = 5;
+  const BOTTOM = 3;
+  const collapsed = !showAll && rows.length > TOP + BOTTOM + 1;
+  const visible = collapsed ? [...rows.slice(0, TOP), ...rows.slice(-BOTTOM)] : rows;
+  // Keep the selected creator visible even when collapsed.
+  const sel = rows.find((r) => r.creator_id === selected);
+  if (collapsed && sel && !visible.includes(sel)) visible.splice(TOP, 0, sel);
   return (
     <div>
-      <p className="mb-2 text-[11px] uppercase tracking-[0.12em] text-v2-faint">D30 lift by creator</p>
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-[11px] uppercase tracking-[0.12em] text-v2-faint">Incremental D30 players by creator</p>
+        {rows.length > TOP + BOTTOM + 1 && (
+          <button
+            onClick={() => setShowAll((v) => !v)}
+            className="v2-press rounded-v2-sm px-2 py-0.5 text-[11px] text-v2-dim hover:text-v2-text"
+          >
+            {showAll ? "Top and bottom" : `All ${rows.length}`}
+          </button>
+        )}
+      </div>
       <ul className="space-y-0.5" role="listbox" aria-label="Creators">
-        {rows.map((r, i) => {
+        {visible.map((r, i) => {
           const active = r.creator_id === selected;
-          const w = (Math.abs(r.lift_pp) / maxAbs) * 50;
+          const w = (Math.abs(r.incremental_players) / maxAbs) * 50;
+          const neg = r.incremental_players < 0;
           const color = !r.significant ? "var(--text-faint)" : r.lift_pp > 0 ? "var(--good)" : "var(--bad)";
+          const gapBefore = collapsed && i === visible.length - BOTTOM;
           return (
             <motion.li
               key={r.creator_id}
+              className={gapBefore ? "mt-2 border-t border-v2-border pt-2" : undefined}
               initial={{ opacity: 0, transform: "translateY(6px)" }}
               animate={{ opacity: 1, transform: "translateY(0px)" }}
-              transition={{ duration: 0.35, delay: 0.2 + i * STAGGER, ease: ease.out }}
+              transition={{ duration: 0.35, delay: 0.2 + Math.min(i, 10) * STAGGER, ease: ease.out }}
             >
               <button
                 role="option"
@@ -366,13 +387,13 @@ function CreatorList({
                     className="absolute inset-y-0 rounded-full"
                     style={{
                       background: color,
-                      left: r.lift_pp >= 0 ? "50%" : `${50 - w}%`,
+                      left: !neg ? "50%" : `${50 - w}%`,
                       width: `${w}%`,
-                      transformOrigin: r.lift_pp >= 0 ? "0% 50%" : "100% 50%",
+                      transformOrigin: !neg ? "0% 50%" : "100% 50%",
                     }}
                     initial={{ transform: "scaleX(0)" }}
                     animate={{ transform: "scaleX(1)" }}
-                    transition={{ duration: 0.7, delay: 0.3 + i * STAGGER, ease: ease.out }}
+                    transition={{ duration: 0.7, delay: 0.3 + Math.min(i, 10) * STAGGER, ease: ease.out }}
                   />
                 </span>
                 <span className="relative text-right v2-tabular" style={{ color: active ? "var(--text)" : undefined }}>

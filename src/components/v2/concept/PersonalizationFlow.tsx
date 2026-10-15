@@ -191,12 +191,21 @@ function Skeleton({ h = 12, w = "100%" }: { h?: number; w?: number | string }) {
   return <div className="v2-skeleton" style={{ height: h, width: w }} />;
 }
 
-/** Library creative. A failed load is a visible error, never a placeholder. */
+/**
+ * Library creative. While the real GCS object loads, the frame shows the shared
+ * loading shimmer; a failed load is a visible error, never a placeholder image.
+ */
 function Creative({ url, format, width }: { url: string; format: string; width?: number }) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [url]);
+  const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
+  const imgRef = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    const img = imgRef.current;
+    // Cached images can finish before React attaches onLoad.
+    if (img && img.complete) setState(img.naturalWidth > 0 ? "loaded" : "failed");
+    else setState("loading");
+  }, [url]);
   const w = width ?? THUMB_W[format] ?? 140;
-  if (failed) {
+  if (state === "failed") {
     return (
       <div
         className="grid shrink-0 place-items-center rounded-[var(--radius-sm)] border border-[var(--bad)] bg-[var(--bad-soft)] p-2 text-center text-[10px] text-[var(--bad)]"
@@ -205,27 +214,30 @@ function Creative({ url, format, width }: { url: string; format: string; width?:
       >
         <span>
           <AlertTriangle size={14} className="mx-auto mb-1" />
-          Missing library asset
+          Missing library asset ({format})
         </span>
       </div>
     );
   }
   return (
-    <AnimatePresence mode="popLayout" initial={false}>
-      <motion.img
+    <div
+      className={`relative shrink-0 overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border)] ${state === "loading" ? "v2-skeleton" : ""}`}
+      style={{ width: w, aspectRatio: ASPECT[format] }}
+    >
+      <img
         key={url}
+        ref={imgRef}
         src={url}
         alt=""
+        loading="eager"
+        decoding="async"
         draggable={false}
-        onError={() => setFailed(true)}
-        className="shrink-0 rounded-[var(--radius-sm)] border border-[var(--border)] object-cover"
-        style={{ width: w, aspectRatio: ASPECT[format] }}
-        initial={{ opacity: 0, filter: "blur(4px)" }}
-        animate={{ opacity: 1, filter: "blur(0px)" }}
-        exit={{ opacity: 0, filter: "blur(4px)" }}
-        transition={{ duration: 0.28, ease: ease.out }}
+        onLoad={() => setState("loaded")}
+        onError={() => setState("failed")}
+        className="absolute inset-0 h-full w-full object-cover"
+        style={{ opacity: state === "loaded" ? 1 : 0, transition: "opacity 280ms var(--v2-ease-out)" }}
       />
-    </AnimatePresence>
+    </div>
   );
 }
 
@@ -454,6 +466,22 @@ export function PersonalizationFlow() {
   const busy = run.stage !== "done" && run.stage !== "error" && run.stage !== "idle";
 
   const winner = run.pairs.find((p) => p.winner) ?? null;
+
+  // Warm every format of every candidate pair as soon as pairs stream in, so the
+  // channel cards (9:16 / 4:3 / 1:1) paint instantly when the activation lands.
+  const preloaded = useRef<Map<string, HTMLImageElement>>(new Map());
+  useEffect(() => {
+    for (const p of run.pairs) {
+      for (const url of Object.values(p.creatives)) {
+        if (!preloaded.current.has(url)) {
+          const img = new Image();
+          img.decoding = "async";
+          img.src = url;
+          preloaded.current.set(url, img);
+        }
+      }
+    }
+  }, [run.pairs]);
 
   // World height follows the tallest column so Reset / auto-fit always shows everything.
   const worldH = useMemo(() => {
