@@ -6,3 +6,6 @@ node_modules
 *.log
 .DS_Store
 .next-*
+data/v2/
+.showroom/
+docs/
