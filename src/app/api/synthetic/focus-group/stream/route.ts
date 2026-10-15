@@ -306,13 +306,15 @@ export async function POST(request: NextRequest) {
             creativeTitle,
             priceUsd,
             franchise,
-            counterfactualEvent
+            counterfactualEvent,
+            index
           );
           const res = await generateText({
             role: "FAST",
             system,
             prompt,
             json: true,
+            temperature: 0.65,
             thinkingBudget: 0,
             maxOutputTokens: 512,
           });
