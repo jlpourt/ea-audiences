@@ -481,7 +481,12 @@ export async function fetchLiveSpannerPersonas(
     { limit: safeLimit }
   );
 
-  return rows.map((r) => {
+  return rows.map((r) => mapPersonaRow(r));
+}
+
+/** Maps one Spanner persona row (player + crew + creator) into the shape the focus group prompts use. */
+function mapPersonaRow(r: any): any {
+  {
     const telemetry = parseJsonColumn(r.game_telemetry, {});
     const crewId = String(r.clan_id || telemetry.crew_id || "");
     const crewName = String(r.crew_name || crewId || "Bucket Getters");
@@ -496,8 +501,11 @@ export async function fetchLiveSpannerPersonas(
       r.creator_handle || primaryCreatorId
     );
     const archetype = String(r.primary_archetype || "MYCAREER_STORY_CASUAL");
-    const crewRole =
-      archetype === "REC_CREW_CAPTAIN" || archetype === "PARK_REP_GRINDER"
+    const crewRole = r.member_role
+      ? String(r.member_role).toUpperCase() === "MEMBER"
+        ? "MEMBER"
+        : "CAPTAIN"
+      : archetype === "REC_CREW_CAPTAIN" || archetype === "PARK_REP_GRINDER"
         ? "CAPTAIN"
         : "MEMBER";
 
@@ -569,7 +577,87 @@ export async function fetchLiveSpannerPersonas(
           : 0.5,
       favorite_team: telemetry.favorite_team || "Los Angeles Lakers",
     };
-  });
+  }
+}
+
+/**
+ * Live personas for an EXPLICIT target cohort (e.g. the crews in the Act step), so
+ * the focus group simulates those exact players with their real crew role.
+ * Order: crew "pods" first (each crew's captain + its two highest-churn crewmates),
+ * then the remaining members round-robin, so Round 2 has real captain-to-crewmate
+ * influence inside each crew sampled.
+ */
+export async function fetchTargetCohortPersonas(
+  playerIds: string[],
+  crewIds: string[] = [],
+  limit = 100
+): Promise<any[]> {
+  const ids = Array.from(new Set(playerIds.filter((x) => typeof x === "string" && x.length > 0))).slice(0, 400);
+  if (ids.length === 0) return [];
+  const crews = Array.from(new Set(crewIds.filter((x) => typeof x === "string" && x.length > 0)));
+  const rows = await runRawGql(
+    `GRAPH TakeTwoPlayerGraph
+     MATCH (p:Player)-[m:MEMBER_OF_CLAN]->(c:Clan)
+     WHERE p.player_id IN UNNEST(@ids)${crews.length ? " AND c.clan_id IN UNNEST(@crews)" : ""}
+     OPTIONAL MATCH (p)-[:FOLLOWS_CREATOR]->(cr:Creator)
+     RETURN p.player_id AS player_id,
+            ANY_VALUE(p.gamer_tag) AS gamer_tag,
+            ANY_VALUE(p.age) AS age,
+            ANY_VALUE(p.primary_archetype) AS primary_archetype,
+            ANY_VALUE(p.lifetime_spend_usd) AS lifetime_spend_usd,
+            ANY_VALUE(p.churn_risk_score) AS churn_risk_score,
+            ANY_VALUE(p.tilt_sensitivity) AS tilt_sensitivity,
+            ANY_VALUE(p.recent_loss_streak) AS recent_loss_streak,
+            ANY_VALUE(p.dma_market) AS dma_market,
+            ANY_VALUE(p.followed_creators) AS followed_creators,
+            ANY_VALUE(p.primary_creator_influence) AS primary_creator_influence,
+            ANY_VALUE(p.game_telemetry) AS game_telemetry,
+            ANY_VALUE(c.clan_id) AS clan_id,
+            ANY_VALUE(c.name) AS crew_name,
+            ANY_VALUE(c.tier) AS crew_tier,
+            ANY_VALUE(m.role) AS member_role,
+            ANY_VALUE(cr.creator_id) AS creator_id,
+            ANY_VALUE(cr.handle) AS creator_handle
+     GROUP BY player_id`,
+    crews.length ? { ids, crews } : { ids }
+  );
+  const personas = rows.map((r) => mapPersonaRow(r));
+  const byCrew = new Map<string, any[]>();
+  for (const p of personas) {
+    const key = String(p.crew_id || "none");
+    if (!byCrew.has(key)) byCrew.set(key, []);
+    byCrew.get(key)!.push(p);
+  }
+  for (const list of byCrew.values()) {
+    list.sort(
+      (a, b) =>
+        (a.crew_role === "CAPTAIN" ? 0 : 1) - (b.crew_role === "CAPTAIN" ? 0 : 1) ||
+        Number(b.churn_risk_score) - Number(a.churn_risk_score)
+    );
+  }
+  // Core sample = small crew pods (1 captain + 2 crewmates per crew) so Round 2 has a
+  // real captain-to-crewmate influence inside each crew; then fill round-robin.
+  const pods: any[] = [];
+  const rest: any[][] = [];
+  for (const list of byCrew.values()) {
+    const leader = list.find((p) => p.crew_role === "CAPTAIN");
+    const members = list.filter((p) => p !== leader && p.crew_role !== "CAPTAIN");
+    const pod = [leader, ...members.slice(0, 2)].filter(Boolean);
+    pods.push(pod);
+    rest.push(list.filter((p) => !pod.includes(p)));
+  }
+  const ordered: any[] = pods.flat();
+  for (let i = 0; ordered.length < Math.min(limit, personas.length); i++) {
+    let any = false;
+    for (const q of rest) {
+      if (q[i]) {
+        ordered.push(q[i]);
+        any = true;
+      }
+    }
+    if (!any) break;
+  }
+  return ordered.slice(0, limit);
 }
 
 export async function evaluatePersonas(

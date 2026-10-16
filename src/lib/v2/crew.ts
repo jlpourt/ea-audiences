@@ -1409,6 +1409,8 @@ export interface CrewFocusGroupHandoff {
     source: string;
     suggestedCampaign: string;
   };
+  /** The exact cohort to simulate (focus group personas are drawn from these players). */
+  targetCohort: { kind: CrewTargetKind; crewIds: string[]; playerIds: string[] };
 }
 
 export function buildFocusGroupHandoff(target: ResolvedTarget, offer: RetentionOffer): CrewFocusGroupHandoff {
@@ -1438,6 +1440,11 @@ export function buildFocusGroupHandoff(target: ResolvedTarget, offer: RetentionO
       isLive: true,
       source: SPANNER_RESOURCE(),
       suggestedCampaign: presets[0].title,
+    },
+    targetCohort: {
+      kind: target.kind,
+      crewIds: target.kind === "crews" ? target.ids : [],
+      playerIds: target.player_ids.slice(0, 400),
     },
   };
 }

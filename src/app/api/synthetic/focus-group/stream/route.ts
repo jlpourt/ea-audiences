@@ -16,6 +16,7 @@ import {
   evaluateRound3Counterfactual,
   synthesizeConsensus,
   fetchLiveSpannerPersonas,
+  fetchTargetCohortPersonas,
   fetchLiveRedditThreadsForContagion,
   computeRedditEchoMetrics,
   normalizeCreatorHandle,
@@ -132,8 +133,21 @@ export async function POST(request: NextRequest) {
         );
       }
     } else {
-      const incoming = Array.isArray(body.sampled_players) ? [...body.sampled_players] : [];
-      const liveSpannerPool = await fetchLiveSpannerPersonas(100, franchise);
+      // Explicit target cohort (e.g. Act step crews): simulate those exact players.
+      const targetPlayerIds: string[] = Array.isArray(body.target_player_ids)
+        ? body.target_player_ids.map(String)
+        : [];
+      const targetCrewIds: string[] = Array.isArray(body.target_crew_ids) ? body.target_crew_ids.map(String) : [];
+      const isTargeted = targetPlayerIds.length > 0;
+      const incoming = isTargeted ? [] : Array.isArray(body.sampled_players) ? [...body.sampled_players] : [];
+      const liveSpannerPool = isTargeted
+        ? await fetchTargetCohortPersonas(targetPlayerIds, targetCrewIds, 100)
+        : await fetchLiveSpannerPersonas(100, franchise);
+      if (isTargeted && liveSpannerPool.length === 0) {
+        throw new Error(
+          `No live Spanner personas found for the target cohort (${targetPlayerIds.length} player ids, crews: ${targetCrewIds.join(", ") || "n/a"})`
+        );
+      }
 
       // Enrich incoming graph players with Spanner Crew & Creator edges if missing
       const spannerById = new Map(liveSpannerPool.map((p) => [p.player_id, p]));

@@ -239,6 +239,7 @@ export function CrewActButtons({ kind, ids, label, channels, onPressureTest, onD
           initialFranchise="NBA2K"
           onGenerateBrief={() => undefined}
           offerPreset={test.focus_group.offerPreset}
+          targetCohort={test.focus_group.targetCohort}
         />
       )}
     </div>

@@ -150,6 +150,8 @@ export interface FocusGroupModalProps {
   onOpenCreativeStudio?: (offerTitle: string) => void;
   onOpenGraphTwins?: (twinsPayload: any, selectPlayerId?: string) => void;
   offerPreset?: { title: string; priceUsd: number; altPriceUsd?: number } | null;
+  /** Explicit cohort to simulate (e.g. Act step crews); personas are drawn from exactly these players. */
+  targetCohort?: { crewIds: string[]; playerIds: string[] } | null;
 }
 
 interface OfferPreset {
@@ -242,6 +244,7 @@ export function FocusGroupModal({
   onOpenCreativeStudio,
   onOpenGraphTwins,
   offerPreset,
+  targetCohort,
 }: FocusGroupModalProps) {
   const prefersReducedMotion = Boolean(useReducedMotion());
 
@@ -504,6 +507,9 @@ export function FocusGroupModal({
           swarm_size: targetSwarm,
           enable_contagion: true,
           counterfactual_event: activeCf,
+          ...(targetCohort?.playerIds?.length
+            ? { target_player_ids: targetCohort.playerIds, target_crew_ids: targetCohort.crewIds }
+            : {}),
         }),
       });
 
