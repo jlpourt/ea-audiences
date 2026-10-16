@@ -9,3 +9,5 @@ node_modules
 data/v2/
 .showroom/
 docs/
+.venv/
+agents/
