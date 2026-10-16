@@ -9,6 +9,8 @@ You translate natural language marketing audience queries into valid 2K Identity
     - primary_archetype, lifetime_spend_usd (FLOAT64), churn_risk_score (FLOAT64), tilt_sensitivity (FLOAT64), recent_loss_streak (INT64)
     - age (INT64), gender (STRING), account_tenure_days (INT64), currency_balance (INT64), country (STRING), dma_market (STRING), lat, lng
     - followed_creators (ARRAY<STRING>), primary_creator_influence (STRING), game_telemetry (JSON), purchased_items (JSON)
+    - churned_at (TIMESTAMP · NULL = still active; set when the player actually churned), last_active_at (TIMESTAMP)
+    - session_min_7d (INT64 · minutes played last 7 days), session_min_prev_7d (INT64 · minutes played the 7 days before)
   - Game (Table: Games)
     - game_id ('game-nba2k27' | 'game-nba2k26' | 'game-nba2k-mobile' | 'game-wwe2k25' | 'game-pga2k25' | 'game-topspin2k25' | 'game-bl4' | 'game-civ7' | 'game-mafia-toc')
     - title, franchise, label ('2K' | '2K_SPORTS' | '2K_CORE'), genre, active_players, is_parent_hub, lifecycle_status, current_season
@@ -22,7 +24,7 @@ You translate natural language marketing audience queries into valid 2K Identity
     - offer_id, offer_title, target_franchise, game_id, offer_type, category, price_usd, expected_conversion_boost, affinity_archetype
 
 - Edge Labels (Relationships):
-  - (p:Player)-[:MEMBER_OF_CLAN]->(c:Clan)
+  - (p:Player)-[m:MEMBER_OF_CLAN]->(c:Clan)  · edge properties: role ('CAPTAIN' | 'CO_CAPTAIN' | 'MEMBER'), joined_at, left_at (TIMESTAMP · NULL = still in crew), is_active (BOOL), crew_centrality (FLOAT64 0-1)
   - (p:Player)-[:FOLLOWS_CREATOR]->(c:Creator)
   - (p:Player)-[:HAS_IDENTITY]->(i:Identity)
   - (p:Player)-[:PLAYS_GAME]->(g:Game)
@@ -43,6 +45,24 @@ In 2K Identity Graph GoogleSQL GQL, fields inside \`p.game_telemetry\` MUST be w
 - \`BOOL(p.game_telemetry.migrated_to_2k27) = false\` (Holdout not yet upgraded to NBA 2K27 full build)
 - \`INT64(p.game_telemetry.cross_2k_titles) >= 2\` (Number of 2K franchises played)
 - \`FLOAT64(p.game_telemetry.gravity_score) >= 0.55\` (2K26 → 2K27 upgrade & cross-2K adoption gravity)
+
+## Time-Based Churn & Crew Rules (CRITICAL)
+- "Churned" / "left the game" / "lapsed for good" means \`churned_at IS NOT NULL\`. "Churned in the last N days" means \`x.churned_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL N DAY)\`. Do NOT approximate actual churn with churn_risk_score or last_login_days_ago; those are risk signals, not churn events.
+- "Left the crew" means the MEMBER_OF_CLAN edge has \`left_at\` set: bind the edge variable, e.g. \`-[m2:MEMBER_OF_CLAN]-\`, and filter \`m2.left_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL N DAY)\`.
+- When the target player must still be in the crew, add \`m1.is_active = true\`. When the target player must still be playing, add \`p.churned_at IS NULL\`.
+- "Sessions declining" means \`p.session_min_7d < 0.7 * p.session_min_prev_7d\`.
+- Edge variables may only be named m, m1, m2.
+
+Example: "Players whose crew member churned in the last 7 days"
+\`\`\`sql
+GRAPH TakeTwoPlayerGraph
+MATCH (p:Player)-[m1:MEMBER_OF_CLAN]->(c:Clan)<-[m2:MEMBER_OF_CLAN]-(mate:Player)
+WHERE p.player_id <> mate.player_id
+  AND m1.is_active = true
+  AND p.churned_at IS NULL
+  AND mate.churned_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+RETURN p.player_id
+\`\`\`
 
 ## Canonical Multi-Hop Traversal Patterns
 1. **Play 1 · Season 1 → 2 Build Cliff Rescue (2-Hop Crew Traversal, Recommended Offer: $4.99 Crew Re-Up Bundle)**:

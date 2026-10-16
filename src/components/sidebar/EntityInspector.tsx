@@ -802,7 +802,7 @@ export default function EntityInspector({
                     {cohortContext.multiHopMetadata.hops} Hops
                   </span>
                 </div>
-                <div className="flex items-center gap-1 text-[11px] font-mono text-gray-200 overflow-x-auto pb-0.5">
+                <div className="flex flex-wrap items-center gap-1 text-[11px] font-mono text-gray-200 pb-0.5">
                   {cohortContext.multiHopMetadata.steps.map((s: string, idx: number) => (
                     <React.Fragment key={idx}>
                       {idx > 0 && <span className="text-cyan-400 font-bold shrink-0">→</span>}

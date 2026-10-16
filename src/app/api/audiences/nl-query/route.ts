@@ -30,7 +30,7 @@ export interface ParsedCondition {
 }
 
 const ALLOWED_IDENTIFIER_PATTERNS = [
-  /^(?:p|mate|c|cl|cr|clan|i|id|g|g[0-9]+|game|p2|p_sub)\.[a-z0-9_]+$/i,
+  /^(?:p|mate|c|cl|cr|clan|i|id|g|g[0-9]+|game|p2|p_sub|m|m[0-9]+)\.[a-z0-9_]+$/i,
   /^(?:p|mate|p2|p_sub)\.game_telemetry\.[a-z0-9_]+$/i,
 ];
 
@@ -51,7 +51,7 @@ function validateGqlSafety(gql: string): { ok: boolean; reason?: string } {
     return { ok: false, reason: "Mutating statements are not permitted." };
   }
   const propRefs =
-    gql.match(/\b(?:p|mate|c|cl|cr|clan|i|id|g|g[0-9]+|game|p2|p_sub)\.[a-zA-Z0-9_.]+/g) || [];
+    gql.match(/\b(?:p|mate|c|cl|cr|clan|i|id|g|g[0-9]+|game|p2|p_sub|m|m[0-9]+)\.[a-zA-Z0-9_.]+/g) || [];
   for (const ref of propRefs) {
     if (!ALLOWED_IDENTIFIER_PATTERNS.some((re) => re.test(ref))) {
       return { ok: false, reason: `Disallowed identifier '${ref}' in generated GQL.` };
@@ -66,8 +66,49 @@ function humanizePredicate(fragment: string, idx: number): ParsedCondition {
   let op = "=";
   let value = clean;
   let label = clean;
+  // Subject of the predicate: the matched player (p) or the crew mate (mate).
+  const isMate = /\bmate\./.test(clean);
+  const who = isMate ? "Crew mate " : "";
+  const whoField = isMate ? "mate_" : "";
+  const daysInterval = clean.match(/INTERVAL\s+(\d+)\s+DAY/i)?.[1];
 
-  if (/myplayer_ovr/i.test(clean)) {
+  if (/churned_at/i.test(clean)) {
+    field = `${whoField}churned_at`;
+    if (/IS\s+NULL/i.test(clean)) {
+      op = "IS NULL";
+      value = "active";
+      label = isMate ? "Crew mate still active" : "Still active (not churned)";
+    } else if (daysInterval) {
+      op = ">=";
+      value = `${daysInterval}d`;
+      label = `${who}churned in last ${daysInterval}d`.replace(/^c/, "C");
+    } else {
+      op = "IS NOT NULL";
+      value = "churned";
+      label = isMate ? "Crew mate churned" : "Churned";
+    }
+  } else if (/\bm[0-9]*\.is_active/i.test(clean)) {
+    field = "membership_active";
+    op = "=";
+    value = /false/i.test(clean) ? "false" : "true";
+    label = value === "true" ? "Active crew membership" : "Former crew member";
+  } else if (/\bm[0-9]*\.left_at/i.test(clean)) {
+    field = "membership_left_at";
+    op = daysInterval ? ">=" : /IS\s+NULL/i.test(clean) ? "IS NULL" : "IS NOT NULL";
+    value = daysInterval ? `${daysInterval}d` : "";
+    label = daysInterval
+      ? `Left crew in last ${daysInterval}d`
+      : op === "IS NULL"
+        ? "Still in crew"
+        : "Left crew";
+  } else if (/session_min_7d/i.test(clean) && /session_min_prev_7d/i.test(clean)) {
+    const m = clean.match(/([<>]=?)\s*(\d+(?:\.\d+)?)\s*\*?\s*\w*\.?session_min_prev_7d/i)
+      || clean.match(/([<>]=?)\s*(\d+(?:\.\d+)?)/);
+    field = `${whoField}session_trend`;
+    op = m?.[1] || "<";
+    value = m?.[2] || "";
+    label = `${who}sessions 7d vs prior 7d ${op} ${value}`.trim().replace(/^s/, "S");
+  } else if (/myplayer_ovr/i.test(clean)) {
     const m = clean.match(/([<>]=?|=)\s*(\d+)/);
     field = "myplayer_ovr";
     op = m?.[1] || "<";
@@ -96,13 +137,13 @@ function humanizePredicate(fragment: string, idx: number): ParsedCondition {
     field = "mate_last_login";
     op = m?.[1] || "<=";
     value = m?.[2] || "3";
-    label = `Crew Mate Active <= ${value}d`;
+    label = /</.test(op) ? `Crew mate active in last ${value}d` : `Crew mate inactive ${op} ${value}d`;
   } else if (/last_login_days_ago/i.test(clean) && !/churn_risk_score/i.test(clean)) {
     const m = clean.match(/([<>]=?|=)\s*(\d+)/);
     field = "last_login_days_ago";
     op = m?.[1] || ">=";
     value = m?.[2] || "7";
-    label = `Inactive ${op} ${value}d`;
+    label = /</.test(op) ? `Active in last ${value}d` : `Inactive ${op} ${value}d`;
   } else if (/season_pass_edition/i.test(clean)) {
     const m = clean.match(/'([^']+)'/);
     field = "season_pass_edition";
@@ -166,10 +207,10 @@ function humanizePredicate(fragment: string, idx: number): ParsedCondition {
     label = "Churn Risk >= 0.45 or Inactive >= 5d";
   } else if (/churn_risk_score/i.test(clean)) {
     const m = clean.match(/([<>]=?|=)\s*(\d+(?:\.\d+)?)/);
-    field = "churn_risk_score";
+    field = `${whoField}churn_risk_score`;
     op = m?.[1] || ">=";
     value = m?.[2] || "0.7";
-    label = `Churn Risk ${op} ${value}`;
+    label = `${isMate ? "Crew mate churn risk" : "Churn Risk"} ${op} ${value}`;
   } else if (/recent_loss_streak/i.test(clean)) {
     const m = clean.match(/recent_loss_streak\s*([<>]=?|=)\s*(\d+)/i);
     field = "recent_loss_streak";
@@ -298,7 +339,7 @@ WHERE c.franchise = 'NBA2K'
   AND p.lifetime_spend_usd >= 200${dmaClause}
 RETURN p.player_id`,
       explanation:
-        "2-hop Creator Squad traversal isolating high-LTV NBA 2K27 players ($200+ lifetime spend) following Agent 00, Troydan, CashNasty, Kenny Beecham / KOT4Q, DBG, and Tydebo.",
+        "1-hop FOLLOWS_CREATOR traversal isolating high-LTV players ($200+ lifetime spend) who follow an NBA 2K creator.",
       dominant_archetype: "BUILD_LAB_THEORYCRAFTER",
     };
   }
@@ -459,6 +500,110 @@ RETURN p.player_id`,
   }
 
   return null;
+}
+
+/**
+ * Build the Multi-Hop Path card from the GQL that actually ran: node labels and
+ * edge labels come from the executed MATCH pattern, and each step carries the
+ * WHERE predicates bound to that variable. Nothing here is templated.
+ */
+const NODE_DISPLAY: Record<string, string> = {
+  Player: "Player",
+  Clan: "Crew",
+  Creator: "Creator",
+  Identity: "Identity",
+  Game: "Game",
+  Offer: "Offer",
+  Stream: "Stream",
+  Item: "Item",
+  Brand: "Brand",
+};
+
+function deriveMultiHopPath(
+  matchClause: string,
+  conditions: ParsedCondition[],
+  summary: string,
+  bridgeNodes: string[]
+): MultiHopPathInfo {
+  // Split top-level comma-separated path patterns.
+  const paths: string[] = [];
+  let depth = 0;
+  let last = 0;
+  for (let i = 0; i < matchClause.length; i++) {
+    const ch = matchClause[i];
+    if (ch === "(" || ch === "[" || ch === "{") depth++;
+    else if (ch === ")" || ch === "]" || ch === "}") depth--;
+    else if (ch === "," && depth === 0) {
+      paths.push(matchClause.slice(last, i));
+      last = i + 1;
+    }
+  }
+  paths.push(matchClause.slice(last));
+
+  const hasClan = /:\s*Clan\b/.test(matchClause);
+  const condsByVar = new Map<string, string[]>();
+  for (const c of conditions) {
+    const v = c.rawFragment.match(/\b([a-zA-Z_][a-zA-Z0-9_]*)\./)?.[1];
+    if (!v) continue;
+    const list = condsByVar.get(v) || [];
+    list.push(c.label);
+    condsByVar.set(v, list);
+  }
+  // Edge-variable predicates (e.g. m1.is_active) describe the hop into the next node.
+  const edgeVars = new Set<string>();
+
+  const nodeName = (v: string, label: string, inline: string) => {
+    let name = NODE_DISPLAY[label] || label || "Node";
+    if (label === "Player" && v === "mate") name = hasClan ? "Crew mate" : "Connected player";
+    const prop = inline.match(/\{\s*\w+\s*:\s*'([^']+)'\s*\}/)?.[1];
+    if (prop) name = `${name}: ${prop}`;
+    return name;
+  };
+
+  const steps: string[] = [];
+  const labelParts: string[] = [];
+  const seen = new Set<string>();
+  let hops = 0;
+  const tokenRe = /\(\s*([a-zA-Z_][a-zA-Z0-9_]*)?\s*(?::\s*([A-Za-z_]+))?([^)]*)\)|(<)?-\[\s*([a-zA-Z_][a-zA-Z0-9_]*)?\s*(?::\s*([A-Za-z_]+))?[^\]]*\]-(>)?/g;
+
+  paths.forEach((path, pi) => {
+    if (pi > 0) labelParts.push(" · ");
+    let m: RegExpExecArray | null;
+    let pendingEdgeConds: string[] = [];
+    while ((m = tokenRe.exec(path))) {
+      if (m[0].startsWith("(")) {
+        const v = m[1] || "";
+        const label = m[2] || "";
+        const name = nodeName(v, label, m[3] || "");
+        labelParts.push(name);
+        if (v && seen.has(v)) continue; // re-referenced node, e.g. (p) in a second path
+        if (v) seen.add(v);
+        const conds = [...pendingEdgeConds, ...(condsByVar.get(v) || [])].map((c) => {
+          const trimmed = name.startsWith("Crew mate") ? c.replace(/^Crew mate\s+/i, "") : c;
+          return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+        });
+        pendingEdgeConds = [];
+        steps.push(conds.length ? `${name} · ${conds.slice(0, 3).join(" · ")}` : name);
+      } else {
+        hops++;
+        const ev = m[5] || "";
+        const elabel = m[6] || "EDGE";
+        if (ev) {
+          edgeVars.add(ev);
+          pendingEdgeConds = condsByVar.get(ev) || [];
+        }
+        labelParts.push(m[4] ? ` ←${elabel}─ ` : m[7] ? ` ─${elabel}→ ` : ` ─${elabel}─ `);
+      }
+    }
+  });
+
+  return {
+    hops,
+    patternLabel: labelParts.join("").replace(/\s+/g, " ").trim(),
+    summary,
+    steps,
+    bridgeNodes: bridgeNodes.slice(0, 8),
+  };
 }
 
 async function executeAudienceQuery(
@@ -665,7 +810,7 @@ User Request: "${query}"`,
         if (br.mate_id) {
           addNode({
             id: br.mate_id,
-            name: `${br.mate_tag || br.mate_id} (Active Crew Mate)`,
+            name: br.mate_tag || br.mate_id,
             type: "SQUADMATE",
             franchise: br.mate_franchise || "NBA2K",
             isMultiHopBridge: true,
@@ -676,7 +821,7 @@ User Request: "${query}"`,
           links.push({
             source: br.clan_id,
             target: br.mate_id,
-            label: "Active Crew Mate",
+            label: "MEMBER_OF_CLAN",
             isMultiHopBridge: true,
             hopStep: 2,
             value: 1.8,
@@ -684,22 +829,6 @@ User Request: "${query}"`,
           });
         }
 
-        // Recommended Offer node for Play 1: $4.99 Crew Re-Up Bundle
-        const crewOfferId = "off-crew-reup-bundle";
-        addNode({
-          id: crewOfferId,
-          name: "$4.99 Crew Re-Up Bundle",
-          type: "OFFER",
-          franchise: "NBA2K",
-          label: "2K",
-          isMultiHopBridge: true,
-          hopStep: 3,
-          val: 24,
-          color: "#F5B400",
-          fx: 320,
-          fy: -120,
-        });
-        bridgeNames.add("$4.99 Crew Re-Up Bundle");
       }
 
       if (br.identity_id) {
@@ -757,34 +886,6 @@ User Request: "${query}"`,
             color: FRANCHISE_COLORS[targetFranchise] || "#FF6B35",
           });
 
-          if (br.target_game_id === "game-nba2k26") {
-            const loyaltyOfferId = "off-nba2k27-loyalty-upgrade";
-            const loyaltyOfferTitle =
-              "NBA 2K26 → 2K27 Hall of Fame Loyalty Upgrade + 100K VC";
-            addNode({
-              id: loyaltyOfferId,
-              name: loyaltyOfferTitle,
-              type: "OFFER",
-              franchise: "NBA2K",
-              label: "2K",
-              isMultiHopBridge: true,
-              hopStep: 3,
-              val: 26,
-              color: "#F5B400",
-              fx: 460,
-              fy: 175,
-            });
-            bridgeNames.add(loyaltyOfferTitle);
-            links.push({
-              source: br.target_game_id,
-              target: loyaltyOfferId,
-              label: "LOYALTY_UPGRADE",
-              isMultiHopBridge: true,
-              hopStep: 3,
-              value: 2.4,
-              color: "#F5B400",
-            });
-          }
         }
       }
 
@@ -821,62 +922,12 @@ User Request: "${query}"`,
       }
     }
 
-    const is2K26Bridge = matchClause.includes("game-nba2k26");
-    const isIdentityBridge = matchClause.includes("Identity");
-    const isD2cWebStore = isIdentityBridge && !matchClause.includes("Game");
-    const isConcordiaCrew =
-      matchClause.includes("Clan") && /migrated_to_2k27/i.test(whereClause);
-    multiHopMetadata = {
-      hops: isIdentityBridge && !isD2cWebStore ? 3 : 2,
-      patternLabel: is2K26Bridge
-        ? "Player → 2K Account → NBA 2K26 → HoF Loyalty Upgrade (+100K VC)"
-        : isD2cWebStore
-          ? "Player → 2K Account → 2K D2C Web Store (+22% Gross Margin)"
-          : isIdentityBridge
-            ? "Player → 2K Account → 2K Cross-Franchise Portfolio (WWE / PGA / BL4 / Civ VII)"
-            : isConcordiaCrew
-              ? "NBA 2K26 Holdout → Crew (MEMBER_OF_CLAN) → Active 2K27 Crew Mate (3.4x Tipping Point)"
-              : matchClause.includes("Clan")
-                ? "Player → Crew (MEMBER_OF_CLAN) → Active Crew Mate → $4.99 Crew Re-Up Bundle"
-                : "Player → NBA 2K Creator Squad Halo (Agent 00 / Troydan / KOT4Q / DBG)",
-      summary: explanation,
-      steps: is2K26Bridge
-        ? [
-            "NBA 2K26 Veteran & MyTEAM Spender",
-            "2K Account Identity Spine",
-            "NBA 2K26 → 2K27 Hall of Fame Loyalty Upgrade + 100K VC",
-          ]
-        : isD2cWebStore
-          ? [
-              "High-Velocity Recurrent VC Spender ($400+ LTV)",
-              "2K Account Identity Spine",
-              "2K D2C Web Store Margin Arbitrage (+22% Margin)",
-            ]
-          : isIdentityBridge
-            ? [
-                "NBA 2K27 Core Player",
-                "2K Account Identity Spine",
-                "WWE 2K25 / PGA TOUR 2K25 / Borderlands 4 / Civ VII",
-              ]
-            : isConcordiaCrew
-              ? [
-                  "NBA 2K26 Holdout Veteran",
-                  "Rec / Pro-Am Crew Roster (≥60% Tipping Point)",
-                  "Active NBA 2K27 Crew Mate (3.4x Conversion Multiplier)",
-                ]
-              : matchClause.includes("Clan")
-                ? [
-                    "Stalled MyCAREER Build (<85 OVR)",
-                    "Rec / Pro-Am Crew Roster",
-                    "Active Crew Mate (<=3d) + $4.99 Crew Re-Up Bundle",
-                  ]
-                : [
-                    "High-LTV NBA 2K27 Player",
-                    "FOLLOWS_CREATOR Edge",
-                    "Creator Squad (Agent 00, Troydan, CashNasty, KOT4Q, DBG, Tydebo)",
-                  ],
-      bridgeNodes: Array.from(bridgeNames).slice(0, 8),
-    };
+    multiHopMetadata = deriveMultiHopPath(
+      matchClause,
+      parseConditionsFromWhere(spannerRes.whereClause),
+      explanation,
+      Array.from(bridgeNames)
+    );
   }
 
   const activeConditions = parseConditionsFromWhere(spannerRes.whereClause);
