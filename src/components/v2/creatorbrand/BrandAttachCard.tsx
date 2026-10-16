@@ -132,9 +132,13 @@ export function BrandAttachCard({ playerId, className }: BrandAttachCardProps) {
 
 /* ------------------------------------------------------------------ */
 
+/** Logos drawn as a filled box (e.g. Amex's blue box) collapse to a solid square under the
+ * monochrome filter, so render those partners as text wordmarks instead. */
+const BOXED_LOGO_BRANDS = new Set(["american-express"]);
+
 function Wordmark({ b, active }: { b: BrandAttachRow; active: boolean }) {
   const [imgOk, setImgOk] = useState(true);
-  if (b.logo_url && imgOk) {
+  if (b.logo_url && imgOk && !BOXED_LOGO_BRANDS.has(b.brand_id)) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img

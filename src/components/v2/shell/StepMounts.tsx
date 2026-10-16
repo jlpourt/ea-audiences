@@ -14,12 +14,14 @@
  *   ACT                 : <CrewActPanel />         src/components/v2/crew
  *   D_CONCEPT           : <PersonalizationFlow />  src/components/v2/concept (alias ConceptTest)
  */
-import { useEffect, type ReactNode } from "react";
-import { BrandAttachCard, CreatorEngagementCard } from "../creatorbrand";
+import { useEffect, useState, type ReactNode } from "react";
+import { motion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
+import { BrandAttachCard, CreatorEngagementCard, CreatorHubsViz, SocialHopsViz } from "../creatorbrand";
 import { CrewActPanel, CrewChurnPanel, LostCoreMemberCard } from "../crew";
 import { Player360 } from "../player360";
 import { PersonalizationFlow } from "../concept";
-import { Reveal } from "../motion";
+import { ActiveIndicator, AnimatePresence, ease, useReducedMotion } from "../motion";
 import { Home, type HomeProps } from "../home/Home";
 import { LiveErrorNote } from "../home/atoms";
 import { useLiveJson } from "../home/useLiveJson";
@@ -94,6 +96,100 @@ function ActScene() {
 }
 
 /**
+ * METRICS scene: one signal per view instead of three cramped columns.
+ * Tabs: Crew churn (full width) · Creator impact (engagement + hubs) ·
+ * Brand + Crew (attach + social hops). Task cards can deep-link via `focus`.
+ */
+type MetricsTab = "crew" | "creator" | "brand";
+const METRIC_TABS: { id: MetricsTab; label: string; hint: string }[] = [
+  { id: "crew", label: "Crew churn", hint: "" },
+  { id: "creator", label: "Creator impact", hint: "Incremental players vs matched control" },
+  { id: "brand", label: "Brand + Crew", hint: "Partners spread through co-play" },
+];
+
+function MetricsScene() {
+  const { playerId, focus, goTo } = useStoryline();
+  const reduce = useReducedMotion();
+  const [tab, setTab] = useState<MetricsTab>(
+    focus === "creator" ? "creator" : focus === "brand" ? "brand" : "crew",
+  );
+  const idx = METRIC_TABS.findIndex((t) => t.id === tab);
+  const nextTab = METRIC_TABS[idx + 1];
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div
+          role="tablist"
+          aria-label="Signals"
+          className="relative inline-flex items-center gap-1 rounded-[var(--radius-pill)] border border-[var(--border)] bg-[var(--surface)] p-1"
+        >
+          {METRIC_TABS.map((t) => {
+            const active = t.id === tab;
+            return (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={active}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={`v2-press relative h-9 rounded-[var(--radius-pill)] px-4 text-[13.5px] font-medium transition-colors ${
+                  active ? "text-[var(--text)]" : "text-[var(--text-dim)] hover:text-[var(--text)]"
+                }`}
+              >
+                {active && (
+                  <ActiveIndicator
+                    layoutId="metrics-tab"
+                    className="rounded-[var(--radius-pill)] bg-[var(--surface-3)] shadow-[var(--shadow-sm)]"
+                  />
+                )}
+                <span className="relative z-10">{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <span className="text-[13px] text-[var(--text-faint)]">{METRIC_TABS[idx].hint}</span>
+      </div>
+
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={tab}
+          initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10, filter: "blur(4px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6, filter: "blur(4px)" }}
+          transition={{ duration: 0.26, ease: ease.out }}
+        >
+          {tab === "crew" && <CrewChurnPanel />}
+          {tab === "creator" && (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <CreatorEngagementCard />
+              <CreatorHubsViz />
+            </div>
+          )}
+          {tab === "brand" && (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <BrandAttachCard playerId={playerId} />
+              <SocialHopsViz />
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => (nextTab ? setTab(nextTab.id) : goTo("C_CREWS"))}
+          className="v2-press inline-flex h-10 items-center gap-2 rounded-[var(--radius-pill)] border border-[var(--border-strong)] bg-[var(--surface-2)] px-5 text-[13.5px] font-medium text-[var(--text)] hover:bg-[var(--surface-hover)]"
+        >
+          {nextTab ? nextTab.label : "Crews that lost a core member"}
+          <ArrowRight className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Renders one scene. `step` is a prop (not read from context) so that while a
  * scene is exiting it keeps rendering its own step rather than the new one.
  */
@@ -113,11 +209,7 @@ export function StepContent({ step, homeProps }: { step: StorylineStep; homeProp
     case "METRICS":
       return (
         <StepFrame step={step}>
-          <Reveal className="grid grid-cols-1 gap-4 xl:grid-cols-3" stagger={0.08} y={12} blur={4}>
-            <CrewChurnPanel />
-            <CreatorEngagementCard />
-            <BrandAttachCard playerId={playerId} />
-          </Reveal>
+          <MetricsScene />
         </StepFrame>
       );
     case "C_CREWS":
