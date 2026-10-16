@@ -38,7 +38,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { springs } from "@/components/v2/motion";
-import { CARD_BOX, VIEW, VIEWBOX, edgePath, type LEdge, type LNode, type Layout, type Stage } from "./layout";
+import { viewBoxFor, edgePath, type LEdge, type LNode, type Layout, type Stage } from "./layout";
 
 // ---------------------------------------------------------------------------
 // Position registry
@@ -118,6 +118,9 @@ function edgeStyle(e: LEdge): { stroke: string; width: number; opacity: number; 
   }
 }
 
+/** Focal PlayerCard size in CSS px (compact state) plus breathing room. */
+const CARD_PX = { w: 232, h: 150, pad: 16 } as const;
+
 // ---------------------------------------------------------------------------
 // Edge
 // ---------------------------------------------------------------------------
@@ -173,6 +176,35 @@ const GraphEdge = memo(function GraphEdge({ e, src, dst, delay, dim, flow, reduc
   );
 });
 
+/**
+ * Label placement shared by the node renderer and the collision pass: anchor,
+ * font size and offset scale with the readability factor, and the label is slid
+ * out of the focal card's footprint if it would sit under the card.
+ */
+function labelGeometry(n: LNode, tx: number, ty: number, ui: number, cardBox: { hw: number; hh: number }) {
+  const cos = Math.cos((n.angle * Math.PI) / 180);
+  const sin = Math.sin((n.angle * Math.PI) / 180);
+  const below = n.labelPos === "below";
+  const anchor: "start" | "middle" | "end" = below ? "middle" : cos > 0.35 ? "start" : cos < -0.35 ? "end" : "middle";
+  const r = n.r * ui;
+  const fontSize = (n.hop === 2 ? 11.5 : 13.5) * ui;
+  const lx = below ? 0 : cos * (r + 7 * ui);
+  const ly = below ? r + fontSize + 4 * ui : sin * (r + 7 * ui) + (anchor === "middle" ? (sin > 0 ? fontSize * 0.8 : -4 * ui) : fontSize * 0.32);
+  const w = n.label.length * fontSize * 0.58;
+  const box = (labelX: number) => {
+    const wx = tx + labelX;
+    const left = anchor === "middle" ? wx - w / 2 : anchor === "start" ? wx : wx - w;
+    return { left, right: left + w, top: ty + ly - fontSize, bottom: ty + ly + 3 };
+  };
+  let labelX = lx;
+  if (n.showLabel && n.kind !== "player") {
+    const b = box(lx);
+    const hitsCard = b.right > -cardBox.hw && b.left < cardBox.hw && b.bottom > -cardBox.hh && b.top < cardBox.hh;
+    if (hitsCard) labelX += tx + lx < 0 ? -cardBox.hw - b.right : cardBox.hw - b.left;
+  }
+  return { anchor, fontSize, ly, labelX, box: box(labelX) };
+}
+
 // ---------------------------------------------------------------------------
 // Node
 // ---------------------------------------------------------------------------
@@ -186,11 +218,17 @@ interface NodeProps {
   dim: boolean;
   faded: boolean;
   reduce: boolean;
+  /** Screen-readability multiplier for node radius and label size (>= 1). */
+  ui: number;
+  /** Focal card footprint in viewBox units (depends on the canvas scale). */
+  cardBox: { hw: number; hh: number };
+  /** Label suppressed because it would collide with a higher-priority label. */
+  hideLabel: boolean;
   onHover: (id: string | null) => void;
   onClick: (n: LNode) => void;
 }
 
-const GraphNode = memo(function GraphNode({ n, entry, tx, ty, delay, dim, faded, reduce, onHover, onClick }: NodeProps) {
+const GraphNode = memo(function GraphNode({ n, entry, tx, ty, delay, dim, faded, reduce, ui, cardBox, hideLabel, onHover, onClick }: NodeProps) {
   // Revive a node that previously exited: start again from its parent.
   if (!entry.alive) {
     entry.x.set(n.fromX);
@@ -220,27 +258,9 @@ const GraphNode = memo(function GraphNode({ n, entry, tx, ty, delay, dim, faded,
   }, [tx, ty, delay, reduce, entry]);
 
   const Icon = ICONS[n.kind];
-  const cos = Math.cos((n.angle * Math.PI) / 180);
-  const sin = Math.sin((n.angle * Math.PI) / 180);
-  const below = n.labelPos === "below";
-  const anchor = below ? "middle" : cos > 0.35 ? "start" : cos < -0.35 ? "end" : "middle";
-  const lx = below ? 0 : cos * (n.r + 7);
-  const ly = below ? n.r + 16 : sin * (n.r + 7) + (anchor === "middle" ? (sin > 0 ? 10 : -4) : 4);
-  // Keep labels clear of the focal card: estimate the label box at its target
-  // position and slide it horizontally out of the card footprint if they meet.
-  let labelX = lx;
-  const fontSize = n.hop === 2 ? 11 : 12.5;
-  if (n.showLabel && n.kind !== "player") {
-    const w = n.label.length * fontSize * 0.58;
-    const wx = tx + lx;
-    const wy = ty + ly;
-    const left = anchor === "middle" ? wx - w / 2 : anchor === "start" ? wx : wx - w;
-    const right = left + w;
-    const top = wy - fontSize;
-    const bottom = wy + 3;
-    const hitsCard = right > -CARD_BOX.hw && left < CARD_BOX.hw && bottom > -CARD_BOX.hh && top < CARD_BOX.hh;
-    if (hitsCard) labelX += wx < 0 ? -CARD_BOX.hw - right : CARD_BOX.hw - left;
-  }
+  const g = labelGeometry(n, tx, ty, ui, cardBox);
+  const { anchor, fontSize, ly, labelX } = g;
+  const r = n.r * ui;
   const baseOpacity = n.kind === "neighbor" && n.churned && !n.churnedRecent ? 0.5 : n.muted ? 0.55 : 1;
   const isCenter = n.kind === "player";
 
@@ -278,31 +298,31 @@ const GraphNode = memo(function GraphNode({ n, entry, tx, ty, delay, dim, faded,
         }
       >
         {/* hit target larger than the dot */}
-        {!isCenter && <circle r={Math.max(n.r + 6, 12)} fill="transparent" />}
+        {!isCenter && <circle r={Math.max(r + 6 * ui, 14 * ui)} fill="transparent" />}
         {n.keystone && !isCenter && !reduce && (
-          <circle r={n.r + 3} fill="none" stroke="var(--accent)" strokeWidth={1.2} className="p360-ripple" />
+          <circle r={r + 3 * ui} fill="none" stroke="var(--accent)" strokeWidth={1.2 * ui} className="p360-ripple" />
         )}
         {!isCenter && (
           <circle
             className="p360-dot"
-            r={n.r}
+            r={r}
             fill={nodeFill(n)}
             stroke={nodeStroke(n)}
-            strokeWidth={n.keystone || n.churnedRecent ? 1.8 : 1.1}
+            strokeWidth={(n.keystone || n.churnedRecent ? 1.8 : 1.1) * ui}
           />
         )}
-        {Icon && n.r >= 8 && (
+        {Icon && n.r >= 7 && (
           <Icon
-            x={-n.r * 0.55}
-            y={-n.r * 0.55}
-            width={n.r * 1.1}
-            height={n.r * 1.1}
+            x={-r * 0.55}
+            y={-r * 0.55}
+            width={r * 1.1}
+            height={r * 1.1}
             strokeWidth={2.2}
             color={n.muted ? "var(--text-faint)" : "var(--text)"}
             aria-hidden
           />
         )}
-        {n.showLabel && !isCenter && (
+        {n.showLabel && !hideLabel && !isCenter && (
           <text
             x={labelX}
             y={ly}
@@ -337,7 +357,7 @@ export function GraphCanvas({ layout, stage, reduce, pendingId, centerKeystone, 
   const regRef = useRef<Registry>(new Map());
   const reg = regRef.current;
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState<{ w: number; h: number }>({ w: VIEW.w, h: VIEW.h });
+  const [size, setSize] = useState<{ w: number; h: number }>({ w: 1400, h: 960 });
   const [hover, setHover] = useState<string | null>(null);
 
   // Entrance stagger only for ids not on screen in the previous layout.
@@ -392,11 +412,57 @@ export function GraphCanvas({ layout, stage, reduce, pendingId, centerKeystone, 
 
   const showFlow = stage === "social" || stage === "metrics";
   const hovered = hover ? nodeById.get(hover) : undefined;
-  const scale = Math.min(size.w / VIEW.w, size.h / VIEW.h);
+  const vb = viewBoxFor(stage);
+  const scale = Math.max(0.05, Math.min(size.w / vb.w, size.h / vb.h));
+  // Readability for a room: nodes and labels never render smaller than their
+  // design size on screen, and grow on smaller canvases (laptop / projector).
+  const ui = Math.min(1.75, Math.max(1.2, 0.95 / scale));
+  // The focal card is fixed-size HTML, so its footprint in viewBox units grows
+  // as the canvas shrinks. Nodes and labels are pushed out of this box.
+  const cardBox = { hw: (CARD_PX.w / 2 + CARD_PX.pad) / scale, hh: (CARD_PX.h / 2 + CARD_PX.pad) / scale };
+  const clearOfCard = (x: number, y: number, r: number): [number, number] => {
+    const hw = cardBox.hw + r;
+    const hh = cardBox.hh + r;
+    if (Math.abs(x) >= hw || Math.abs(y) >= hh) return [x, y];
+    const t = Math.min(hw / Math.max(Math.abs(x), 1e-3), hh / Math.max(Math.abs(y), 1e-3));
+    return [x * t, y * t];
+  };
+  // Greedy label de-overlap: strongest / most important labels claim space first;
+  // a label that would overlap one already placed is hidden (the node stays and
+  // its name is still on hover). Keeps the dense social ring readable.
+  const targets = new Map<string, [number, number]>();
+  for (const n of layout.nodes) {
+    const isPending = pendingId === n.id;
+    targets.set(n.id, isPending ? [0, 0] : n.kind === "player" ? [n.x, n.y] : clearOfCard(n.x, n.y, n.r * ui));
+  }
+  const hiddenLabels = new Set<string>();
+  {
+    const placed: { left: number; right: number; top: number; bottom: number }[] = [];
+    const pad = 4 * ui;
+    const ranked = layout.nodes
+      .filter((n) => n.showLabel && n.kind !== "player")
+      .sort((a, b) => a.hop - b.hop || (b.keystone ? 1 : 0) - (a.keystone ? 1 : 0) || b.weight - a.weight);
+    for (const n of ranked) {
+      const [x, y] = targets.get(n.id)!;
+      const bx = labelGeometry(n, x, y, ui, cardBox).box;
+      const hit = placed.some((p) => bx.left < p.right + pad && bx.right > p.left - pad && bx.top < p.bottom + pad && bx.bottom > p.top - pad);
+      if (hit) hiddenLabels.add(n.id);
+      else placed.push(bx);
+    }
+  }
+
 
   return (
     <div ref={wrapRef} className="relative h-full w-full">
-      <svg viewBox={VIEWBOX} preserveAspectRatio="xMidYMid meet" className="h-full w-full overflow-visible" role="img" aria-label="Player 360 graph">
+      <motion.svg
+        viewBox={vb.box}
+        animate={{ viewBox: vb.box } as any}
+        transition={reduce ? { duration: 0 } : { duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+        preserveAspectRatio="xMidYMid meet"
+        className="h-full w-full overflow-visible"
+        role="img"
+        aria-label="Player 360 graph"
+      >
         <defs>
           <radialGradient id="p360-glow">
             <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.22} />
@@ -439,17 +505,21 @@ export function GraphCanvas({ layout, stage, reduce, pendingId, centerKeystone, 
             {layout.nodes.map((n) => {
               const entry = regEntry(reg, n.id, n.fromX, n.fromY);
               const isPending = pendingId === n.id;
+              const [cx, cy] = targets.get(n.id)!;
               return (
                 <GraphNode
                   key={n.id}
                   n={n}
                   entry={entry}
-                  tx={isPending ? 0 : n.x}
-                  ty={isPending ? 0 : n.y}
+                  tx={cx}
+                  ty={cy}
                   delay={isPending ? 0 : enteringIds.has(n.id) ? n.stagger : 0}
                   dim={!!connected && !connected.has(n.id)}
                   faded={!!pendingId && !isPending}
                   reduce={reduce}
+                  ui={ui}
+                  cardBox={cardBox}
+                  hideLabel={hiddenLabels.has(n.id)}
                   onHover={onHover}
                   onClick={onClick}
                 />
@@ -457,7 +527,7 @@ export function GraphCanvas({ layout, stage, reduce, pendingId, centerKeystone, 
             })}
           </AnimatePresence>
         </g>
-      </svg>
+      </motion.svg>
 
       <AnimatePresence>
         {hovered && hovered.kind !== "player" && !pendingId && (
@@ -466,7 +536,7 @@ export function GraphCanvas({ layout, stage, reduce, pendingId, centerKeystone, 
             className="v2-glass pointer-events-none absolute z-20 rounded-[var(--radius-md)] px-3 py-2 text-[12px] leading-[1.35] shadow-[var(--shadow)]"
             style={{
               left: size.w / 2 + hovered.x * scale,
-              top: size.h / 2 + hovered.y * scale - hovered.r * scale - 10,
+              top: size.h / 2 + hovered.y * scale - hovered.r * ui * scale - 10,
               translateX: "-50%",
               translateY: "-100%",
               transformOrigin: "50% 100%",

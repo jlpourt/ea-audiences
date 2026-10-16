@@ -24,7 +24,7 @@ import { GraphCanvas } from "./GraphCanvas";
 import { PlayerCard } from "./PlayerCard";
 import { MetricChips } from "./MetricChips";
 import { GqlPanel } from "./GqlPanel";
-import { PILLAR_CAPTION, VIEWBOX, computeLayout, type Stage } from "./layout";
+import { PILLAR_CAPTION, PILLAR_Y, viewBoxFor, computeLayout, type Stage } from "./layout";
 
 export type Player360Stage = Stage;
 
@@ -399,17 +399,17 @@ function PillarCaptions({ reduce }: { reduce: boolean }) {
   }));
   return (
     <motion.div className="pointer-events-none absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <svg viewBox={VIEWBOX} preserveAspectRatio="xMidYMid meet" className="h-full w-full overflow-visible">
+      <svg viewBox={viewBoxFor("pillars").box} preserveAspectRatio="xMidYMid meet" className="h-full w-full overflow-visible">
         {items.map((it, i) => {
           const x = Math.cos((it.angle * Math.PI) / 180) * it.r;
-          const y = Math.sin((it.angle * Math.PI) / 180) * it.r;
+          const y = Math.sin((it.angle * Math.PI) / 180) * it.r * PILLAR_Y;
           return (
             <motion.text
               key={it.key}
               x={x}
               y={y}
               textAnchor="middle"
-              fontSize={13}
+              fontSize={17}
               letterSpacing="0.14em"
               fill="var(--text-faint)"
               initial={reduce ? { opacity: 0 } : { opacity: 0, transform: "translateY(8px)" }}

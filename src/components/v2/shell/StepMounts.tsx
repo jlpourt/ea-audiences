@@ -53,10 +53,21 @@ export function MountSlot({ step, component, className }: { step: StorylineStep;
   );
 }
 
-function StepFrame({ step, children, heading = true }: { step: StorylineStep; children: ReactNode; heading?: boolean }) {
+function StepFrame({
+  step,
+  children,
+  heading = true,
+  fill = false,
+}: {
+  step: StorylineStep;
+  children: ReactNode;
+  heading?: boolean;
+  /** Full-bleed canvas scenes (Player 360): wider and less padding so the graph gets the room. */
+  fill?: boolean;
+}) {
   const meta = STEP_META[step];
   return (
-    <div className="mx-auto w-full max-w-[1280px] px-8 pb-20 pt-8">
+    <div className={fill ? "mx-auto w-full max-w-[1560px] px-4 pb-2 pt-2" : "mx-auto w-full max-w-[1280px] px-8 pb-20 pt-8"}>
       {heading && (
       <div className="mb-5 flex items-center gap-2.5">
         <span className="grid h-6 w-6 place-items-center rounded-full bg-[var(--accent)] text-[11px] font-semibold text-[var(--text-on-accent)]">
@@ -202,8 +213,9 @@ export function StepContent({ step, homeProps }: { step: StorylineStep; homeProp
     case "B_PLAYER":
     case "B_SOCIAL":
       return (
-        <StepFrame step={step} heading={false}>
-          <Player360 playerId={playerId} />
+        <StepFrame step={step} heading={false} fill>
+          {/* Fill the viewport below the 56px top bar so the graph renders as large as possible. */}
+          <Player360 playerId={playerId} className="h-[calc(100vh-72px)]" />
         </StepFrame>
       );
     case "METRICS":

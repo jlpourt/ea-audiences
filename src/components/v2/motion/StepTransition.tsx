@@ -37,7 +37,7 @@ function Scene({ direction, className, children }: { direction: 1 | -1; classNam
   const reduce = !!useReducedMotion();
   const present = useIsPresent();
   const d = 24 * direction;
-  const inertProps = present ? {} : ({ inert: "", "aria-hidden": true } as Record<string, unknown>);
+  const inertProps = present ? {} : ({ inert: true, "aria-hidden": true } as Record<string, unknown>);
   return (
     <motion.div
       className={className}

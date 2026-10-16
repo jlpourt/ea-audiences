@@ -16,6 +16,22 @@ export const VIEW = { w: 1400, h: 960 } as const;
 export const VIEWBOX = `${-VIEW.w / 2} ${-VIEW.h / 2} ${VIEW.w} ${VIEW.h}`;
 
 /**
+ * Camera zoom per stage. Before the social ring blooms, the pillars only use the
+ * inner part of the canvas, so zoom in to make them read from the back of a room;
+ * the camera eases back out when the social graph expands.
+ */
+export function stageZoom(stage: Stage): number {
+  return stage === "ego" || stage === "pillars" ? 1.12 : 1;
+}
+
+export function viewBoxFor(stage: Stage): { w: number; h: number; box: string } {
+  const z = stageZoom(stage);
+  const w = VIEW.w / z;
+  const h = VIEW.h / z;
+  return { w, h, box: `${-w / 2} ${-h / 2} ${w} ${h}` };
+}
+
+/**
  * Focal card footprint in viewBox units (232px card at 0.86 scale on a ~1200px
  * canvas, plus margin). Labels are nudged out of this box so the card never
  * clips them.
@@ -86,21 +102,24 @@ export const PILLAR_ANGLE: Record<"crew" | "creator" | "brand", number> = {
 
 /** Where each pillar's caption sits in the pillars step (clear of the cluster). */
 export const PILLAR_CAPTION: Record<"crew" | "creator" | "brand", { angle: number; r: number }> = {
-  crew: { angle: 207, r: 350 },
-  creator: { angle: -84, r: 330 },
-  brand: { angle: 84, r: 330 },
+  crew: { angle: 207, r: 425 },
+  creator: { angle: -84, r: 420 },
+  brand: { angle: 84, r: 420 },
 };
 
 const PILLAR_RADII = {
-  wide: [205, 318, 425],
-  tight: [168, 240, 306],
+  wide: [240, 365, 485],
+  tight: [210, 282, 348],
 } as const;
 
 const SOCIAL_RING = { rx: [505, 575], ry: [345, 398] } as const;
 const HOP2_RING = { rx: 660, ry: 448 } as const;
 
+/** Pillars are laid out on a slightly flattened circle so they fit the wide canvas. */
+export const PILLAR_Y = 0.86;
+
 function polar(deg: number, r: number): [number, number] {
-  return [Math.cos(deg * DEG) * r, Math.sin(deg * DEG) * r];
+  return [Math.cos(deg * DEG) * r, Math.sin(deg * DEG) * r * PILLAR_Y];
 }
 
 function ellipse(deg: number, rx: number, ry: number): [number, number] {
@@ -108,10 +127,13 @@ function ellipse(deg: number, rx: number, ry: number): [number, number] {
 }
 
 /** Spread n angles around `center` with at least `minArc` units between them at radius r. */
-function arc(n: number, center: number, r: number, minArc = 44, maxHalf = 44): number[] {
+/** Extra spacing so the larger, room-readable nodes and labels don't collide. */
+const ARC_SPACING = 1.3;
+
+function arc(n: number, center: number, r: number, minArc = 44, maxHalf = 52): number[] {
   if (n <= 0) return [];
   if (n === 1) return [center];
-  const step = (minArc / r) / DEG;
+  const step = ((minArc * ARC_SPACING) / r) / DEG;
   const half = Math.min(maxHalf, (step * (n - 1)) / 2);
   const s = (2 * half) / (n - 1);
   return Array.from({ length: n }, (_, i) => center - half + i * s);
@@ -301,7 +323,7 @@ export function computeLayout(data: Player360Response, stage: Stage): Layout {
   {
     const a0 = PILLAR_ANGLE.creator;
     const { accounts, streams, creators } = data.pillars.creator;
-    const accAngles = arc(accounts.length, a0, radii[0], 44);
+    const accAngles = arc(accounts.length, a0, radii[0], 62);
     accounts.forEach((acc, i) => {
       const [x, y] = polar(accAngles[i], radii[0]);
       add({
