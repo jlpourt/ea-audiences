@@ -29,16 +29,20 @@ export function PromptBar({
   isSearching,
   error,
   onDismissError,
+  placeholderOverride,
 }: {
   intent: Intent;
   onSubmit: (q: string) => void;
   isSearching: boolean;
   error?: string | null;
   onDismissError?: () => void;
+  /** Replaces the intent-based placeholder (e.g. the Take-Two portfolio view). */
+  placeholderOverride?: string;
 }) {
   const [q, setQ] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
-  const placeholder = INTENTS.find((i) => i.id === intent)?.placeholder ?? INTENTS[0].placeholder;
+  const placeholder =
+    placeholderOverride ?? INTENTS.find((i) => i.id === intent)?.placeholder ?? INTENTS[0].placeholder;
   const canSubmit = q.trim().length > 2 && !isSearching;
 
   const submit = () => {

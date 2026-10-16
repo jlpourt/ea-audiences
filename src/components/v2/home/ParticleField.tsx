@@ -129,12 +129,26 @@ function cssColor(name: string, fallback: string): string {
   return v || fallback;
 }
 
-export function ParticleField({ className, active = true }: { className?: string; active?: boolean }) {
+export type ParticlePalette = "accent" | "mono";
+
+export function ParticleField({
+  className,
+  active = true,
+  palette = "accent",
+}: {
+  className?: string;
+  active?: boolean;
+  /** "accent": black -> crimson -> 2K red. "mono": black -> graphite -> silver -> white (Take-Two). */
+  palette?: ParticlePalette;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   // Read inside the rAF loop: false while the Home scene is exiting, so the
   // field stops drawing the moment the user navigates away.
   const activeRef = useRef(active);
   activeRef.current = active;
+  const paletteRef = useRef(palette);
+  paletteRef.current = palette;
+  const applyThemeRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const host = hostRef.current;
@@ -184,6 +198,23 @@ export function ParticleField({ className, active = true }: { className?: string
       const applyTheme = () => {
         const light = document.documentElement.getAttribute("data-theme") === "light";
         const accent = new THREE.Color(cssColor("--accent", "#E4002B"));
+        if (paletteRef.current === "mono") {
+          if (light) {
+            uniforms.uBase.value.set("#c9c9cf");
+            uniforms.uDeep.value.set("#6b6b74");
+            uniforms.uAccent.value.set("#2a2a30");
+            uniforms.uHot.value.set("#0a0a0c");
+            material.blending = THREE.NormalBlending;
+          } else {
+            uniforms.uBase.value.set("#2e2e36");
+            uniforms.uDeep.value.set("#5d5d68");
+            uniforms.uAccent.value.set("#c8c8d0");
+            uniforms.uHot.value.set("#ffffff");
+            material.blending = THREE.AdditiveBlending;
+          }
+          material.needsUpdate = true;
+          return;
+        }
         if (light) {
           uniforms.uBase.value.set("#c9c9cf");
           uniforms.uDeep.value.copy(accent).lerp(new THREE.Color("#2a0a10"), 0.55);
@@ -200,6 +231,10 @@ export function ParticleField({ className, active = true }: { className?: string
         material.needsUpdate = true;
       };
       applyTheme();
+      applyThemeRef.current = () => {
+        applyTheme();
+        if (reduce) renderer.render(scene, camera);
+      };
 
       let points: InstanceType<typeof THREE.Points> | null = null;
       let w = 1;
@@ -347,6 +382,11 @@ export function ParticleField({ className, active = true }: { className?: string
       cleanup();
     };
   }, []);
+
+  // Palette swaps re-tint the live field without rebuilding it.
+  useEffect(() => {
+    applyThemeRef.current();
+  }, [palette]);
 
   return <div ref={hostRef} aria-hidden className={`pointer-events-none ${className ?? ""}`} />;
 }

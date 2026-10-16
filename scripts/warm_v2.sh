@@ -39,6 +39,7 @@ hit "core-finding (NBA2K)"   "/api/insights/core-finding?franchise=NBA2K" & pids
 hit "weekly-briefing"        "/api/insights/weekly-briefing" & pids+=($!)
 hit "recent-creatives"       "/api/insights/recent-creatives?limit=5" & pids+=($!)
 for p in "${pids[@]}"; do wait "$p" || FAIL=1; done
+hit "portfolio (Take-Two)"    "/api/v2/portfolio" || FAIL=1
 hit "player/featured"        "/api/v2/player/featured" || FAIL=1
 hit "crew/churn"             "/api/v2/crew/churn" || FAIL=1
 hit "crew/lost-core-member"  "/api/v2/crew/lost-core-member?days=7" || FAIL=1
