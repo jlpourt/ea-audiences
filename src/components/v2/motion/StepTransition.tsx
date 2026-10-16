@@ -5,7 +5,8 @@
  *
  * Purpose: spatial consistency. Moving forward in the story slides content
  * in from the right and the old step out to the left; moving back reverses.
- * A 6px blur bridges the two states so it reads as one transformation.
+ * No CSS filter: a blur on a scene that contains a WebGL canvas (Home particle
+ * field) forces a GPU readback every frame and can freeze the page mid-transition.
  * Reduced motion: opacity crossfade only.
  *
  * Usage:
@@ -44,7 +45,7 @@ function Scene({ direction, className, children }: { direction: 1 | -1; classNam
       style={{ pointerEvents: present ? undefined : "none" }}
       {...inertProps}
       initial={
-        reduce ? { opacity: 0 } : { opacity: 0, transform: `translateX(${d}px)`, filter: "blur(6px)" }
+        reduce ? { opacity: 0 } : { opacity: 0, transform: `translateX(${d}px)` }
       }
       animate={
         reduce
@@ -52,7 +53,6 @@ function Scene({ direction, className, children }: { direction: 1 | -1; classNam
           : {
               opacity: 1,
               transform: "translateX(0px)",
-              filter: "blur(0px)",
               transition: { duration: 0.32, ease: ease.out },
             }
       }
@@ -62,7 +62,6 @@ function Scene({ direction, className, children }: { direction: 1 | -1; classNam
           : {
               opacity: 0,
               transform: `translateX(${-d * 0.5}px)`,
-              filter: "blur(4px)",
               transition: { duration: 0.16, ease: ease.out },
             }
       }

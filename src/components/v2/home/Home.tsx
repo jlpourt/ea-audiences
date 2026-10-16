@@ -11,7 +11,7 @@
  * the service + message inline.
  */
 import { useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useIsPresent, useReducedMotion } from "framer-motion";
 import { Reveal, RevealItem, ease } from "../motion";
 import { useStoryline } from "../shell/StorylineProvider";
 import { CoreFindingCard } from "./CoreFindingCard";
@@ -78,6 +78,8 @@ export function Home({
 }: HomeProps) {
   const { goTo } = useStoryline();
   const [intent, setIntent] = useState<Intent>("all");
+  // False while this scene animates out (StepTransition); pauses the WebGL field.
+  const present = useIsPresent();
 
   return (
     <div className="relative">
@@ -105,7 +107,7 @@ export function Home({
           maskImage: "linear-gradient(to bottom, black 0%, black 62%, transparent 100%)",
         }}
       >
-        <ParticleField className="h-full w-full" />
+        <ParticleField className="h-full w-full" active={present} />
       </motion.div>
       <div className="relative mx-auto w-full max-w-[1120px] px-8 pb-20 pt-10">
         <Greeting name={userName} />

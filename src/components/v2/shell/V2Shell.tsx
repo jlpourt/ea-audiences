@@ -16,8 +16,9 @@ import { Compass, LayoutGrid } from "lucide-react";
 import { LayoutGroup, StepTransition } from "../motion";
 import type { HomeProps } from "../home/Home";
 import { StepContent, sceneOf } from "./StepMounts";
+import { StepErrorBoundary, useStaleChunkReload } from "./StepErrorBoundary";
 import { StepIndicator } from "./StepIndicator";
-import { StorylineProvider, useRegisterShell, useStoryline } from "./StorylineProvider";
+import { STEP_META, StorylineProvider, useRegisterShell, useStoryline } from "./StorylineProvider";
 import { ThemeToggle } from "./ThemeToggle";
 
 export interface V2ShellProps {
@@ -81,6 +82,7 @@ function ShellBody({ homeProps, onExplore, onClassic }: V2ShellProps) {
   const { step, direction } = useStoryline();
   const scroller = useRef<HTMLDivElement>(null);
   useRegisterShell();
+  useStaleChunkReload();
 
   const scene = sceneOf(step);
   useEffect(() => {
@@ -93,7 +95,9 @@ function ShellBody({ homeProps, onExplore, onClassic }: V2ShellProps) {
       <div ref={scroller} className="relative flex-1 overflow-y-auto overflow-x-hidden">
         <LayoutGroup id="storyline">
           <StepTransition stepKey={sceneOf(step)} direction={direction} className="min-h-full">
-            <StepContent step={step} homeProps={homeProps} />
+            <StepErrorBoundary stepLabel={STEP_META[step].label}>
+              <StepContent step={step} homeProps={homeProps} />
+            </StepErrorBoundary>
           </StepTransition>
         </LayoutGroup>
       </div>

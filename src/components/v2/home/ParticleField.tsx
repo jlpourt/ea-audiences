@@ -14,7 +14,9 @@
  * field fades out under the fold via a mask.
  *
  * Performance: one draw call (THREE.Points + ShaderMaterial), all motion on the
- * GPU, DPR capped at 2, paused when off-screen or the tab is hidden. Reduced
+ * GPU, DPR capped at 1.5, paused when off-screen, the tab is hidden, or the Home
+ * scene is exiting; GL context released on unmount. Never put this under a CSS
+ * filter (forces a per-frame GPU readback). Reduced
  * motion renders a single static frame with no cursor tracking.
  * Theming: colors come from the design tokens (--accent, --bg) and re-read when
  * `data-theme` changes; additive blending on dark, normal blending on light.
@@ -127,8 +129,12 @@ function cssColor(name: string, fallback: string): string {
   return v || fallback;
 }
 
-export function ParticleField({ className }: { className?: string }) {
+export function ParticleField({ className, active = true }: { className?: string; active?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  // Read inside the rAF loop: false while the Home scene is exiting, so the
+  // field stops drawing the moment the user navigates away.
+  const activeRef = useRef(active);
+  activeRef.current = active;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -141,7 +147,8 @@ export function ParticleField({ className }: { className?: string }) {
       if (disposed) return;
 
       const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      // Soft points don't need full retina resolution; 1.5x keeps the canvas light.
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: "high-performance" });
       renderer.setPixelRatio(dpr);
       renderer.setClearColor(0x000000, 0);
@@ -301,7 +308,7 @@ export function ParticleField({ className }: { className?: string }) {
         document.documentElement.addEventListener("pointerleave", onLeave);
         const tick = () => {
           raf = requestAnimationFrame(tick);
-          if (!visible || document.hidden) {
+          if (!visible || document.hidden || !activeRef.current) {
             clock.getDelta();
             return;
           }
@@ -328,6 +335,9 @@ export function ParticleField({ className }: { className?: string }) {
         points?.geometry.dispose();
         material.dispose();
         renderer.dispose();
+        // Release the GL context now instead of waiting for GC, so revisiting
+        // Home never accumulates contexts.
+        renderer.forceContextLoss();
         renderer.domElement.remove();
       };
     })();
