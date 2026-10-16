@@ -11,11 +11,12 @@
  * bundles both for standalone use). Old screens stay reachable
  * via "Explore graph" (workspace) and "Classic" (previous landing).
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Compass, LayoutGrid } from "lucide-react";
 import { LayoutGroup, StepTransition } from "../motion";
 import type { HomeProps } from "../home/Home";
 import { StepContent, sceneOf } from "./StepMounts";
+import { ReferenceArchitectureButton, ReferenceArchitectureModal } from "./ReferenceArchitecture";
 import { StepErrorBoundary, useStaleChunkReload } from "./StepErrorBoundary";
 import { StepIndicator } from "./StepIndicator";
 import { STEP_META, StorylineProvider, useRegisterShell, useStoryline } from "./StorylineProvider";
@@ -31,6 +32,7 @@ export interface V2ShellProps {
 
 function TopBar({ onExplore, onClassic }: Pick<V2ShellProps, "onExplore" | "onClassic">) {
   const { goTo } = useStoryline();
+  const [archOpen, setArchOpen] = useState(false);
   return (
     <header className="v2-glass relative z-30 grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 border-x-0 border-t-0 px-5">
       <button
@@ -66,6 +68,7 @@ function TopBar({ onExplore, onClassic }: Pick<V2ShellProps, "onExplore" | "onCl
           Classic
         </button>
         <span className="mx-1 h-5 w-px bg-[var(--border)]" />
+        <ReferenceArchitectureButton onClick={() => setArchOpen(true)} />
         <ThemeToggle />
         <span
           className="grid h-8 w-8 place-items-center rounded-full bg-[var(--surface-3)] text-[12px] font-semibold text-[var(--text)]"
@@ -74,6 +77,7 @@ function TopBar({ onExplore, onClassic }: Pick<V2ShellProps, "onExplore" | "onCl
           J
         </span>
       </div>
+      <ReferenceArchitectureModal open={archOpen} onClose={() => setArchOpen(false)} />
     </header>
   );
 }
