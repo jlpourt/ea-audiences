@@ -53,12 +53,16 @@ export interface CrewActButtonsProps {
   /** Receive the Focus Group payload. If omitted, the built-in Focus Group modal opens. */
   onPressureTest?: (handoff: CrewFocusGroupHandoff, result: PressureTestResult) => void;
   onDispatched?: (result: DispatchResult) => void;
+  /** Notified after a successful Pressure-Test (does not replace the built-in Focus Group). */
+  onTested?: (result: PressureTestResult) => void;
+  /** Hide the inline offer / dispatch meta lines (when a parent renders them). */
+  compactMeta?: boolean;
   className?: string;
 }
 
 type Phase = "idle" | "testing" | "tested" | "dispatching" | "dispatched";
 
-export function CrewActButtons({ kind, ids, label, channels, onPressureTest, onDispatched, className }: CrewActButtonsProps) {
+export function CrewActButtons({ kind, ids, label, channels, onPressureTest, onDispatched, onTested, compactMeta, className }: CrewActButtonsProps) {
   const reduce = useReducedMotion();
   const [phase, setPhase] = useState<Phase>("idle");
   const [test, setTest] = useState<PressureTestResult | null>(null);
@@ -78,13 +82,14 @@ export function CrewActButtons({ kind, ids, label, channels, onPressureTest, onD
       });
       setTest(r);
       setPhase("tested");
+      onTested?.(r);
       if (onPressureTest) onPressureTest(r.focus_group, r);
       else setFgOpen(true);
     } catch (e) {
       setError(e instanceof CrewApiError ? e : new CrewApiError(0, { error: String(e) }));
       setPhase(test ? "tested" : "idle");
     }
-  }, [kind, ids, label, onPressureTest, test]);
+  }, [kind, ids, label, onPressureTest, onTested, test]);
 
   const dispatch = useCallback(async () => {
     if (!test) return;
@@ -180,7 +185,7 @@ export function CrewActButtons({ kind, ids, label, channels, onPressureTest, onD
       </div>
 
       <AnimatePresence initial={false}>
-        {test && phase !== "dispatched" && (
+        {!compactMeta && test && phase !== "dispatched" && (
           <motion.div
             key="offer"
             initial={{ opacity: 0, transform: "translateY(4px)" }}
@@ -193,7 +198,7 @@ export function CrewActButtons({ kind, ids, label, channels, onPressureTest, onD
             <span className="text-[var(--text-faint)]"> · {test.target.count.toLocaleString("en-US")} players · live cohort</span>
           </motion.div>
         )}
-        {done && (
+        {!compactMeta && done && (
           <motion.div
             key="done-meta"
             initial={{ opacity: 0, transform: "translateY(4px)" }}
