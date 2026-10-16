@@ -88,7 +88,7 @@ const VERT = /* glsl */ `
     }
 
     // Vignette: fade toward the edges and the bottom so it melts into the page.
-    float edge = smoothstep(1.25, 0.35, length(vec2(p.x / (uAspect * 1.05), p.y * 1.15 + 0.1)));
+    float edge = smoothstep(1.6, 0.55, length(vec2(p.x / (uAspect * 1.1), p.y * 1.05 + 0.05)));
 
     vTone = clamp(tide * 0.5 + 0.5, 0.0, 1.0);
     vHeat = clamp(f * (0.65 + 0.5 * uEnergy) + rippleHeat, 0.0, 1.0);
@@ -211,7 +211,7 @@ export function ParticleField({ className }: { className?: string }) {
         camera.updateProjectionMatrix();
         uniforms.uAspect.value = aspect;
 
-        const count = Math.round(Math.min(22000, Math.max(9000, (w * h) / 60)));
+        const count = Math.round(Math.min(44000, Math.max(12000, (w * h) / 55)));
         const pos = new Float32Array(count * 3);
         const seed = new Float32Array(count);
         // Jittered grid: even coverage without visible rows.

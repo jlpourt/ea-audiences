@@ -99,10 +99,10 @@ export function Home({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1.6, ease: ease.out, delay: 0.15 }}
-        className="pointer-events-none absolute inset-x-0 -top-14 h-[760px]"
+        className="pointer-events-none absolute inset-x-0 -top-14 h-[1520px]"
         style={{
-          WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 52%, transparent 100%)",
-          maskImage: "linear-gradient(to bottom, black 0%, black 52%, transparent 100%)",
+          WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 62%, transparent 100%)",
+          maskImage: "linear-gradient(to bottom, black 0%, black 62%, transparent 100%)",
         }}
       >
         <ParticleField className="h-full w-full" />
