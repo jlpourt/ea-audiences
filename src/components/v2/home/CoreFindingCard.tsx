@@ -66,7 +66,7 @@ export function CoreFindingCard({
     <motion.section
       layoutId={layoutIds.coreFinding}
       transition={springs.gentle}
-      className="relative overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow)]"
+      className="relative overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[color-mix(in_oklab,var(--surface)_78%,transparent)] shadow-[var(--shadow)] backdrop-blur-xl"
     >
       {/* Corner glow: static, tinted to the accent. */}
       <div

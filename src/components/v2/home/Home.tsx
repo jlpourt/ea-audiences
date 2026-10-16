@@ -15,6 +15,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Reveal, RevealItem, ease } from "../motion";
 import { useStoryline } from "../shell/StorylineProvider";
 import { CoreFindingCard } from "./CoreFindingCard";
+import { ParticleField } from "./ParticleField";
 import { IntentChips, PromptBar, type Intent } from "./PromptBar";
 import { RecentCreatives } from "./RecentCreatives";
 import { TaskCards } from "./TaskCards";
@@ -92,6 +93,20 @@ export function Home({
             "radial-gradient(ellipse 55% 65% at 18% 18%, var(--glow-1), transparent 72%), radial-gradient(ellipse 45% 55% at 82% 0%, var(--glow-2), transparent 72%)",
         }}
       />
+      {/* Interactive particle field: black -> crimson -> 2K red, parts around the cursor. */}
+      <motion.div
+        aria-hidden
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.6, ease: ease.out, delay: 0.15 }}
+        className="pointer-events-none absolute inset-x-0 -top-14 h-[760px]"
+        style={{
+          WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 52%, transparent 100%)",
+          maskImage: "linear-gradient(to bottom, black 0%, black 52%, transparent 100%)",
+        }}
+      >
+        <ParticleField className="h-full w-full" />
+      </motion.div>
       <div className="relative mx-auto w-full max-w-[1120px] px-8 pb-20 pt-10">
         <Greeting name={userName} />
 
