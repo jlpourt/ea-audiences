@@ -6,15 +6,22 @@
  * Live Spanner only; 503 with details on failure.
  */
 import { NextResponse } from "next/server";
-import { getFeaturedPlayer, Player360QueryError, spannerSource } from "@/lib/v2/player360";
+import { getFeaturedPlayer, getPlayer360, Player360QueryError, spannerSource } from "@/lib/v2/player360";
+import { liveCached, warmLive } from "@/lib/v2/live-cache";
+
+const TTL_MS = 60 * 60 * 1000;
+const db = () => process.env.SPANNER_DATABASE_ID || "default";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
   try {
-    const data = await getFeaturedPlayer();
-    return NextResponse.json(data, { headers: { "Cache-Control": "no-store" } });
+    const { value: data, cached } = await liveCached(`featured|${db()}`, TTL_MS, getFeaturedPlayer);
+    // Start the featured player's 2-hop graph now so "See one player" lands on a warm
+    // (or already in-flight) live query instead of starting it after this returns.
+    warmLive(`player360|${db()}|${data.player_id}|2`, TTL_MS, () => getPlayer360(data.player_id, 2));
+    return NextResponse.json({ ...data, cache: cached ? "hit" : "miss" }, { headers: { "Cache-Control": "no-store" } });
   } catch (e: any) {
     console.error("[api/v2/player/featured] Spanner failure", e);
     const isQuery = e instanceof Player360QueryError;

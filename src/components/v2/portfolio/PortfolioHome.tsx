@@ -1427,6 +1427,13 @@ export function PortfolioHome({ homeProps }: { homeProps: HomeProps }) {
     else openPlay("warm_intro", WARM_FOR_STUDIO[studio], { gamer_tag: cur.gamer_tag, matches: [] });
   };
   const [playbookKey, setPlaybookKey] = useState(0);
+
+  // Start the live featured-player lookup (and, server-side, its 2-hop graph) as soon
+  // as the landing mounts, so "See one player" opens on a warm Spanner result.
+  // Failures are not hidden: Player 360 reruns the request and shows its error.
+  useEffect(() => {
+    fetch("/api/v2/player/featured", { cache: "no-store" }).catch((e) => console.error("[prefetch] featured player", e));
+  }, []);
   // The featured player (id null) is the 2K storyline keystone.
   const openPlayer = (id: string | null, studio: PlayStudio = "2K") => setPlayer({ open: true, id, studio });
 

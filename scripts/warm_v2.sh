@@ -51,6 +51,12 @@ hit "play: save elsewhere"    "/api/v2/actions/audience?play=save_elsewhere&segm
 hit "play: warm intro (mafia)" "/api/v2/actions/audience?play=warm_intro&segment=rockstar-mafia" || FAIL=1
 hit "play: warm intro (2K mob)" "/api/v2/actions/audience?play=warm_intro&segment=zynga-nba2kmobile" || FAIL=1
 hit "player 360: featured"    "/api/v2/player/featured" || FAIL=1
+FEATURED_ID=$(curl -s -m 60 "${BASE_URL}/api/v2/player/featured" | python3 -c "import sys,json; print(json.load(sys.stdin)['player_id'])" 2>/dev/null)
+if [[ -n "$FEATURED_ID" ]]; then
+  hit "player 360: 2-hop graph"  "/api/v2/player/${FEATURED_ID}?hops=2" || FAIL=1
+else
+  echo "  FAIL player 360: could not read featured player id"; FAIL=1
+fi
 hit "deep dive: creator hubs" "/api/v2/creator/hubs" || FAIL=1
 hit "deep dive: brand attach" "/api/v2/brand/attach" || FAIL=1
 hit "deep dive: social hops"  "/api/v2/social/hops" || FAIL=1

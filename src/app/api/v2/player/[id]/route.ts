@@ -12,6 +12,9 @@ import {
   PlayerNotFoundError,
   spannerSource,
 } from "@/lib/v2/player360";
+import { liveCached } from "@/lib/v2/live-cache";
+
+const TTL_MS = 60 * 60 * 1000;
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -32,8 +35,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const hops: 1 | 2 = hopsParam === "1" ? 1 : 2;
 
   try {
-    const data = await getPlayer360(id, hops);
-    return NextResponse.json(data, { headers: { "Cache-Control": "no-store" } });
+    const key = `player360|${process.env.SPANNER_DATABASE_ID || "default"}|${id}|${hops}`;
+    const { value: data, cached } = await liveCached(key, TTL_MS, () => getPlayer360(id, hops));
+    return NextResponse.json({ ...data, cache: cached ? "hit" : "miss" }, { headers: { "Cache-Control": "no-store" } });
   } catch (e: any) {
     if (e instanceof PlayerNotFoundError) {
       return NextResponse.json({ error: e.message, source: spannerSource() }, { status: 404 });
