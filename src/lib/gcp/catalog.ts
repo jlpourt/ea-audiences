@@ -15,14 +15,14 @@
  * cached — they must reflect the database on every request.
  */
 import { runRawGql, SpannerUnavailableError } from "./spanner-client";
-import type { TakeTwoLabel } from "../types";
+import type { GameLabel } from "../types";
 
 export interface GameRow {
   game_id: string;
   title: string;
   franchise: string;
-  /** Take-Two publishing label: 2K | ROCKSTAR | ZYNGA. */
-  label: TakeTwoLabel;
+  /** Take-Two publishing label: 2K | 2K_SPORTS | 2K_CORE | ROCKSTAR | ZYNGA. */
+  label: GameLabel;
   genre: string | null;
   active_players: number | null;
   is_parent_hub: boolean;
@@ -67,7 +67,7 @@ export interface ClanRow {
   name: string;
   franchise: string;
   region: string | null;
-  /** Rec | Pro-Am | Comp */
+  /** 2K: Rec | Pro-Am | Comp. Rockstar: Casual | Competitive | Posse. Zynga: Alliance | Team | Crew. */
   tier: string | null;
   member_count: number | null;
 }
@@ -100,33 +100,63 @@ export const HUB_ID_BY_FRANCHISE: Record<string, string> = {
   CIV7: "game-civ7",
   BL4: "game-bl4",
   MAFIA: "game-mafia-toc",
+  // Rockstar Games
+  GTAO: "game-gta-online",
+  RDO: "game-red-dead-online",
+  GTA6: "game-gta6",
+  // Zynga
+  WWF: "game-words-with-friends",
+  MATCHFACTORY: "game-match-factory",
+  TOONBLAST: "game-toon-blast",
+  CSR2: "game-csr2",
+  EMPIRES: "game-empires-puzzles",
+  ZPOKER: "game-zynga-poker",
 };
 
-/** Franchise accents (2K Courtside). Hex because they paint canvas / WebGL nodes. */
+/** Franchise accents. Hex because they paint canvas / WebGL nodes. */
 export const FRANCHISE_COLORS: Record<string, string> = {
   ALL: "#E4002B", // --twok-red
   NBA2K: "#E4002B", // --twok-red (NBA 2K27)
   NBA2K26: "#FF6B35", // NBA 2K26 Holdout / Veteran Bridge Amber-Orange
-  NBA2KMOBILE: "#00D2FF", // NBA 2K Mobile Electric Cyan
-  WWE2K: "#F5B400", // WWE 2K25 Championship Gold
-  PGA2K: "#10B981", // PGA TOUR 2K25 Emerald Green
-  TOPSPIN: "#1FA8A0", // TopSpin 2K25 Court Teal
-  CIV7: "#A855F7", // Civilization VII Imperial Violet
-  BL4: "#F28C28", // Borderlands 4 Vault Orange
-  MAFIA: "#8C6E4A", // Mafia Bronze
+  NBA2KMOBILE: "#FF4D6D", // NBA 2K Mobile (2K red family)
+  WWE2K: "#C8102E", // WWE 2K25 (2K red family)
+  PGA2K: "#B3122E", // PGA TOUR 2K25 (2K red family)
+  TOPSPIN: "#E8475F", // TopSpin 2K25 (2K red family)
+  CIV7: "#A3001F", // Civilization VII (2K red family)
+  BL4: "#FF5A36", // Borderlands 4 (2K red family)
+  MAFIA: "#9E2A2B", // Mafia (2K red family)
+  // Rockstar Games: --warn gold family
+  GTAO: "#F5B400",
+  RDO: "#C98A00",
+  GTA6: "#FFD24D",
+  // Zynga: --good green family
+  WWF: "#2FD38A",
+  MATCHFACTORY: "#5BE3A6",
+  TOONBLAST: "#1FB57A",
+  CSR2: "#14966A",
+  EMPIRES: "#8BE9C0",
+  ZPOKER: "#0F7F5A",
 };
 
-/** Division cluster colours for the cross-franchise graph view. */
-export const LABEL_COLORS: Record<TakeTwoLabel, string> = {
+/** Label cluster colours (2K divisions share the 2K red family). */
+export const LABEL_COLORS: Record<GameLabel, string> = {
   "2K": "#E4002B",
-  "2K_SPORTS": "#F5B400",
-  "2K_CORE": "#00D2FF",
+  "2K_SPORTS": "#C8102E",
+  "2K_CORE": "#FF5A36",
+  ROCKSTAR: "#F5B400",
+  ZYNGA: "#2FD38A",
 };
 
-const VALID_LABELS: readonly TakeTwoLabel[] = ["2K", "2K_SPORTS", "2K_CORE"];
+const VALID_LABELS: readonly GameLabel[] = [
+  "2K",
+  "2K_SPORTS",
+  "2K_CORE",
+  "ROCKSTAR",
+  "ZYNGA",
+];
 
-function toLabel(v: any): TakeTwoLabel {
-  return VALID_LABELS.includes(v) ? (v as TakeTwoLabel) : "2K";
+function toLabel(v: any): GameLabel {
+  return VALID_LABELS.includes(v) ? (v as GameLabel) : "2K";
 }
 
 function num(v: any): number {
@@ -173,7 +203,7 @@ export async function getGames(): Promise<GameRow[]> {
 }
 
 /** Games published under one Take-Two label (2K / ROCKSTAR / ZYNGA). */
-export async function getGamesByLabel(label: TakeTwoLabel): Promise<GameRow[]> {
+export async function getGamesByLabel(label: GameLabel): Promise<GameRow[]> {
   const games = await getGames();
   return games.filter((g) => g.label === label);
 }
@@ -326,14 +356,24 @@ export async function getPlayersForView(opts: {
   franchise?: string;
   archetype?: string;
   limit?: number;
+  /**
+   * PRE_LAUNCH titles (GTA VI) have no PLAYS_GAME edges; their audience is the
+   * players holding a WISHLISTED edge to the game.
+   */
+  wishlistedGameId?: string;
 }) {
-  const { franchise, archetype, limit = 1050 } = opts;
+  const { franchise, archetype, limit = 1050, wishlistedGameId } = opts;
   const where: string[] = [];
   const params: Record<string, any> = {
     limit: Math.max(1, Math.floor(limit)),
   };
 
-  if (franchise && franchise !== "ALL") {
+  if (wishlistedGameId) {
+    where.push(
+      `player_id IN (SELECT w.player_id FROM Wishlisted w WHERE w.game_id = @wishGame)`
+    );
+    params.wishGame = wishlistedGameId;
+  } else if (franchise && franchise !== "ALL") {
     where.push(`(primary_franchise = @franchise OR @franchise IN UNNEST(franchises_played))`);
     params.franchise = franchise;
   }
@@ -359,6 +399,204 @@ export async function getPlayerById(playerId: string) {
     { playerId }
   );
   return rows.length ? mapPlayer(rows[0]) : null;
+}
+
+/** Players by id (order not guaranteed). */
+export async function getPlayersByIdList(ids: string[]) {
+  const clean = Array.from(new Set(ids.filter(Boolean)));
+  if (clean.length === 0) return [];
+  const rows = await runRawGql(
+    `SELECT ${PLAYER_COLUMNS} FROM Players WHERE player_id IN UNNEST(@ids)`,
+    { ids: clean }
+  );
+  return rows.map(mapPlayer);
+}
+
+// ---------------------------------------------------------------------------
+// Edge reads for the graph workspace (never cached). Every edge drawn on the
+// canvas comes from one of these tables; nothing is synthesised.
+// ---------------------------------------------------------------------------
+
+export interface PlayEdgeRow {
+  player_id: string;
+  game_id: string;
+  spend_usd: number;
+  hours_played: number;
+  acquired_via: string | null;
+}
+
+/** PLAYS_GAME edges (with per-title spend) for a set of players. */
+export async function getPlayEdges(ids: string[]): Promise<PlayEdgeRow[]> {
+  if (ids.length === 0) return [];
+  const rows = await runRawGql(
+    `SELECT player_id, game_id, spend_usd, hours_played, acquired_via
+     FROM PlaysGame WHERE player_id IN UNNEST(@ids)`,
+    { ids }
+  );
+  return rows.map((r: any) => ({
+    player_id: r.player_id,
+    game_id: r.game_id,
+    spend_usd: num(r.spend_usd),
+    hours_played: num(r.hours_played),
+    acquired_via: r.acquired_via ?? null,
+  }));
+}
+
+/** WISHLISTED edges (pre-launch intent) for a set of players. */
+export async function getWishlistEdges(
+  ids: string[]
+): Promise<Array<{ player_id: string; game_id: string }>> {
+  if (ids.length === 0) return [];
+  const rows = await runRawGql(
+    `SELECT player_id, game_id FROM Wishlisted WHERE player_id IN UNNEST(@ids)`,
+    { ids }
+  );
+  return rows.map((r: any) => ({ player_id: r.player_id, game_id: r.game_id }));
+}
+
+export interface MembershipRow {
+  player_id: string;
+  clan_id: string;
+  role: string | null;
+}
+
+/** Active MEMBER_OF_CLAN edges (crew + role) for a set of players. */
+export async function getMemberships(ids: string[]): Promise<MembershipRow[]> {
+  if (ids.length === 0) return [];
+  const rows = await runRawGql(
+    `SELECT player_id, clan_id, role FROM MemberOfClan
+     WHERE player_id IN UNNEST(@ids) AND left_at IS NULL`,
+    { ids }
+  );
+  return rows.map((r: any) => ({
+    player_id: r.player_id,
+    clan_id: r.clan_id,
+    role: r.role ?? null,
+  }));
+}
+
+/** Active members of the given crews. */
+export async function getCrewMembers(
+  crewIds: string[],
+  limitPerCrew = 40
+): Promise<MembershipRow[]> {
+  if (crewIds.length === 0) return [];
+  const rows = await runRawGql(
+    `SELECT player_id, clan_id, role FROM MemberOfClan
+     WHERE clan_id IN UNNEST(@crewIds) AND left_at IS NULL
+     ORDER BY clan_id, FARM_FINGERPRINT(player_id)`,
+    { crewIds }
+  );
+  // Spanner has no window functions; cap members per crew here.
+  const perCrew = new Map<string, number>();
+  return rows
+    .filter((r: any) => {
+      const n = perCrew.get(r.clan_id) || 0;
+      perCrew.set(r.clan_id, n + 1);
+      return n < limitPerCrew;
+    })
+    .map((r: any) => ({
+      player_id: r.player_id,
+      clan_id: r.clan_id,
+      role: r.role ?? null,
+    }));
+}
+
+export interface InviteRow {
+  player_id: string;
+  invitee_id: string;
+  to_game_id: string;
+  from_game_id: string | null;
+  accepted: boolean;
+}
+
+/** INVITED edges where both inviter and invitee are in the given set. */
+export async function getInvitesAmong(ids: string[]): Promise<InviteRow[]> {
+  if (ids.length === 0) return [];
+  const rows = await runRawGql(
+    `SELECT player_id, invitee_id, to_game_id, from_game_id, accepted
+     FROM Invited
+     WHERE player_id IN UNNEST(@ids) AND invitee_id IN UNNEST(@ids)`,
+    { ids }
+  );
+  return rows.map((r: any) => ({
+    player_id: r.player_id,
+    invitee_id: r.invitee_id,
+    to_game_id: r.to_game_id,
+    from_game_id: r.from_game_id ?? null,
+    accepted: r.accepted === true,
+  }));
+}
+
+export interface SocialEdgeRow {
+  a: string;
+  b: string;
+  kind: "PLAYED_WITH" | "FRIENDS_WITH" | "INVITED";
+  weight: number;
+}
+
+/**
+ * Real 1-hop social neighbours (PLAYED_WITH, FRIENDS_WITH, INVITED; both
+ * directions) of a frontier, excluding already-visited players. Ranked by
+ * co-play intensity so the strongest ties are drawn first.
+ */
+export async function getSocialNeighbors(
+  frontier: string[],
+  exclude: string[],
+  limit: number
+): Promise<SocialEdgeRow[]> {
+  if (frontier.length === 0) return [];
+  const rows = await runRawGql(
+    `SELECT a, b, kind, weight FROM (
+       SELECT player_id AS a, other_player_id AS b, 'PLAYED_WITH' AS kind,
+              CAST(IFNULL(games_together_30d, 0) AS FLOAT64) AS weight
+       FROM PlayedWith WHERE player_id IN UNNEST(@f)
+       UNION ALL
+       SELECT other_player_id AS a, player_id AS b, 'PLAYED_WITH' AS kind,
+              CAST(IFNULL(games_together_30d, 0) AS FLOAT64) AS weight
+       FROM PlayedWith WHERE other_player_id IN UNNEST(@f)
+       UNION ALL
+       SELECT player_id AS a, other_player_id AS b, 'FRIENDS_WITH' AS kind, 0.5 AS weight
+       FROM FriendsWith WHERE player_id IN UNNEST(@f)
+       UNION ALL
+       SELECT other_player_id AS a, player_id AS b, 'FRIENDS_WITH' AS kind, 0.5 AS weight
+       FROM FriendsWith WHERE other_player_id IN UNNEST(@f)
+       UNION ALL
+       SELECT player_id AS a, invitee_id AS b, 'INVITED' AS kind, 1.0 AS weight
+       FROM Invited WHERE player_id IN UNNEST(@f)
+       UNION ALL
+       SELECT invitee_id AS a, player_id AS b, 'INVITED' AS kind, 1.0 AS weight
+       FROM Invited WHERE invitee_id IN UNNEST(@f))
+     WHERE b NOT IN UNNEST(@x)
+     ORDER BY weight DESC, FARM_FINGERPRINT(b)
+     LIMIT @lim`,
+    { f: frontier, x: exclude.length ? exclude : [""], lim: limit }
+  );
+  return rows.map((r: any) => ({
+    a: r.a,
+    b: r.b,
+    kind: r.kind,
+    weight: num(r.weight),
+  }));
+}
+
+/** Archetype options for the graph filter, grouped by studio label, with live counts. */
+export async function getArchetypeOptions(): Promise<
+  Array<{ archetype: string; label: string; players: number }>
+> {
+  const rows = await runRawGql(
+    `SELECT p.primary_archetype AS archetype, g.label AS label, COUNT(*) AS players
+     FROM Players p
+     JOIN (SELECT franchise, ANY_VALUE(label) AS label FROM Games GROUP BY franchise) g
+       ON g.franchise = p.primary_franchise
+     GROUP BY archetype, label
+     ORDER BY players DESC`
+  );
+  return rows.map((r: any) => ({
+    archetype: r.archetype,
+    label: r.label,
+    players: num(r.players),
+  }));
 }
 
 /** Resolved platform identities for one player, via the HAS_IDENTITY edge. */

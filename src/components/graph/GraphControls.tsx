@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ContextualViewType, GameFranchise, SegmentationLens } from "@/lib/types";
+import { STUDIOS, STUDIO_NAMES, type Studio } from "@/lib/studios";
 
 export interface GraphControlsProps {
   currentView: ContextualViewType;
@@ -24,35 +25,58 @@ export interface GraphControlsProps {
 }
 
 const LENS_OPTIONS: { id: SegmentationLens; label: string }[] = [
-  { id: "FRANCHISE", label: "Franchise" },
-  { id: "SOCIAL_HOPS", label: "Social Hops (1°·2°·3°)" },
-  { id: "CATE_UPLIFT", label: "CATE Uplift" },
-  { id: "PORTFOLIO_RINGS", label: "3-Ring Portfolio" },
+  { id: "FRANCHISE", label: "Studio & title" },
+  { id: "ARCHETYPE", label: "Archetype" },
+  { id: "SOCIAL_HOPS", label: "Social hops (1°·2°·3°)" },
+  { id: "CATE_UPLIFT", label: "CATE uplift" },
+  { id: "PORTFOLIO_RINGS", label: "3-ring portfolio" },
   { id: "TRAJECTORY", label: "Trajectory" },
 ];
 
-const GAME_OPTIONS: { id: GameFranchise; label: string }[] = [
-  { id: "ALL", label: "All 2K Titles" },
-  { id: "NBA2K", label: "NBA 2K27" },
-  { id: "NBA2K26", label: "NBA 2K26" },
-  { id: "NBA2KMOBILE", label: "2K Mobile" },
-  { id: "WWE2K", label: "WWE 2K25" },
-  { id: "PGA2K", label: "PGA 2K25" },
-  { id: "BL4", label: "Borderlands 4" },
-  { id: "CIV7", label: "Civ VII" },
-];
+interface FilterOptions {
+  games: Array<{ franchise: string; title: string; studio: Studio; lifecycle_status: string | null }>;
+  archetypes: Array<{ archetype: string; name: string; studio: Studio; players: number }>;
+}
+
+/** Title + archetype options come from Spanner (Games, Players) so new studios appear automatically. */
+function useFilterOptions() {
+  const [options, setOptions] = useState<FilterOptions | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/graph/view?view=filters", { cache: "no-store" })
+      .then(async (r) => {
+        const j = await r.json();
+        if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+        return j as FilterOptions;
+      })
+      .then((j) => !cancelled && setOptions(j))
+      .catch((e) => !cancelled && setError(String(e?.message || e)));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return { options, error };
+}
 
 export default function GraphControls({
   currentView,
   onViewChange,
   selectedGame,
   onGameChange,
+  archetypeFilter,
   onArchetypeChange,
   segmentationLens = "FRANCHISE",
   onLensChange,
   is3D,
   onToggle3D,
 }: GraphControlsProps) {
+  const { options, error: optionsError } = useFilterOptions();
+  const selectedStudio = useMemo<Studio | null>(() => {
+    if (selectedGame === "ALL") return null;
+    return options?.games.find((g) => g.franchise === selectedGame)?.studio ?? null;
+  }, [options, selectedGame]);
+
   const views: { id: ContextualViewType; label: string }[] = [
     { id: "audience-cohorts", label: "Cohorts" },
     { id: "marketing-journey", label: "Journeys" },
@@ -93,25 +117,72 @@ export default function GraphControls({
       {/* 2. Consolidated Graph Scope & Lens Control Pill (when on graph view) */}
       {isGraphCanvasView && (
         <div className="flex items-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] px-2.5 py-1 text-[11px]">
-          <select
-            aria-label="Filter by 2K title"
-            value={selectedGame}
-            onChange={(e) => {
-              onGameChange(e.target.value as GameFranchise);
-              onArchetypeChange("ALL");
-            }}
-            className="bg-transparent text-[11px] text-white font-medium focus:outline-none cursor-pointer"
-          >
-            {GAME_OPTIONS.map((g) => (
-              <option
-                key={g.id}
-                value={g.id}
-                className="bg-[#0E1117] text-white"
+          {optionsError ? (
+            <span className="text-[11px] text-rose-300" title={optionsError}>
+              Filters unavailable: {optionsError.slice(0, 60)}
+            </span>
+          ) : (
+            <>
+              <select
+                aria-label="Filter by title"
+                value={selectedGame}
+                onChange={(e) => {
+                  onGameChange(e.target.value as GameFranchise);
+                  onArchetypeChange("ALL");
+                }}
+                className="bg-transparent text-[11px] text-white font-medium focus:outline-none cursor-pointer max-w-[170px]"
               >
-                {g.label}
-              </option>
-            ))}
-          </select>
+                <option value="ALL" className="bg-[#0E1117] text-white">
+                  All Take-Two titles
+                </option>
+                {STUDIOS.map((s) => {
+                  const titles = (options?.games || []).filter((g) => g.studio === s);
+                  if (titles.length === 0) return null;
+                  return (
+                    <optgroup key={s} label={STUDIO_NAMES[s]} className="bg-[#0E1117] text-gray-400">
+                      {titles.map((g) => (
+                        <option key={g.franchise} value={g.franchise} className="bg-[#0E1117] text-white">
+                          {g.title}
+                          {g.lifecycle_status === "PRE_LAUNCH" ? " (pre-launch, wishlists)" : ""}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
+              </select>
+
+              <span className="h-3 w-px bg-white/15 mx-0.5" />
+              <select
+                aria-label="Filter by archetype"
+                value={archetypeFilter}
+                onChange={(e) => onArchetypeChange(e.target.value)}
+                className="bg-transparent text-[11px] text-white font-medium focus:outline-none cursor-pointer max-w-[150px]"
+              >
+                <option value="ALL" className="bg-[#0E1117] text-white">
+                  All archetypes
+                </option>
+                {STUDIOS.filter((s) => !selectedStudio || s === selectedStudio).map((s) => {
+                  const rows = (options?.archetypes || []).filter((a) => a.studio === s);
+                  const merged = new Map<string, { name: string; players: number }>();
+                  rows.forEach((a) => {
+                    const cur = merged.get(a.archetype) || { name: a.name, players: 0 };
+                    cur.players += a.players;
+                    merged.set(a.archetype, cur);
+                  });
+                  if (merged.size === 0) return null;
+                  return (
+                    <optgroup key={s} label={STUDIO_NAMES[s]} className="bg-[#0E1117] text-gray-400">
+                      {Array.from(merged.entries()).map(([id, v]) => (
+                        <option key={`${s}-${id}`} value={id} className="bg-[#0E1117] text-white">
+                          {v.name} ({v.players.toLocaleString()})
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
+              </select>
+            </>
+          )}
 
           {onLensChange && (
             <>

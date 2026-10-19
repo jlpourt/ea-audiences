@@ -17,6 +17,8 @@ export interface GraphStageProps {
   clusterByLabel?: boolean;
   highlightBridges?: boolean;
   segmentationLens?: SegmentationLens;
+  manualSelectionIds?: Set<string>;
+  onToggleManualSelect?: (node: GraphNode) => void;
 }
 
 export default function GraphStage({
@@ -28,6 +30,8 @@ export default function GraphStage({
   clusterByLabel = false,
   highlightBridges = false,
   segmentationLens = "FRANCHISE",
+  manualSelectionIds,
+  onToggleManualSelect,
 }: GraphStageProps) {
   const [dimensions, setDimensions] = useState({ width: 1280, height: 800 });
   const [mounted, setMounted] = useState(false);
@@ -59,6 +63,8 @@ export default function GraphStage({
         clusterByLabel={clusterByLabel}
         highlightBridges={highlightBridges}
         segmentationLens={segmentationLens}
+        manualSelectionIds={manualSelectionIds}
+        onToggleManualSelect={onToggleManualSelect}
       />
     </div>
   );

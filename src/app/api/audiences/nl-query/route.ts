@@ -4,6 +4,7 @@ import { MODELS } from "@/lib/models";
 import { NL_TO_GQL_SYSTEM_PROMPT } from "@/lib/prompts/nl_to_gql";
 import {
   runSpannerGraphQuery,
+  runRawGql,
   SpannerUnavailableError,
   extractWhereClause,
   extractMatchClause,
@@ -16,7 +17,8 @@ import {
   LABEL_COLORS,
 } from "@/lib/gcp/catalog";
 import { archetypeColor } from "@/lib/archetypes";
-import { GraphNode, GraphLink, MultiHopPathInfo, TakeTwoLabel } from "@/lib/types";
+import { GraphNode, GraphLink, MultiHopPathInfo, GameLabel } from "@/lib/types";
+import { buildFranchiseIndex, studioForLabel } from "@/lib/studios";
 
 export const dynamic = "force-dynamic";
 
@@ -105,58 +107,58 @@ function humanizePredicate(fragment: string, idx: number): ParsedCondition {
     const m = clean.match(/([<>]=?)\s*(\d+(?:\.\d+)?)\s*\*?\s*\w*\.?session_min_prev_7d/i)
       || clean.match(/([<>]=?)\s*(\d+(?:\.\d+)?)/);
     field = `${whoField}session_trend`;
-    op = m?.[1] || "<";
+    op = m?.[1] || "";
     value = m?.[2] || "";
     label = `${who}sessions 7d vs prior 7d ${op} ${value}`.trim().replace(/^s/, "S");
   } else if (/myplayer_ovr/i.test(clean)) {
     const m = clean.match(/([<>]=?|=)\s*(\d+)/);
     field = "myplayer_ovr";
-    op = m?.[1] || "<";
-    value = m?.[2] || "85";
+    op = m?.[1] || "";
+    value = m?.[2] || "";
     label = `MyPLAYER OVR ${op} ${value}`;
   } else if (/myteam_galaxy_opal_count/i.test(clean)) {
     const m = clean.match(/([<>]=?|=)\s*(\d+)/);
     field = "myteam_galaxy_opal_count";
-    op = m?.[1] || ">=";
-    value = m?.[2] || "10";
+    op = m?.[1] || "";
+    value = m?.[2] || "";
     label = `Galaxy Opals ${op} ${value}`;
   } else if (/myteam_vc_spend_90d/i.test(clean)) {
     const m = clean.match(/([<>]=?|=)\s*(\d+(?:\.\d+)?)/);
     field = "myteam_vc_spend_90d";
-    op = m?.[1] || ">";
-    value = m?.[2] || "0";
+    op = m?.[1] || "";
+    value = m?.[2] || "";
     label = `MyTEAM VC Spend ${op} $${value}`;
   } else if (/vc_spend_90d/i.test(clean)) {
     const m = clean.match(/([<>]=?|=)\s*(\d+(?:\.\d+)?)/);
     field = "vc_spend_90d";
-    op = m?.[1] || ">=";
-    value = m?.[2] || "50";
+    op = m?.[1] || "";
+    value = m?.[2] || "";
     label = `90d VC Spend ${op} $${value}`;
   } else if (/mate\.game_telemetry\.last_login_days_ago/i.test(clean)) {
     const m = clean.match(/([<>]=?|=)\s*(\d+)/);
     field = "mate_last_login";
-    op = m?.[1] || "<=";
-    value = m?.[2] || "3";
+    op = m?.[1] || "";
+    value = m?.[2] || "";
     label = /</.test(op) ? `Crew mate active in last ${value}d` : `Crew mate inactive ${op} ${value}d`;
   } else if (/last_login_days_ago/i.test(clean) && !/churn_risk_score/i.test(clean)) {
     const m = clean.match(/([<>]=?|=)\s*(\d+)/);
     field = "last_login_days_ago";
-    op = m?.[1] || ">=";
-    value = m?.[2] || "7";
+    op = m?.[1] || "";
+    value = m?.[2] || "";
     label = /</.test(op) ? `Active in last ${value}d` : `Inactive ${op} ${value}d`;
   } else if (/season_pass_edition/i.test(clean)) {
     const m = clean.match(/'([^']+)'/);
     field = "season_pass_edition";
     op = "=";
-    value = m?.[1] || "HALL_OF_FAME";
+    value = m?.[1] || "";
     label = `Season Pass: ${value.replace(/_/g, " ")}`;
   } else if (/nba2k26_spend_usd/i.test(clean)) {
     const m = clean.match(/([<>]=?|=)\s*(\d+(?:\.\d+)?)/);
     field = "nba2k26_spend_usd";
-    op = m?.[1] || ">";
-    value = m?.[2] || "0";
+    op = m?.[1] || "";
+    value = m?.[2] || "";
     label = `NBA 2K26 Spend ${op} $${value}`;
-  } else if (/migrated_to_2k27|game-nba2k26/i.test(clean)) {
+  } else if (/migrated_to_2k27\)?\s*=\s*false|migrated_to_2k27\s*=\s*false/i.test(clean)) {
     field = "migrated_to_2k27";
     op = "=";
     value = "false";
@@ -169,63 +171,66 @@ function humanizePredicate(fragment: string, idx: number): ParsedCondition {
   } else if (/cross_2k_titles/i.test(clean)) {
     const m = clean.match(/([<>]=?|=)\s*(\d+)/);
     field = "cross_2k_titles";
-    op = m?.[1] || ">=";
-    value = m?.[2] || "2";
+    op = m?.[1] || "";
+    value = m?.[2] || "";
     label = `Cross-2K Titles ${op} ${value}`;
   } else if (/g\.franchise\s+IN/i.test(clean)) {
     field = "cross_2k_franchise";
     op = "IN";
-    value = "WWE2K, PGA2K, BL4, CIV7";
-    label = "2K Cross-Franchise (WWE / PGA / BL4 / Civ)";
+    value = (clean.match(/'([^']+)'/g) || []).map((x) => x.replace(/'/g, "")).join(", ");
+    label = value ? `Plays: ${value}` : "";
   } else if (/c\.franchise/i.test(clean)) {
     field = "creator_franchise";
     op = "=";
-    value = "NBA2K";
-    label = "Follows NBA 2K Creator Squad";
+    value = clean.match(/'([^']+)'/)?.[1] || "";
+    label = value ? `Follows a ${value} creator` : "";
   } else if (/dma_market/i.test(clean)) {
     const m = clean.match(/'%?([^'%]+)%?'/);
     field = "dma_market";
     op = "LIKE";
-    value = m?.[1] || "NBA Market";
+    value = m?.[1] || "";
     label = `Market: ${value}`;
   } else if (/primary_franchise/i.test(clean)) {
     const m = clean.match(/'([^']+)'/);
     field = "primary_franchise";
     op = "=";
-    value = m?.[1] || "NBA2K";
+    value = m?.[1] || "";
     label = `Franchise: ${value}`;
   } else if (/lifetime_spend_usd/i.test(clean)) {
     const m = clean.match(/([<>]=?|=)\s*(\d+(?:\.\d+)?)/);
     field = "lifetime_spend_usd";
-    op = m?.[1] || ">=";
-    value = m?.[2] || "100";
+    op = m?.[1] || "";
+    value = m?.[2] || "";
     label = `Lifetime Spend ${op} $${value}`;
   } else if (/churn_risk_score/i.test(clean) && /last_login_days_ago/i.test(clean)) {
     field = "velocity_decay";
-    op = ">=";
-    value = "0.45";
-    label = "Churn Risk >= 0.45 or Inactive >= 5d";
+    op = "";
+    value = "";
+    label = "";
   } else if (/churn_risk_score/i.test(clean)) {
     const m = clean.match(/([<>]=?|=)\s*(\d+(?:\.\d+)?)/);
     field = `${whoField}churn_risk_score`;
-    op = m?.[1] || ">=";
-    value = m?.[2] || "0.7";
+    op = m?.[1] || "";
+    value = m?.[2] || "";
     label = `${isMate ? "Crew mate churn risk" : "Churn Risk"} ${op} ${value}`;
   } else if (/recent_loss_streak/i.test(clean)) {
     const m = clean.match(/recent_loss_streak\s*([<>]=?|=)\s*(\d+)/i);
     field = "recent_loss_streak";
-    op = m?.[1] || ">=";
-    value = m?.[2] || "2";
+    op = m?.[1] || "";
+    value = m?.[2] || "";
     label = /rage_quits_7d/i.test(clean)
       ? `Loss Streak ${op} ${value} or Tilt Risk`
       : `Loss Streak ${op} ${value}`;
   } else if (/tilt_sensitivity|rage_quits_7d/i.test(clean)) {
     field = "rage_quits_7d";
-    op = ">=";
-    value = "high";
-    label = "High Rage-Quit Index";
+    op = "";
+    value = "";
+    label = "";
   }
 
+  if (!label || (!value && !/IS NULL|IS NOT NULL|= (true|false)/i.test(clean) && field !== "migrated_to_2k27" && field !== "nba2k26_veteran")) {
+    label = clean.length > 64 ? `${clean.slice(0, 62)}…` : clean;
+  }
   return {
     id: `cond-${idx}-${field}`,
     field,
@@ -606,6 +611,40 @@ function deriveMultiHopPath(
   };
 }
 
+// NL -> GQL translation cache (in-process, 1h). Only the translation is cached;
+// results are always fetched live from Spanner.
+const TRANSLATION_TTL_MS = 60 * 60 * 1000;
+const translationCache = new Map<string, { gql: string; explanation: string; model: string; at: number }>();
+function translationCacheKey(query: string, franchise: string): string {
+  const normalized = query
+    .toLowerCase()
+    .replace(/[^a-z0-9$%.\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `${process.env.SPANNER_DATABASE_ID || "default"}|${franchise || "ALL"}|${normalized}`;
+}
+
+// Live Spanner result cache (in-process, 1h, like the other demo caches) keyed by the exact GQL, so a
+// cohort reopened during the demo does not rerun a multi-hop traversal. Misses and
+// errors always go to Spanner; errors are never cached.
+const RESULT_TTL_MS = 60 * 60 * 1000;
+const resultCache = new Map<string, { at: number; res: Awaited<ReturnType<typeof runSpannerGraphQuery>> }>();
+const resultInflight = new Map<string, ReturnType<typeof runSpannerGraphQuery>>();
+async function cachedGraphQuery(gql: string) {
+  const hit = resultCache.get(gql);
+  if (hit && Date.now() - hit.at < RESULT_TTL_MS) return hit.res;
+  const pending = resultInflight.get(gql);
+  if (pending) return pending;
+  const p = runSpannerGraphQuery(gql, 520)
+    .then((res) => {
+      resultCache.set(gql, { at: Date.now(), res });
+      return res;
+    })
+    .finally(() => resultInflight.delete(gql));
+  resultInflight.set(gql, p);
+  return p;
+}
+
 async function executeAudienceQuery(
   query: string,
   franchise: string,
@@ -617,10 +656,21 @@ async function executeAudienceQuery(
   let modelUsed = MODELS.FAST.id;
 
   const golden = matchGoldenPlay(query, franchise);
+  const cacheKey = translationCacheKey(query, franchise);
+  const cachedTranslation = translationCache.get(cacheKey);
+  let translationSource: "golden" | "cache" | "model" = "model";
   if (golden) {
+    translationSource = "golden";
     gqlQuery = golden.gql_query;
     explanation = golden.explanation;
     modelUsed = "spanner-gql-fastpath";
+  } else if (cachedTranslation && Date.now() - cachedTranslation.at < TRANSLATION_TTL_MS) {
+    // Same question this session: reuse the translated GQL so the matched count
+    // is stable. The GQL itself is still executed live against Spanner below.
+    gqlQuery = cachedTranslation.gql;
+    explanation = cachedTranslation.explanation;
+    modelUsed = cachedTranslation.model;
+    translationSource = "cache";
   } else {
     let gen;
     try {
@@ -632,6 +682,8 @@ Franchise Scope: ${franchise || "ALL"}
 User Request: "${query}"`,
         json: true,
         thinkingBudget: 0,
+        // Deterministic translation: same question -> same GQL.
+        temperature: 0,
       });
     } catch (err: any) {
       throw new GqlTranslationError(
@@ -661,6 +713,9 @@ User Request: "${query}"`,
       );
     }
   }
+  if (translationSource === "model") {
+    translationCache.set(cacheKey, { gql: gqlQuery, explanation, model: modelUsed, at: Date.now() });
+  }
   const translateMs = Date.now() - translateStart;
 
   // Apply excludeConditions if any chip was removed by the user
@@ -686,8 +741,9 @@ User Request: "${query}"`,
     throw new Error(safety.reason || "Invalid GQL query.");
   }
 
-  const spannerRes = await runSpannerGraphQuery(gqlQuery, 520);
-  const { games, creators } = await getCatalog();
+  const spannerRes = await cachedGraphQuery(gqlQuery);
+  const { games, creators, clans } = await getCatalog();
+  const clanById = new Map(clans.map((c) => [c.clan_id, c]));
   const gameById = new Map(games.map((g) => [g.game_id, g]));
   const creatorById = new Map(creators.map((c) => [c.creator_id, c]));
 
@@ -701,17 +757,21 @@ User Request: "${query}"`,
     nodes.push(n);
   };
 
-  // Add franchise / game hub nodes referenced by matched players
+  // Add franchise / game hub nodes referenced by matched players. Hubs and
+  // labels come from the live Spanner Games catalog (2K, Rockstar, Zynga).
+  const franchiseIdx = buildFranchiseIndex(games);
+  const hubIdFor = (f: string) =>
+    franchiseIdx.hubByFranchise.get(f)?.game_id || HUB_ID_BY_FRANCHISE[f];
   const activeFranchises = new Set<string>();
   for (const r of spannerRes.rows) {
     activeFranchises.add(r.primary_franchise);
   }
-  if (activeFranchises.size === 0) activeFranchises.add("NBA2K");
 
   Array.from(activeFranchises).forEach((f, idx) => {
-    const hubId = HUB_ID_BY_FRANCHISE[f] || "game-nba2k27";
+    const hubId = hubIdFor(f);
+    if (!hubId) return;
     const g = gameById.get(hubId);
-    const lbl = (g?.label || "2K") as TakeTwoLabel;
+    const lbl = (g?.label || franchiseIdx.labelOf(f)) as GameLabel;
     const angle = (idx / Math.max(1, activeFranchises.size)) * Math.PI * 2;
     addNode({
       id: hubId,
@@ -719,6 +779,8 @@ User Request: "${query}"`,
       type: "GAME",
       franchise: f,
       label: lbl,
+      studio: studioForLabel(lbl),
+      lifecycle_status: g?.lifecycle_status ?? undefined,
       val: 34,
       color: FRANCHISE_COLORS[f] || LABEL_COLORS[lbl],
       fx: activeFranchises.size === 1 ? 0 : Math.cos(angle) * 220,
@@ -728,16 +790,7 @@ User Request: "${query}"`,
 
   // Add matched player nodes
   for (const r of spannerRes.rows) {
-    const primaryLabel: TakeTwoLabel =
-      r.primary_franchise === "WWE2K" ||
-      r.primary_franchise === "PGA2K" ||
-      r.primary_franchise === "TOPSPIN"
-        ? "2K_SPORTS"
-        : r.primary_franchise === "BL4" ||
-            r.primary_franchise === "CIV7" ||
-            r.primary_franchise === "MAFIA"
-          ? "2K_CORE"
-          : "2K";
+    const primaryLabel = franchiseIdx.labelOf(r.primary_franchise) as GameLabel;
 
     addNode({
       id: r.player_id,
@@ -745,12 +798,15 @@ User Request: "${query}"`,
       type: "PLAYER",
       franchise: r.primary_franchise,
       label: primaryLabel,
+      studio: studioForLabel(primaryLabel),
+      franchises_played: r.franchises_played || undefined,
       archetype: r.primary_archetype,
       spend: r.lifetime_spend_usd,
       churn_risk: r.churn_risk_score,
       tilt: r.tilt_sensitivity,
       loss_streak: r.recent_loss_streak,
-      gravity_score: Number(r.game_telemetry?.gravity_score ?? 0),
+      gravity_score:
+        typeof r.game_telemetry?.gravity_score === "number" ? r.game_telemetry.gravity_score : undefined,
       game_telemetry: r.game_telemetry,
       purchased_items: r.purchased_items,
       followed_creators: r.followed_creators,
@@ -765,11 +821,12 @@ User Request: "${query}"`,
       color: archetypeColor(r.primary_archetype),
     });
 
-    const hubId = HUB_ID_BY_FRANCHISE[r.primary_franchise] || "game-nba2k27";
-    if (nodeIds.has(hubId)) {
+    const hubId = hubIdFor(r.primary_franchise);
+    if (hubId && nodeIds.has(hubId)) {
       links.push({
         source: r.player_id,
         target: hubId,
+        label: "PLAYS_GAME",
         value: 1.2,
       });
     }
@@ -790,7 +847,7 @@ User Request: "${query}"`,
           id: br.clan_id,
           name: `${br.clan_name || br.clan_id} (${br.clan_tier || "Crew"})`,
           type: "CLAN",
-          franchise: "NBA2K",
+          franchise: clanById.get(br.clan_id)?.franchise,
           isMultiHopBridge: true,
           hopStep: 1,
           val: 20,
@@ -812,7 +869,7 @@ User Request: "${query}"`,
             id: br.mate_id,
             name: br.mate_tag || br.mate_id,
             type: "SQUADMATE",
-            franchise: br.mate_franchise || "NBA2K",
+            franchise: br.mate_franchise || undefined,
             isMultiHopBridge: true,
             hopStep: 2,
             val: 11,
@@ -832,15 +889,14 @@ User Request: "${query}"`,
       }
 
       if (br.identity_id) {
-        const platHubId = `ident-hub-${(br.identity_platform || "2k-account")
+        const platHubId = `ident-hub-${(br.identity_platform || br.identity_id)
           .toLowerCase()
           .replace(/\s+/g, "-")}`;
         addNode({
           id: platHubId,
-          name: br.identity_platform || "2K Account",
+          name: br.identity_platform || "Identity",
           type: "IDENTITY",
-          platform: br.identity_platform || "2K Account",
-          label: "2K",
+          platform: br.identity_platform || "Identity",
           isMultiHopBridge: true,
           hopStep: 1,
           val: 28,
@@ -848,7 +904,7 @@ User Request: "${query}"`,
           fx: 240,
           fy: -40,
         });
-        bridgeNames.add(br.identity_platform || "2K Account");
+        bridgeNames.add(br.identity_platform || "Identity");
         links.push({
           source: br.player_id,
           target: platHubId,
@@ -860,14 +916,17 @@ User Request: "${query}"`,
         });
 
         if (br.target_game_id) {
-          const targetFranchise = br.target_game_franchise || "NBA2K26";
-          const targetLabel = (br.target_game_label as TakeTwoLabel) || "2K";
+          const targetGame = gameById.get(br.target_game_id);
+          const targetFranchise = br.target_game_franchise || targetGame?.franchise || "";
+          const targetLabel = (br.target_game_label || targetGame?.label || franchiseIdx.labelOf(targetFranchise)) as GameLabel;
           addNode({
             id: br.target_game_id,
-            name: br.target_game_title || "NBA 2K26",
+            name: br.target_game_title || targetGame?.title || br.target_game_id,
             type: "GAME",
             franchise: targetFranchise,
             label: targetLabel,
+            studio: studioForLabel(targetLabel),
+            lifecycle_status: targetGame?.lifecycle_status ?? undefined,
             isMultiHopBridge: true,
             hopStep: 2,
             val: 32,
@@ -875,7 +934,7 @@ User Request: "${query}"`,
             fx: 380,
             fy: 80,
           });
-          bridgeNames.add(br.target_game_title || "NBA 2K26");
+          bridgeNames.add(br.target_game_title || targetGame?.title || br.target_game_id);
           links.push({
             source: platHubId,
             target: br.target_game_id,
@@ -895,14 +954,14 @@ User Request: "${query}"`,
           id: br.creator_id,
           name: br.creator_handle || cr?.handle || br.creator_name || cr?.name || br.creator_id,
           type: "CREATOR",
-          franchise: br.target_game_franchise || cr?.franchise || "NBA2K",
+          franchise: br.target_game_franchise || cr?.franchise || undefined,
           platform: br.creator_platform || cr?.platform,
           creator_data: cr || {
             creator_id: br.creator_id,
             handle: br.creator_handle,
             name: br.creator_name,
             platform: br.creator_platform,
-            franchise: br.target_game_franchise || "NBA2K",
+            franchise: br.target_game_franchise || undefined,
           },
           isMultiHopBridge: true,
           hopStep: 1,
@@ -932,90 +991,6 @@ User Request: "${query}"`,
 
   const activeConditions = parseConditionsFromWhere(spannerRes.whereClause);
 
-  // Compute deterministic, real-data-driven Causal Pruning & D2C Margin Waterfall from spannerRes.rows
-  const scaleFactor =
-    spannerRes.totalMatched / Math.max(1, spannerRes.rows.length);
-  let sleepingDogsRaw = 0;
-  let sureThingsD2cRaw = 0;
-  let keystoneCaptainsRaw = 0;
-  let persuadablesRaw = 0;
-
-  for (const r of spannerRes.rows) {
-    if (
-      r.tilt_sensitivity >= 0.58 ||
-      r.recent_loss_streak >= 3 ||
-      r.primary_archetype === "MYNBA_FRANCHISE_SIM"
-    ) {
-      sleepingDogsRaw++;
-    } else if (
-      r.lifetime_spend_usd >= 420 ||
-      r.primary_archetype === "MYTEAM_PACK_WHALE" ||
-      r.game_telemetry?.season_pass_edition === "HALL_OF_FAME"
-    ) {
-      sureThingsD2cRaw++;
-    } else if (
-      r.primary_archetype === "REC_CREW_CAPTAIN" ||
-      r.primary_archetype === "PARK_REP_GRINDER"
-    ) {
-      keystoneCaptainsRaw++;
-    } else {
-      persuadablesRaw++;
-    }
-  }
-
-  let sleeping_dogs_suppressed = Math.round(sleepingDogsRaw * scaleFactor);
-  let sure_things_d2c_routed = Math.round(sureThingsD2cRaw * scaleFactor);
-  let keystone_captains_seeded = Math.round(keystoneCaptainsRaw * scaleFactor);
-  let persuadables_targeted =
-    spannerRes.totalMatched -
-    sleeping_dogs_suppressed -
-    sure_things_d2c_routed -
-    keystone_captains_seeded;
-
-  if (persuadables_targeted < 0) {
-    const deficit = -persuadables_targeted;
-    persuadables_targeted = 0;
-    if (sure_things_d2c_routed >= deficit) {
-      sure_things_d2c_routed -= deficit;
-    } else if (keystone_captains_seeded >= deficit) {
-      keystone_captains_seeded -= deficit;
-    } else {
-      sleeping_dogs_suppressed = Math.max(0, sleeping_dogs_suppressed - deficit);
-    }
-  }
-
-  const d2c_margin_saved_usd = Math.round(
-    sure_things_d2c_routed * Math.max(18, spannerRes.aggregates.avgSpend * 0.085)
-  );
-  const squad_var_protected_usd = Math.round(keystone_captains_seeded * 680);
-  const scann_twins_added = Math.round(
-    (persuadables_targeted + keystone_captains_seeded) * 0.24
-  );
-  const net_activated_cohort =
-    persuadables_targeted +
-    keystone_captains_seeded +
-    sure_things_d2c_routed +
-    scann_twins_added;
-  const projected_incremental_lift_usd = Math.round(
-    (persuadables_targeted + keystone_captains_seeded + scann_twins_added) *
-      24.5 +
-      d2c_margin_saved_usd
-  );
-
-  const causal_waterfall = {
-    total_graph_players: 6500,
-    raw_matched: spannerRes.totalMatched,
-    sleeping_dogs_suppressed,
-    sure_things_d2c_routed,
-    d2c_margin_saved_usd,
-    keystone_captains_seeded,
-    squad_var_protected_usd,
-    persuadables_targeted,
-    scann_twins_added,
-    net_activated_cohort,
-    projected_incremental_lift_usd,
-  };
-
   return {
     nodes,
     links,
@@ -1026,6 +1001,7 @@ User Request: "${query}"`,
     where_clause: spannerRes.whereClause,
     conditions: activeConditions,
     model_used: modelUsed,
+    translation_source: translationSource,
     translate_ms: translateMs,
     execution_ms: spannerRes.executionTimeMs,
     aggregate_metrics: {
@@ -1043,7 +1019,10 @@ User Request: "${query}"`,
       spanner_source: spannerRes.source,
       is_multi_hop: spannerRes.isMultiHop,
       multi_hop_metadata: multiHopMetadata,
-      causal_waterfall,
+      sample_strata: spannerRes.sampleStrata,
+      total_graph_players: Number(
+        (await runRawGql(`SELECT COUNT(*) AS n FROM Players`))[0]?.n ?? 0
+      ),
     },
   };
 }

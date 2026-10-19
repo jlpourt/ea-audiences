@@ -104,10 +104,10 @@ export default function SpannerStatusPill({ className = "" }: { className?: stri
       )}
       <span className="font-medium tracking-tight">
         {phase === "live"
-          ? "2K Graph"
+          ? "Take-Two Graph"
           : phase === "down"
             ? `Graph Down · ${health?.error?.slice(0, 28) || "error"}`
-            : "2K Graph · Probing"}
+            : "Take-Two Graph · Probing"}
       </span>
       {phase === "live" && health && (
         <>

@@ -10,6 +10,8 @@ export interface SaveAudienceSheetProps {
   onClose: () => void;
   cohortContext?: CohortContext | null;
   generatedGql?: string;
+  /** Player ids of the cohort on the canvas; seeds for the live lookalike. */
+  seedPlayerIds?: string[];
   onSaved?: () => void;
 }
 
@@ -52,6 +54,7 @@ export function SaveAudienceSheet({
   cohortContext,
   generatedGql,
   onSaved,
+  seedPlayerIds,
 }: SaveAudienceSheetProps) {
   const [name, setName] = useState("");
   const [channels, setChannels] = useState<ActivationChannel[]>([
@@ -60,16 +63,19 @@ export function SaveAudienceSheet({
   ]);
   const [expansionPct, setExpansionPct] = useState(0);
   const [lookalikeResult, setLookalikeResult] = useState<any | null>(null);
+  const [lookalikeError, setLookalikeError] = useState<string | null>(null);
   const [isExpanding, setIsExpanding] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const baseCount = cohortContext?.matchedCount || 284;
-  const totalCount = lookalikeResult
-    ? lookalikeResult.expanded_total
-    : Math.round(baseCount * (1 + expansionPct / 100));
+  const baseCount = cohortContext?.matchedCount ?? 0;
+  // Only show an expanded total once the live lookalike has returned one.
+  const totalCount =
+    lookalikeResult && typeof lookalikeResult.expanded_total === "number"
+      ? lookalikeResult.expanded_total
+      : baseCount;
 
   const toggleChannel = (id: ActivationChannel) => {
     setChannels((prev) =>
@@ -83,27 +89,32 @@ export function SaveAudienceSheet({
       setLookalikeResult(null);
       return;
     }
+    if (!seedPlayerIds || seedPlayerIds.length === 0) {
+      setLookalikeError("Graph Twins needs the cohort's players on the canvas as seeds.");
+      return;
+    }
     setIsExpanding(true);
+    setLookalikeError(null);
     try {
       const res = await fetch("/api/audiences/lookalike", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          dominant_archetype: cohortContext?.dominantArchetype || "CROSS_LABEL_NOMAD",
-          seed_archetypes: cohortContext?.dominantArchetype
-            ? [cohortContext.dominantArchetype]
-            : ["CROSS_LABEL_NOMAD"],
-          query: cohortContext?.query || "Take-Two audience segment",
-          seed_query: cohortContext?.query || "Take-Two audience segment",
-          target_franchise: cohortContext?.franchise || "NBA2K",
-          matched_count: baseCount,
+          seed_player_ids: seedPlayerIds,
+          matched_count: baseCount || seedPlayerIds.length,
           expansion_pct: pct,
         }),
       });
       const data = await res.json();
-      if (data.ok) setLookalikeResult(data);
-    } catch {
-      // Keep slider estimate
+      if (!res.ok || !data.ok) {
+        setLookalikeResult(null);
+        setLookalikeError(`Graph Twins failed (HTTP ${res.status}): ${data?.error || "unknown error"}`);
+        return;
+      }
+      setLookalikeResult(data);
+    } catch (e: any) {
+      setLookalikeResult(null);
+      setLookalikeError(`Graph Twins request failed: ${e?.message || String(e)}`);
     } finally {
       setIsExpanding(false);
     }
@@ -239,36 +250,39 @@ export function SaveAudienceSheet({
                 </button>
               )}
 
+              {lookalikeError && (
+                <div role="alert" className="rounded-lg border border-rose-500/40 bg-rose-950/60 px-3 py-2 text-[11px] text-rose-100">
+                  {lookalikeError}
+                </div>
+              )}
+
               {lookalikeResult && !isExpanding && (
                 <div className="rounded-lg border border-white/[0.08] bg-court-black/70 p-3 font-mono text-[11px] space-y-2">
                   <div className="flex items-center justify-between border-b border-white/[0.06] pb-2">
                     <span className="text-win-green font-semibold tabular">
-                      {(Number(lookalikeResult.avg_cosine_similarity || 0.942) * 100).toFixed(1)}% Cosine Match
+                      {lookalikeResult.similarity_range
+                        ? `cosine ${Number(lookalikeResult.similarity_range.min).toFixed(3)}–${Number(lookalikeResult.similarity_range.max).toFixed(3)}`
+                        : "no twins"}
                     </span>
                     <span className="text-chalk tabular">
-                      +{lookalikeResult.added_count ?? lookalikeResult.expanded_count} Twins
+                      +{Number(lookalikeResult.added_count).toLocaleString()} twins
                     </span>
-                    <span className="text-vc-gold font-semibold tabular">
-                      +$
-                      {lookalikeResult.incremental_bookings_usd >= 1000
-                        ? `${(lookalikeResult.incremental_bookings_usd / 1000).toFixed(1)}K`
-                        : Number(lookalikeResult.incremental_bookings_usd || 0).toLocaleString()}{" "}
-                      Est.
-                    </span>
+                    {typeof lookalikeResult.twins_avg_spend_usd === "number" && (
+                      <span className="text-vc-gold font-semibold tabular">
+                        avg ${Math.round(lookalikeResult.twins_avg_spend_usd).toLocaleString()} lifetime
+                      </span>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <div className="text-[10px] uppercase tracking-wider text-chalk-dim">
-                      Top Spanner Graph Twins (ScaNN · 3,072-d)
+                      Top graph twins (cosine to seed centroid)
                     </div>
                     {(lookalikeResult.top_twins || lookalikeResult.sample_players || [])
                       .slice(0, 5)
                       .map((twin: any) => {
                         const tag = String(twin.gamer_tag || "").replace(/^@/, "");
-                        const ovr = twin.myplayer_ovr ?? 88;
-                        const crew = twin.crew_name || "Rec Squad";
-                        const matchPct = Math.round(
-                          Number(twin.cosine_similarity ?? twin.similarity ?? 0.94) * 100
-                        );
+                        const crew = twin.crew_name;
+                        const matchPct = (Number(twin.cosine_similarity) * 100).toFixed(1);
                         return (
                           <div
                             key={twin.player_id || tag}
@@ -278,7 +292,8 @@ export function SaveAudienceSheet({
                               <span className="text-chalk font-medium">@{tag}</span>
                               <span className="text-chalk-dim">
                                 {" "}
-                                · {ovr} OVR · {crew}
+                                · {String(twin.archetype || "").replace(/_/g, " ").toLowerCase()}
+                                {crew ? ` · ${crew}` : ""}
                               </span>
                             </span>
                             <span className="shrink-0 text-win-green tabular">

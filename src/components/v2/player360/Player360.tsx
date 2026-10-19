@@ -50,6 +50,8 @@ export interface Player360Props {
   /** Hops requested from the API. Default 2. */
   hops?: 1 | 2;
   className?: string;
+  /** Fired when the focal player's graph loads (including re-centres). */
+  onPlayerLoaded?: (p: { player_id: string; gamer_tag: string; home_studio: "2K" | "ROCKSTAR" | "ZYNGA" | null }) => void;
 }
 
 interface ApiError {
@@ -90,7 +92,7 @@ async function readJson(res: Response): Promise<any> {
   }
 }
 
-export function Player360({ playerId, onAct, onStageChange, initialStage = "ego", hops = 2, className }: Player360Props) {
+export function Player360({ playerId, onAct, onStageChange, initialStage = "ego", hops = 2, className, onPlayerLoaded }: Player360Props) {
   const story = useOptionalStoryline();
   const reduce = !!useReducedMotion();
 
@@ -153,6 +155,11 @@ export function Player360({ playerId, onAct, onStageChange, initialStage = "ego"
         return;
       }
       setData(body as Player360Response);
+      onPlayerLoaded?.({
+        player_id: (body as Player360Response).player.player_id,
+        gamer_tag: (body as Player360Response).player.gamer_tag,
+        home_studio: (body as Player360Response).cross_label?.home_studio ?? null,
+      });
       setPendingId(null);
     })().catch((e) => {
       if (e?.name !== "AbortError") {
@@ -237,6 +244,8 @@ export function Player360({ playerId, onAct, onStageChange, initialStage = "ego"
           )}
 
           <AnimatePresence>{social && data && <Legend reduce={reduce} />}</AnimatePresence>
+          {/* Social stage, second beat: the same circle across 2K, Rockstar and Zynga (portfolio DB only). */}
+          <AnimatePresence>{social && data?.cross_label && !pendingId && <AcrossLabelsCard x={data.cross_label} name={data.player.gamer_tag} reduce={reduce} />}</AnimatePresence>
 
           {/* Pillar captions (pillars step only; the social ring owns that space later). */}
           <AnimatePresence>
@@ -524,3 +533,70 @@ const P360_CSS = `
 `;
 
 export default Player360;
+
+
+/* ------------------------------------------------------------------ across labels */
+
+const LABEL_HUE: Record<string, string> = { "2K": "var(--accent)", ROCKSTAR: "var(--warn)", ZYNGA: "var(--good)" };
+const LABEL_NAME: Record<string, string> = { "2K": "2K", ROCKSTAR: "Rockstar", ZYNGA: "Zynga" };
+
+function AcrossLabelsCard({ x, name, reduce }: { x: NonNullable<Player360Response["cross_label"]>; name: string; reduce: boolean }) {
+  const other = x.titles.filter((t) => t.studio !== x.home_studio);
+  const friendsOther = x.home_studio === "ROCKSTAR" ? x.friends.twok : x.friends.rockstar;
+  const friendsOtherLabel = x.home_studio === "ROCKSTAR" ? "2K" : "Rockstar";
+  return (
+    <motion.div
+      className="pointer-events-auto absolute right-4 top-[112px] z-10 w-[280px] rounded-[var(--radius)] border border-[var(--border)] bg-[color-mix(in_oklab,var(--surface)_88%,transparent)] p-4 shadow-[var(--shadow)] backdrop-blur"
+      initial={reduce ? { opacity: 0 } : { opacity: 0, x: 16 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 16, transition: { duration: 0.15 } }}
+      transition={{ type: "spring", stiffness: 300, damping: 30, delay: reduce ? 0 : 0.6 }}
+    >
+      <div className="text-[10.5px] uppercase tracking-[0.1em] text-[var(--text-faint)]">Across labels</div>
+      <div className="mt-1 text-[13px] font-medium text-[var(--text)]">{name} plays {new Set(x.titles.map((t) => t.studio)).size} labels</div>
+      <div className="mt-3 space-y-1.5">
+        {x.titles.slice(0, 6).map((t, i) => (
+          <motion.div
+            key={t.franchise}
+            className="flex items-center justify-between gap-2 text-[12px]"
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: reduce ? 0 : 0.75 + i * 0.06 }}
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: LABEL_HUE[t.studio] }} />
+              <span className="truncate text-[var(--text)]">{t.title}</span>
+            </span>
+            <span className="shrink-0 text-[var(--text-faint)] v2-tabular">{t.spend_usd > 0 ? `$${Math.round(t.spend_usd).toLocaleString()}` : LABEL_NAME[t.studio]}</span>
+          </motion.div>
+        ))}
+      </div>
+      <div className="mt-3 space-y-1 border-t border-[var(--border)] pt-3 text-[12px] text-[var(--text-dim)]">
+        <div>
+          <span className="font-semibold text-[var(--text)] v2-tabular">{friendsOther}</span> of {x.friends.total} friends also play {friendsOtherLabel} titles
+          {x.friends.zynga > 0 && x.home_studio !== "ZYNGA" ? (
+            <>
+              , <span className="font-semibold text-[var(--text)] v2-tabular">{x.friends.zynga}</span> play Zynga
+            </>
+          ) : null}
+        </div>
+        {x.coplay_other_label > 0 && (
+          <div>
+            Co-plays with <span className="font-semibold text-[var(--text)] v2-tabular">{x.coplay_other_label}</span> players from other labels
+          </div>
+        )}
+        {other.length > 0 && (
+          <div>
+            Active this month in {other.filter((t) => t.last_played && Date.parse(t.last_played) > Date.now() - 40 * 86400000).map((t) => t.title).join(", ") || other.map((t) => t.title).join(", ")}
+          </div>
+        )}
+        {x.gta6_wishlisted && <div className="text-[var(--warn)]">GTA VI wishlisted</div>}
+        {(x.invites.sent_accepted > 0 || x.invites.joined_by_invite > 0) && (
+          <div>
+            {x.invites.sent_accepted > 0 ? `Brought ${x.invites.sent_accepted} friend${x.invites.sent_accepted > 1 ? "s" : ""} into another label's title` : "Joined a title through a friend's invite"}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}

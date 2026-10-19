@@ -50,14 +50,12 @@ const GOLDEN_PLAY_PRESETS: Array<{
       "NBA 2K27 MyCAREER builds below 85 OVR who spent $50+ on VC, haven't logged in for 7 days, and are in a Crew with active teammates",
   },
   {
-    label: "Whale Velocity",
-    query:
-      "High-LTV NBA 2K27 whales showing mid-season spending velocity decay for TimesFM 3.0 intervention",
+    label: "2K → GTA Online invites",
+    query: "NBA 2K players who invited a friend into GTA Online",
   },
   {
-    label: "D2C & Cross-Play",
-    query:
-      "High-velocity 2K Account VC spenders eligible for Direct-to-Consumer (D2C) Web Store margin arbitrage",
+    label: "GTA VI wishlist crews",
+    query: "GTA Online players in a crew who wishlisted GTA VI",
   },
 ];
 
@@ -199,29 +197,50 @@ export default function NLSearchBar({
         >
           <div className="flex items-center gap-2 min-w-0 overflow-x-auto no-scrollbar">
             <span className="h-2 w-2 rounded-full bg-win-green shrink-0 animate-pulse" />
-            <span className="text-xs font-semibold text-win-green font-mono tabular whitespace-nowrap">
-              <TabularNumber
-                value={metrics?.matched_count || cohortContext?.matchedCount || 0}
-              />{" "}
-              matched
-            </span>
+            {(() => {
+              const matched = Number(metrics?.matched_count ?? cohortContext?.matchedCount ?? 0);
+              const rendered = Number(metrics?.rendered_count ?? cohortContext?.renderedCount ?? matched);
+              const strata: Array<{ studio: string; matched: number; rendered: number }> =
+                metrics?.sample_strata || [];
+              return (
+                <span
+                  className="text-xs font-semibold text-win-green font-mono tabular whitespace-nowrap"
+                  data-testid="nl-sample-count"
+                  title={
+                    strata.length
+                      ? `Sample stratified by studio, proportional to matched counts: ${strata
+                          .map((x) => `${x.studio === "ROCKSTAR" ? "Rockstar" : x.studio === "ZYNGA" ? "Zynga" : "2K"} ${x.rendered}/${x.matched}`)
+                          .join(" · ")}`
+                      : undefined
+                  }
+                >
+                  {rendered < matched ? (
+                    <>
+                      showing <TabularNumber value={rendered} /> of <TabularNumber value={matched} /> matched
+                    </>
+                  ) : (
+                    <>
+                      <TabularNumber value={matched} /> matched
+                    </>
+                  )}
+                </span>
+              );
+            })()}
 
-            {metrics?.causal_waterfall && (
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/35 px-2.5 py-0.5 font-mono text-[11px] text-emerald-300 whitespace-nowrap"
-                title={`Suppressed ${metrics.causal_waterfall.sleeping_dogs_suppressed} Sleeping Dogs · Routed ${metrics.causal_waterfall.sure_things_d2c_routed} Sure Things to 2K D2C (+$${metrics.causal_waterfall.d2c_margin_saved_usd.toLocaleString()} Margin) · Added +${metrics.causal_waterfall.scann_twins_added} ScaNN Twins`}
-              >
-                <span>
-                  →{" "}
-                  {metrics.causal_waterfall.net_activated_cohort.toLocaleString()}{" "}
-                  Net Activated
-                </span>
-                <span className="text-emerald-400/70">·</span>
-                <span className="font-semibold text-white">
-                  +$
-                  {metrics.causal_waterfall.projected_incremental_lift_usd.toLocaleString()}{" "}
-                  Lift
-                </span>
+            {Array.isArray(metrics?.sample_strata) && metrics.sample_strata.length > 1 && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.05] px-2.5 py-0.5 font-mono text-[11px] text-chalk whitespace-nowrap">
+                {metrics.sample_strata.map((x: any) => (
+                  <span key={x.studio} className="inline-flex items-center gap-1">
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{
+                        backgroundColor:
+                          x.studio === "ROCKSTAR" ? "#F5B400" : x.studio === "ZYNGA" ? "#2FD38A" : "#E4002B",
+                      }}
+                    />
+                    {Number(x.matched).toLocaleString()}
+                  </span>
+                ))}
               </span>
             )}
 
@@ -252,7 +271,7 @@ export default function NLSearchBar({
                 type="button"
                 onClick={onFindGraphTwins}
                 disabled={isFindingTwins}
-                title="Expand cohort with 3,072-d ScaNN Graph Twins on the Graph Canvas"
+                title="Find the players most similar to this cohort (live cosine similarity over all players in Spanner)"
                 className="flex items-center gap-1.5 rounded-xl bg-cyan-500/15 border border-cyan-500/35 px-2.5 py-1 text-xs font-medium text-cyan-300 hover:bg-cyan-500/25 transition-colors disabled:opacity-50"
               >
                 {isFindingTwins ? (
@@ -331,7 +350,7 @@ export default function NLSearchBar({
               handleSearch(query, []);
             }
           }}
-          placeholder="Ask anything across 2K (e.g., NBA 2K26 holdouts with active 2K27 Crew mates)..."
+          placeholder="Ask across 2K, Rockstar Games and Zynga (e.g., Zynga players who also play NBA 2K Mobile)..."
           className="w-full bg-transparent text-xs text-white placeholder:text-gray-400 focus:outline-none px-3"
         />
 

@@ -3,6 +3,9 @@
 import React, { useState, useMemo } from "react";
 import { GraphNode, GraphData, CohortContext, PlayerIdentity } from "@/lib/types";
 import { archetypeLabel, archetypeColor } from "@/lib/archetypes";
+import { summarizePlayers, playerStudio } from "@/lib/segment";
+import { buildLensContext, classifyNodeForLens, computeKeystoneCaptains } from "@/lib/lens";
+import { STUDIO_COLORS, STUDIO_NAMES, NBA_FRANCHISES, franchiseName } from "@/lib/studios";
 import { formatFollowers } from "@/lib/format";
 import PlaystyleRadar from "./PlaystyleRadar";
 import IdentityTree from "./IdentityTree";
@@ -110,76 +113,52 @@ export default function EntityInspector({
 
   // Extract all player nodes from current graph data
   const playerNodes = useMemo(() => {
-    return (graphData?.nodes || []).filter((n) => n.type === "PLAYER");
+    // Graph Twins seeds are drawn for context but are not part of the twin cohort.
+    return (graphData?.nodes || []).filter(
+      (n) => n.type === "PLAYER" && !n.game_telemetry?.twin_seed
+    );
   }, [graphData]);
 
-  // Compute cohort averages and telemetry distribution
+  // Segment analytics from the PLAYER nodes on the canvas (Spanner Players +
+  // PLAYS_GAME). Server-side cohort aggregates (NL query) take precedence for
+  // spend / churn because they cover every matched player, not only the drawn sample.
+  const lensCtx = useMemo(() => buildLensContext(playerNodes), [playerNodes]);
+  const keystoneIds = useMemo(
+    () => computeKeystoneCaptains(graphData?.nodes || [], graphData?.links || []),
+    [graphData]
+  );
+  const segment = useMemo(() => summarizePlayers(playerNodes), [playerNodes]);
+
   const cohortStats = useMemo(() => {
     const gravityBuckets = Array.from({ length: 10 }, () => 0);
-
-    if (playerNodes.length === 0) {
-      return {
-        count: cohortContext?.matchedCount || 0,
-        estimatedTotal: cohortContext?.estimatedTotal || cohortContext?.matchedCount || 0,
-        isSampled: cohortContext?.isSampled ?? false,
-        avgSpend: cohortContext?.avgSpend || 210,
-        avgOvr: 84,
-        avgChurn: cohortContext?.avgChurn || 0.38,
-        avgTilt: cohortContext?.avgTilt || 0.42,
-        avgLossStreak: 2.1,
-        highChurnCount: cohortContext?.highChurnCount || 0,
-        dominantArchetype: cohortContext?.dominantArchetype || "MYCAREER_STORY_CASUAL",
-        archetypeDistribution: [] as {
-          id: string;
-          label: string;
-          color: string;
-          count: number;
-          pct: number;
-        }[],
-        gravityBuckets,
-        topCreators: [
-          { name: "AGENT00", pct: "46%" },
-          { name: "TROYDAN", pct: "38%" },
-        ],
-        topCountries: [{ name: "United States", flag: "🇺🇸", pct: "64%" }],
-      };
-    }
-
-    const totalSpend = playerNodes.reduce((acc, p) => acc + (p.spend || 0), 0);
-    const totalOvr = playerNodes.reduce(
-      (acc, p) => acc + Number(p.game_telemetry?.myplayer_ovr || 84),
-      0
-    );
-    const totalChurn = playerNodes.reduce((acc, p) => acc + (p.churn_risk || 0), 0);
-    const totalTilt = playerNodes.reduce((acc, p) => acc + (p.tilt || 0), 0);
-    const totalLossStreak = playerNodes.reduce((acc, p) => acc + (p.loss_streak || 0), 0);
-
-    const archCounts: Record<string, number> = {};
+    let gravityPlayers = 0;
     const creatorCounts: Record<string, number> = {};
     const countryCounts: Record<string, { count: number; flag: string }> = {};
 
     playerNodes.forEach((p) => {
-      const arch = String(p.archetype || "MYCAREER_STORY_CASUAL");
-      archCounts[arch] = (archCounts[arch] || 0) + 1;
-
-      const g = Number(p.gravity_score ?? p.game_telemetry?.gravity_score ?? 0.45);
-      const b = Math.min(9, Math.max(0, Math.floor(g * 10)));
-      gravityBuckets[b]++;
-
-      if (p.followed_creators) {
-        p.followed_creators.forEach((c) => {
-          const cName = c.replace("creator-", "").toUpperCase();
-          creatorCounts[cName] = (creatorCounts[cName] || 0) + 1;
-        });
+      const gRaw = p.gravity_score ?? p.game_telemetry?.gravity_score;
+      if (typeof gRaw === "number") {
+        const b = Math.min(9, Math.max(0, Math.floor(gRaw * 10)));
+        gravityBuckets[b]++;
+        gravityPlayers++;
       }
+      (p.followed_creators || []).forEach((c) => {
+        const cName = c.replace("creator-", "").toUpperCase();
+        creatorCounts[cName] = (creatorCounts[cName] || 0) + 1;
+      });
       if (p.country) {
         if (!countryCounts[p.country]) {
-          countryCounts[p.country] = { count: 0, flag: p.country_flag || "🌐" };
+          countryCounts[p.country] = { count: 0, flag: p.country_flag || "" };
         }
         countryCounts[p.country].count += 1;
       }
     });
 
+    const archCounts: Record<string, number> = {};
+    playerNodes.forEach((p) => {
+      const arch = String(p.archetype || "");
+      if (arch) archCounts[arch] = (archCounts[arch] || 0) + 1;
+    });
     const totalArch = Object.values(archCounts).reduce((a, b) => a + b, 0) || 1;
     const archetypeDistribution = Object.entries(archCounts)
       .sort((a, b) => b[1] - a[1])
@@ -191,457 +170,198 @@ export default function EntityInspector({
         pct: Math.round((count / totalArch) * 100),
       }));
 
-    const dominantArch =
-      archetypeDistribution[0]?.id ||
-      cohortContext?.dominantArchetype ||
-      "MYCAREER_STORY_CASUAL";
-
-    const topCreators = Object.entries(creatorCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([name, count]) => ({
-        name,
-        pct: `${Math.round((count / playerNodes.length) * 100)}%`,
-      }));
-
-    const topCountries = Object.entries(countryCounts)
-      .sort((a, b) => b[1].count - a[1].count)
-      .slice(0, 2)
-      .map(([name, data]) => ({
-        name,
-        flag: data.flag,
-        pct: `${Math.round((data.count / playerNodes.length) * 100)}%`,
-      }));
-
+    const n = playerNodes.length;
     return {
-      count: playerNodes.length,
-      estimatedTotal:
-        cohortContext?.estimatedTotal ||
-        cohortContext?.matchedCount ||
-        playerNodes.length,
+      count: n,
+      estimatedTotal: cohortContext?.estimatedTotal || cohortContext?.matchedCount || n,
       isSampled: cohortContext?.isSampled ?? false,
-      avgSpend: cohortContext?.avgSpend ?? totalSpend / playerNodes.length,
-      avgOvr: Math.round(totalOvr / playerNodes.length),
-      avgChurn: cohortContext?.avgChurn ?? totalChurn / playerNodes.length,
-      avgTilt: cohortContext?.avgTilt ?? totalTilt / playerNodes.length,
-      avgLossStreak: totalLossStreak / playerNodes.length,
-      highChurnCount:
-        cohortContext?.highChurnCount ??
-        playerNodes.filter((p) => (p.churn_risk || 0) >= 0.7).length,
-      dominantArchetype: dominantArch,
+      avgSpend: cohortContext?.avgSpend ?? segment.avgSpend,
+      avgOvr: segment.avgOvr,
+      ovrPlayers: segment.ovrPlayers,
+      avgChurn: cohortContext?.avgChurn ?? segment.avgChurn,
+      avgTilt: cohortContext?.avgTilt ?? segment.avgTilt,
+      highChurnCount: cohortContext?.highChurnCount ?? segment.highChurnCount,
+      dominantArchetype:
+        archetypeDistribution[0]?.id || cohortContext?.dominantArchetype || "",
       archetypeDistribution,
       gravityBuckets,
-      topCreators,
-      topCountries,
+      gravityPlayers,
+      topCreators: Object.entries(creatorCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([name, count]) => ({ name, pct: `${Math.round((count / Math.max(1, n)) * 100)}%` })),
+      topCountries: Object.entries(countryCounts)
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 2)
+        .map(([name, data]) => ({
+          name,
+          flag: data.flag,
+          pct: `${Math.round((data.count / Math.max(1, n)) * 100)}%`,
+        })),
     };
-  }, [playerNodes, cohortContext]);
+  }, [playerNodes, cohortContext, segment]);
 
-  // Idea 2: Core -> Nurture -> Stretch Portfolio Rings & Concordia Stag-Hunt Tipping Point
+  // 3-ring portfolio: same rules as the canvas lens (src/lib/lens.ts), scaled
+  // from the drawn sample to the matched audience.
   const portfolioRings = useMemo(() => {
-    const totalEstimated = Math.max(1, cohortStats.estimatedTotal || playerNodes.length || 1);
-    if (playerNodes.length === 0) {
-      const coreCount = Math.round(totalEstimated * 0.48);
-      const nurtureCount = Math.round(totalEstimated * 0.31);
-      const stretchCount = Math.max(0, totalEstimated - coreCount - nurtureCount);
-      return {
-        coreCount,
-        nurtureCount,
-        stretchCount,
-        corePct: 48,
-        nurturePct: 31,
-        stretchPct: 21,
-        concordiaTippingLabel: "3/5 Crew Mates in 2K27 → 3.1x Upgrade Probability",
-      };
-    }
-
-    const crewConnectedIds = new Set<string>();
-    (graphData?.links || []).forEach((l: any) => {
-      const sId = typeof l.source === "object" ? l.source.id : String(l.source);
-      const tId = typeof l.target === "object" ? l.target.id : String(l.target);
-      const lbl = String(l.label || "");
-      if (
-        lbl === "MEMBER_OF_CLAN" ||
-        lbl === "PLAYED_WITH" ||
-        sId.startsWith("clan-") ||
-        tId.startsWith("clan-") ||
-        sId.startsWith("mate-") ||
-        tId.startsWith("mate-")
-      ) {
-        crewConnectedIds.add(sId);
-        crewConnectedIds.add(tId);
-      }
-    });
-
     let rawCore = 0;
     let rawNurture = 0;
     let rawStretch = 0;
-
     playerNodes.forEach((p) => {
-      const pTel = p.game_telemetry || {};
-      const storedRing = String(pTel.portfolio_ring || "");
-      if (storedRing === "SQUAD_NURTURE") {
-        rawNurture += 1;
-        return;
-      }
-      if (storedRing === "CROSS_2K_STRETCH") {
-        rawStretch += 1;
-        return;
-      }
-      if (storedRing === "CORE_RETAIN") {
-        rawCore += 1;
-        return;
-      }
-
-      const gScore = Number(p.gravity_score ?? pTel.gravity_score ?? 0.48);
-      const crossTitles = Number(pTel.cross_2k_titles ?? 1);
-      const isHoldoutOrSquadNurture =
-        pTel.migrated_to_2k27 === false ||
-        p.franchise === "NBA2K26" ||
-        (Boolean(pTel.nba2k26_veteran) &&
-          (crewConnectedIds.has(p.id) ||
-            Boolean(pTel.crew_id) ||
-            Boolean(p.clan_id) ||
-            (p.churn_risk || 0) >= 0.42) &&
-          (p.spend || 0) < 220);
-
-      const isCross2kStretch =
-        !isHoldoutOrSquadNurture &&
-        (crossTitles >= 2 ||
-          (p.franchise && !["NBA2K", "NBA2K26"].includes(String(p.franchise))) ||
-          String(p.archetype) === "CROSS_LABEL_NOMAD" ||
-          gScore >= 0.56);
-
-      if (isHoldoutOrSquadNurture) {
-        rawNurture += 1;
-      } else if (isCross2kStretch) {
-        rawStretch += 1;
-      } else {
-        rawCore += 1;
-      }
+      const cls = classifyNodeForLens(p, keystoneIds, "PORTFOLIO_RINGS", lensCtx);
+      if (cls?.bucketId === "RING_3_STRETCH") rawStretch += 1;
+      else if (cls?.bucketId === "RING_2_NURTURE") rawNurture += 1;
+      else rawCore += 1;
     });
-
-    // Ensure balanced non-zero representation if cohort is homogeneous on a single filter
-    const nTotal = playerNodes.length;
-    if (nTotal >= 6 && rawNurture === 0) {
-      const shift = Math.max(1, Math.round(nTotal * 0.24));
-      rawNurture = shift;
-      rawCore = Math.max(1, rawCore - shift);
-    }
-    if (nTotal >= 6 && rawStretch === 0) {
-      const shift = Math.max(1, Math.round(nTotal * 0.18));
-      rawStretch = shift;
-      rawCore = Math.max(1, rawCore - shift);
-    }
-
-    const scale = totalEstimated / Math.max(1, rawCore + rawNurture + rawStretch);
+    const sampled = Math.max(1, rawCore + rawNurture + rawStretch);
+    const totalEstimated = Math.max(playerNodes.length, cohortStats.estimatedTotal || 0);
+    const scale = playerNodes.length ? totalEstimated / sampled : 0;
     const coreCount = Math.round(rawCore * scale);
     const nurtureCount = Math.round(rawNurture * scale);
-    const stretchCount = Math.max(0, totalEstimated - coreCount - nurtureCount);
+    const stretchCount = Math.max(0, Math.round(rawStretch * scale));
+    const corePct = Math.round((rawCore / sampled) * 100);
+    const nurturePct = Math.round((rawNurture / sampled) * 100);
+    const stretchPct = playerNodes.length ? Math.max(0, 100 - corePct - nurturePct) : 0;
+    return { coreCount, nurtureCount, stretchCount, corePct, nurturePct, stretchPct };
+  }, [playerNodes, keystoneIds, lensCtx, cohortStats.estimatedTotal]);
 
-    const corePct = Math.round((coreCount / totalEstimated) * 100);
-    const nurturePct = Math.round((nurtureCount / totalEstimated) * 100);
-    const stretchPct = Math.max(0, 100 - corePct - nurturePct);
-
-    return {
-      coreCount,
-      nurtureCount,
-      stretchCount,
-      corePct,
-      nurturePct,
-      stretchPct,
-      concordiaTippingLabel: "3/5 Crew Mates in 2K27 → 3.1x Upgrade Probability",
-    };
-  }, [playerNodes, graphData?.links, cohortStats.estimatedTotal]);
-
-  // Real Spanner Decision Engine Summary (CATE Uplift Quadrants, Margin Protection & Top Offer)
+  // Decision segments: same CATE lens rules as the canvas. Dollar lift uses
+  // only values stored on the player rows (2K telemetry); nothing is imputed.
   const decisionSummary = useMemo(() => {
-    const totalEstimated = Math.max(1, cohortStats.estimatedTotal || playerNodes.length || 1);
+    const totalEstimated = Math.max(playerNodes.length, cohortStats.estimatedTotal || 0);
     let rawPersuadable = 0;
     let rawCaptain = 0;
     let rawSureThing = 0;
     let rawSleepingDog = 0;
     let rawIncrementalLtv = 0;
     let rawMarginSaved = 0;
+    let valuedPlayers = 0;
     const offerVotes: Record<string, { count: number; priceUsd: number }> = {};
 
     playerNodes.forEach((p) => {
       const pTel = p.game_telemetry || {};
-      const quad = String(pTel.uplift_quadrant || "PERSUADABLE");
-      const action = String(pTel.decision_action || "DISPATCH_PERSONALIZED_OFFER");
-      const role = String(pTel.crew_role || "MEMBER");
+      const cls = classifyNodeForLens(p, keystoneIds, "CATE_UPLIFT", lensCtx);
+      if (cls?.bucketId === "SEED_CREW_CAPTAIN") rawCaptain += 1;
+      else if (cls?.bucketId === "SURE_THING_D2C") rawSureThing += 1;
+      else if (cls?.bucketId === "SLEEPING_DOG") rawSleepingDog += 1;
+      else rawPersuadable += 1;
 
-      if (action === "SEED_CREW_CAPTAIN" || role === "CAPTAIN") {
-        rawCaptain += 1;
-      }
-      if (quad === "PERSUADABLE") {
-        rawPersuadable += 1;
-        rawIncrementalLtv += Number(pTel.expected_incremental_ltv_usd ?? 28.5);
-      } else if (quad === "SURE_THING") {
-        rawSureThing += 1;
-        rawMarginSaved += Number(pTel.margin_saved_usd ?? 14.5);
-      } else if (quad === "SLEEPING_DOG") {
-        rawSleepingDog += 1;
-        rawMarginSaved += Number(pTel.margin_saved_usd ?? 18.0);
-      } else {
-        rawPersuadable += 1;
-        rawIncrementalLtv += Number(pTel.expected_incremental_ltv_usd ?? 18.0);
-      }
-
-      const offerTitle = String(pTel.recommended_offer_title || "Crew Re-Up Bundle");
-      const offerPrice = Number(pTel.recommended_offer_price ?? 4.99);
-      if (offerTitle && offerPrice > 0 && (quad === "PERSUADABLE" || action === "SEED_CREW_CAPTAIN")) {
-        if (!offerVotes[offerTitle]) {
-          offerVotes[offerTitle] = { count: 0, priceUsd: offerPrice };
+      if (typeof pTel.expected_incremental_ltv_usd === "number" || typeof pTel.margin_saved_usd === "number") {
+        valuedPlayers += 1;
+        if (cls?.bucketId === "PERSUADABLE" || cls?.bucketId === "SEED_CREW_CAPTAIN") {
+          rawIncrementalLtv += Number(pTel.expected_incremental_ltv_usd || 0);
+        } else {
+          rawMarginSaved += Number(pTel.margin_saved_usd || 0);
         }
+      }
+      const offerTitle = pTel.recommended_offer_title;
+      const offerPrice = Number(pTel.recommended_offer_price || 0);
+      if (
+        offerTitle &&
+        offerPrice > 0 &&
+        (cls?.bucketId === "PERSUADABLE" || cls?.bucketId === "SEED_CREW_CAPTAIN")
+      ) {
+        if (!offerVotes[offerTitle]) offerVotes[offerTitle] = { count: 0, priceUsd: offerPrice };
         offerVotes[offerTitle].count += 1;
       }
     });
 
-    const nSampled = Math.max(1, playerNodes.length);
-    const scale = totalEstimated / nSampled;
-    const persuadableCount = Math.max(1, Math.round(rawPersuadable * scale));
-    const captainCount = Math.max(1, Math.round(rawCaptain * scale));
-    const sureThingCount = Math.round(rawSureThing * scale);
-    const sleepingDogCount = Math.round(rawSleepingDog * scale);
-
-    const topOfferEntry = Object.entries(offerVotes).sort(
-      (a, b) => b[1].count - a[1].count
-    )[0];
-    const topRecommendedOffer = topOfferEntry
-      ? { title: topOfferEntry[0], priceUsd: topOfferEntry[1].priceUsd }
-      : { title: "Crew Re-Up Bundle", priceUsd: 4.99 };
-
+    const scale = playerNodes.length ? totalEstimated / playerNodes.length : 0;
+    const topOfferEntry = Object.entries(offerVotes).sort((a, b) => b[1].count - a[1].count)[0];
     return {
-      persuadableCount,
-      captainCount,
-      sureThingCount,
-      sleepingDogCount,
-      targetableCount: persuadableCount,
+      persuadableCount: Math.round(rawPersuadable * scale),
+      captainCount: Math.round(rawCaptain * scale),
+      sureThingCount: Math.round(rawSureThing * scale),
+      sleepingDogCount: Math.round(rawSleepingDog * scale),
+      targetableCount: Math.round((rawPersuadable + rawCaptain) * scale),
       incrementalLtvUsd: Math.round(rawIncrementalLtv * scale),
       marginSavedUsd: Math.round(rawMarginSaved * scale),
-      topRecommendedOffer,
+      hasStoredValue: valuedPlayers > 0,
+      topRecommendedOffer: topOfferEntry
+        ? { title: topOfferEntry[0], priceUsd: topOfferEntry[1].priceUsd }
+        : undefined,
     };
-  }, [playerNodes, cohortStats.estimatedTotal]);
+  }, [playerNodes, keystoneIds, lensCtx, cohortStats.estimatedTotal]);
 
-  // Idea 3 & Idea 6: Single-node 5-Stack Squad Value-at-Risk, Concordia Tipping Point & 30-Day Cox/Weibull Survival Curve
+  // Single-node stored metrics (crew, decision engine, survival). Every field
+  // is read from the player's Spanner row or the live graph; when a value is
+  // not stored it stays null and the panel that needs it is hidden.
   const nodePredictiveMetrics = useMemo(() => {
     if (!node || (node.type !== "PLAYER" && node.type !== "CLAN")) return null;
 
     const allNodes = graphData?.nodes || [];
     const allLinks = graphData?.links || [];
     const nodeTel = (node as any)?.game_telemetry || {};
+    const numOrNull = (v: any): number | null =>
+      typeof v === "number" && Number.isFinite(v) ? v : null;
 
-    // 1. Identify connected Crew & 1-hop Squadmates from live graphData
-    const connectedClanIds = new Set<string>();
-    if (node.type === "CLAN") {
-      connectedClanIds.add(node.id);
-    } else {
-      if (node.clan_id) connectedClanIds.add(String(node.clan_id));
-      if (nodeTel.crew_id) connectedClanIds.add(String(nodeTel.crew_id));
-    }
-
-    const directNeighborIds = new Set<string>();
+    // Real crew mates on the canvas: nodes joined to the same crew by MEMBER_OF_CLAN.
+    const crewIds = new Set<string>();
+    if (node.type === "CLAN") crewIds.add(node.id);
+    if (node.clan_id) crewIds.add(String(node.clan_id));
+    if (nodeTel.crew_id) crewIds.add(String(nodeTel.crew_id));
+    const idOf = (v: any) => (typeof v === "object" && v ? v.id : String(v));
+    const mateIds = new Set<string>();
     allLinks.forEach((l: any) => {
-      const sId = typeof l.source === "object" ? l.source.id : String(l.source);
-      const tId = typeof l.target === "object" ? l.target.id : String(l.target);
-      if (sId === node.id) {
-        directNeighborIds.add(tId);
-        if (tId.startsWith("clan-") || l.label === "MEMBER_OF_CLAN") {
-          connectedClanIds.add(tId);
-        }
-      } else if (tId === node.id) {
-        directNeighborIds.add(sId);
-        if (sId.startsWith("clan-") || l.label === "MEMBER_OF_CLAN") {
-          connectedClanIds.add(sId);
-        }
-      }
+      if (!String(l.label || "").startsWith("MEMBER_OF_CLAN")) return;
+      const s = idOf(l.source);
+      const t = idOf(l.target);
+      if (crewIds.has(t) && s !== node.id) mateIds.add(s);
+      if (crewIds.has(s) && t !== node.id) mateIds.add(t);
     });
-
-    // Gather 1-hop MEMBER_OF_CLAN squadmates connected to the same Crew
-    const crewMateIds = new Set<string>();
-    allLinks.forEach((l: any) => {
-      const sId = typeof l.source === "object" ? l.source.id : String(l.source);
-      const tId = typeof l.target === "object" ? l.target.id : String(l.target);
-      if (connectedClanIds.has(sId) && tId !== node.id) crewMateIds.add(tId);
-      if (connectedClanIds.has(tId) && sId !== node.id) crewMateIds.add(sId);
-    });
-
-    const squadMates: GraphNode[] = [];
-    allNodes.forEach((n) => {
-      if (n.id === node.id) return;
-      if (n.type !== "PLAYER" && n.type !== "SQUADMATE") return;
-      const nTel = n.game_telemetry || {};
-      const sameCrew =
-        (n.clan_id && connectedClanIds.has(String(n.clan_id))) ||
-        (nTel.crew_id && connectedClanIds.has(String(nTel.crew_id))) ||
-        crewMateIds.has(n.id) ||
-        directNeighborIds.has(n.id);
-      if (sameCrew) {
-        squadMates.push(n);
-      }
-    });
-
-    // Complete 5-stack squad from cohort peers if subgraph only sampled partial crew edges
-    if (squadMates.length < 4 && playerNodes.length > 1) {
-      for (const candidate of playerNodes) {
-        if (squadMates.length >= 4) break;
-        if (candidate.id === node.id) continue;
-        if (squadMates.some((m) => m.id === candidate.id)) continue;
-        squadMates.push(candidate);
-      }
-    }
-
-    const activeSquadMates = squadMates.slice(0, 4);
-    const selfSpend = node.type === "PLAYER" ? Number(node.spend || 145) : 0;
-    const matesSpend = activeSquadMates.reduce(
-      (sum, m) => sum + Number(m.spend || 165),
-      0
+    const crewMates = allNodes.filter(
+      (n) => mateIds.has(n.id) && (n.type === "PLAYER" || n.type === "SQUADMATE")
     );
-    const storedSquadVar = Number(nodeTel.squad_var_usd || 0);
-    const squadVarUsd =
-      storedSquadVar > 0
-        ? Math.round(storedSquadVar)
-        : Math.round(selfSpend + (activeSquadMates.length > 0 ? matesSpend : 4 * 175));
-    const squadSize = Number(nodeTel.crew_size || Math.max(5, activeSquadMates.length + 1));
 
-    // Concordia Stag-Hunt Squad Tipping Point (k of 5 Crew Mates active in 2K27)
-    const matesIn2k27 = activeSquadMates.filter(
-      (m) => m.game_telemetry?.migrated_to_2k27 !== false && m.franchise !== "NBA2K26"
-    ).length;
-    const selfIn2k27 =
-      nodeTel.migrated_to_2k27 !== false && node.franchise !== "NBA2K26" ? 1 : 0;
-    const active2k27Count =
-      typeof nodeTel.crew_active_2k27_mates === "number"
-        ? Math.min(5, Math.max(2, Number(nodeTel.crew_active_2k27_mates)))
-        : Math.min(
-            5,
-            Math.max(3, matesIn2k27 + (node.type === "PLAYER" ? selfIn2k27 : 1))
-          );
-    const upgradeMultiplier = nodeTel.concordia_tipping_multiplier
-      ? `${nodeTel.concordia_tipping_multiplier}x`
-      : active2k27Count >= 4
-      ? "3.4x"
-      : active2k27Count === 3
-      ? "3.1x"
-      : "2.2x";
-
-    const crewRole = String(
-      nodeTel.crew_role ||
-        (node.archetype === "REC_CREW_CAPTAIN" ? "CAPTAIN" : "MEMBER")
-    );
-    const isKeystoneCaptain =
-      node.type === "CLAN" ||
-      crewRole === "CAPTAIN" ||
-      nodeTel.decision_action === "SEED_CREW_CAPTAIN" ||
-      node.archetype === "REC_CREW_CAPTAIN" ||
-      node.archetype === "PARK_REP_GRINDER" ||
-      directNeighborIds.size >= 3;
-
-    const crewName = String(
-      nodeTel.crew_name || node.clan_id || nodeTel.crew_id || "2K City Pro-Am Crew"
-    );
     const squadMateTags: string[] =
       Array.isArray(nodeTel.squad_mate_tags) && nodeTel.squad_mate_tags.length > 0
         ? nodeTel.squad_mate_tags
-        : activeSquadMates.map(
-            (m) =>
-              `${m.name || m.id} (${m.game_telemetry?.myplayer_ovr || 86} OVR)`
+        : crewMates.slice(0, 4).map((m) =>
+            typeof m.game_telemetry?.myplayer_ovr === "number"
+              ? `${m.name} (${m.game_telemetry.myplayer_ovr} OVR)`
+              : String(m.name)
           );
 
-    // 2. 30-Day Cox Proportional Hazards & Weibull Survival Curve S(t)
-    const ovr = Number(nodeTel.myplayer_ovr ?? 83);
-    const vcBal = Number(nodeTel.vc_balance ?? 14500);
-    const lossStreak = Number(node.loss_streak ?? nodeTel.loss_streak ?? 2);
-    const tilt = Number(node.tilt ?? 0.38);
-    const churnRisk = Number(node.churn_risk ?? 0.48);
-    const hasActiveCrew = Boolean(
-      node.type === "CLAN" ||
-        nodeTel.crew_id ||
-        node.clan_id ||
-        connectedClanIds.size > 0
-    );
+    const crewRole: string | null =
+      node.crew_role || (typeof nodeTel.crew_role === "string" ? nodeTel.crew_role : null);
+    const crewName: string | null =
+      (typeof nodeTel.crew_name === "string" && nodeTel.crew_name) ||
+      (node.type === "CLAN" ? node.name : null) ||
+      (crewIds.size ? (allNodes.find((n) => crewIds.has(n.id))?.name ?? null) : null);
 
-    const wallHazardBeta = ovr < 85 ? (vcBal < 15000 ? 0.54 : 0.36) : -0.16;
-    const tiltHazardBeta = Math.min(0.62, lossStreak * 0.11 + tilt * 0.34 + churnRisk * 0.28);
-    const baselineCrewBeta = hasActiveCrew ? -0.14 : 0.08;
-
-    const baselineHR = Math.exp(wallHazardBeta + tiltHazardBeta + baselineCrewBeta);
-    const treatedHR = baselineHR * 0.58 * (ovr < 85 ? 0.62 : 0.72);
-
-    const lambda0 = 19.5;
-    const rho = 1.48;
-    const rawBaseT50 = Math.round(lambda0 * Math.pow(Math.LN2 / baselineHR, 1 / rho));
-    const baselineT50 =
-      typeof nodeTel.survival_baseline_t50_days === "number"
-        ? Number(nodeTel.survival_baseline_t50_days)
-        : Math.max(6, Math.min(20, rawBaseT50));
-    const rawTreatedT50 = Math.round(lambda0 * Math.pow(Math.LN2 / treatedHR, 1 / rho));
-    const treatedT50 =
-      typeof nodeTel.survival_treated_t50_days === "number"
-        ? Number(nodeTel.survival_treated_t50_days)
-        : Math.max(baselineT50 + 8, Math.min(29, rawTreatedT50));
-    const daysGained =
-      typeof nodeTel.survival_days_gained === "number"
-        ? Number(nodeTel.survival_days_gained)
-        : treatedT50 - baselineT50;
-    const crewHazardReductionPct = Number(nodeTel.crew_hazard_reduction_pct ?? 42);
-
-    // Generate 7-point 30-day Weibull survival curve S(t) = exp(-(t / lambda)^rho)
-    const baseLambda = baselineT50 / Math.pow(Math.LN2, 1 / rho);
-    const treatedLambda = treatedT50 / Math.pow(Math.LN2, 1 / rho);
-    const days = [1, 5, 10, 15, 20, 25, 30];
-    const survivalPoints = days.map((d) => {
-      const baseS = Math.round(100 * Math.exp(-Math.pow(d / baseLambda, rho)));
-      const treatS = Math.round(100 * Math.exp(-Math.pow(d / treatedLambda, rho)));
-      return {
-        day: d,
-        baselinePct: Math.max(8, Math.min(99, baseS)),
-        treatedPct: Math.max(24, Math.min(99, treatS)),
-      };
-    });
-
-    // 3. Spanner Decision Engine & CATE Uplift Metadata
-    const upliftQuadrant = String(nodeTel.uplift_quadrant || "PERSUADABLE");
-    const decisionAction = String(
-      nodeTel.decision_action ||
-        (isKeystoneCaptain ? "SEED_CREW_CAPTAIN" : "DISPATCH_PERSONALIZED_OFFER")
-    );
-    const cateUpliftScore = Number(nodeTel.cate_uplift_score ?? 0.24);
-    const recommendedOfferTitle = String(
-      nodeTel.recommended_offer_title || "Crew Re-Up Bundle"
-    );
-    const recommendedOfferPrice = Number(nodeTel.recommended_offer_price ?? 4.99);
-    const expectedIncrementalLtvUsd = Number(
-      nodeTel.expected_incremental_ltv_usd ?? 28.5
-    );
-    const marginSavedUsd = Number(nodeTel.margin_saved_usd ?? 0);
+    const baselineT50 = numOrNull(nodeTel.survival_baseline_t50_days);
+    const treatedT50 = numOrNull(nodeTel.survival_treated_t50_days);
+    const storedDaysGained = numOrNull(nodeTel.survival_days_gained);
 
     return {
-      squadVarUsd,
-      squadSize,
-      activeSquadMatesCount: Math.max(4, squadMateTags.length || activeSquadMates.length),
-      active2k27Count,
-      upgradeMultiplier,
-      isKeystoneCaptain,
+      // Crew / 5-stack (stored on 2K telemetry)
+      squadVarUsd: numOrNull(nodeTel.squad_var_usd),
+      squadSize: numOrNull(nodeTel.crew_size),
+      active2k27Count: numOrNull(nodeTel.crew_active_2k27_mates),
+      upgradeMultiplier: numOrNull(nodeTel.concordia_tipping_multiplier),
+      isKeystoneCaptain:
+        node.type === "CLAN" || crewRole === "CAPTAIN" || keystoneIds.has(node.id),
       crewName,
       crewRole,
       squadMateTags,
+      crewMatesOnCanvas: crewMates.length,
+      // Survival (stored only; no model is run in the browser)
       baselineT50,
       treatedT50,
-      daysGained,
-      crewHazardReductionPct,
-      ovr,
-      lossStreak,
-      survivalPoints,
-      upliftQuadrant,
-      decisionAction,
-      cateUpliftScore,
-      recommendedOfferTitle,
-      recommendedOfferPrice,
-      expectedIncrementalLtvUsd,
-      marginSavedUsd,
+      daysGained:
+        storedDaysGained ?? (baselineT50 !== null && treatedT50 !== null ? treatedT50 - baselineT50 : null),
+      crewHazardReductionPct: numOrNull(nodeTel.crew_hazard_reduction_pct),
+      // Decision engine (stored only)
+      upliftQuadrant: typeof nodeTel.uplift_quadrant === "string" ? nodeTel.uplift_quadrant : null,
+      decisionAction: typeof nodeTel.decision_action === "string" ? nodeTel.decision_action : null,
+      cateUpliftScore: numOrNull(nodeTel.cate_uplift_score),
+      recommendedOfferTitle:
+        typeof nodeTel.recommended_offer_title === "string" ? nodeTel.recommended_offer_title : null,
+      recommendedOfferPrice: numOrNull(nodeTel.recommended_offer_price),
+      expectedIncrementalLtvUsd: numOrNull(nodeTel.expected_incremental_ltv_usd),
+      marginSavedUsd: numOrNull(nodeTel.margin_saved_usd),
     };
-  }, [node, graphData?.nodes, graphData?.links, playerNodes]);
+  }, [node, graphData?.nodes, graphData?.links, keystoneIds]);
 
   // Filtered players list for search & decision segment within cohort
   const filteredPlayers = useMemo(() => {
@@ -650,20 +370,11 @@ export default function EntityInspector({
       .filter((p) => {
         const pTel = p.game_telemetry || {};
         if (decisionFilter !== "ALL") {
-          const quad = String(pTel.uplift_quadrant || "PERSUADABLE");
-          const action = String(pTel.decision_action || "DISPATCH_PERSONALIZED_OFFER");
-          const role = String(pTel.crew_role || "MEMBER");
-          if (decisionFilter === "CAPTAIN") {
-            if (action !== "SEED_CREW_CAPTAIN" && role !== "CAPTAIN" && p.archetype !== "REC_CREW_CAPTAIN") {
-              return false;
-            }
-          } else if (decisionFilter === "PERSUADABLE") {
-            if (quad !== "PERSUADABLE" && action !== "SEED_CREW_CAPTAIN") return false;
-          } else if (decisionFilter === "SURE_THING") {
-            if (quad !== "SURE_THING") return false;
-          } else if (decisionFilter === "SLEEPING_DOG") {
-            if (quad !== "SLEEPING_DOG") return false;
-          }
+          const bucket = classifyNodeForLens(p, keystoneIds, "CATE_UPLIFT", lensCtx)?.bucketId;
+          if (decisionFilter === "CAPTAIN" && bucket !== "SEED_CREW_CAPTAIN") return false;
+          if (decisionFilter === "PERSUADABLE" && bucket !== "PERSUADABLE" && bucket !== "SEED_CREW_CAPTAIN") return false;
+          if (decisionFilter === "SURE_THING" && bucket !== "SURE_THING_D2C") return false;
+          if (decisionFilter === "SLEEPING_DOG" && bucket !== "SLEEPING_DOG") return false;
         }
         if (!q) return true;
         return (
@@ -676,13 +387,17 @@ export default function EntityInspector({
         );
       })
       .slice(0, 60);
-  }, [playerNodes, playerSearchQuery, decisionFilter]);
+  }, [playerNodes, playerSearchQuery, decisionFilter, keystoneIds, lensCtx]);
 
   if (!node && playerNodes.length === 0 && !cohortContext) return null;
 
   const isOffer = node?.type === "OFFER";
   const isGame = node?.type === "GAME";
   const isPlayer = node?.type === "PLAYER";
+  // Studio of the selected node. NBA 2K-only telemetry panels (MyPLAYER, VC,
+  // MyTEAM, 2K26 bridge, crew 5-stack / survival models) render only for 2K.
+  const selectedStudio = node ? playerStudio(node) : null;
+  const is2KEntity = selectedStudio === "2K";
   const isCreator = node?.type === "CREATOR";
   const isClan = node?.type === "CLAN";
   const isSquadmate = node?.type === "SQUADMATE";
@@ -692,6 +407,164 @@ export default function EntityInspector({
   const creatorData = (node as any)?.creator_data;
 
   const isCohortView = !node;
+
+  // ---- Stored-only single-node panels (hidden when the data is not stored) ----
+  const npm = nodePredictiveMetrics;
+  const hasCrewStored =
+    !!npm && (npm.squadVarUsd !== null || npm.active2k27Count !== null || npm.squadMateTags.length > 0);
+  const crewStoredBlock = npm && hasCrewStored ? (
+    <div className="p-3 rounded-xl bg-amber-500/[0.07] border border-amber-500/25 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-amber-300">Crew value at risk</span>
+        {npm.crewName && (
+          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200 border border-amber-500/30 truncate max-w-[170px]">
+            {npm.isKeystoneCaptain ? "Captain · " : ""}
+            {npm.crewName}
+          </span>
+        )}
+      </div>
+      {(npm.squadVarUsd !== null || npm.active2k27Count !== null) && (
+        <div className="grid grid-cols-2 gap-2 font-mono text-xs tabular">
+          {npm.squadVarUsd !== null && (
+            <div className="p-2 rounded-lg bg-black/40 border border-white/10">
+              <div className="text-[10px] text-gray-400">Squad value at risk (stored)</div>
+              <div className="text-sm font-semibold text-amber-300 mt-0.5">
+                ${Math.round(npm.squadVarUsd).toLocaleString()}
+              </div>
+              {npm.squadSize !== null && (
+                <div className="text-[10px] text-gray-400">Crew size {npm.squadSize}</div>
+              )}
+            </div>
+          )}
+          {npm.active2k27Count !== null && (
+            <div className="p-2 rounded-lg bg-black/40 border border-white/10">
+              <div className="text-[10px] text-gray-400">Crew mates on NBA 2K27</div>
+              <div className="text-xs font-semibold text-emerald-400 mt-0.5">
+                {npm.active2k27Count}
+                {npm.squadSize !== null ? ` of ${npm.squadSize}` : ""}
+              </div>
+              {npm.upgradeMultiplier !== null && (
+                <div className="text-[10px] text-cyan-300">
+                  {npm.upgradeMultiplier}x stored upgrade multiplier
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      {npm.squadMateTags.length > 0 && (
+        <div className="pt-1 border-t border-white/5 space-y-1">
+          <div className="text-[10px] text-gray-400 font-mono">Crew mates</div>
+          <div className="flex flex-wrap gap-1">
+            {npm.squadMateTags.slice(0, 4).map((tag, idx) => (
+              <span
+                key={idx}
+                className="px-1.5 py-0.5 rounded bg-black/50 border border-white/10 text-[10px] font-mono text-amber-200"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  ) : null;
+
+  const survivalStoredBlock =
+    npm && npm.baselineT50 !== null && npm.treatedT50 !== null ? (
+      <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-white">Median survival (stored model output)</span>
+          {npm.crewHazardReductionPct !== null && (
+            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 tabular">
+              -{npm.crewHazardReductionPct}% crew hazard
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-1.5 font-mono text-[11px] tabular">
+          <div className="px-2 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/25">
+            <div className="text-[10px] text-rose-300">Baseline</div>
+            <div className="font-semibold text-white mt-0.5">T50 = day {npm.baselineT50}</div>
+          </div>
+          <div className="px-2 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25">
+            <div className="text-[10px] text-emerald-300">With crew re-up</div>
+            <div className="font-semibold text-emerald-300 mt-0.5">
+              T50 = day {npm.treatedT50}
+              {npm.daysGained !== null ? ` (+${npm.daysGained}d)` : ""}
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
+  const decisionStoredBlock =
+    npm && npm.upliftQuadrant ? (
+      <div className="p-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/25 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-white flex items-center gap-1.5">
+            <Target className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Next-best decision (stored)</span>
+          </span>
+          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded border font-semibold bg-emerald-500/20 text-emerald-300 border-emerald-500/35">
+            {(npm.decisionAction || npm.upliftQuadrant).replace(/_/g, " ")}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 font-mono text-xs tabular">
+          {npm.recommendedOfferTitle && (
+            <div className="p-2 rounded-lg bg-black/40 border border-white/10">
+              <div className="text-[10px] text-gray-400">Recommended offer</div>
+              <div className="text-[11px] font-semibold text-white mt-0.5 truncate">
+                {npm.recommendedOfferTitle}
+              </div>
+              <div className="text-[10px] text-emerald-300">
+                {npm.recommendedOfferPrice !== null ? `$${npm.recommendedOfferPrice.toFixed(2)}` : ""}
+                {npm.cateUpliftScore !== null
+                  ? `${npm.recommendedOfferPrice !== null ? " · " : ""}CATE ${npm.cateUpliftScore >= 0 ? "+" : ""}${Math.round(npm.cateUpliftScore * 100)}%`
+                  : ""}
+              </div>
+            </div>
+          )}
+          {(npm.marginSavedUsd !== null || npm.expectedIncrementalLtvUsd !== null) && (
+            <div className="p-2 rounded-lg bg-black/40 border border-white/10">
+              <div className="text-[10px] text-gray-400">
+                {npm.marginSavedUsd !== null && npm.marginSavedUsd > 0 ? "Margin protected" : "Expected incremental LTV"}
+              </div>
+              <div className="text-sm font-semibold text-emerald-400 mt-0.5">
+                {npm.marginSavedUsd !== null && npm.marginSavedUsd > 0
+                  ? `+$${npm.marginSavedUsd.toFixed(2)}`
+                  : npm.expectedIncrementalLtvUsd !== null
+                  ? `+$${npm.expectedIncrementalLtvUsd.toFixed(2)}`
+                  : ""}
+              </div>
+              <div className="text-[10px] text-gray-400">Quadrant: {npm.upliftQuadrant.replace(/_/g, " ")}</div>
+            </div>
+          )}
+        </div>
+      </div>
+    ) : null;
+
+  const expandButton =
+    node && node.type === "PLAYER" && onExpandPlayerNeighborhood ? (
+      <button
+        type="button"
+        disabled={isExpandingNeighborhood}
+        onClick={async () => {
+          setIsExpandingNeighborhood(true);
+          try {
+            await onExpandPlayerNeighborhood(node.id);
+          } finally {
+            setIsExpandingNeighborhood(false);
+          }
+        }}
+        className="w-full py-1.5 px-2.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/35 text-cyan-200 font-mono text-[10.5px] font-semibold transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
+      >
+        <Users className="w-3.5 h-3.5 text-cyan-300" />
+        <span>
+          {isExpandingNeighborhood ? "Expanding neighborhood..." : "Expand crew, identities & titles on graph"}
+        </span>
+      </button>
+    ) : null;
+
   const maxGravBucket = Math.max(1, ...cohortStats.gravityBuckets);
 
   return (
@@ -741,7 +614,7 @@ export default function EntityInspector({
               <div className="text-xs font-semibold text-white tracking-tight flex items-center gap-1.5">
                 <span className="truncate max-w-[175px]">
                   {isCohortView
-                    ? cohortContext?.query || "2K Audience Cohort"
+                    ? cohortContext?.query || "Audience cohort"
                     : node?.name}
                 </span>
                 <span
@@ -815,8 +688,10 @@ export default function EntityInspector({
               </div>
             )}
 
-            {/* 2x2 KPI Grid: Players, Avg 90d VC, Avg OVR, Churn Risk */}
-            <div className="grid grid-cols-2 gap-2 font-mono tabular">
+            {/* 2x2 KPI grid. Spend is lifetime USD across every Take-Two title;
+                MyPLAYER OVR only exists for NBA 2K players, so other studios get a
+                cross-studio metric instead of a fabricated OVR. */}
+            <div className="grid grid-cols-2 gap-2 font-mono tabular" data-testid="segment-kpis" data-player-ids={playerNodes.map((n) => n.id).join(",")}>
               <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
                 <span className="text-[11px] text-gray-400 block">Players</span>
                 <span className="font-semibold text-white text-sm block mt-0.5">
@@ -824,24 +699,94 @@ export default function EntityInspector({
                 </span>
               </div>
               <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
-                <span className="text-[11px] text-gray-400 block">Avg 90d VC</span>
+                <span className="text-[11px] text-gray-400 block">Avg lifetime spend</span>
                 <span className="font-semibold text-amber-300 text-sm block mt-0.5">
                   ${Math.round(cohortStats.avgSpend).toLocaleString()}
                 </span>
               </div>
+              {cohortStats.avgOvr !== null && cohortStats.ovrPlayers === playerNodes.length ? (
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                  <span className="text-[11px] text-gray-400 block">Avg MyPLAYER OVR</span>
+                  <span className="font-semibold text-cyan-300 text-sm block mt-0.5">
+                    {Math.round(cohortStats.avgOvr)} OVR
+                  </span>
+                </div>
+              ) : (
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                  <span className="text-[11px] text-gray-400 block">Play 2+ studios</span>
+                  <span className="font-semibold text-cyan-300 text-sm block mt-0.5">
+                    {playerNodes.length
+                      ? `${Math.round((segment.crossStudioPlayers / playerNodes.length) * 100)}%`
+                      : "n/a"}
+                  </span>
+                </div>
+              )}
               <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
-                <span className="text-[11px] text-gray-400 block">Avg OVR</span>
-                <span className="font-semibold text-cyan-300 text-sm block mt-0.5">
-                  {cohortStats.avgOvr} OVR
-                </span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
-                <span className="text-[11px] text-gray-400 block">Churn Risk</span>
+                <span className="text-[11px] text-gray-400 block">Avg churn risk</span>
                 <span className="font-semibold text-rose-400 text-sm block mt-0.5">
                   {Math.round(cohortStats.avgChurn * 100)}%
                 </span>
               </div>
             </div>
+
+            {/* Studio mix + per-title spend (PLAYS_GAME.spend_usd) */}
+            {segment.studioMix.length > 0 && (
+              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-2" data-testid="segment-studio-mix">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-white">Studio mix</span>
+                  <span className="font-mono text-[10px] text-gray-400">
+                    {cohortStats.isSampled ? `sample of ${playerNodes.length.toLocaleString()}` : `${playerNodes.length.toLocaleString()} players`}
+                  </span>
+                </div>
+                <div className="h-2 w-full rounded-full overflow-hidden flex bg-black/50 gap-0.5">
+                  {segment.studioMix.map((m) => (
+                    <div
+                      key={m.studio}
+                      style={{ width: `${Math.max(2, m.pct)}%`, backgroundColor: STUDIO_COLORS[m.studio] }}
+                      className="h-full"
+                      title={`${STUDIO_NAMES[m.studio]}: ${m.players} (${m.pct}%)`}
+                    />
+                  ))}
+                </div>
+                <div className="space-y-0.5 font-mono text-[11px] tabular">
+                  {segment.studioMix.map((m) => (
+                    <div key={m.studio} className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5 font-sans text-gray-200">
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: STUDIO_COLORS[m.studio] }} />
+                        {STUDIO_NAMES[m.studio]}
+                      </span>
+                      <span className="text-gray-300">
+                        {m.players.toLocaleString()} · {m.pct}% · avg ${Math.round(m.spend / Math.max(1, m.players)).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {segment.hasTitleSpend && segment.titleSpend.length > 0 && (
+                  <div className="pt-1.5 border-t border-white/5 space-y-0.5">
+                    <div className="text-[10px] text-gray-400">Spend by title (PLAYS_GAME.spend_usd)</div>
+                    {segment.titleSpend.slice(0, 6).map((t) => (
+                      <div key={t.franchise} className="flex items-center justify-between font-mono text-[11px] tabular">
+                        <span className="inline-flex items-center gap-1.5 font-sans text-gray-200 truncate">
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: STUDIO_COLORS[t.studio] }} />
+                          {t.name}
+                        </span>
+                        <span className="text-gray-300">
+                          ${Math.round(t.spend).toLocaleString()} · {t.players} players
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {segment.wishlistedGta6 > 0 && (
+                  <div className="pt-1 border-t border-white/5 flex items-center justify-between font-mono text-[11px] text-gray-300">
+                    <span className="font-sans text-gray-400">Wishlisted GTA VI</span>
+                    <span>
+                      {segment.wishlistedGta6.toLocaleString()} ({Math.round((segment.wishlistedGta6 / Math.max(1, playerNodes.length)) * 100)}%)
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Idea 2: 3-Ring Portfolio Segmentation Bar (Core Retain · Squad Nurture · Cross-2K Stretch) */}
             <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
@@ -849,8 +794,10 @@ export default function EntityInspector({
                 <span className="text-[11px] font-semibold text-white">
                   3-Ring Portfolio Segmentation
                 </span>
-                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                  2.8x Cross-2K LTV
+                <span className="font-mono text-[10px] text-gray-400">
+                  {cohortStats.isSampled
+                    ? `est. from sample of ${playerNodes.length.toLocaleString()}`
+                    : "3-ring lens rules"}
                 </span>
               </div>
 
@@ -869,7 +816,7 @@ export default function EntityInspector({
                 <div
                   style={{ width: `${Math.max(10, portfolioRings.stretchPct)}%` }}
                   className="h-full bg-cyan-400 rounded-r-full"
-                  title={`Cross-2K Stretch: ${portfolioRings.stretchCount.toLocaleString()} (${portfolioRings.stretchPct}%)`}
+                  title={`Cross-studio stretch: ${portfolioRings.stretchCount.toLocaleString()} (${portfolioRings.stretchPct}%)`}
                 />
               </div>
 
@@ -899,7 +846,7 @@ export default function EntityInspector({
                 </div>
                 <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
                   <div className="text-[10px] text-cyan-300 font-sans font-medium truncate">
-                    Cross-2K Stretch
+                    Cross-studio
                   </div>
                   <div className="font-semibold text-white mt-0.5">
                     {portfolioRings.stretchCount.toLocaleString()}{" "}
@@ -910,13 +857,6 @@ export default function EntityInspector({
                 </div>
               </div>
 
-              {/* Concordia Stag-Hunt Coordination Payoff Callout */}
-              <div className="pt-1 border-t border-white/5 flex items-center justify-between text-[11px] font-mono text-gray-300">
-                <span className="text-gray-400">Concordia Stag-Hunt:</span>
-                <span className="text-amber-300 font-semibold">
-                  {portfolioRings.concordiaTippingLabel}
-                </span>
-              </div>
             </div>
 
             {/* Live Decision Engine: CATE Uplift Quadrants, Margin Protection & 1-Click Cohort Pruning */}
@@ -924,14 +864,21 @@ export default function EntityInspector({
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-white flex items-center gap-1.5">
                   <Target className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Live Decision Engine (CATE)</span>
+                  <span>Decision segments (CATE lens)</span>
                 </span>
                 <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 tabular">
-                  +${decisionSummary.incrementalLtvUsd.toLocaleString()} Lift · $
-                  {decisionSummary.marginSavedUsd.toLocaleString()} Saved
+                  {decisionSummary.hasStoredValue
+                    ? `+$${decisionSummary.incrementalLtvUsd.toLocaleString()} lift · $${decisionSummary.marginSavedUsd.toLocaleString()} saved`
+                    : "No stored uplift $ for these players"}
                 </span>
               </div>
 
+              {cohortStats.isSampled && (
+                <div className="font-mono text-[10px] text-gray-400">
+                  Counts are estimated from the {playerNodes.length.toLocaleString()} players drawn, scaled to{" "}
+                  {cohortStats.estimatedTotal.toLocaleString()} matched.
+                </div>
+              )}
               {/* 4 Interactive Decision Segment Filter Pills */}
               <div className="grid grid-cols-2 gap-1.5 font-mono text-[10px] tabular">
                 <button
@@ -960,7 +907,9 @@ export default function EntityInspector({
                     </span>
                   </div>
                   <div className="text-[9.5px] text-gray-400 mt-0.5 truncate">
-                    High CATE τᵢ · {decisionSummary.topRecommendedOffer.title}
+                    {decisionSummary.topRecommendedOffer
+                      ? `Top offer · ${decisionSummary.topRecommendedOffer.title}`
+                      : "No stored offer for these players"}
                   </div>
                 </button>
 
@@ -990,7 +939,7 @@ export default function EntityInspector({
                     </span>
                   </div>
                   <div className="text-[9.5px] text-gray-400 mt-0.5 truncate">
-                    3.1x Squad Cascade Multiplier
+                    Crew captains &amp; social hubs
                   </div>
                 </button>
 
@@ -1080,11 +1029,12 @@ export default function EntityInspector({
               </div>
             </div>
 
-            {/* 2K26 -> 2K27 & Cross-2K Gravity Histogram */}
+            {/* 2K cross-title gravity histogram (stored on 2K player telemetry only) */}
+            {cohortStats.gravityPlayers > 0 && (
             <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-gray-300">
-                  2K26 → 2K27 Bridge Gravity
+                  2K cross-title gravity ({cohortStats.gravityPlayers} 2K players)
                 </span>
                 {onToggleSocialGravity && (
                   <button
@@ -1122,6 +1072,7 @@ export default function EntityInspector({
                 <span>1.0 Cross-2K Bridge</span>
               </div>
             </div>
+            )}
 
             {/* Compact Sampled Roster List */}
             <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
@@ -1149,22 +1100,19 @@ export default function EntityInspector({
               <div className="space-y-1 max-h-44 overflow-y-auto pr-1">
                 {filteredPlayers.map((player, idx) => {
                   const pTel = player.game_telemetry || {};
-                  const action = String(
-                    pTel.decision_action || "DISPATCH_PERSONALIZED_OFFER"
-                  );
-                  const quad = String(pTel.uplift_quadrant || "PERSUADABLE");
+                  const bucket = classifyNodeForLens(player, keystoneIds, "CATE_UPLIFT", lensCtx)?.bucketId;
                   const badge =
-                    action === "SEED_CREW_CAPTAIN"
+                    bucket === "SEED_CREW_CAPTAIN"
                       ? {
                           label: "CAPTAIN",
                           cls: "bg-amber-500/20 text-amber-300 border-amber-500/30",
                         }
-                      : quad === "SURE_THING"
+                      : bucket === "SURE_THING_D2C"
                       ? {
                           label: "HOLD",
                           cls: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
                         }
-                      : quad === "SLEEPING_DOG"
+                      : bucket === "SLEEPING_DOG"
                       ? {
                           label: "SUPPRESS",
                           cls: "bg-rose-500/20 text-rose-300 border-rose-500/30",
@@ -1173,6 +1121,7 @@ export default function EntityInspector({
                           label: "TARGET",
                           cls: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
                         };
+                  const rowStudio = playerStudio(player);
 
                   return (
                     <button
@@ -1182,9 +1131,11 @@ export default function EntityInspector({
                       className="w-full flex items-center justify-between p-2 rounded-lg bg-black/40 hover:bg-white/[0.06] border border-white/5 hover:border-cyan-500/30 text-left transition-all group"
                     >
                       <div className="flex items-center gap-2 truncate max-w-[190px]">
-                        <span className="text-xs select-none shrink-0">
-                          {player.country_flag || "🏀"}
-                        </span>
+                        <span
+                          className="h-2 w-2 rounded-full shrink-0"
+                          style={{ backgroundColor: STUDIO_COLORS[rowStudio] }}
+                          title={STUDIO_NAMES[rowStudio]}
+                        />
                         <div className="truncate">
                           <span className="text-white block font-medium text-[11px] truncate group-hover:text-cyan-300 transition-colors">
                             {player.name}
@@ -1192,11 +1143,9 @@ export default function EntityInspector({
                           <span className="text-[10.5px] text-gray-400 block truncate">
                             {pTel.myplayer_ovr
                               ? `${pTel.myplayer_ovr} OVR · ${
-                                  pTel.crew_name || pTel.myplayer_build || "MyPLAYER"
+                                  pTel.crew_name || pTel.myplayer_build || ""
                                 }`
-                              : `${player.dma_market || "Global"} · ${
-                                  player.loss_streak || 0
-                                }L`}
+                              : `${franchiseName(String(player.franchise || ""))} · ${archetypeLabel(player.archetype)}`}
                           </span>
                         </div>
                       </div>
@@ -1233,7 +1182,7 @@ export default function EntityInspector({
                       {typeof node.spend === "number" ? `$${node.spend.toFixed(2)}` : "-"}
                     </span>
                     <span className="text-[11px] text-gray-400 block mt-0.5">
-                      {offerData?.category || "2K VC / MyTEAM SKU"}
+                      {offerData?.category || offerData?.offer_type || ""}
                     </span>
                   </div>
                   <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
@@ -1279,10 +1228,10 @@ export default function EntityInspector({
                       Follower Reach
                     </span>
                     <span className="font-semibold text-white text-sm font-mono block mt-0.5">
-                      {formatFollowers(creatorData?.followers ?? 1850000)}
+                      {typeof creatorData?.followers === "number" ? formatFollowers(creatorData.followers) : "n/a"}
                     </span>
                     <span className="text-[11px] text-gray-400 block mt-0.5">
-                      {creatorData?.platform || node.platform || "YouTube & Twitch"}
+                      {creatorData?.platform || node.platform || "n/a"}
                     </span>
                   </div>
                   <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
@@ -1290,10 +1239,10 @@ export default function EntityInspector({
                       Avg. Concurrents
                     </span>
                     <span className="font-semibold text-pink-400 text-sm font-mono block mt-0.5">
-                      {formatFollowers(creatorData?.avg_stream_viewers ?? 22000)}
+                      {typeof creatorData?.avg_stream_viewers === "number" ? formatFollowers(creatorData.avg_stream_viewers) : "n/a"}
                     </span>
                     <span className="text-[11px] text-gray-400 block mt-0.5 truncate">
-                      {creatorData?.signature_mode || "The City / Park"}
+                      {creatorData?.signature_mode || "n/a"}
                     </span>
                   </div>
                 </div>
@@ -1318,8 +1267,8 @@ export default function EntityInspector({
                       window.dispatchEvent(
                         new CustomEvent("courtside:run-query", {
                           detail: {
-                            query: `NBA 2K27 players influenced by creator ${handle}`,
-                            franchise: node.franchise || "NBA2K",
+                            query: `Players who follow creator ${handle}`,
+                            franchise: "ALL",
                           },
                         })
                       );
@@ -1339,10 +1288,10 @@ export default function EntityInspector({
                 <div className="grid grid-cols-2 gap-2">
                   <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
                     <span className="text-[11px] text-gray-400 block">
-                      2K Franchise
+                      {selectedStudio ? STUDIO_NAMES[selectedStudio] : "Studio"} title
                     </span>
                     <span className="font-semibold text-white text-xs block mt-0.5">
-                      {node.franchise || "NBA2K"}
+                      {franchiseName(String(node.franchise || ""))}
                     </span>
                   </div>
                   <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
@@ -1356,7 +1305,7 @@ export default function EntityInspector({
                           : "text-cyan-400"
                       }`}
                     >
-                      {node.lifecycle_status || "LIVE"}
+                      {node.lifecycle_status || "Unknown"}
                     </span>
                   </div>
                 </div>
@@ -1373,7 +1322,9 @@ export default function EntityInspector({
                 )}
 
                 <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-gray-300 leading-relaxed">
-                  2K Identity Graph hub node. Select any connected player to inspect MyPLAYER OVR, 90d VC spend, and Crew links.
+                  {node.lifecycle_status === "PRE_LAUNCH"
+                    ? "Pre-launch title: no one plays it yet. Edges into this hub are WISHLISTED intent from Spanner."
+                    : "Title hub in TakeTwoPlayerGraph. Edges into this hub are PLAYS_GAME (or cross-title play) from Spanner; select a player to inspect them."}
                 </div>
               </div>
             )}
@@ -1387,86 +1338,29 @@ export default function EntityInspector({
                       Crew Tier
                     </span>
                     <span className="font-semibold text-emerald-400 text-xs block mt-0.5">
-                      {node.rank_tier || "Pro-Am / Rec"}
+                      {node.rank_tier || "Unknown"}
                     </span>
                   </div>
                   <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
                     <span className="text-[11px] text-gray-400 block">Franchise</span>
                     <span className="font-semibold text-white text-xs block mt-0.5">
-                      {node.franchise || "NBA 2K27"}
+                      {franchiseName(String(node.franchise || ""))}
                     </span>
                   </div>
                 </div>
                 <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-1 text-xs text-gray-300">
                   <div className="flex items-center gap-1.5 text-emerald-400 font-semibold text-[11px]">
                     <Users className="w-3.5 h-3.5" />
-                    <span>2K Crew Entity</span>
+                    <span>{selectedStudio ? STUDIO_NAMES[selectedStudio] : ""} crew</span>
                   </div>
                   <p className="text-[11px] text-gray-300 leading-relaxed">
-                    Competitive Rec &amp; Pro-Am Crew linking MyCAREER builds with active teammates across The City.
+                    Crew node (Spanner Clans). Edges are MEMBER_OF_CLAN with the member&apos;s role.
                   </p>
                 </div>
 
-                {nodePredictiveMetrics && (
-                  <div className="p-3 rounded-xl bg-amber-500/[0.07] border border-amber-500/25 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold text-amber-300">
-                        5-Stack Squad Value-at-Risk
-                      </span>
-                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200 border border-amber-500/30">
-                        Keystone Crew
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 font-mono text-xs tabular">
-                      <div className="p-2 rounded-lg bg-black/40 border border-white/10">
-                        <div className="text-[10px] text-gray-400">Squad Value-at-Risk</div>
-                        <div className="text-sm font-semibold text-amber-300 mt-0.5">
-                          ${nodePredictiveMetrics.squadVarUsd.toLocaleString()}
-                        </div>
-                        <div className="text-[10px] text-gray-400">
-                          Across {nodePredictiveMetrics.activeSquadMatesCount} Crew Mates
-                        </div>
-                      </div>
-                      <div className="p-2 rounded-lg bg-black/40 border border-white/10">
-                        <div className="text-[10px] text-gray-400">Concordia Tipping Point</div>
-                        <div className="text-xs font-semibold text-emerald-400 mt-0.5">
-                          {nodePredictiveMetrics.active2k27Count}/5 in 2K27
-                        </div>
-                        <div className="text-[10px] text-cyan-300">
-                          → {nodePredictiveMetrics.upgradeMultiplier} Upgrade Prob
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {crewStoredBlock}
 
-                {nodePredictiveMetrics && (
-                  <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold text-white">
-                        30-Day Cox / Weibull Survival S(t)
-                      </span>
-                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 tabular">
-                        -{nodePredictiveMetrics.crewHazardReductionPct}% Crew Hazard
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1.5 font-mono text-[11px] tabular">
-                      <div className="px-2 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/25">
-                        <div className="text-[10px] text-rose-300">Baseline Survival</div>
-                        <div className="font-semibold text-white mt-0.5">
-                          T50 = Day {nodePredictiveMetrics.baselineT50}
-                        </div>
-                      </div>
-                      <div className="px-2 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25">
-                        <div className="text-[10px] text-emerald-300">With Crew Re-Up</div>
-                        <div className="font-semibold text-emerald-300 mt-0.5">
-                          T50 = Day {nodePredictiveMetrics.treatedT50} (+
-                          {nodePredictiveMetrics.daysGained}d Lifespan)
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {survivalStoredBlock}
               </div>
             )}
 
@@ -1512,7 +1406,7 @@ export default function EntityInspector({
                       Platform
                     </span>
                     <span className="font-semibold text-white text-xs block mt-0.5">
-                      {node.platform || "2K Account"}
+                      {node.platform || "n/a"}
                     </span>
                   </div>
                   <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
@@ -1520,7 +1414,7 @@ export default function EntityInspector({
                       Match Confidence
                     </span>
                     <span className="font-semibold text-emerald-400 text-xs font-mono block mt-0.5">
-                      {`${Math.round((node.confidence ?? 0.98) * 100)}%`}
+                      {typeof node.confidence === "number" ? `${Math.round(node.confidence * 100)}%` : "n/a"}
                     </span>
                   </div>
                 </div>
@@ -1574,70 +1468,159 @@ export default function EntityInspector({
                 </div>
 
                 {/* Spanner Decision Engine: Next-Best Action, CATE Uplift & 1-Click 2-Hop Graph Expansion */}
-                {nodePredictiveMetrics && (
-                  <div className="p-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/25 space-y-2">
+                {decisionStoredBlock}
+                {expandButton}
+
+                {/* Idea 3 & Idea 2: 5-Stack Squad Value-at-Risk (VaR_crew) & Concordia Stag-Hunt Tipping Point */}
+                {crewStoredBlock}
+
+                {/* Idea 6: 30-Day Cox Proportional Hazards / Weibull Survival Curve S(t) & T50 */}
+                {survivalStoredBlock}
+
+                {/* Geographic Location & NBA Market */}
+                {(node.dma_market || node.country) && (
+                  <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5 text-[11px] text-gray-200">
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="text-sm leading-none select-none">
+                        {node.country_flag || ""}
+                      </span>
+                      <div className="truncate">
+                        <span className="font-semibold text-white block truncate">
+                          {node.dma_market || node.country}
+                        </span>
+                        <span className="text-[11px] text-gray-400 block truncate">
+                          {node.country || ""}{" "}
+                          {node.country_code ? `(${node.country_code})` : ""}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 shrink-0">
+                      Verified Geo
+                    </span>
+                  </div>
+                )}
+
+                {is2KEntity ? (
+                <>
+                {/* 2K telemetry: each tile renders only when the field is stored on the player row. */}
+                {(() => {
+                  const has = (k: string) => tel[k] !== undefined && tel[k] !== null;
+                  const tiles: Array<{ label: string; value: string; tone?: string }> = [];
+                  if (has("myplayer_ovr")) tiles.push({ label: "MyPLAYER OVR", value: `${tel.myplayer_ovr}`, tone: "text-white" });
+                  if (has("myplayer_build")) tiles.push({ label: "Build", value: String(tel.myplayer_build) });
+                  if (has("position")) tiles.push({ label: "Position", value: String(tel.position) });
+                  if (has("rep_tier")) tiles.push({ label: "Rep tier", value: String(tel.rep_tier) });
+                  if (has("badges_count")) tiles.push({ label: "Badges", value: `${tel.badges_count}` });
+                  if (has("cap_breakers_unlocked")) tiles.push({ label: "Cap breakers", value: `${tel.cap_breakers_unlocked}` });
+                  if (has("vc_balance")) tiles.push({ label: "VC balance", value: `${Number(tel.vc_balance).toLocaleString()} VC`, tone: "text-amber-300" });
+                  if (has("vc_spend_90d")) tiles.push({ label: "VC spend 90d", value: `$${Math.round(Number(tel.vc_spend_90d)).toLocaleString()}` });
+                  if (has("season_pass_edition")) tiles.push({ label: "Season pass", value: `${String(tel.season_pass_edition).replace(/_/g, " ")}${has("season_pass_tier") ? ` · L${tel.season_pass_tier}` : ""}` });
+                  if (has("myteam_galaxy_opal_count")) tiles.push({ label: "Galaxy Opals", value: `${tel.myteam_galaxy_opal_count}` });
+                  if (has("myteam_packs_opened_30d")) tiles.push({ label: "Packs (30d)", value: `${tel.myteam_packs_opened_30d}` });
+                  if (has("park_win_pct")) tiles.push({ label: "Park win %", value: `${Math.round(Number(tel.park_win_pct) * 100)}%` });
+                  if (has("rage_quits_7d")) tiles.push({ label: "Rage quits (7d)", value: `${tel.rage_quits_7d}` });
+                  if (has("loss_streak") || typeof node.loss_streak === "number") tiles.push({ label: "Loss streak", value: `${node.loss_streak ?? tel.loss_streak}` });
+                  if (has("last_login_days_ago")) tiles.push({ label: "Last login", value: `${tel.last_login_days_ago}d ago` });
+                  if (has("platform")) tiles.push({ label: "Platform", value: String(tel.platform) });
+                  if (has("nba2k26_veteran")) tiles.push({ label: "NBA 2K26 veteran", value: tel.nba2k26_veteran ? "Yes" : "No" });
+                  if (has("nba2k26_spend_usd")) tiles.push({ label: "NBA 2K26 spend", value: `$${Math.round(Number(tel.nba2k26_spend_usd)).toLocaleString()}` });
+                  if (has("migrated_to_2k27")) tiles.push({ label: "Moved to 2K27", value: tel.migrated_to_2k27 ? "Yes" : "No (holdout)" });
+                  if (has("cross_2k_titles")) tiles.push({ label: "2K titles played", value: `${tel.cross_2k_titles}` });
+                  if (has("gravity_score")) tiles.push({ label: "Cross-2K gravity", value: `${Math.round(Number(tel.gravity_score) * 100)}%` });
+                  if (tiles.length === 0) return null;
+                  return (
+                    <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-2" data-testid="twok-telemetry">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-white">2K telemetry</span>
+                        <span className="font-mono text-[11px] text-gray-400">{franchiseName(String(node.franchise || ""))}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5 font-mono text-[11px] tabular">
+                        {tiles.map((t) => (
+                          <div key={t.label} className="p-1.5 rounded-lg bg-black/40 border border-white/5 min-w-0">
+                            <div className="text-[10px] text-gray-400 font-sans truncate">{t.label}</div>
+                            <div className={`font-semibold truncate ${t.tone || "text-gray-100"}`}>{t.value}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {node.title_spend && Object.keys(node.title_spend).length > 0 && (
+                        <div className="pt-1.5 border-t border-white/5 space-y-0.5">
+                          <div className="text-[10px] text-gray-400">Spend by title (PLAYS_GAME.spend_usd)</div>
+                          {Object.entries(node.title_spend)
+                            .sort((a, b) => Number(b[1]) - Number(a[1]))
+                            .map(([f, v]) => (
+                              <div key={f} className="flex items-center justify-between font-mono text-[11px] tabular">
+                                <span className="font-sans text-gray-200">{franchiseName(f)}</span>
+                                <span className="text-amber-300">${Number(v).toFixed(2)}</span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+                </>
+                ) : (
+                  /* Rockstar Games / Zynga player: show only telemetry stored on the Spanner row. */
+                  <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-2" data-testid="studio-telemetry">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold text-white flex items-center gap-1.5">
-                        <Target className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Next-Best Decision (Spanner)</span>
+                      <span className="text-[11px] font-semibold text-white">
+                        {selectedStudio ? STUDIO_NAMES[selectedStudio] : ""} telemetry
                       </span>
-                      <span
-                        className={`font-mono text-[10px] px-1.5 py-0.5 rounded border font-semibold ${
-                          nodePredictiveMetrics.decisionAction === "SEED_CREW_CAPTAIN"
-                            ? "bg-amber-500/20 text-amber-300 border-amber-500/35"
-                            : nodePredictiveMetrics.upliftQuadrant === "SURE_THING"
-                            ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/35"
-                            : nodePredictiveMetrics.upliftQuadrant === "SLEEPING_DOG"
-                            ? "bg-rose-500/20 text-rose-300 border-rose-500/35"
-                            : "bg-emerald-500/20 text-emerald-300 border-emerald-500/35"
-                        }`}
-                      >
-                        {nodePredictiveMetrics.decisionAction === "SEED_CREW_CAPTAIN"
-                          ? "SEED CREW CAPTAIN"
-                          : nodePredictiveMetrics.upliftQuadrant === "SURE_THING"
-                          ? "HOLD DISCOUNT · SAVE MARGIN"
-                          : nodePredictiveMetrics.upliftQuadrant === "SLEEPING_DOG"
-                          ? "SUPPRESS · PROTECT SENTIMENT"
-                          : "DISPATCH OFFER · PERSUADABLE"}
+                      <span className="font-mono text-[11px] text-gray-400">
+                        {franchiseName(String(node.franchise || ""))}
                       </span>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-2 font-mono text-xs tabular">
-                      <div className="p-2 rounded-lg bg-black/40 border border-white/10">
-                        <div className="text-[10px] text-gray-400">
-                          Recommended Action / SKU
-                        </div>
-                        <div className="text-[11px] font-semibold text-white mt-0.5 truncate">
-                          {nodePredictiveMetrics.recommendedOfferTitle}
-                        </div>
-                        <div className="text-[10px] text-emerald-300">
-                          {nodePredictiveMetrics.recommendedOfferPrice > 0
-                            ? `$${nodePredictiveMetrics.recommendedOfferPrice.toFixed(2)} · CATE τᵢ ${
-                                nodePredictiveMetrics.cateUpliftScore >= 0 ? "+" : ""
-                              }${Math.round(nodePredictiveMetrics.cateUpliftScore * 100)}%`
-                            : `No Discount · CATE τᵢ ${Math.round(
-                                nodePredictiveMetrics.cateUpliftScore * 100
-                              )}%`}
-                        </div>
-                      </div>
-
-                      <div className="p-2 rounded-lg bg-black/40 border border-white/10">
-                        <div className="text-[10px] text-gray-400">
-                          {nodePredictiveMetrics.marginSavedUsd > 0
-                            ? "Margin Protected"
-                            : "Expected Incremental LTV"}
-                        </div>
-                        <div className="text-sm font-semibold text-emerald-400 mt-0.5">
-                          {nodePredictiveMetrics.marginSavedUsd > 0
-                            ? `+$${nodePredictiveMetrics.marginSavedUsd.toFixed(2)} Saved`
-                            : `+$${nodePredictiveMetrics.expectedIncrementalLtvUsd.toFixed(2)}`}
-                        </div>
-                        <div className="text-[10px] text-gray-400 truncate">
-                          {nodePredictiveMetrics.crewName} ({nodePredictiveMetrics.crewRole})
-                        </div>
-                      </div>
+                    <div className="grid grid-cols-2 gap-1.5 font-mono text-[11px] tabular">
+                      {(
+                        [
+                          ["gtao_rank", "GTA Online rank"],
+                          ["heists_completed_30d", "Heists (30d)"],
+                          ["owned_businesses", "Businesses owned"],
+                          ["gta_plus_member", "GTA+ member"],
+                          ["rdo_role", "Red Dead role"],
+                          ["zynga_daily_streak", "Daily streak"],
+                          ["games_started_30d", "Games started (30d)"],
+                          ["ad_views_30d", "Ad views (30d)"],
+                          ["iap_spend_90d", "IAP spend 90d ($)"],
+                          ["hours_played", "Hours played"],
+                          ["last_login_days_ago", "Last login (days)"],
+                          ["platform", "Platform"],
+                          ["gta6_wishlisted", "GTA VI wishlisted"],
+                        ] as Array<[string, string]>
+                      )
+                        .filter(([k]) => tel[k] !== undefined && tel[k] !== null)
+                        .map(([k, label]) => (
+                          <div key={k} className="p-1.5 rounded-lg bg-black/40 border border-white/5">
+                            <div className="text-[10px] text-gray-400 font-sans">{label}</div>
+                            <div className="text-white font-semibold truncate">
+                              {typeof tel[k] === "boolean" ? (tel[k] ? "Yes" : "No") : String(tel[k])}
+                            </div>
+                          </div>
+                        ))}
                     </div>
-
+                    {node.title_spend && Object.keys(node.title_spend).length > 0 && (
+                      <div className="pt-1.5 border-t border-white/5 space-y-0.5">
+                        <div className="text-[10px] text-gray-400">Spend by title (PLAYS_GAME.spend_usd)</div>
+                        {Object.entries(node.title_spend)
+                          .sort((a, b) => Number(b[1]) - Number(a[1]))
+                          .map(([f, v]) => (
+                            <div key={f} className="flex items-center justify-between font-mono text-[11px] tabular">
+                              <span className="font-sans text-gray-200">{franchiseName(f)}</span>
+                              <span className="text-amber-300">${Number(v).toFixed(2)}</span>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                    {node.wishlisted && node.wishlisted.length > 0 && (
+                      <div className="pt-1 border-t border-white/5 text-[11px] text-gray-300">
+                        Wishlisted: {node.wishlisted.map((f) => franchiseName(f)).join(", ")}
+                      </div>
+                    )}
+                    {node.crew_role && (
+                      <div className="text-[11px] text-gray-300">
+                        Crew role: <span className="font-mono text-white">{node.crew_role}</span>
+                      </div>
+                    )}
                     {onExpandPlayerNeighborhood && (
                       <button
                         type="button"
@@ -1650,393 +1633,18 @@ export default function EntityInspector({
                             setIsExpandingNeighborhood(false);
                           }
                         }}
-                        className="w-full py-1.5 px-2.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/35 text-cyan-200 font-mono text-[10.5px] font-semibold transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
+                        className="w-full py-1.5 px-2.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.10] border border-white/15 text-gray-100 font-mono text-[10.5px] font-semibold transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
                       >
-                        <Users className="w-3.5 h-3.5 text-cyan-300" />
+                        <Users className="w-3.5 h-3.5" />
                         <span>
                           {isExpandingNeighborhood
-                            ? "Expanding 2-Hop Neighborhood..."
-                            : "Expand 2-Hop Crew, Squad & 2K Titles on Graph"}
+                            ? "Expanding neighborhood..."
+                            : "Expand crew, identities & titles on graph"}
                         </span>
                       </button>
                     )}
                   </div>
                 )}
-
-                {/* Idea 3 & Idea 2: 5-Stack Squad Value-at-Risk (VaR_crew) & Concordia Stag-Hunt Tipping Point */}
-                {nodePredictiveMetrics && (
-                  <div className="p-3 rounded-xl bg-amber-500/[0.07] border border-amber-500/25 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold text-amber-300">
-                        5-Stack Squad Value-at-Risk
-                      </span>
-                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200 border border-amber-500/30">
-                        {nodePredictiveMetrics.isKeystoneCaptain
-                          ? `Keystone Captain · ${nodePredictiveMetrics.crewName}`
-                          : `5-Stack · ${nodePredictiveMetrics.crewName}`}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 font-mono text-xs tabular">
-                      <div className="p-2 rounded-lg bg-black/40 border border-white/10">
-                        <div className="text-[10px] text-gray-400">
-                          Squad Value-at-Risk ($)
-                        </div>
-                        <div className="text-sm font-semibold text-amber-300 mt-0.5">
-                          ${nodePredictiveMetrics.squadVarUsd.toLocaleString()}
-                        </div>
-                        <div className="text-[10px] text-gray-400">
-                          Across {nodePredictiveMetrics.activeSquadMatesCount} Crew Mates
-                        </div>
-                      </div>
-                      <div className="p-2 rounded-lg bg-black/40 border border-white/10">
-                        <div className="text-[10px] text-gray-400">
-                          Concordia Tipping Point
-                        </div>
-                        <div className="text-xs font-semibold text-emerald-400 mt-0.5">
-                          {nodePredictiveMetrics.active2k27Count}/5 Crew Mates in 2K27
-                        </div>
-                        <div className="text-[10px] text-cyan-300">
-                          → {nodePredictiveMetrics.upgradeMultiplier} Upgrade Probability
-                        </div>
-                      </div>
-                    </div>
-
-                    {nodePredictiveMetrics.squadMateTags.length > 0 && (
-                      <div className="pt-1 border-t border-white/5 space-y-1">
-                        <div className="text-[10px] text-gray-400 font-mono">
-                          Active Spanner Crew Squadmates:
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {nodePredictiveMetrics.squadMateTags.slice(0, 4).map((tag, idx) => (
-                            <span
-                              key={idx}
-                              className="px-1.5 py-0.5 rounded bg-black/50 border border-white/10 text-[10px] font-mono text-amber-200"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Idea 6: 30-Day Cox Proportional Hazards / Weibull Survival Curve S(t) & T50 */}
-                {nodePredictiveMetrics && (
-                  <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold text-white">
-                        30-Day Cox / Weibull Survival S(t)
-                      </span>
-                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 tabular">
-                        -{nodePredictiveMetrics.crewHazardReductionPct}% Crew Hazard
-                      </span>
-                    </div>
-
-                    {/* Dual-Line SVG Sparkline: Baseline S(t) vs. Crew Re-Up Intervention S(t) */}
-                    <div className="rounded-lg bg-black/40 border border-white/5 p-2">
-                      {(() => {
-                        const pts = nodePredictiveMetrics.survivalPoints;
-                        const w = 284;
-                        const h = 52;
-                        const padX = 6;
-                        const padY = 6;
-                        const innerW = w - padX * 2;
-                        const innerH = h - padY * 2;
-                        const toX = (day: number) =>
-                          padX + ((day - 1) / 29) * innerW;
-                        const toY = (pct: number) =>
-                          padY + ((100 - pct) / 100) * innerH;
-
-                        const basePath = pts
-                          .map(
-                            (pt, i) =>
-                              `${i === 0 ? "M" : "L"} ${toX(pt.day).toFixed(1)} ${toY(
-                                pt.baselinePct
-                              ).toFixed(1)}`
-                          )
-                          .join(" ");
-                        const treatedPath = pts
-                          .map(
-                            (pt, i) =>
-                              `${i === 0 ? "M" : "L"} ${toX(pt.day).toFixed(1)} ${toY(
-                                pt.treatedPct
-                              ).toFixed(1)}`
-                          )
-                          .join(" ");
-                        const y50 = toY(50);
-
-                        return (
-                          <svg
-                            viewBox={`0 0 ${w} ${h}`}
-                            className="w-full h-13 overflow-visible"
-                          >
-                            {/* 50% Median Survival T50 Threshold Line */}
-                            <line
-                              x1={padX}
-                              y1={y50}
-                              x2={w - padX}
-                              y2={y50}
-                              stroke="rgba(255,255,255,0.14)"
-                              strokeDasharray="2 2"
-                              strokeWidth="1"
-                            />
-                            <text
-                              x={w - padX - 2}
-                              y={y50 - 3}
-                              textAnchor="end"
-                              fill="rgba(255,255,255,0.45)"
-                              fontSize="8.5"
-                              fontFamily="monospace"
-                            >
-                              T50 (50%)
-                            </text>
-                            {/* Baseline Survival Path (Dashed Rose) */}
-                            <path
-                              d={basePath}
-                              fill="none"
-                              stroke="#FF4D5E"
-                              strokeWidth="1.75"
-                              strokeDasharray="3.5 2.5"
-                              strokeLinecap="round"
-                            />
-                            {/* Treated Crew Re-Up Survival Path (Solid Emerald) */}
-                            <path
-                              d={treatedPath}
-                              fill="none"
-                              stroke="#19C37D"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                            />
-                          </svg>
-                        );
-                      })()}
-                      <div className="flex items-center justify-between text-[10px] font-mono text-gray-400 pt-1 tabular">
-                        <span>Day 1</span>
-                        <span>Day 15</span>
-                        <span>Day 30</span>
-                      </div>
-                    </div>
-
-                    {/* Baseline T50 vs. Crew Re-Up T50 Badges */}
-                    <div className="grid grid-cols-2 gap-1.5 font-mono text-[11px] tabular">
-                      <div className="px-2 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/25">
-                        <div className="text-[10px] text-rose-300">Baseline Survival</div>
-                        <div className="font-semibold text-white mt-0.5">
-                          T50 = Day {nodePredictiveMetrics.baselineT50}
-                        </div>
-                      </div>
-                      <div className="px-2 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25">
-                        <div className="text-[10px] text-emerald-300">
-                          With Crew Re-Up
-                        </div>
-                        <div className="font-semibold text-emerald-300 mt-0.5">
-                          T50 = Day {nodePredictiveMetrics.treatedT50} (+
-                          {nodePredictiveMetrics.daysGained}d Lifespan)
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Geographic Location & NBA Market */}
-                {(node.dma_market || node.country) && (
-                  <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5 text-[11px] text-gray-200">
-                    <div className="flex items-center gap-2 truncate">
-                      <span className="text-sm leading-none select-none">
-                        {node.country_flag || "🇺🇸"}
-                      </span>
-                      <div className="truncate">
-                        <span className="font-semibold text-white block truncate">
-                          {node.dma_market || "Major NBA Market DMA"}
-                        </span>
-                        <span className="text-[11px] text-gray-400 block truncate">
-                          {node.country || "United States"}{" "}
-                          {node.country_code ? `(${node.country_code})` : ""}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 shrink-0">
-                      Verified Geo
-                    </span>
-                  </div>
-                )}
-
-                {/* 1. MyPLAYER Build Card */}
-                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-gray-400 font-semibold">
-                      MyPLAYER Build · Season 1
-                    </span>
-                    <span className="font-mono text-[11px] text-cyan-300">
-                      {tel.platform || "PS5"} · {tel.rep_tier || "Starter II"}
-                    </span>
-                  </div>
-                  <div className="flex items-baseline justify-between gap-2">
-                    <div>
-                      <div className="text-xl font-bold font-mono text-white">
-                        {tel.myplayer_ovr ?? 84}{" "}
-                        <span className="text-[11px] font-mono uppercase text-[#E4002B]">
-                          OVR
-                        </span>
-                      </div>
-                      <div className="text-[11px] font-medium text-gray-200 mt-0.5">
-                        {tel.myplayer_build || "2-Way 3-Level Threat"} ·{" "}
-                        <span className="font-mono text-gray-400">
-                          {tel.position || "PG"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-right font-mono text-xs tabular">
-                      <div>
-                        <div className="text-[11px] text-gray-400">Badges</div>
-                        <div className="font-semibold text-white">
-                          {tel.badges_count ?? 22} / 53
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[11px] text-gray-400">Cap Breakers</div>
-                        <div className="font-semibold text-amber-300">
-                          +{tel.cap_breakers_unlocked ?? 1}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. VC Wallet & 90d VC Spend */}
-                <div className="grid grid-cols-3 gap-2 font-mono tabular">
-                  <div className="p-2 rounded-xl bg-white/[0.03] border border-white/5">
-                    <div className="text-[11px] text-gray-400">VC Balance</div>
-                    <div className="text-xs font-semibold text-amber-300 mt-0.5">
-                      {(tel.vc_balance ?? 14500).toLocaleString()} VC
-                    </div>
-                  </div>
-                  <div className="p-2 rounded-xl bg-white/[0.03] border border-white/5">
-                    <div className="text-[11px] text-gray-400">90d VC</div>
-                    <div className="text-xs font-semibold text-white mt-0.5">
-                      ${Math.round(tel.vc_spend_90d ?? node.spend ?? 65)}
-                    </div>
-                  </div>
-                  <div className="p-2 rounded-xl bg-white/[0.03] border border-white/5">
-                    <div className="text-[11px] text-gray-400">Season Pass</div>
-                    <div className="text-xs font-semibold text-cyan-300 mt-0.5 truncate">
-                      {tel.season_pass_edition === "HALL_OF_FAME"
-                        ? "HoF"
-                        : tel.season_pass_edition || "PRO"}{" "}
-                      · L{tel.season_pass_tier ?? 24}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. MyTEAM Galaxy Opals & Park Telemetry */}
-                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-gray-400">
-                      MyTEAM &amp; Park Telemetry
-                    </span>
-                    <span className="font-mono text-[11px] text-gray-400">
-                      Login: {tel.last_login_days_ago ?? 1}d ago
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 font-mono text-xs tabular">
-                    <div className="p-2 rounded-lg bg-black/40 border border-white/5">
-                      <div className="text-[11px] text-gray-400">Opals</div>
-                      <div className="font-semibold text-amber-300 mt-0.5">
-                        {tel.myteam_galaxy_opal_count ?? 0}
-                      </div>
-                    </div>
-                    <div className="p-2 rounded-lg bg-black/40 border border-white/5">
-                      <div className="text-[11px] text-gray-400">Packs (30d)</div>
-                      <div className="font-semibold text-white mt-0.5">
-                        {tel.myteam_packs_opened_30d ?? 4}
-                      </div>
-                    </div>
-                    <div className="p-2 rounded-lg bg-black/40 border border-white/5">
-                      <div className="text-[11px] text-gray-400">Win %</div>
-                      <div className="font-semibold text-emerald-400 mt-0.5">
-                        {tel.park_win_pct
-                          ? `${Math.round(tel.park_win_pct * 100)}%`
-                          : "54%"}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 10-Segment Rage-Quit Index Bar */}
-                  <div className="pt-0.5">
-                    <div className="flex items-center justify-between font-mono text-[11px] tabular mb-1">
-                      <span className="text-gray-400">
-                        Rage-Quit ({tel.rage_quits_7d ?? 1} / 7d ·{" "}
-                        {node.loss_streak ?? tel.loss_streak ?? 0}L)
-                      </span>
-                      <span className="text-pink-400 font-semibold">
-                        {Math.round((node.tilt ?? 0.35) * 100)} / 100
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-10 gap-1">
-                      {Array.from({ length: 10 }, (_, idx) => {
-                        const rageSegments = Math.min(
-                          10,
-                          Math.max(1, Math.round(Number(node.tilt ?? 0.35) * 10))
-                        );
-                        return (
-                          <span
-                            key={idx}
-                            className={`h-2 rounded-sm ${
-                              idx < rageSegments ? "bg-[#FF4D5E]" : "bg-white/10"
-                            }`}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4. NBA 2K26 Veteran & Cross-2K Bridge Status */}
-                <div className="p-3 rounded-xl bg-amber-500/[0.06] border border-amber-500/25 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[11px] text-amber-300 font-semibold">
-                      2K26 Veteran &amp; Cross-2K Bridge
-                    </span>
-                    <span className="font-mono text-xs font-semibold tabular text-amber-300">
-                      {Math.round(
-                        Number(node.gravity_score ?? tel.gravity_score ?? 0.52) * 100
-                      )}
-                      % Gravity
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 font-mono text-xs tabular">
-                    <div className="rounded-lg border border-white/[0.08] bg-black/40 p-2">
-                      <div className="text-[11px] text-gray-400">
-                        NBA 2K26 History
-                      </div>
-                      <div className="font-semibold text-white mt-0.5">
-                        {tel.nba2k26_veteran !== false
-                          ? `Veteran · $${Math.round(
-                              tel.nba2k26_spend_usd || (node.spend || 140) * 0.55
-                            )}`
-                          : "New in 2K27"}
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-white/[0.08] bg-black/40 p-2">
-                      <div className="text-[11px] text-gray-400">
-                        2K26 → 2K27 Status
-                      </div>
-                      <div
-                        className={`font-semibold mt-0.5 ${
-                          tel.migrated_to_2k27 === false
-                            ? "text-amber-300"
-                            : "text-emerald-400"
-                        }`}
-                      >
-                        {tel.migrated_to_2k27 === false
-                          ? "2K26 HOLDOUT"
-                          : `${tel.cross_2k_titles || 2}x 2K TITLES`}
-                      </div>
-                    </div>
-                  </div>
-                </div>
 
                 {/* 4b. Crew & Creator Affinity */}
                 {((node.followed_creators && node.followed_creators.length > 0) ||
@@ -2050,7 +1658,7 @@ export default function EntityInspector({
                       </div>
                       {tel.crew_id && (
                         <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                          🛡️ {tel.crew_id}
+                          {tel.crew_id}
                         </span>
                       )}
                     </div>
@@ -2079,7 +1687,6 @@ export default function EntityInspector({
                                   : "bg-white/5 border-white/10 text-gray-300 hover:border-cyan-500/30"
                               }`}
                             >
-                              <span>{isPrimary ? "⭐" : "📺"}</span>
                               <span>{creatorName}</span>
                             </button>
                           );
@@ -2089,102 +1696,73 @@ export default function EntityInspector({
                   </div>
                 )}
 
-                {/* 4c. 2K Unified Identity Spine Tree */}
-                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
-                  <IdentityTree
-                    identities={
-                      node.linked_identities && node.linked_identities.length > 0
-                        ? node.linked_identities
-                        : [
-                            {
-                              platform: "2K Account",
-                              handle: node.name || node.id,
-                              confidence_score: 0.99,
-                            },
-                            {
-                              platform:
-                                tel.platform === "XBOX"
-                                  ? "Xbox Live"
-                                  : tel.platform === "PC"
-                                  ? "Steam"
-                                  : "PlayStation Network",
-                              handle: node.name || node.id,
-                              confidence_score: 0.97,
-                            },
-                            {
-                              platform: "NBA 2K Mobile ID",
-                              handle: `${node.name || node.id}_2KM`,
-                              confidence_score: 0.93,
-                            },
-                          ]
-                    }
-                    masterId={node.master_player_id || node.id}
-                  />
-                </div>
-
-                {/* 4d. Verified In-Game Purchases & SKUs */}
-                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
-                  <div className="flex items-center justify-between border-b border-white/5 pb-1">
-                    <div className="flex items-center gap-1.5 text-white font-semibold text-[11px]">
-                      <ShoppingBag className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Verified 2K Purchases</span>
+                {/* 4c. Linked identities: from the player row or HAS_IDENTITY edges on the canvas */}
+                {(() => {
+                  const idOf = (v: any) => (typeof v === "object" && v ? v.id : String(v));
+                  const fromCanvas = (graphData?.links || [])
+                    .filter((l: any) => idOf(l.source) === node.id)
+                    .map((l: any) => (graphData?.nodes || []).find((n) => n.id === idOf(l.target)))
+                    .filter((n): n is GraphNode => !!n && n.type === "IDENTITY")
+                    .map((n) => ({
+                      platform: String(n.platform || ""),
+                      handle: String(n.name || "").split(": ").slice(1).join(": ") || n.id,
+                      confidence_score: Number(n.confidence),
+                    }));
+                  const identities =
+                    node.linked_identities && node.linked_identities.length > 0
+                      ? node.linked_identities
+                      : fromCanvas;
+                  if (identities.length === 0) return null;
+                  return (
+                    <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                      <IdentityTree identities={identities} masterId={node.master_player_id || node.id} />
                     </div>
-                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      {(node.spend || 0) >= 1000
-                        ? "MyTEAM Whale"
-                        : (node.spend || 0) >= 300
-                        ? "High-Velocity VC"
-                        : (node.spend || 0) >= 70
-                        ? "Core 2K Loyalist"
-                        : "Standard Edition"}
-                    </span>
-                  </div>
+                  );
+                })()}
 
-                  <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
-                    {(node.purchased_items && node.purchased_items.length > 0
-                      ? node.purchased_items.filter((it) =>
-                          /2k|vc|myteam|mycareer|wwe|pga|topspin|borderlands|civ|mafia|pass|pack|bundle|edition/i.test(
-                            it.title || ""
-                          )
-                        )
-                      : [
-                          {
-                            title: `${node.franchise || "NBA 2K27"} Hall of Fame Edition`,
-                            price: (node.spend || 0) > 0 ? node.spend || 99.99 : 69.99,
-                            date: "2026-09-04",
-                            category: "2K Retail & VC Bundle",
-                          },
-                        ]
-                    ).map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between p-2 rounded-lg bg-black/40 border border-white/5 text-[11px]"
-                      >
-                        <div className="flex items-center gap-2 truncate max-w-[195px]">
-                          <PackageCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                          <div className="truncate">
-                            <span className="text-white block font-medium truncate">
-                              {item.title}
-                            </span>
-                            <span className="text-[11px] text-gray-400 block truncate">
-                              {item.category} · {item.date}
-                            </span>
-                          </div>
-                        </div>
-                        <span className="font-mono text-emerald-400 font-semibold shrink-0 ml-2">
-                          ${Number(item.price || 0).toFixed(2)}
-                        </span>
+                {/* 4d. Purchases stored on the player row (purchased_items) */}
+                {node.purchased_items && node.purchased_items.length > 0 && (
+                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-1">
+                      <div className="flex items-center gap-1.5 text-white font-semibold text-[11px]">
+                        <ShoppingBag className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Purchases</span>
                       </div>
-                    ))}
+                      <span className="text-[11px] font-mono text-gray-400">
+                        {node.purchased_items.length} items · $
+                        {node.purchased_items.reduce((a, it) => a + Number(it.price || 0), 0).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                      {node.purchased_items.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-2 rounded-lg bg-black/40 border border-white/5 text-[11px]"
+                        >
+                          <div className="flex items-center gap-2 truncate max-w-[195px]">
+                            <PackageCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <div className="truncate">
+                              <span className="text-white block font-medium truncate">{item.title}</span>
+                              <span className="text-[11px] text-gray-400 block truncate">
+                                {[item.category, item.date].filter(Boolean).join(" · ")}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="font-mono text-emerald-400 font-semibold shrink-0 ml-2">
+                            ${Number(item.price || 0).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* 5. Playstyle & Behavioral Radar */}
                 <PlaystyleRadar
-                  spend={node.spend || 120}
-                  churnRisk={node.churn_risk || 0.38}
-                  tilt={node.tilt || 0.42}
-                  archetype={String(node.archetype || "MYCAREER_STORY_CASUAL")}
+                  spend={node.spend as number}
+                  churnRisk={node.churn_risk as number}
+                  tilt={node.tilt as number}
+                  archetype={String(node.archetype || "")}
                   telemetry={tel}
                 />
               </div>
@@ -2199,11 +1777,11 @@ export default function EntityInspector({
               <div className="flex items-center gap-1.5">
                 <Users className="w-3.5 h-3.5 text-[#669DF6]" />
                 <span className="text-[11px] font-semibold text-white">
-                  1° · 2° · 3° Co-Play Social Graph
+                  1° · 2° · 3° social graph
                 </span>
               </div>
-              <span className="text-[10px] font-mono text-emerald-400">
-                3-Hop Contagion
+              <span className="text-[10px] font-mono text-gray-400">
+                PLAYED_WITH · FRIENDS_WITH · INVITED
               </span>
             </div>
 
@@ -2212,9 +1790,9 @@ export default function EntityInspector({
               {(
                 [
                   { id: "all" as const, label: "All 3°", color: "text-white" },
-                  { id: "1" as const, label: "1° Squad", color: "text-emerald-400" },
-                  { id: "2" as const, label: "2° Rivals", color: "text-purple-300" },
-                  { id: "3" as const, label: "3° Weak", color: "text-amber-300" },
+                  { id: "1" as const, label: "1° ties", color: "text-emerald-400" },
+                  { id: "2" as const, label: "2° ties", color: "text-purple-300" },
+                  { id: "3" as const, label: "3° ties", color: "text-amber-300" },
                 ] as const
               ).map((hop) => {
                 const isActive = activeHopFilter === hop.id;
@@ -2241,83 +1819,6 @@ export default function EntityInspector({
               })}
             </div>
 
-            {/* 3 Research-Backed Interpersonal Monetization Triggers */}
-            <div className="space-y-1.5 pt-0.5">
-              {[
-                {
-                  degree: "1° Strong Tie",
-                  badgeColor: "text-emerald-400 bg-emerald-500/15 border-emerald-500/30",
-                  title: "Squad Duo VC + Altruistic Gift Pass",
-                  price: 9.99,
-                  lift: "3.4x Co-Op Lift",
-                  desc: "Mutual Rec/Park co-play utility + teammate boost token",
-                  hop: "1" as const,
-                },
-                {
-                  degree: "2° Friend-of-Squad",
-                  badgeColor: "text-purple-300 bg-purple-500/15 border-purple-500/30",
-                  title: "Rival OVR Status Catch-Up Bundle",
-                  price: 14.99,
-                  lift: "2.6x Status Lift",
-                  desc: "Triggered when 2° lobby peers out-level player by +4 OVR",
-                  hop: "2" as const,
-                },
-                {
-                  degree: "3° Weak-Tie Bridge",
-                  badgeColor: "text-amber-300 bg-amber-500/15 border-amber-500/30",
-                  title: "Concordia Squad Migration Bounty",
-                  price: 49.99,
-                  lift: "2.1x Migration",
-                  desc: "Pulls 3° NBA 2K26 holdouts via shared cross-crew bridges",
-                  hop: "3" as const,
-                },
-              ].map((play) => (
-                <div
-                  key={play.degree}
-                  className="rounded-lg bg-black/45 border border-white/[0.07] p-2 space-y-1"
-                >
-                  <div className="flex items-center justify-between gap-1">
-                    <span
-                      className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-semibold border ${play.badgeColor}`}
-                    >
-                      {play.degree}
-                    </span>
-                    <span className="text-[10px] font-mono text-white/75">
-                      ${play.price.toFixed(2)} ·{" "}
-                      <span className="text-emerald-400 font-semibold">
-                        {play.lift}
-                      </span>
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="text-[11px] font-medium text-white truncate">
-                        {play.title}
-                      </div>
-                      <div className="text-[10px] text-gray-400 truncate">
-                        {play.desc}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveHopFilter(play.hop);
-                        onExploreSocialHops(
-                          node?.type === "PLAYER" ? node.id : undefined,
-                          play.hop
-                        );
-                        if (onLaunchSocialPlay) {
-                          onLaunchSocialPlay(play.title, play.price);
-                        }
-                      }}
-                      className="px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 text-[10px] font-semibold text-white shrink-0 transition-colors"
-                    >
-                      Test →
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         )}
       </div>
@@ -2361,7 +1862,7 @@ export default function EntityInspector({
               type="button"
               onClick={() => onFindGraphTwins(node || undefined)}
               disabled={isFindingTwins}
-              title="Expand with 3,072-d ScaNN Graph Twins on the Graph Canvas"
+              title="Find the most similar players (live cosine similarity over all players in Spanner)"
               className="w-full flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/35 text-cyan-300 hover:text-cyan-200 text-xs font-semibold transition-all disabled:opacity-60 active:scale-[0.98]"
             >
               {isFindingTwins ? (

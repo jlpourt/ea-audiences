@@ -803,9 +803,10 @@ export function buildRound3CounterfactualCrowdPrompt(
     player_id: string;
     gamer_tag: string;
     archetype: string;
-    crew_name: string;
+    // Optional: omitted from the JSON when not stored for the agent.
+    crew_name?: string;
     round2_state: string;
-    round2_wtp: number;
+    round2_wtp?: number;
   }>,
   offerTitle: string,
   priceUsd: number,

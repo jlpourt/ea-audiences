@@ -92,9 +92,17 @@ const STEPS: Step[] = [
     short: "Act + learn",
     badge: "CLOSED LOOP",
     headline:
-      "Approved offers go out through Pub/Sub to the in-game inbox, 2K mobile push and Google Ads. Every send and outcome is written back to BigQuery to measure lift.",
+      "Approved actions go out through Pub/Sub to each label's surfaces: 2K inbox and push, Rockstar Newswire, Zynga cross-promo and Google Ads. Every send has a randomized holdout in BigQuery, so lift is measured, not assumed.",
     nodes: ["ai", "act", "bq"],
     wires: ["ai-act", "act-bq"],
+  },
+  {
+    short: "Governed by label",
+    badge: "LABEL-SCOPED CONSENT",
+    headline:
+      "Each label keeps its data in its own project. BigQuery sharing and data clean rooms match 2K, Rockstar and Zynga players on hashed IDs under each label's consent; only consented audiences and aggregates cross labels.",
+    nodes: ["sf", "dbx", "td", "bq", "sp"],
+    wires: ["bq-sp", "sp-bq"],
   },
 ];
 

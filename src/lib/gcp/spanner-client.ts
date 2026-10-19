@@ -76,6 +76,8 @@ export interface GraphQueryResult {
   executionTimeMs: number;
   whereClause: string;
   gqlExecuted: string;
+  /** Rendered sample allocation per studio (exact matched vs rendered). */
+  sampleStrata?: Array<{ studio: string; matched: number; rendered: number }>;
   isMultiHop?: boolean;
   matchPattern?: string;
   bridgeRows?: MultiHopBridgeRow[];
@@ -299,20 +301,34 @@ export async function runSpannerGraphQuery(
   const where = normalizeWhereClause(extractWhereClause(generatedGql));
   const whereFragment = buildWhereFragment(where);
 
-  const rowsSql = isMultiHop
-    ? `GRAPH ${GRAPH}\n` +
-      `MATCH ${matchClause}\n` +
-      whereFragment +
-      `RETURN ${PLAYER_GROUPED_PROJECTION}\n` +
-      `GROUP BY p.player_id\n` +
-      `ORDER BY lifetime_spend_usd DESC\n` +
-      `LIMIT ${Math.max(1, renderLimit)}`
-    : `GRAPH ${GRAPH}\n` +
-      `MATCH ${matchClause}\n` +
-      whereFragment +
-      `RETURN ${PLAYER_PROJECTION}\n` +
-      `ORDER BY p.lifetime_spend_usd DESC\n` +
-      `LIMIT ${Math.max(1, renderLimit)}`;
+  // Rendered sample: deterministic, representative of the matched set.
+  // sample_key = FARM_FINGERPRINT(player_id) mod a prime, kept inside JS's safe
+  // integer range so row.toJSON() never overflows on INT64.
+  // Rows are ordered by FARM_FINGERPRINT(player_id) (not by spend, which
+  // over-represented high-spending 2K players) and stratified by studio in
+  // proportion to the exact matched counts (see stratified fetch below).
+  const rowsSqlFor = (extraWhere: string, limit: number) => {
+    const wf = where
+      ? `WHERE (${where})${extraWhere ? ` AND ${extraWhere}` : ""}\n`
+      : extraWhere
+      ? `WHERE ${extraWhere}\n`
+      : "";
+    return isMultiHop
+      ? `GRAPH ${GRAPH}\n` +
+          `MATCH ${matchClause}\n` +
+          wf +
+          `RETURN ${PLAYER_GROUPED_PROJECTION}, ANY_VALUE(MOD(FARM_FINGERPRINT(p.player_id), 1000000007)) AS sample_key\n` +
+          `GROUP BY p.player_id\n` +
+          `ORDER BY sample_key\n` +
+          `LIMIT ${Math.max(1, limit)}`
+      : `GRAPH ${GRAPH}\n` +
+          `MATCH ${matchClause}\n` +
+          wf +
+          `RETURN ${PLAYER_PROJECTION}, MOD(FARM_FINGERPRINT(p.player_id), 1000000007) AS sample_key\n` +
+          `ORDER BY sample_key\n` +
+          `LIMIT ${Math.max(1, limit)}`;
+  };
+  const rowsSql = rowsSqlFor("", renderLimit);
 
   const statsSql =
     `GRAPH ${GRAPH}\n` +
@@ -396,12 +412,15 @@ export async function runSpannerGraphQuery(
   let results: any[][];
   try {
     results = await Promise.all([
-      runGql(database, rowsSql),
       runGql(database, statsSql),
       runGql(database, archetypeSql),
       runGql(database, countrySql),
       runGql(database, franchiseSql),
       bridgePromise,
+      runGql(
+        database,
+        `SELECT franchise, ANY_VALUE(label) AS label FROM Games GROUP BY franchise`
+      ),
     ]);
   } catch (e: any) {
     throw new SpannerUnavailableError(
@@ -412,7 +431,75 @@ export async function runSpannerGraphQuery(
     );
   }
 
-  const [rawRows, statsRows, archRows, countryRows, franchiseRows, bridgeRows] = results;
+  const [statsRows, archRows, countryRows, franchiseRows, bridgeRows, labelRows] = results;
+
+  // Studio strata from the exact matched counts per primary franchise.
+  const studioOf = (label: string) =>
+    label === "ROCKSTAR" ? "ROCKSTAR" : label === "ZYNGA" ? "ZYNGA" : "2K";
+  const labelByFranchise = new Map<string, string>(
+    labelRows.map((r: any) => [String(r.franchise), String(r.label)])
+  );
+  const strata = new Map<string, { franchises: string[]; matched: number }>();
+  for (const r of franchiseRows) {
+    if (r.k === null || r.k === undefined) continue;
+    const st = studioOf(labelByFranchise.get(String(r.k)) || "2K");
+    const cur = strata.get(st) || { franchises: [], matched: 0 };
+    cur.franchises.push(String(r.k));
+    cur.matched += toNumber(r.n);
+    strata.set(st, cur);
+  }
+  const matchedTotal = Array.from(strata.values()).reduce((a, b) => a + b.matched, 0);
+  const budget = Math.min(renderLimit, matchedTotal);
+  // Largest-remainder allocation, proportional to matched counts.
+  const alloc = Array.from(strata.entries()).map(([studio, v]) => {
+    const exact = matchedTotal ? (v.matched / matchedTotal) * budget : 0;
+    return { studio, ...v, quota: Math.floor(exact), rem: exact - Math.floor(exact) };
+  });
+  let left = budget - alloc.reduce((a, b) => a + b.quota, 0);
+  for (const a of [...alloc].sort((x, y) => y.rem - x.rem)) {
+    if (left <= 0) break;
+    if (a.quota < a.matched) {
+      a.quota += 1;
+      left -= 1;
+    }
+  }
+  // Keep every matched studio visible: a non-empty stratum gets at least one row
+  // (taken from the largest stratum) when the render budget allows.
+  for (const a of alloc) {
+    if (a.quota === 0 && a.matched > 0 && budget >= alloc.length) {
+      const donor = [...alloc].sort((x, y) => y.quota - x.quota)[0];
+      if (donor && donor.quota > 1) {
+        donor.quota -= 1;
+        a.quota = 1;
+      }
+    }
+  }
+  // Franchise ids come from the matched-count query (Spanner Games values); escape anyway.
+  const quoted = (f: string) => `'${f.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
+  let rawRows: any[] = [];
+  try {
+    const parts = await Promise.all(
+      alloc
+        .filter((a) => a.quota > 0)
+        .map((a) =>
+          runGql(
+            database,
+            rowsSqlFor(`p.primary_franchise IN (${a.franchises.map(quoted).join(", ")})`, a.quota)
+          )
+        )
+    );
+    rawRows = parts.flat();
+  } catch (e: any) {
+    throw new SpannerUnavailableError(
+      `Property graph sample query failed: ${e?.message || e}. MATCH was: ${matchClause}.`,
+      e
+    );
+  }
+  const sampleStrata = alloc.map((a) => ({
+    studio: a.studio,
+    matched: a.matched,
+    rendered: a.quota,
+  }));
 
   const stats = statsRows[0] || {};
   const histogram = (rows: any[]) =>
@@ -423,8 +510,7 @@ export async function runSpannerGraphQuery(
 
   const archetypeHistogram = histogram(archRows);
   const dominantArchetype =
-    Object.entries(archetypeHistogram).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-    "MYCAREER_STORY_CASUAL";
+    Object.entries(archetypeHistogram).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
 
   const aggregates: CohortAggregates = {
     totalMatched: toNumber(stats.total),
@@ -457,6 +543,7 @@ export async function runSpannerGraphQuery(
     executionTimeMs: Date.now() - started,
     whereClause: where,
     gqlExecuted: rowsSql,
+    sampleStrata,
     isMultiHop,
     matchPattern: matchClause,
     bridgeRows: bridgeRows || [],

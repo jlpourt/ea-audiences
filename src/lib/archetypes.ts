@@ -123,6 +123,103 @@ export const ARCHETYPE_COLORS: Record<ArchetypeId, string> = {
 
 const FALLBACK_COLOR = "#7C8799";
 
+/**
+ * Rockstar Games and Zynga archetypes present in `t2_graph_db`
+ * (`Players.primary_archetype` for t2-rsg-* / t2-zng-* players). Kept apart
+ * from the 2K `ARCHETYPES` list because 2K-only persona prompts are keyed on
+ * `ArchetypeId`; label / colour lookups below cover both sets.
+ */
+export const STUDIO_ARCHETYPES = {
+  GTAO_HEIST_CREW: {
+    studio: "ROCKSTAR",
+    label: "GTA Online Heist Crew",
+    color: "#F5B400",
+    description: "Runs heists with a regular crew; social, session-based, responds to crew-wide bonuses.",
+  },
+  GTAO_BUSINESS_GRINDER: {
+    studio: "ROCKSTAR",
+    label: "GTA Online Business Grinder",
+    color: "#D99A00",
+    description: "Grinds owned businesses for GTA$ and upgrades; long sessions, steady spend.",
+  },
+  CAR_MEET_ENTHUSIAST: {
+    studio: "ROCKSTAR",
+    label: "Car Meet Enthusiast",
+    color: "#FFCF4D",
+    description: "Lives in the LS Car Meet; tunes, races and collects vehicles.",
+  },
+  RP_COMMUNITY_REGULAR: {
+    studio: "ROCKSTAR",
+    label: "Roleplay Community Regular",
+    color: "#C9A227",
+    description: "Plays on roleplay communities; high hours, community-driven, creator-led.",
+  },
+  SHARK_CARD_SPENDER: {
+    studio: "ROCKSTAR",
+    label: "Shark Card Spender",
+    color: "#FFB020",
+    description: "Buys Shark Cards and GTA+; the highest-spend Rockstar segment.",
+  },
+  RDO_FRONTIER_ROLEPLAYER: {
+    studio: "ROCKSTAR",
+    label: "Red Dead Frontier Roleplayer",
+    color: "#B5651D",
+    description: "Plays Red Dead Online roles (trader, bounty hunter, naturalist) with a posse.",
+  },
+  WORD_GAME_SOCIALITE: {
+    studio: "ZYNGA",
+    label: "Word Game Socialite",
+    color: "#2FD38A",
+    description: "Plays Words With Friends turn-based with friends and family; invite-driven.",
+  },
+  PUZZLE_DAILY_RITUALIST: {
+    studio: "ZYNGA",
+    label: "Puzzle Daily Ritualist",
+    color: "#5BE3A6",
+    description: "Daily match-3 / puzzle sessions on mobile; small, frequent IAP and ad views.",
+  },
+  MOBILE_RACER: {
+    studio: "ZYNGA",
+    label: "CSR2 Mobile Racer",
+    color: "#1FB57A",
+    description: "Drag-races and collects cars in CSR Racing 2; crew events drive spend.",
+  },
+  SOCIAL_CASINO_REGULAR: {
+    studio: "ZYNGA",
+    label: "Social Casino Regular",
+    color: "#8BE9C0",
+    description: "Plays Zynga Poker tables daily; chip-pack purchases and social tables.",
+  },
+  RPG_PUZZLE_ALLIANCE: {
+    studio: "ZYNGA",
+    label: "RPG Puzzle Alliance Member",
+    color: "#14966A",
+    description: "Empires & Puzzles alliance member; war events and hero pulls.",
+  },
+} as const satisfies Record<
+  string,
+  { studio: "ROCKSTAR" | "ZYNGA"; label: string; color: string; description: string }
+>;
+
+export type StudioArchetypeId = keyof typeof STUDIO_ARCHETYPES;
+
+/** Every archetype in t2_graph_db: 2K first, then Rockstar Games, then Zynga. */
+export const ALL_ARCHETYPE_IDS: readonly string[] = [
+  ...ARCHETYPES,
+  ...(Object.keys(STUDIO_ARCHETYPES) as StudioArchetypeId[]),
+];
+
+function studioArchetype(value?: string | null) {
+  return value && Object.prototype.hasOwnProperty.call(STUDIO_ARCHETYPES, value)
+    ? STUDIO_ARCHETYPES[value as StudioArchetypeId]
+    : null;
+}
+
+/** Studio that owns an archetype (2K archetypes default to "2K"). */
+export function archetypeStudio(value?: string | null): "2K" | "ROCKSTAR" | "ZYNGA" {
+  return studioArchetype(value)?.studio ?? "2K";
+}
+
 export function isKnownArchetype(value?: string | null): value is ArchetypeId {
   return !!value && (ARCHETYPES as readonly string[]).includes(value);
 }
@@ -132,14 +229,18 @@ export function isWhaleArchetype(value?: string | null): boolean {
 }
 
 export function archetypeColor(value?: string | null): string {
-  return isKnownArchetype(value) ? ARCHETYPE_COLORS[value] : FALLBACK_COLOR;
+  if (isKnownArchetype(value)) return ARCHETYPE_COLORS[value];
+  return studioArchetype(value)?.color ?? FALLBACK_COLOR;
 }
 
 export function archetypeLabel(value?: string | null): string {
   if (isKnownArchetype(value)) return ARCHETYPE_LABELS[value];
+  const s = studioArchetype(value);
+  if (s) return s.label;
   return value ? value.replace(/_/g, " ").toLowerCase() : "Unknown";
 }
 
 export function archetypeDescription(value?: string | null): string {
-  return isKnownArchetype(value) ? ARCHETYPE_DESCRIPTIONS[value] : "";
+  if (isKnownArchetype(value)) return ARCHETYPE_DESCRIPTIONS[value];
+  return studioArchetype(value)?.description ?? "";
 }

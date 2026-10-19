@@ -2,9 +2,10 @@ export type NodeType = "PLAYER" | "IDENTITY" | "GAME" | "CLAN" | "OFFER" | "CREA
 
 /**
  * Franchise filter values. These are the canonical `franchise` ids stored on
- * `Games.franchise` and `Players.primary_franchise` in `twok_graph_db`.
- * Focused strictly on 2K brands: NBA 2K27 · NBA 2K26 · NBA 2K Mobile · 2K Sports
- * (WWE 2K25 / PGA TOUR 2K25 / TopSpin 2K25) · 2K Core (Borderlands 4 / Civ VII / Mafia).
+ * `Games.franchise` and `Players.primary_franchise` in `t2_graph_db`.
+ * 2K: NBA 2K27 · NBA 2K26 · NBA 2K Mobile · 2K Sports (WWE 2K25 / PGA TOUR
+ * 2K25 / TopSpin 2K25) · 2K Core (Borderlands 4 / Civ VII / Mafia), plus
+ * Rockstar Games and Zynga titles.
  */
 export type GameFranchise =
   | "ALL"
@@ -16,10 +17,28 @@ export type GameFranchise =
   | "TOPSPIN"
   | "CIV7"
   | "BL4"
-  | "MAFIA";
+  | "MAFIA"
+  // Rockstar Games (Games.label = ROCKSTAR). GTA6 is PRE_LAUNCH: intent only
+  // (WISHLISTED edges), never PLAYS_GAME.
+  | "GTAO"
+  | "RDO"
+  | "GTA6"
+  // Zynga (Games.label = ZYNGA)
+  | "WWF"
+  | "MATCHFACTORY"
+  | "TOONBLAST"
+  | "CSR2"
+  | "EMPIRES"
+  | "ZPOKER";
 
 /** 2K publishing division label. Stored on `Games.label`; drives cluster colour. */
 export type TakeTwoLabel = "2K" | "2K_SPORTS" | "2K_CORE";
+
+/**
+ * Every value `Games.label` can hold in t2_graph_db: the three 2K divisions
+ * plus the Rockstar Games and Zynga studio labels.
+ */
+export type GameLabel = TakeTwoLabel | "ROCKSTAR" | "ZYNGA";
 
 /** Franchise groups as rendered by the segmented control. */
 export const FRANCHISE_GROUPS: Array<{ id: string; label: string; franchises: GameFranchise[] }> = [
@@ -31,7 +50,7 @@ export const FRANCHISE_GROUPS: Array<{ id: string; label: string; franchises: Ga
   { id: "all", label: "All 2K Titles", franchises: ["ALL"] },
 ];
 
-export const LABEL_BY_FRANCHISE: Record<Exclude<GameFranchise, "ALL">, TakeTwoLabel> = {
+export const LABEL_BY_FRANCHISE: Record<Exclude<GameFranchise, "ALL">, GameLabel> = {
   NBA2K: "2K",
   NBA2K26: "2K",
   NBA2KMOBILE: "2K",
@@ -41,6 +60,15 @@ export const LABEL_BY_FRANCHISE: Record<Exclude<GameFranchise, "ALL">, TakeTwoLa
   CIV7: "2K_CORE",
   BL4: "2K_CORE",
   MAFIA: "2K_CORE",
+  GTAO: "ROCKSTAR",
+  RDO: "ROCKSTAR",
+  GTA6: "ROCKSTAR",
+  WWF: "ZYNGA",
+  MATCHFACTORY: "ZYNGA",
+  TOONBLAST: "ZYNGA",
+  CSR2: "ZYNGA",
+  EMPIRES: "ZYNGA",
+  ZPOKER: "ZYNGA",
 };
 
 // Archetype identity lives in one place: src/lib/archetypes.ts. Imported for
@@ -60,6 +88,7 @@ export type ContextualViewType =
 
 export type SegmentationLens =
   | "FRANCHISE"
+  | "ARCHETYPE"
   | "SOCIAL_HOPS"
   | "CATE_UPLIFT"
   | "PORTFOLIO_RINGS"
@@ -133,7 +162,7 @@ export interface GraphNode {
   type: NodeType;
   franchise?: GameFranchise | string;
   /** Take-Two label for GAME nodes and for cross-label cluster colouring. */
-  label?: TakeTwoLabel;
+  label?: GameLabel;
   archetype?: Archetype | string;
   spend?: number;
   churn_risk?: number;
@@ -183,6 +212,16 @@ export interface GraphNode {
   multiHopPath?: MultiHopPathInfo;
   isMultiHopBridge?: boolean;
   hopStep?: number;
+  /** PLAYER nodes: every franchise the player has a PLAYS_GAME edge to. */
+  franchises_played?: string[];
+  /** PLAYER nodes: lifetime spend per title (PLAYS_GAME.spend_usd), keyed by franchise. */
+  title_spend?: Record<string, number>;
+  /** PLAYER nodes: titles on the player's wishlist (WISHLISTED edges), as franchise ids. */
+  wishlisted?: string[];
+  /** PLAYER nodes: active crew role from MEMBER_OF_CLAN (CAPTAIN | CO_CAPTAIN | MEMBER). */
+  crew_role?: string;
+  /** Studio derived from Games.label: 2K | ROCKSTAR | ZYNGA. */
+  studio?: "2K" | "ROCKSTAR" | "ZYNGA";
   x?: number;
   y?: number;
   z?: number;
@@ -430,15 +469,17 @@ export interface SwarmCrowdAgent {
   player_id: string;
   gamer_tag: string;
   archetype: Archetype | string;
-  myplayer_ovr: number;
-  crew_name: string;
-  creator_handle: string;
+  /** Only present when stored on the player (NBA 2K). */
+  myplayer_ovr?: number;
+  crew_name?: string;
+  creator_handle?: string;
   round1_state: FSMState;
   final_fsm_state: FSMState;
   round3_state?: FSMState;
   round3_flipped?: boolean;
   verbatim_quote?: string;
-  willingness_to_pay_usd: number;
+  /** Only present once the persona has been evaluated by the live model. */
+  willingness_to_pay_usd?: number;
   contagion_flipped: boolean;
   contagion_driver: ContagionDriver;
   contagion_source_tag?: string;
@@ -529,7 +570,8 @@ export interface CohortContext {
   /** Mirrors matchedCount. Retained for backwards compatibility. */
   estimatedTotal: number;
   dominantArchetype: string;
-  avgSpend: number;
+  /** Average lifetime spend (USD). Undefined when it was not computed. */
+  avgSpend?: number;
   avgChurn?: number;
   avgTilt?: number;
   highChurnCount?: number;
@@ -540,6 +582,8 @@ export interface CohortContext {
   isMultiHop?: boolean;
   multiHopMetadata?: MultiHopPathInfo;
   dynamicFinding?: DynamicCohortFinding;
+  /** True when the cohort was hand-picked on the canvas (Shift+click). */
+  isManualSegment?: boolean;
 }
 
 /** Full Courtside Focus Group result for one creative / offer. */

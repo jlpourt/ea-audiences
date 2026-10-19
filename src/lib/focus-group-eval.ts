@@ -976,13 +976,18 @@ export async function evaluateContagionRound2(
         redditThreads
       );
 
-      const res = await generateText({
+      // Live Vertex call with a bounded output and a 75s deadline. A degenerate
+      // generation (runaway/truncated JSON) is retried once against the same live
+      // model; if the retry also fails, the error surfaces (no canned payload).
+      const callRound2 = (attempt: number) => generateText({
         role: "FAST",
         system,
         prompt,
         json: true,
-        temperature: 0.6,
+        temperature: attempt === 0 ? 0.6 : 0.4,
         thinkingBudget: 0,
+        maxOutputTokens: 4096,
+        signal: AbortSignal.timeout(75_000),
         schema: {
           type: "OBJECT",
           properties: {
@@ -1016,12 +1021,20 @@ export async function evaluateContagionRound2(
         },
       });
 
-      const parsed = parseModelJson<any>(res.text);
-      const list = Array.isArray(parsed) ? parsed : parsed?.round2;
-      if (!Array.isArray(list)) {
-        throw new Error("Round 2 social contagion evaluation returned invalid JSON payload");
+      let lastDetail = "";
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const res = await callRound2(attempt);
+          const parsed = parseModelJson<any>(res.text);
+          const list = Array.isArray(parsed) ? parsed : parsed?.round2;
+          if (Array.isArray(list)) return list;
+          lastDetail = `invalid JSON (finishReason=${res.finishReason ?? "unknown"}, model=${res.modelUsed}, ${res.text.length} chars)`;
+        } catch (e) {
+          lastDetail = e instanceof Error ? e.message : String(e);
+        }
+        console.warn(`[focus-group] Round 2 chunk attempt ${attempt + 1} failed: ${lastDetail}`);
       }
-      return list;
+      throw new Error(`Round 2 social contagion evaluation failed on Vertex AI after 2 live attempts: ${lastDetail}`);
     })
   );
 

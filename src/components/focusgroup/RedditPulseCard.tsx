@@ -198,7 +198,7 @@ export function RedditPulseCard({ echoThreads }: RedditPulseCardProps = {}) {
                       </span>
                     )}
                     <span className="text-white/40 tabular">
-                      <TabularNumber value={item.score || 1200} /> pts
+                      {typeof item.score === "number" ? <><TabularNumber value={item.score} /> pts</> : null}
                     </span>
                     {typeof commentCount === "number" && commentCount > 0 && (
                       <span className="text-white/30 tabular text-[9px]">

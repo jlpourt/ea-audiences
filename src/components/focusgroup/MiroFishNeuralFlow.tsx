@@ -285,36 +285,28 @@ export default function MiroFishNeuralFlow({
     return { buy, eval: evalC, pass, boycott, total: totalDenominator };
   }, [activeReactions, crowdAgents, swarmSize, totalDenominator]);
 
-  // Attributed flip counts per Layer-3 Signal Node
+  // Attributed flip counts per Layer-3 Signal Node: counted from the
+  // contagion_driver each live persona / crowd agent reported. No fixed split.
   const signalAttribution = useMemo(() => {
-    const totalFlips = Math.max(0, contagionFlipsCount);
-    const creatorRaw =
-      creatorSignals.reduce((acc, c) => acc + (c.attributed_flips || 0), 0) ||
-      Math.max(1, Math.round(totalFlips * 0.42));
-    const crewRaw = Math.max(1, Math.round(totalFlips * 0.45));
-    const redditRaw = Math.max(0, totalFlips - Math.min(totalFlips, creatorRaw + crewRaw));
-
-    // Normalize so attributed flips sum cleanly to totalFlips when > 0
-    if (totalFlips === 0) {
-      return { creators: 0, crews: 0, reddit: 0, lostFlips: 0, lostBoycotts: 0 };
-    }
-    const c1 = Math.min(totalFlips, Math.max(1, Math.round(totalFlips * 0.42)));
-    const c2 = Math.min(totalFlips - c1, Math.max(1, Math.round(totalFlips * 0.45)));
-    const c3 = Math.max(0, totalFlips - c1 - c2);
-
+    const drivers = [
+      ...activeReactions.filter((r) => r.contagion_flipped).map((r) => r.contagion_driver),
+      ...crowdAgents.filter((a) => a.contagion_flipped).map((a) => a.contagion_driver),
+    ];
+    const c1 = drivers.filter((d) => d === "CREATOR_STREAM").length;
+    const c2 = drivers.filter((d) => d === "CREW_CAPTAIN").length;
+    const c3 = drivers.filter((d) => d === "REDDIT_THREAD").length;
     const lostFlips =
       (mutedSignals.sig_creators ? c1 : 0) +
       (mutedSignals.sig_crews ? c2 : 0) +
       (mutedSignals.sig_reddit ? c3 : 0);
-
     return {
       creators: c1,
       crews: c2,
       reddit: c3,
       lostFlips,
-      lostBoycotts: mutedSignals.sig_reddit ? Math.min(boycottCount, 1) : 0,
+      lostBoycotts: 0,
     };
-  }, [creatorSignals, contagionFlipsCount, mutedSignals, boycottCount]);
+  }, [activeReactions, crowdAgents, mutedSignals]);
 
   // Effective downstream numbers after any Layer-3 Signal Ablation / Mute
   const effectiveMetrics = useMemo(() => {
@@ -394,7 +386,7 @@ export default function MiroFishNeuralFlow({
           : "sig_crews";
     const signalLabel =
       signalNode === "sig_creators"
-        ? p.creator_handle || creatorSignals[0]?.handle || "Creator co-stream"
+        ? p.creator_handle || creatorSignals[0]?.handle || "Creator"
         : signalNode === "sig_reddit"
           ? "r/NBA2K Thread"
           : p.crew_name
@@ -447,10 +439,10 @@ export default function MiroFishNeuralFlow({
     const driver = r?.contagion_source_tag
       ? `via ${r.contagion_source_tag}`
       : r?.contagion_driver === "CREATOR_STREAM"
-        ? `via ${r.creator_handle || "@Agent00"}`
+        ? `via ${r.creator_handle || "creator stream"}`
         : r?.contagion_driver === "REDDIT_THREAD"
           ? "via r/NBA2K"
-          : `via ${r?.crew_name || "Crew"} Captain`;
+          : `via ${r?.crew_name ? `${r.crew_name} captain` : "crew captain"}`;
     return {
       tag: r?.gamer_tag ? `@${String(r.gamer_tag).replace(/^@/, "")}` : "Streaming",
       driver,
@@ -753,7 +745,7 @@ export default function MiroFishNeuralFlow({
           color: mutedSignals.sig_creators ? "text-white/40" : "text-[#D96570]",
           text: mutedSignals.sig_creators
             ? `Creator Co-Streams muted—losing ${signalAttribution.creators} attributed R2 conversions.`
-            : `${creatorSignals[0]?.handle || "@Agent00"} co-stream validates the build meta, flipping +${signalAttribution.creators} fence-sitters${creatorImpactText(creatorSignals[0]) ? ` (${creatorImpactText(creatorSignals[0])} vs matched control)` : ""}.`,
+            : `${creatorSignals[0]?.handle || "Creator"} co-stream validates the build meta, flipping +${signalAttribution.creators} fence-sitters${creatorImpactText(creatorSignals[0]) ? ` (${creatorImpactText(creatorSignals[0])} vs matched control)` : ""}.`,
         };
       case "sig_crews":
         return {
@@ -771,7 +763,7 @@ export default function MiroFishNeuralFlow({
             ? "SIGNAL MUTED · REDDIT"
             : "STEP 3C · r/NBA2K PULSE",
           color: mutedSignals.sig_reddit ? "text-white/40" : "text-[#FFB800]",
-          text: `Live r/NBA2K community threads test price backlash vs. build utility across ${redditThreads.length || 3} viral discussions.`,
+          text: `Live r/NBA2K community threads test price backlash vs. build utility across ${redditThreads.length} discussions.`,
         };
       case "r2":
         return {
@@ -1087,7 +1079,7 @@ export default function MiroFishNeuralFlow({
                 {
                   size: 6500 as const,
                   label: "6.5K",
-                  title: "Scale across Full 6,500-Player Spanner Identity Graph",
+                  title: "Project verdict shares onto 6,500 players (the 2K population; the full Take-Two graph is 37,500)",
                 },
               ] as const
             ).map((opt) => {
@@ -2329,7 +2321,7 @@ export default function MiroFishNeuralFlow({
                           )}
                         </div>
                         <span className="text-vc-gold shrink-0">
-                          ▲ {th.score || (th as any).upvotes || 1240} pts
+                          {typeof th.score === "number" || typeof (th as any).upvotes === "number" ? `▲ ${th.score ?? (th as any).upvotes} pts` : ""}
                         </span>
                       </div>
                       <p className="text-xs font-medium text-white/90 leading-snug line-clamp-1">
@@ -2371,7 +2363,7 @@ export default function MiroFishNeuralFlow({
                             @{String(p.gamer_tag).replace(/^@/, "")}
                           </span>
                           <span className="text-[10px] font-mono text-white/45 truncate">
-                            {p.myplayer_ovr || 85} OVR · {p.crew_name || "Bucket Getters"}
+                            {[typeof p.myplayer_ovr === "number" ? `${p.myplayer_ovr} OVR` : null, p.crew_name].filter(Boolean).join(" · ")}
                           </span>
                         </div>
 

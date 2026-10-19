@@ -10,7 +10,11 @@
  *                                                # stale keys (DB never empty while other apps read it)
  *
  * Hard guard: this script refuses to touch any database other than
- * twok_graph_db_v2. v1 twok_graph_db backs the live demo and is never modified.
+ * twok_graph_db_v2 or t2_graph_db. v1 twok_graph_db backs the live demo and is never modified.
+ *
+ * Take-Two command center: SPANNER_V2_DATABASE_ID=t2_graph_db loads the same v2
+ * data plus the Rockstar Games / Zynga portfolio extension from data/t2/
+ * (scripts/generate_t2_portfolio.py) with schema/t2_graph_db.ddl.
  * Zero fallbacks: every failure throws and exits non-zero.
  */
 const fs = require("fs");
@@ -23,13 +27,17 @@ if (INSTANCE === "blackrock-spanner") {
   throw new Error("Refusing blackrock-spanner: v2 lives on audience-graph-v2 (blackrock-spanner is at its DB limit and hosts v1).");
 }
 const DATABASE = process.env.SPANNER_V2_DATABASE_ID || "twok_graph_db_v2";
-if (DATABASE !== "twok_graph_db_v2") {
-  throw new Error(`Refusing to operate on '${DATABASE}': this loader only targets twok_graph_db_v2.`);
+if (DATABASE !== "twok_graph_db_v2" && DATABASE !== "t2_graph_db") {
+  throw new Error(`Refusing to operate on '${DATABASE}': this loader only targets twok_graph_db_v2 or t2_graph_db.`);
 }
-const DDL_PATH = path.join("schema", "twok_graph_db_v2.ddl");
+const IS_T2 = DATABASE === "t2_graph_db";
+const DDL_PATH = path.join("schema", IS_T2 ? "t2_graph_db.ddl" : "twok_graph_db_v2.ddl");
 
 const V1 = (f) => JSON.parse(fs.readFileSync(path.join("data", f), "utf-8"));
 const V2 = (f) => JSON.parse(fs.readFileSync(path.join("data", "v2", f), "utf-8"));
+const T2 = (f) => JSON.parse(fs.readFileSync(path.join("data", "t2", f), "utf-8"));
+/** v2 rows, plus the t2 extension rows when loading t2_graph_db. */
+const WITH_T2 = (v2File, t2File) => (IS_T2 ? [...V2(v2File), ...T2(t2File)] : V2(v2File));
 
 const int = (v) => (v === null || v === undefined ? null : Spanner.int(Math.round(Number(v))));
 const num = (v) => (v === null || v === undefined ? null : Spanner.float(Number(v)));
@@ -75,6 +83,7 @@ const KEYS = {
   SplitFrom: ["clan_id", "parent_clan_id"], Hosted: ["creator_id", "stream_id"], Watched: ["identity_id", "stream_id"],
   Sponsors: ["brand_id", "activation_id"], Features: ["activation_id", "item_id"],
   Bought: ["player_id", "item_id", "bought_at"], Equipped: ["player_id", "item_id"],
+  Invited: ["player_id", "invitee_id", "to_game_id"], Wishlisted: ["player_id", "game_id"],
 };
 const TS_KEYS = new Set(["bought_at"]);
 let MODE = "insert"; // or "upsert" (--replace)
@@ -115,6 +124,7 @@ const ALL_TABLES = [
   "Brands", "Streams", "Matches", "Seasons", "Players", "Games", "Creators", "Clans", "Offers",
   "Identities",
 ];
+if (IS_T2) ALL_TABLES.unshift("Invited", "Wishlisted");
 
 async function truncate(database) {
   console.log(`Truncating ${DATABASE}...`);
@@ -145,7 +155,8 @@ async function prune(database) {
 
 async function load(database) {
   console.log("\nReference tables (v1 base)...");
-  await insertAll(database, "Games", V1("games.json").map((g) => ({
+  const games = IS_T2 ? [...V1("games.json"), ...T2("games.json")] : V1("games.json");
+  await insertAll(database, "Games", games.map((g) => ({
     game_id: str(g.game_id), title: str(g.title), franchise: str(g.franchise), label: str(g.label),
     genre: str(g.genre), active_players: int(g.active_players), is_parent_hub: bool(g.is_parent_hub),
     parent_game_id: str(g.parent_game_id), release_date: str(g.release_date),
@@ -165,10 +176,19 @@ async function load(database) {
     tilt_index: num(e.tilt_index), event_timestamp: str(e.timestamp),
     triggered_offer_id: str(e.triggered_offer_id),
   })));
-  await insertAll(database, "PlaysGame", V1("played_game_edges.json").map((e) => ({
-    player_id: str(e.player_id), game_id: str(e.game_id), hours_played: num(e.hours_played),
-    last_played_timestamp: str(e.last_played_timestamp),
-  })));
+  if (IS_T2) {
+    // Full PlaysGame set for t2: v1 2K edges enriched with per-title spend + every cross-studio edge.
+    await insertAll(database, "PlaysGame", T2("plays_game.json").map((e) => ({
+      player_id: str(e.player_id), game_id: str(e.game_id), hours_played: num(e.hours_played),
+      last_played_timestamp: str(e.last_played_timestamp), spend_usd: num(e.spend_usd),
+      first_played_at: ts(e.first_played_at), acquired_via: str(e.acquired_via),
+    })), 1500);
+  } else {
+    await insertAll(database, "PlaysGame", V1("played_game_edges.json").map((e) => ({
+      player_id: str(e.player_id), game_id: str(e.game_id), hours_played: num(e.hours_played),
+      last_played_timestamp: str(e.last_played_timestamp),
+    })));
+  }
 
   console.log("\nv2 nodes...");
   await insertAll(database, "Creators", V2("creators.json").map((c) => ({
@@ -177,15 +197,20 @@ async function load(database) {
     conversion_affinity: num(c.conversion_affinity), signature_mode: str(c.signature_mode),
     avatar: str(c.avatar), hub_score: num(c.hub_score), community_span: int(c.community_span),
   })));
-  await insertAll(database, "Clans", V2("clans.json").map((c) => ({
+  await insertAll(database, "Clans", WITH_T2("clans.json", "clans.json").map((c) => ({
     clan_id: str(c.clan_id), name: str(c.name), franchise: str(c.franchise), region: str(c.region),
     tier: str(c.tier), member_count: int(c.member_count),
   })));
-  await insertAll(database, "Identities", V2("identities.json").map((i) => ({
+  await insertAll(database, "Identities", WITH_T2("identities.json", "identities.json").map((i) => ({
     identity_id: str(i.identity_id), platform: str(i.platform), platform_handle: str(i.platform_handle),
     confidence_score: num(i.confidence_score),
   })));
-  const players = V2("players.json");
+  let players = V2("players.json");
+  if (IS_T2) {
+    const overrides = T2("player_overrides.json");
+    players = players.map((p) => (overrides[p.player_id] ? { ...p, franchises_played: overrides[p.player_id] } : p));
+    players = [...players, ...T2("players.json")];
+  }
   await insertAll(database, "Players", players.map((p) => ({
     player_id: str(p.player_id), display_name: str(p.display_name), gamer_tag: str(p.gamer_tag),
     primary_email: str(p.primary_email), primary_franchise: str(p.primary_franchise),
@@ -223,7 +248,7 @@ async function load(database) {
     activation_id: str(a.activation_id), brand_id: str(a.brand_id), title: str(a.title), kind: str(a.kind),
     starts_at: ts(a.starts_at), ends_at: ts(a.ends_at), season_id: str(a.season_id),
   })));
-  await insertAll(database, "Items", V2("items.json").map((i) => ({
+  await insertAll(database, "Items", WITH_T2("items.json", "items.json").map((i) => ({
     item_id: str(i.item_id), name: str(i.name), item_type: str(i.item_type), brand_id: str(i.brand_id),
     is_branded: bool(i.is_branded), vc_price: int(i.vc_price),
   })));
@@ -258,22 +283,22 @@ async function load(database) {
     }
   }
   await insertAll(database, "FollowsCreator", follows, 1500);
-  await insertAll(database, "MemberOfClan", V2("member_of_clan.json").map((e) => ({
+  await insertAll(database, "MemberOfClan", WITH_T2("member_of_clan.json", "member_of_clan.json").map((e) => ({
     player_id: str(e.player_id), clan_id: str(e.clan_id), role: str(e.role), joined_at: ts(e.joined_at),
     left_at: ts(e.left_at), is_active: bool(e.is_active), crew_centrality: num(e.crew_centrality),
   })), 1000);
-  await insertAll(database, "HasIdentity", V2("has_identity.json").map((e) => ({
+  await insertAll(database, "HasIdentity", WITH_T2("has_identity.json", "has_identity.json").map((e) => ({
     player_id: str(e.player_id), identity_id: str(e.identity_id), confidence_score: num(e.confidence_score),
   })), 1500);
-  await insertAll(database, "PlayedWith", V2("played_with.json").map((e) => ({
+  await insertAll(database, "PlayedWith", WITH_T2("played_with.json", "played_with.json").map((e) => ({
     player_id: str(e.player_id), other_player_id: str(e.other_player_id),
     games_together_30d: int(e.games_together_30d), games_together_total: int(e.games_together_total),
     last_played_at: ts(e.last_played_at), same_crew: bool(e.same_crew),
   })), 1200);
-  await insertAll(database, "FriendsWith", V2("friends_with.json").map((e) => ({
+  await insertAll(database, "FriendsWith", WITH_T2("friends_with.json", "friends_with.json").map((e) => ({
     player_id: str(e.player_id), other_player_id: str(e.other_player_id), since: ts(e.since),
   })), 1500);
-  await insertAll(database, "Messaged", V2("messaged.json").map((e) => ({
+  await insertAll(database, "Messaged", WITH_T2("messaged.json", "messaged.json").map((e) => ({
     player_id: str(e.player_id), other_player_id: str(e.other_player_id),
     msg_count_30d: int(e.msg_count_30d), last_msg_at: ts(e.last_msg_at),
   })), 1500);
@@ -300,13 +325,23 @@ async function load(database) {
   await insertAll(database, "Features", V2("features.json").map((e) => ({
     activation_id: str(e.activation_id), item_id: str(e.item_id),
   })));
-  await insertAll(database, "Bought", V2("bought.json").map((e) => ({
+  await insertAll(database, "Bought", WITH_T2("bought.json", "bought.json").map((e) => ({
     player_id: str(e.player_id), item_id: str(e.item_id), bought_at: ts(e.bought_at),
     vc_amount: int(e.vc_amount), via_activation_id: str(e.via_activation_id),
   })), 1200);
   await insertAll(database, "Equipped", V2("equipped.json").map((e) => ({
     player_id: str(e.player_id), item_id: str(e.item_id), equipped_at: ts(e.equipped_at),
   })), 1500);
+  if (IS_T2) {
+    console.log("\nTake-Two portfolio edges...");
+    await insertAll(database, "Invited", T2("invited.json").map((e) => ({
+      player_id: str(e.player_id), invitee_id: str(e.invitee_id), to_game_id: str(e.to_game_id),
+      from_game_id: str(e.from_game_id), invited_at: ts(e.invited_at), accepted: bool(e.accepted),
+    })), 1500);
+    await insertAll(database, "Wishlisted", T2("wishlisted.json").map((e) => ({
+      player_id: str(e.player_id), game_id: str(e.game_id), wishlisted_at: ts(e.wishlisted_at), store: str(e.store),
+    })), 1500);
+  }
 }
 
 const SAMPLE_GQL = [
@@ -354,7 +389,7 @@ async function verify(database) {
     if (!rows.length) throw new Error(`Sample GQL returned zero rows: ${q.name}`);
     for (const r of rows) console.log("  ", JSON.stringify(r.toJSON()));
   }
-  fs.writeFileSync(path.join("data", "v2", "spanner_counts.json"), JSON.stringify(counts, null, 2));
+  fs.writeFileSync(path.join("data", IS_T2 ? "t2" : "v2", "spanner_counts.json"), JSON.stringify(counts, null, 2));
 }
 
 async function main() {

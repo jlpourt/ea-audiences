@@ -78,8 +78,15 @@ const ICONS: Partial<Record<LNode["kind"], LucideIcon>> = {
   brand: Tag,
 };
 
+/** Neighbor colour by home studio: Rockstar gold, Zynga green, 2K neutral. */
+const STUDIO_HUE: Record<string, string | undefined> = { ROCKSTAR: "var(--warn)", ZYNGA: "var(--good)" };
+
 function nodeFill(n: LNode): string {
-  if (n.kind === "neighbor") return n.churned ? "var(--bad-soft)" : "var(--surface-3)";
+  if (n.kind === "neighbor") {
+    if (n.churned) return "var(--bad-soft)";
+    const hue = n.studio ? STUDIO_HUE[n.studio] : undefined;
+    return hue ? `color-mix(in oklab, ${hue} 28%, var(--surface-3))` : "var(--surface-3)";
+  }
   if (n.hop === 2) return "var(--surface)";
   if (n.kind === "match") return n.churned ? "var(--bad-soft)" : "var(--surface-2)";
   return "var(--surface-2)";
@@ -89,7 +96,7 @@ function nodeStroke(n: LNode): string {
   if (n.kind === "neighbor") {
     if (n.churned) return "var(--bad)";
     if (n.keystone) return "var(--accent)";
-    return "var(--border-strong)";
+    return (n.studio && STUDIO_HUE[n.studio]) || "var(--border-strong)";
   }
   if (n.kind === "match" && n.churned) return "var(--bad)";
   if (n.hop === 2) return "var(--border-strong)";

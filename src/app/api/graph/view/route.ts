@@ -1,25 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GraphData, GraphNode, GraphLink, TakeTwoLabel } from "@/lib/types";
-import { archetypeColor } from "@/lib/archetypes";
+import { GraphNode, GraphLink, GameLabel } from "@/lib/types";
+import { archetypeColor, archetypeLabel } from "@/lib/archetypes";
 import {
-  getCatalog,
   getGames,
   getOffers,
   getCreators,
   getClans,
   getPlayersForView,
   getPlayerById,
+  getPlayersByIdList,
   getIdentitiesForPlayer,
+  getPlayEdges,
+  getWishlistEdges,
+  getMemberships,
+  getCrewMembers,
+  getInvitesAmong,
+  getSocialNeighbors,
+  getArchetypeOptions,
   GRAPH_NAME,
-  HUB_ID_BY_FRANCHISE,
   FRANCHISE_COLORS,
   LABEL_COLORS,
   SpannerUnavailableError,
+  type GameRow,
   type OfferRow,
   type CreatorRow,
   type ClanRow,
+  type PlayEdgeRow,
+  type MembershipRow,
 } from "@/lib/gcp/catalog";
-import { getCrewMates, getCrossLabelBridges } from "@/lib/gcp/spanner-client";
+import { getCrewMates } from "@/lib/gcp/spanner-client";
+import {
+  buildFranchiseIndex,
+  studioForLabel,
+  STUDIOS,
+  STUDIO_COLORS,
+  STUDIO_NAMES,
+  type Studio,
+} from "@/lib/studios";
 
 export const dynamic = "force-dynamic";
 
@@ -28,203 +45,64 @@ const RENDER_LIMIT = 1050;
 
 const PLATFORM_COLORS: Record<string, string> = {
   "2K Account": "#E4002B",
+  "Rockstar Games Social Club": "#F5B400",
+  "Zynga Account": "#2FD38A",
   "PlayStation Network": "#0070D1",
   "Xbox Live": "#107C10",
-  Steam: "#9146FF",
+  Steam: "#66C0F4",
   "Nintendo Switch 2": "#FF4D5E",
-  "NBA 2K Mobile ID": "#00D2FF",
+  "Google Play Games": "#34A853",
+  "Apple Game Center": "#A1A1AA",
+  Twitch: "#9146FF",
+  YouTube: "#FF3B30",
+  "NBA 2K Mobile ID": "#FF4D6D",
   "My2K Companion": "#F5B400",
 };
 
 /**
- * 5 Pinned Core 2K Hubs (Pure-2K Stellar Constellation)
- * Arranged with generous radial separation so player clusters never collide.
+ * Studio sectors for the macro constellation. Angles are degrees on the
+ * canvas (y grows downward, so -90 is the top). Hubs for every parent game in
+ * Spanner `Games` are spread across their studio's sector, so a new title
+ * appears without a code change.
  */
-const MACRO_HUB_POSITIONS: Record<
-  string,
-  {
-    fx: number;
-    fy: number;
-    fz: number;
-    title: string;
-    franchise: string;
-    label: TakeTwoLabel;
-    color: string;
-    val: number;
-  }
-> = {
-  "game-nba2k27": {
-    fx: 0,
-    fy: -320,
-    fz: 0,
-    title: "NBA 2K27",
-    franchise: "NBA2K",
-    label: "2K",
-    color: "#E4002B",
-    val: 46,
-  },
-  "game-nba2k26": {
-    fx: -420,
-    fy: -140,
-    fz: 90,
-    title: "NBA 2K26",
-    franchise: "NBA2K26",
-    label: "2K",
-    color: "#FF6B35",
-    val: 38,
-  },
-  "game-nba2k-mobile": {
-    fx: 420,
-    fy: -140,
-    fz: -90,
-    title: "NBA 2K Mobile",
-    franchise: "NBA2KMOBILE",
-    label: "2K",
-    color: "#00D2FF",
-    val: 38,
-  },
-  "game-wwe2k25": {
-    fx: -340,
-    fy: 240,
-    fz: -110,
-    title: "WWE 2K25 & PGA TOUR 2K25",
-    franchise: "WWE2K",
-    label: "2K_SPORTS",
-    color: "#F5B400",
-    val: 38,
-  },
-  "game-bl4": {
-    fx: 340,
-    fy: 240,
-    fz: 110,
-    title: "Borderlands 4 & Civilization VII",
-    franchise: "BL4",
-    label: "2K_CORE",
-    color: "#10B981",
-    val: 38,
-  },
+const STUDIO_SECTORS: Record<Studio, { angle: number; spread: number }> = {
+  "2K": { angle: -90, spread: 150 },
+  ROCKSTAR: { angle: 135, spread: 50 },
+  ZYNGA: { angle: 45, spread: 70 },
 };
 
-/**
- * Outer Pinned Social Creators & Crews anchoring the perimeter quadrants
- * Coordinates strictly in the outer ring (±610..680, ±30..360) for zero collision.
- */
-const MACRO_CREATOR_ANCHORS: {
-  id: string;
-  name: string;
-  franchise: string;
-  color: string;
-  fx: number;
-  fy: number;
-}[] = [
-  { id: "creator-agent00", name: "Agent 00", franchise: "NBA2K", color: "#00F0FF", fx: -610, fy: -340 },
-  { id: "creator-troydan", name: "Troydan", franchise: "NBA2K", color: "#00F0FF", fx: 610, fy: -340 },
-  { id: "creator-kot4q", name: "KOT4Q", franchise: "NBA2K26", color: "#00F0FF", fx: -670, fy: -190 },
-  { id: "creator-cashnasty", name: "CashNasty", franchise: "NBA2KMOBILE", color: "#00F0FF", fx: 670, fy: -190 },
-  { id: "creator-dbg", name: "DBG", franchise: "WWE2K", color: "#00F0FF", fx: -630, fy: 340 },
-  { id: "creator-moxsy", name: "Moxsy", franchise: "BL4", color: "#00F0FF", fx: 630, fy: 340 },
-];
-
-const MACRO_CREW_COORDS: { fx: number; fy: number; franchise: string }[] = [
-  { fx: -660, fy: -40, franchise: "NBA2K26" },
-  { fx: 660, fy: -40, franchise: "NBA2KMOBILE" },
-  { fx: -680, fy: 110, franchise: "NBA2K" },
-  { fx: 680, fy: 110, franchise: "NBA2K" },
-  { fx: -620, fy: 230, franchise: "WWE2K" },
-  { fx: 620, fy: 230, franchise: "BL4" },
-];
-
-/**
- * Top 5 Flagship Offer Anchor Offsets
- */
-const MACRO_OFFER_OFFSETS: { dx: number; dy: number; franchise: string }[] = [
-  { dx: -220, dy: -290, franchise: "NBA2K26" },
-  { dx: 220, dy: -290, franchise: "NBA2K" },
-  { dx: -560, dy: 40, franchise: "WWE2K" },
-  { dx: 560, dy: 40, franchise: "NBA2KMOBILE" },
-  { dx: 0, dy: 390, franchise: "BL4" },
-];
-
-/**
- * Map any 2K franchise to one of the 5 Pinned Macro Constellation Hubs when `franchise === "ALL"`.
- * - WWE2K, PGA2K, TOPSPIN -> game-wwe2k25 (South-West 2K Sports hub)
- * - BL4, CIV7, MAFIA -> game-bl4 (South-East 2K Core hub)
- * - NBA2K26 -> game-nba2k26 (West 2K26 migration/holdout hub)
- * - NBA2KMOBILE -> game-nba2k-mobile (East Mobile & MyTEAM companion hub)
- * - NBA2K -> game-nba2k27 (North Apex Flagship hub)
- */
-function mapFranchiseToMacroHub(franchise?: string | null): string {
-  switch (franchise) {
-    case "NBA2K":
-      return "game-nba2k27";
-    case "NBA2K26":
-      return "game-nba2k26";
-    case "NBA2KMOBILE":
-      return "game-nba2k-mobile";
-    case "WWE2K":
-    case "PGA2K":
-    case "TOPSPIN":
-      return "game-wwe2k25";
-    case "BL4":
-    case "CIV7":
-    case "MAFIA":
-      return "game-bl4";
-    default:
-      return "game-nba2k27";
-  }
+function polar(angleDeg: number, r: number) {
+  const a = (angleDeg * Math.PI) / 180;
+  return { x: Math.round(Math.cos(a) * r), y: Math.round(Math.sin(a) * r) };
 }
 
-function resolvePrimaryMacroHubForPlayer(p: any): string {
-  if (
-    p.primary_franchise === "NBA2KMOBILE" ||
-    p.primary_archetype === "MOBILE_DAILY_RITUALIST"
-  ) {
-    return "game-nba2k-mobile";
-  }
-  if (
-    p.primary_franchise === "NBA2K26" ||
-    (p.primary_franchise === "NBA2K" &&
-      p.game_telemetry?.nba2k26_veteran &&
-      p.game_telemetry?.migrated_to_2k27 === false)
-  ) {
-    return "game-nba2k26";
-  }
-  return mapFranchiseToMacroHub(p.primary_franchise);
+function sectorAngles(studio: Studio, n: number, spreadScale = 1): number[] {
+  const s = STUDIO_SECTORS[studio];
+  if (n <= 1) return [s.angle];
+  const spread = s.spread * spreadScale;
+  return Array.from(
+    { length: n },
+    (_, i) => s.angle - spread / 2 + (spread * i) / (n - 1)
+  );
 }
-
-function to2KDivisionLabel(franchise?: string | null): TakeTwoLabel {
-  if (franchise === "WWE2K" || franchise === "PGA2K" || franchise === "TOPSPIN") {
-    return "2K_SPORTS";
-  }
-  if (franchise === "BL4" || franchise === "CIV7" || franchise === "MAFIA") {
-    return "2K_CORE";
-  }
-  return "2K";
-}
-
-const VALID_2K_FRANCHISES = new Set<string>([
-  "NBA2K",
-  "NBA2K26",
-  "NBA2KMOBILE",
-  "WWE2K",
-  "PGA2K",
-  "TOPSPIN",
-  "BL4",
-  "CIV7",
-  "MAFIA",
-]);
 
 function sanitizePlatformName(platform: string): string {
+  if (PLATFORM_COLORS[platform]) return platform;
   const lower = platform.toLowerCase();
+  if (lower.includes("rockstar") || lower.includes("social club")) {
+    return "Rockstar Games Social Club";
+  }
+  if (lower.includes("zynga")) return "Zynga Account";
+  if (lower.includes("google play")) return "Google Play Games";
+  if (lower.includes("game center") || lower.includes("apple")) return "Apple Game Center";
   if (lower.includes("playstation") || lower.includes("psn") || lower.includes("ps5")) {
     return "PlayStation Network";
   }
   if (lower.includes("xbox")) return "Xbox Live";
-  if (lower.includes("steam") || lower.includes("pc")) return "Steam";
+  if (lower.includes("steam")) return "Steam";
   if (lower.includes("switch") || lower.includes("nintendo")) return "Nintendo Switch 2";
-  if (lower.includes("mobile")) return "NBA 2K Mobile ID";
   if (lower.includes("companion") || lower.includes("my2k")) return "My2K Companion";
-  return "2K Account";
+  return platform;
 }
 
 function formatOfferTitle(title: string, price: number): string {
@@ -256,7 +134,7 @@ function offerNode(o: OfferRow, fx?: number, fy?: number): GraphNode {
     id: o.offer_id,
     name: formatOfferTitle(o.offer_title, o.price_usd),
     type: "OFFER",
-    franchise: o.target_franchise ?? "NBA2K",
+    franchise: o.target_franchise ?? undefined,
     spend: o.price_usd,
     val: offerSize(o),
     color: offerColor(o),
@@ -266,6 +144,148 @@ function offerNode(o: OfferRow, fx?: number, fy?: number): GraphNode {
   };
 }
 
+/** Crew tiers across studios, ordered from most to least competitive. */
+function crewTierRank(tier?: string | null): number {
+  switch (tier) {
+    case "Comp":
+    case "Competitive":
+      return 0;
+    case "Pro-Am":
+    case "Posse":
+    case "Alliance":
+    case "Team":
+    case "Crew":
+      return 1;
+    default:
+      return 2; // Rec, Casual
+  }
+}
+
+type FranchiseIndex = ReturnType<typeof buildFranchiseIndex<GameRow>>;
+
+interface PlayerExtras {
+  plays?: PlayEdgeRow[];
+  wishlists?: string[];
+  membership?: MembershipRow;
+}
+
+/** One PLAYER node, labelled from the live Games catalog. */
+function playerNode(
+  p: any,
+  idx: FranchiseIndex,
+  gameById: Map<string, GameRow>,
+  extras: PlayerExtras = {}
+): GraphNode {
+  const spend: number = p.lifetime_spend_usd || 0;
+  const label = idx.labelOf(p.primary_franchise) as GameLabel;
+  const titleSpend: Record<string, number> = {};
+  for (const e of extras.plays || []) {
+    const g = gameById.get(e.game_id);
+    if (!g) continue;
+    titleSpend[g.franchise] = (titleSpend[g.franchise] || 0) + e.spend_usd;
+  }
+  const wishlisted = (extras.wishlists || [])
+    .map((gid) => gameById.get(gid)?.franchise)
+    .filter(Boolean) as string[];
+  return {
+    id: p.player_id,
+    name: p.gamer_tag || p.display_name,
+    type: "PLAYER",
+    franchise: p.primary_franchise,
+    label,
+    studio: studioForLabel(label),
+    archetype: p.primary_archetype,
+    spend,
+    churn_risk: p.churn_risk_score,
+    tilt: p.tilt_sensitivity,
+    loss_streak: p.recent_loss_streak,
+    gravity_score:
+      typeof p.game_telemetry?.gravity_score === "number"
+        ? Number(p.game_telemetry.gravity_score)
+        : undefined,
+    game_telemetry: p.game_telemetry,
+    purchased_items: p.purchased_items,
+    followed_creators: p.followed_creators,
+    primary_creator_influence: p.primary_creator_influence ?? undefined,
+    franchises_played: p.franchises_played || [],
+    title_spend: extras.plays ? titleSpend : undefined,
+    wishlisted: extras.wishlists ? wishlisted : undefined,
+    clan_id: extras.membership?.clan_id,
+    crew_role: extras.membership?.role ?? undefined,
+    country: p.country ?? undefined,
+    country_code: p.country_code ?? undefined,
+    country_flag: p.country_flag ?? undefined,
+    dma_market: p.dma_market ?? undefined,
+    lat: p.lat ?? undefined,
+    lng: p.lng ?? undefined,
+    val: spend >= 2500 ? 14 : spend >= 500 ? 9 : 6,
+    color: archetypeColor(p.primary_archetype),
+  };
+}
+
+function gameNode(
+  g: GameRow,
+  pos: { x: number; y: number },
+  val: number
+): GraphNode {
+  const preLaunch = g.lifecycle_status === "PRE_LAUNCH";
+  return {
+    id: g.game_id,
+    name: preLaunch ? `${g.title} (pre-launch)` : g.title,
+    type: "GAME",
+    franchise: g.franchise,
+    label: g.label,
+    studio: studioForLabel(g.label),
+    lifecycle_status: g.lifecycle_status ?? undefined,
+    current_season: g.current_season ?? undefined,
+    val,
+    color: FRANCHISE_COLORS[g.franchise] || LABEL_COLORS[g.label] || STUDIO_COLORS["2K"],
+    fx: pos.x,
+    fy: pos.y,
+  };
+}
+
+function crewNode(c: ClanRow, idx: FranchiseIndex, pos?: { x: number; y: number }): GraphNode {
+  const studio = idx.studioOf(c.franchise);
+  return {
+    id: c.clan_id,
+    name: `${c.name} · ${c.tier || "Crew"}`,
+    type: "CLAN",
+    franchise: c.franchise,
+    studio,
+    rank_tier: c.tier || undefined,
+    val: 24,
+    color: STUDIO_COLORS[studio],
+    ...(pos ? { fx: pos.x, fy: pos.y } : {}),
+  };
+}
+
+function creatorNode(c: CreatorRow, idx: FranchiseIndex, pos?: { x: number; y: number }): GraphNode {
+  return {
+    id: c.creator_id,
+    name: c.handle || c.name,
+    type: "CREATOR",
+    franchise: c.franchise ?? undefined,
+    studio: idx.studioOf(c.franchise),
+    platform: c.platform,
+    creator_data: c,
+    val: 24,
+    color: "#00F0FF",
+    ...(pos ? { fx: pos.x, fy: pos.y } : {}),
+  };
+}
+
+function groupBy<T>(rows: T[], key: (r: T) => string): Map<string, T[]> {
+  const m = new Map<string, T[]>();
+  for (const r of rows) {
+    const k = key(r);
+    const arr = m.get(k);
+    if (arr) arr.push(r);
+    else m.set(k, [r]);
+  }
+  return m;
+}
+
 export async function GET(request: NextRequest) {
   const started = Date.now();
   const { searchParams } = new URL(request.url);
@@ -273,13 +293,7 @@ export async function GET(request: NextRequest) {
   const selectedPlayerId = searchParams.get("playerId");
   const hopFilterParam = searchParams.get("hop") || "all";
   const maxHopAllowed =
-    hopFilterParam === "1"
-      ? 1
-      : hopFilterParam === "2"
-      ? 2
-      : hopFilterParam === "3"
-      ? 3
-      : 3;
+    hopFilterParam === "1" ? 1 : hopFilterParam === "2" ? 2 : 3;
   const gameFilter = searchParams.get("game") || "ALL";
   const archetypeFilter = searchParams.get("archetype") || "ALL";
   const isExpandOverlay = searchParams.get("expand") === "1";
@@ -288,291 +302,151 @@ export async function GET(request: NextRequest) {
     customLimit >= 100 && customLimit <= 2000 ? customLimit : RENDER_LIMIT;
 
   try {
+    const games = await getGames();
+    const idx = buildFranchiseIndex(games);
+    const gameById = new Map(games.map((g) => [g.game_id, g]));
     const nodes: GraphNode[] = [];
     const links: GraphLink[] = [];
 
     // ======================================================================
-    // VIEW 0: INTERPERSONAL CO-PLAY & 1st / 2nd / 3rd HOP SOCIAL GRAPH
+    // FILTER OPTIONS (data-driven from Spanner Games + Players)
+    // ======================================================================
+    if (view === "filters") {
+      const archetypes = await getArchetypeOptions();
+      const hubs = games.filter((g) => g.is_parent_hub);
+      return NextResponse.json({
+        games: hubs.map((g) => ({
+          franchise: g.franchise,
+          game_id: g.game_id,
+          title: g.title,
+          label: g.label,
+          studio: studioForLabel(g.label),
+          lifecycle_status: g.lifecycle_status,
+        })),
+        archetypes: archetypes.map((a) => ({
+          archetype: a.archetype,
+          name: archetypeLabel(a.archetype),
+          studio: studioForLabel(a.label),
+          players: a.players,
+        })),
+        studios: STUDIOS.map((s) => ({ id: s, name: STUDIO_NAMES[s] })),
+        execution_ms: Date.now() - started,
+      });
+    }
+
+    // ======================================================================
+    // VIEW 0: SOCIAL HOPS — real PLAYED_WITH / FRIENDS_WITH / INVITED BFS
     // ======================================================================
     if (view === "social-hops") {
-      const socialPlayers = await getPlayersForView({
-        franchise: gameFilter,
-        archetype: archetypeFilter,
-        limit: 240,
-      });
-
-      const egoPlayer = selectedPlayerId
-        ? (await getPlayerById(selectedPlayerId)) || socialPlayers[0]
-        : socialPlayers.find(
-            (p) =>
-              p.primary_archetype === "REC_CREW_CAPTAIN" ||
-              p.game_telemetry?.crew_role === "CAPTAIN"
-          ) || socialPlayers[0];
-
-      if (!egoPlayer) {
+      let ego: any = null;
+      if (selectedPlayerId) {
+        ego = await getPlayerById(selectedPlayerId);
+        if (!ego) {
+          return NextResponse.json(
+            { error: `Spanner Players: no player '${selectedPlayerId}' for social-hops view.` },
+            { status: 404 }
+          );
+        }
+      } else {
+        const sample = await getPlayersForView({
+          franchise: gameFilter,
+          archetype: archetypeFilter,
+          limit: 240,
+        });
+        const memberships = await getMemberships(sample.map((p) => p.player_id));
+        const captainIds = new Set(
+          memberships.filter((m) => m.role === "CAPTAIN").map((m) => m.player_id)
+        );
+        ego = sample.find((p) => captainIds.has(p.player_id)) || sample[0];
+      }
+      if (!ego) {
         return NextResponse.json(
-          { error: "No players found in Spanner for social-hops view." },
+          { error: "Spanner Players: no players match the current filter for social-hops view." },
           { status: 404 }
         );
       }
 
-      const crewMates = await getCrewMates([egoPlayer.player_id]);
-      const usedIds = new Set<string>([egoPlayer.player_id]);
-
-      // 0° Center Ego / Anchor Captain Node
-      nodes.push({
-        id: egoPlayer.player_id,
-        name: `${egoPlayer.gamer_tag || egoPlayer.display_name} (0° Seed)`,
-        type: "PLAYER",
-        franchise: egoPlayer.primary_franchise,
-        label: to2KDivisionLabel(egoPlayer.primary_franchise),
-        archetype: egoPlayer.primary_archetype,
-        spend: egoPlayer.lifetime_spend_usd,
-        churn_risk: egoPlayer.churn_risk_score,
-        tilt: egoPlayer.tilt_sensitivity,
-        loss_streak: egoPlayer.recent_loss_streak,
-        gravity_score: Number(egoPlayer.game_telemetry?.gravity_score ?? 0.88),
-        game_telemetry: {
-          ...egoPlayer.game_telemetry,
-          social_hop_degree: 0,
-          social_hop_label: "0° Ego Seed / Crew Anchor",
-          interpersonal_role: "Keystone Squad Anchor",
-          monetization_play: "Seed Captain Co-Op Multiplier",
-        },
-        purchased_items: egoPlayer.purchased_items,
-        followed_creators: egoPlayer.followed_creators,
-        primary_creator_influence: egoPlayer.primary_creator_influence ?? undefined,
-        val: 28,
-        color: "#4285F4",
-        fx: 0,
-        fy: 0,
-      });
-
-      // Build 1st Hop (1° Direct Co-Play Squadmates — Same Crew / Direct Rec Co-Play)
-      const hop1Players = socialPlayers
-        .filter((p) => {
-          if (usedIds.has(p.player_id)) return false;
-          const isDirectMate = crewMates.some((m) => m.mate_id === p.player_id);
-          const sameCrew =
-            egoPlayer.game_telemetry?.crew_id &&
-            p.game_telemetry?.crew_id === egoPlayer.game_telemetry?.crew_id;
-          return isDirectMate || sameCrew;
-        })
-        .slice(0, 14);
-
-      // Supplement up to 12 1st-hop co-play squadmates if needed from active Rec players
-      if (hop1Players.length < 12) {
-        for (const p of socialPlayers) {
-          if (usedIds.has(p.player_id) || hop1Players.some((h) => h.player_id === p.player_id)) {
-            continue;
-          }
-          hop1Players.push(p);
-          if (hop1Players.length >= 12) break;
+      const visited = new Set<string>([ego.player_id]);
+      const hopOf = new Map<string, number>([[ego.player_id, 0]]);
+      const hopEdges: Array<{ a: string; b: string; kind: string; weight: number; hop: number }> = [];
+      const caps = [14, 28, 38];
+      let frontier = [ego.player_id];
+      for (let hop = 1; hop <= maxHopAllowed; hop++) {
+        const rows = await getSocialNeighbors(frontier, Array.from(visited), caps[hop - 1] * 4);
+        const next: string[] = [];
+        for (const r of rows) {
+          if (visited.has(r.b)) continue;
+          visited.add(r.b);
+          hopOf.set(r.b, hop);
+          next.push(r.b);
+          hopEdges.push({ ...r, hop });
+          if (next.length >= caps[hop - 1]) break;
         }
+        if (next.length === 0) break;
+        frontier = next;
       }
 
-      hop1Players.forEach((p, idx) => {
-        usedIds.add(p.player_id);
-        const angle = (idx / Math.max(1, hop1Players.length)) * Math.PI * 2;
-        const r = 185;
-        const coplayGames = 14 + ((idx * 5) % 24);
+      const others = await getPlayersByIdList(Array.from(visited).filter((id) => id !== ego.player_id));
+      const byId = new Map<string, any>([[ego.player_id, ego], ...others.map((p) => [p.player_id, p] as [string, any])]);
+      const ringCount = [1, 0, 0, 0];
+      for (const h of Array.from(hopOf.values())) ringCount[h]++;
+      const ringIdx = [0, 0, 0, 0];
+      const ringRadius = [0, 185, 345, 505];
+      const ringColor = ["#FFFFFF", "#2FD38A", "#9B72CB", "#F5B400"];
+
+      for (const [id, hop] of Array.from(hopOf.entries())) {
+        const p = byId.get(id);
+        if (!p) continue;
+        const i = ringIdx[hop]++;
+        const pos = hop === 0 ? { x: 0, y: 0 } : polar((i / Math.max(1, ringCount[hop])) * 360 + hop * 7, ringRadius[hop]);
+        const n = playerNode(p, idx, gameById);
         nodes.push({
-          id: p.player_id,
-          name: `${p.gamer_tag || p.display_name} (1°)`,
-          type: "PLAYER",
-          franchise: p.primary_franchise,
-          label: to2KDivisionLabel(p.primary_franchise),
-          archetype: p.primary_archetype,
-          spend: p.lifetime_spend_usd,
-          churn_risk: p.churn_risk_score,
-          tilt: p.tilt_sensitivity,
-          loss_streak: p.recent_loss_streak,
-          gravity_score: Number(p.game_telemetry?.gravity_score ?? 0.65),
+          ...n,
+          name: `${n.name} (${hop}°)`,
+          val: hop === 0 ? 28 : hop === 1 ? 16 : hop === 2 ? 11 : 8,
+          color: ringColor[hop],
           game_telemetry: {
-            ...p.game_telemetry,
-            social_hop_degree: 1,
-            social_hop_label: "1° Direct Co-Play Squadmate",
-            coplay_games_30d: coplayGames,
-            interpersonal_role:
-              idx % 3 === 0
-                ? "Pick & Roll Duo Partner"
-                : idx % 3 === 1
-                ? "Rec 5v5 Starting Wing"
-                : "Park 3v3 Co-Op Anchor",
-            monetization_play: "1° Altruistic Squad Gifting & Co-Op Bundle ($9.99)",
+            ...(p.game_telemetry || {}),
+            social_hop_degree: hop,
           },
-          purchased_items: p.purchased_items,
-          followed_creators: p.followed_creators,
-          primary_creator_influence: p.primary_creator_influence ?? undefined,
-          val: 16,
-          color: "#19C37D",
-          fx: Math.round(Math.cos(angle) * r),
-          fy: Math.round(Math.sin(angle) * r),
+          fx: pos.x,
+          fy: pos.y,
         });
-
+      }
+      for (const e of hopEdges) {
         links.push({
-          source: egoPlayer.player_id,
-          target: p.player_id,
-          label: `1° PLAYED_WITH (${coplayGames} games)`,
-          value: 2.6,
+          source: e.a,
+          target: e.b,
+          label:
+            e.kind === "PLAYED_WITH"
+              ? `PLAYED_WITH (${Math.round(e.weight)} games, 30d)`
+              : e.kind,
+          value: e.hop === 1 ? 2.6 : e.hop === 2 ? 1.8 : 1.2,
           isMultiHopBridge: true,
-          hopStep: 1,
-          isTriggerStream: idx % 3 === 0,
-        });
-      });
-
-      // Build 2nd Hop (2° Friends-of-Squad / Cross-Crew Rivals)
-      const hop2Players: any[] = [];
-      if (maxHopAllowed >= 2) {
-        for (const p of socialPlayers) {
-          if (usedIds.has(p.player_id)) continue;
-          hop2Players.push(p);
-          usedIds.add(p.player_id);
-          if (hop2Players.length >= 28) break;
-        }
-
-        hop2Players.forEach((p, idx) => {
-          const parentHop1 = hop1Players[idx % Math.max(1, hop1Players.length)];
-          const angle =
-            (idx / Math.max(1, hop2Players.length)) * Math.PI * 2 + 0.12;
-          const r = 345 + (idx % 2) * 28;
-          const sharedSessions = 5 + ((idx * 3) % 11);
-          nodes.push({
-            id: p.player_id,
-            name: `${p.gamer_tag || p.display_name} (2°)`,
-            type: "PLAYER",
-            franchise: p.primary_franchise,
-            label: to2KDivisionLabel(p.primary_franchise),
-            archetype: p.primary_archetype,
-            spend: p.lifetime_spend_usd,
-            churn_risk: p.churn_risk_score,
-            tilt: p.tilt_sensitivity,
-            loss_streak: p.recent_loss_streak,
-            gravity_score: Number(p.game_telemetry?.gravity_score ?? 0.48),
-            game_telemetry: {
-              ...p.game_telemetry,
-              social_hop_degree: 2,
-              social_hop_label: "2° Friend-of-Squad / Pro-Am Rival",
-              coplay_games_30d: sharedSessions,
-              bridge_via_tag: parentHop1?.gamer_tag,
-              interpersonal_role:
-                idx % 2 === 0
-                  ? `Co-Plays with @${parentHop1?.gamer_tag}`
-                  : "Rival Pro-Am Matchup Peer",
-              monetization_play: "2° OVR Status Comparison & Cap-Breaker Catch-Up ($14.99)",
-            },
-            purchased_items: p.purchased_items,
-            followed_creators: p.followed_creators,
-            primary_creator_influence: p.primary_creator_influence ?? undefined,
-            val: 11,
-            color: "#9B72CB",
-            fx: Math.round(Math.cos(angle) * r),
-            fy: Math.round(Math.sin(angle) * r),
-          });
-
-          if (parentHop1) {
-            links.push({
-              source: parentHop1.player_id,
-              target: p.player_id,
-              label: `2° CO_PLAY_BRIDGE (${sharedSessions} games)`,
-              value: 1.8,
-              isMultiHopBridge: true,
-              hopStep: 2,
-              isTriggerStream: idx % 5 === 0,
-            });
-          }
+          hopStep: e.hop,
         });
       }
 
-      // Build 3rd Hop (3° Weak-Tie Discovery & Cross-Title Holdout Ring)
-      const hop3Players: any[] = [];
-      if (maxHopAllowed >= 3) {
-        // Prioritize NBA 2K26 holdouts and cross-franchise players for 3rd-hop weak ties
-        const holdoutCandidates = socialPlayers.filter(
-          (p) =>
-            !usedIds.has(p.player_id) &&
-            (p.primary_franchise !== "NBA2K" ||
-              p.game_telemetry?.migrated_to_2k27 === false ||
-              p.churn_risk_score >= 0.5)
-        );
-        const pool =
-          holdoutCandidates.length >= 24
-            ? holdoutCandidates
-            : socialPlayers.filter((p) => !usedIds.has(p.player_id));
-
-        for (const p of pool) {
-          if (usedIds.has(p.player_id)) continue;
-          hop3Players.push(p);
-          usedIds.add(p.player_id);
-          if (hop3Players.length >= 38) break;
-        }
-
-        hop3Players.forEach((p, idx) => {
-          const parentHop2 =
-            hop2Players[idx % Math.max(1, hop2Players.length)] ||
-            hop1Players[idx % Math.max(1, hop1Players.length)];
-          const angle =
-            (idx / Math.max(1, hop3Players.length)) * Math.PI * 2 + 0.24;
-          const r = 505 + (idx % 3) * 24;
-          nodes.push({
-            id: p.player_id,
-            name: `${p.gamer_tag || p.display_name} (3°)`,
-            type: "PLAYER",
-            franchise: p.primary_franchise,
-            label: to2KDivisionLabel(p.primary_franchise),
-            archetype: p.primary_archetype,
-            spend: p.lifetime_spend_usd,
-            churn_risk: p.churn_risk_score,
-            tilt: p.tilt_sensitivity,
-            loss_streak: p.recent_loss_streak,
-            gravity_score: Number(p.game_telemetry?.gravity_score ?? 0.34),
-            game_telemetry: {
-              ...p.game_telemetry,
-              social_hop_degree: 3,
-              social_hop_label: "3° Weak-Tie Bridge / Cross-Title Holdout",
-              bridge_via_tag: parentHop2?.gamer_tag,
-              interpersonal_role:
-                p.primary_franchise === "NBA2K26" ||
-                p.game_telemetry?.migrated_to_2k27 === false
-                  ? "NBA 2K26 Holdout (3° Weak Tie)"
-                  : `3° Cross-2K Bridge (${p.primary_franchise})`,
-              monetization_play: "3° Weak-Tie Squad Referral Bounty & 2K27 Upgrade ($49.99)",
-            },
-            purchased_items: p.purchased_items,
-            followed_creators: p.followed_creators,
-            primary_creator_influence: p.primary_creator_influence ?? undefined,
-            val: 8,
-            color: "#FFB800",
-            fx: Math.round(Math.cos(angle) * r),
-            fy: Math.round(Math.sin(angle) * r),
-          });
-
-          if (parentHop2) {
-            links.push({
-              source: parentHop2.player_id,
-              target: p.player_id,
-              label: "3° WEAK_TIE_BRIDGE",
-              value: 1.2,
-              isMultiHopBridge: true,
-              hopStep: 3,
-            });
-          }
-        });
-      }
-
+      const hopIds = (h: number) =>
+        Array.from(hopOf.entries()).filter(([, v]) => v === h).map(([k]) => k);
+      const squadSpend = hopIds(1).reduce(
+        (s, id) => s + Number(byId.get(id)?.lifetime_spend_usd || 0),
+        0
+      );
       return NextResponse.json({
         nodes,
         links,
         is_live: true,
         graph: GRAPH_NAME,
         social_hop_summary: {
-          ego_player_id: egoPlayer.player_id,
-          ego_gamer_tag: egoPlayer.gamer_tag,
-          hop1_count: hop1Players.length,
-          hop2_count: hop2Players.length,
-          hop3_count: hop3Players.length,
-          total_network_reach: 1 + hop1Players.length + hop2Players.length + hop3Players.length,
-          squad_var_usd: Number(egoPlayer.game_telemetry?.squad_var_usd || 3480),
+          ego_player_id: ego.player_id,
+          ego_gamer_tag: ego.gamer_tag,
+          hop1_count: hopIds(1).length,
+          hop2_count: hopIds(2).length,
+          hop3_count: hopIds(3).length,
+          total_network_reach: hopOf.size,
+          squad_spend_usd: Math.round(squadSpend),
+          edge_kinds: Array.from(new Set(hopEdges.map((e) => e.kind))),
         },
         execution_ms: Date.now() - started,
       });
@@ -588,46 +462,34 @@ export async function GET(request: NextRequest) {
 
       if (!player) {
         return NextResponse.json(
-          { error: `No player found for id '${selectedPlayerId ?? "(default)"}'.` },
+          { error: `Spanner Players: no player found for id '${selectedPlayerId ?? "(default)"}'.` },
           { status: 404 }
         );
       }
 
-      const primaryLabel = to2KDivisionLabel(player.primary_franchise);
+      const [identities, crewMates, plays, wish, memberships, clans] = await Promise.all([
+        getIdentitiesForPlayer(player.player_id),
+        getCrewMates([player.player_id]),
+        getPlayEdges([player.player_id]),
+        getWishlistEdges([player.player_id]),
+        getMemberships([player.player_id]),
+        getClans(),
+      ]);
 
       nodes.push({
-        id: player.player_id,
-        name: player.gamer_tag || player.display_name,
-        type: "PLAYER",
-        franchise: player.primary_franchise,
-        label: primaryLabel,
-        archetype: player.primary_archetype,
-        spend: player.lifetime_spend_usd,
-        churn_risk: player.churn_risk_score,
-        tilt: player.tilt_sensitivity,
-        loss_streak: player.recent_loss_streak,
-        gravity_score: Number(player.game_telemetry?.gravity_score ?? 0),
-        game_telemetry: player.game_telemetry,
-        purchased_items: player.purchased_items,
-        followed_creators: player.followed_creators,
-        primary_creator_influence: player.primary_creator_influence ?? undefined,
-        country: player.country ?? undefined,
-        country_flag: player.country_flag ?? undefined,
-        dma_market: player.dma_market ?? undefined,
+        ...playerNode(player, idx, gameById, {
+          plays,
+          wishlists: wish.map((w) => w.game_id),
+          membership: memberships[0],
+        }),
         val: 28,
         color: "#00F0FF",
         ...(isExpandOverlay ? {} : { fx: 0, fy: 0 }),
       });
 
-      const [identities, crewMates, bridges] = await Promise.all([
-        getIdentitiesForPlayer(player.player_id),
-        getCrewMates([player.player_id]),
-        getCrossLabelBridges([player.player_id]),
-      ]);
-
-      identities.forEach((ident, idx) => {
+      identities.forEach((ident, i) => {
         const cleanPlatform = sanitizePlatformName(ident.platform);
-        const angle = (idx / Math.max(1, identities.length)) * Math.PI * 2;
+        const pos = polar((i / Math.max(1, identities.length)) * 360, 200);
         nodes.push({
           id: ident.identity_id,
           name: `${cleanPlatform}: ${ident.platform_handle ?? "N/A"}`,
@@ -636,105 +498,84 @@ export async function GET(request: NextRequest) {
           confidence: ident.confidence_score,
           val: 15,
           color: PLATFORM_COLORS[cleanPlatform] || "#A855F7",
-          ...(isExpandOverlay
-            ? {}
-            : {
-                fx: Math.round(Math.cos(angle) * 200),
-                fy: Math.round(Math.sin(angle) * 200),
-              }),
+          ...(isExpandOverlay ? {} : { fx: pos.x, fy: pos.y }),
         });
         links.push({
           source: player.player_id,
           target: ident.identity_id,
-          label: `CONFIDENCE: ${(ident.confidence_score * 100).toFixed(0)}%`,
+          label: `HAS_IDENTITY (${(ident.confidence_score * 100).toFixed(0)}%)`,
           value: 2.5,
           isMultiHopBridge: true,
           hopStep: 1,
         });
       });
 
-      const seenGames = new Set<string>();
-      const valid2KBridges = bridges.filter(
-        (b) =>
-          VALID_2K_FRANCHISES.has(b.franchise) ||
-          /^game-(nba2k|wwe2k|pga2k|topspin|bl4|civ7|mafia)/i.test(b.game_id)
-      );
-      valid2KBridges.forEach((b, idx) => {
-        if (seenGames.has(b.game_id)) return;
-        seenGames.add(b.game_id);
-        const angle = ((idx + 0.5) / Math.max(1, valid2KBridges.length)) * Math.PI * 2;
-        const lbl = to2KDivisionLabel(b.franchise);
+      const titleEdges = [
+        ...plays.map((e) => ({ game_id: e.game_id, kind: "PLAYS_GAME" as const, e })),
+        ...wish.map((w) => ({ game_id: w.game_id, kind: "WISHLISTED" as const, e: null })),
+      ];
+      titleEdges.forEach((t, i) => {
+        const g = gameById.get(t.game_id);
+        if (!g) return;
+        const pos = polar(((i + 0.5) / Math.max(1, titleEdges.length)) * 360, 330);
         nodes.push({
-          id: b.game_id,
-          name: b.title,
-          type: "GAME",
-          franchise: b.franchise,
-          label: lbl,
-          hours: b.hours_played,
-          val: 22,
-          color: FRANCHISE_COLORS[b.franchise] || LABEL_COLORS[lbl] || "#E4002B",
-          ...(isExpandOverlay
-            ? {}
-            : {
-                fx: Math.round(Math.cos(angle) * 330),
-                fy: Math.round(Math.sin(angle) * 330),
-              }),
+          ...gameNode(g, pos, 22),
+          hours: t.e?.hours_played,
+          ...(isExpandOverlay ? { fx: undefined, fy: undefined } : {}),
         });
         links.push({
           source: player.player_id,
-          target: b.game_id,
-          label: `${b.hours_played}h played`,
+          target: g.game_id,
+          label:
+            t.kind === "WISHLISTED"
+              ? "WISHLISTED"
+              : `PLAYS_GAME (${Math.round(t.e!.hours_played)}h · $${Math.round(t.e!.spend_usd)})`,
           value: 2,
-          isMultiHopBridge: b.franchise !== player.primary_franchise,
+          isMultiHopBridge: g.franchise !== player.primary_franchise,
           hopStep: 2,
         });
       });
 
-      if (crewMates.length > 0) {
-        const first = crewMates[0];
-        const clanNodeId = first.clan_id;
-        nodes.push({
-          id: clanNodeId,
-          name: `${first.clan_name} (${first.clan_tier})`,
-          type: "CLAN",
-          franchise: "NBA2K",
-          rank_tier: first.clan_tier,
-          val: 22,
-          color: "#00F59B",
-          ...(isExpandOverlay ? {} : { fx: -280, fy: -220 }),
-        });
-        links.push({
-          source: player.player_id,
-          target: clanNodeId,
-          label: "MEMBER_OF_CLAN",
-          value: 2.4,
-          isMultiHopBridge: true,
-          hopStep: 1,
-        });
-        crewMates.slice(0, 8).forEach((m, i) => {
+      const membership = memberships[0];
+      if (membership) {
+        const crew = clans.find((c) => c.clan_id === membership.clan_id);
+        if (crew) {
           nodes.push({
-            id: m.mate_id,
-            name: `${m.mate_tag} (${m.mate_ovr ?? 88} OVR)`,
-            type: "SQUADMATE",
-            franchise: "NBA2K",
-            val: 12,
-            color: "#00D2FF",
-            ...(isExpandOverlay
-              ? {}
-              : {
-                  fx: -410 - (i % 2) * 75,
-                  fy: -270 + i * 52,
-                }),
+            ...crewNode(crew, idx),
+            ...(isExpandOverlay ? {} : { fx: -280, fy: -220 }),
           });
           links.push({
-            source: clanNodeId,
-            target: m.mate_id,
-            label: `Active ${m.mate_last_login_days_ago}d ago`,
-            value: 1.8,
+            source: player.player_id,
+            target: crew.clan_id,
+            label: `MEMBER_OF_CLAN (${membership.role || "MEMBER"})`,
+            value: 2.4,
             isMultiHopBridge: true,
-            hopStep: 2,
+            hopStep: 1,
           });
-        });
+          crewMates
+            .filter((m) => m.clan_id === crew.clan_id)
+            .slice(0, 8)
+            .forEach((m, i) => {
+              nodes.push({
+                id: m.mate_id,
+                name: m.mate_ovr !== null ? `${m.mate_tag} (${m.mate_ovr} OVR)` : m.mate_tag,
+                type: "SQUADMATE",
+                franchise: crew.franchise,
+                studio: idx.studioOf(crew.franchise),
+                val: 12,
+                color: STUDIO_COLORS[idx.studioOf(crew.franchise)],
+                ...(isExpandOverlay ? {} : { fx: -410 - (i % 2) * 75, fy: -270 + i * 52 }),
+              });
+              links.push({
+                source: crew.clan_id,
+                target: m.mate_id,
+                label: `MEMBER_OF_CLAN · active ${m.mate_last_login_days_ago}d ago`,
+                value: 1.8,
+                isMultiHopBridge: true,
+                hopStep: 2,
+              });
+            });
+        }
       }
 
       return NextResponse.json({
@@ -746,130 +587,58 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // ======================================================================
-    // LOAD LIVE CATALOG + PLAYERS FROM 2K IDENTITY GRAPH
-    // ======================================================================
-    const [games, offers, creators, clans, players] = await Promise.all([
-      getGames(),
+    const [offers, creators, clans] = await Promise.all([
       getOffers(),
       getCreators(),
       getClans(),
-      getPlayersForView({
-        franchise: gameFilter,
-        archetype: archetypeFilter,
-        limit: effectiveRenderLimit,
-      }),
     ]);
 
-    const creatorById = new Map<string, CreatorRow>(
-      creators.map((c) => [c.creator_id, c])
-    );
-
-    // Filter offers to strictly 2K franchises
-    const pure2KOffers = offers.filter(
-      (o) => !o.target_franchise || VALID_2K_FRANCHISES.has(o.target_franchise)
-    );
-
     // ======================================================================
-    // VIEW 2: SOCIAL CREWS & 2K NEXTMAKERS CREATORS VIEW
+    // VIEW 2: CREWS — real MEMBER_OF_CLAN rosters across all studios
     // ======================================================================
     if (view === "social-clans" || view === "crews") {
-      const topCrews = clans.slice(0, 20);
-      topCrews.forEach((c, idx) => {
-        const angle = (idx / Math.max(1, topCrews.length)) * Math.PI * 2 - Math.PI / 2;
-        const radius = c.tier === "Comp" ? 210 : c.tier === "Pro-Am" ? 330 : 445;
-        const tierColor =
-          c.tier === "Comp"
-            ? "#FFB800"
-            : c.tier === "Pro-Am"
-            ? "#00F59B"
-            : "#00D2FF";
-        nodes.push({
-          id: c.clan_id,
-          name: `${c.name} · ${c.tier || "Rec"}`,
-          type: "CLAN",
-          franchise: c.franchise || "NBA2K",
-          rank_tier: c.tier || "Rec",
-          val: 26,
-          color: tierColor,
-          fx: Math.round(Math.cos(angle) * radius),
-          fy: Math.round(Math.sin(angle) * radius),
-        });
+      const topCrews: ClanRow[] =
+        gameFilter === "ALL"
+          ? STUDIOS.flatMap((s) =>
+              clans.filter((c) => idx.studioOf(c.franchise) === s).slice(0, 7)
+            )
+          : clans.filter((c) => c.franchise === gameFilter).slice(0, 20);
+
+      topCrews.forEach((c, i) => {
+        const angle = (i / Math.max(1, topCrews.length)) * 360 - 90;
+        const radius = [210, 330, 445][crewTierRank(c.tier)];
+        nodes.push({ ...crewNode(c, idx, polar(angle, radius)), val: 26 });
       });
 
-      // Outer 6 pinned Creators
-      for (const anchor of MACRO_CREATOR_ANCHORS) {
-        const cr = creatorById.get(anchor.id);
-        nodes.push({
-          id: anchor.id,
-          name: cr?.handle || anchor.name,
-          type: "CREATOR",
-          franchise: cr?.franchise || anchor.franchise,
-          platform: cr?.platform || "YouTube",
-          val: 26,
-          color: anchor.color,
-          creator_data: cr,
-          fx: anchor.fx,
-          fy: anchor.fy,
+      const members = await getCrewMembers(topCrews.map((c) => c.clan_id), 36);
+      const memberPlayers = await getPlayersByIdList(members.map((m) => m.player_id));
+      const playerById = new Map(memberPlayers.map((p) => [p.player_id, p]));
+      const drawnCreators = new Map<string, CreatorRow>();
+      const creatorById = new Map(creators.map((c) => [c.creator_id, c]));
+
+      for (const m of members) {
+        const p = playerById.get(m.player_id);
+        if (!p) continue;
+        if (archetypeFilter !== "ALL" && p.primary_archetype !== archetypeFilter) continue;
+        if (!nodes.some((n) => n.id === p.player_id)) {
+          nodes.push(playerNode(p, idx, gameById, { membership: m }));
+        }
+        links.push({
+          source: p.player_id,
+          target: m.clan_id,
+          label: `MEMBER_OF_CLAN (${m.role || "MEMBER"})`,
+          value: 2,
         });
+        for (const cid of p.followed_creators || []) {
+          const cr = creatorById.get(cid);
+          if (!cr) continue;
+          if (!drawnCreators.has(cid) && drawnCreators.size >= 6) continue;
+          drawnCreators.set(cid, cr);
+          links.push({ source: p.player_id, target: cid, label: "FOLLOWS_CREATOR", value: 1.4 });
+        }
       }
-
-      const crewIds = new Set(topCrews.map((c) => c.clan_id));
-      const creatorIds = new Set(MACRO_CREATOR_ANCHORS.map((c) => c.id));
-      const crewPlayers = players.slice(0, 750);
-
-      crewPlayers.forEach((p: any, idx: number) => {
-        const assignedCrewId =
-          p.game_telemetry?.crew_id && crewIds.has(p.game_telemetry.crew_id)
-            ? p.game_telemetry.crew_id
-            : topCrews[idx % Math.max(1, topCrews.length)]?.clan_id;
-
-        nodes.push({
-          id: p.player_id,
-          name: p.gamer_tag || p.display_name,
-          type: "PLAYER",
-          franchise: p.primary_franchise,
-          label: to2KDivisionLabel(p.primary_franchise),
-          archetype: p.primary_archetype,
-          spend: p.lifetime_spend_usd,
-          churn_risk: p.churn_risk_score,
-          tilt: p.tilt_sensitivity,
-          loss_streak: p.recent_loss_streak,
-          clan_id: assignedCrewId,
-          game_telemetry: p.game_telemetry,
-          purchased_items: p.purchased_items,
-          followed_creators: p.followed_creators,
-          primary_creator_influence: p.primary_creator_influence ?? undefined,
-          country: p.country ?? undefined,
-          country_flag: p.country_flag ?? undefined,
-          dma_market: p.dma_market ?? undefined,
-          val: p.lifetime_spend_usd >= 1000 ? 12 : p.lifetime_spend_usd >= 300 ? 8 : 6,
-          color: archetypeColor(p.primary_archetype),
-        });
-
-        if (assignedCrewId) {
-          const isStalled = (p.game_telemetry?.last_login_days_ago ?? 0) >= 7;
-          links.push({
-            source: p.player_id,
-            target: assignedCrewId,
-            label: "MEMBER_OF_CLAN",
-            value: 2,
-            isMultiHopBridge: isStalled && idx % 4 === 0,
-            hopStep: 1,
-          });
-        }
-
-        if (idx % 3 === 0 && p.followed_creators?.length) {
-          const matchedCr = p.followed_creators.find((cid: string) => creatorIds.has(cid));
-          if (matchedCr) {
-            links.push({
-              source: p.player_id,
-              target: matchedCr,
-              label: "FOLLOWS_CREATOR",
-              value: 1.4,
-            });
-          }
-        }
+      Array.from(drawnCreators.values()).forEach((cr, i, arr) => {
+        nodes.push(creatorNode(cr, idx, polar((i / Math.max(1, arr.length)) * 360 - 60, 640)));
       });
 
       return NextResponse.json({
@@ -882,399 +651,236 @@ export async function GET(request: NextRequest) {
     }
 
     // ======================================================================
-    // VIEW 3: 5-POINT PINNED PURE-2K STELLAR CONSTELLATION (MACRO & COHORTS)
+    // VIEW 3: COHORT CONSTELLATION (macro = every studio; or one title)
     // ======================================================================
+    const filterHub = gameFilter === "ALL" ? null : idx.hubByFranchise.get(gameFilter);
+    if (gameFilter !== "ALL" && !filterHub) {
+      return NextResponse.json(
+        {
+          error: `Spanner Games: franchise '${gameFilter}' has no row in ${GRAPH_NAME} Games.`,
+          error_kind: "UNKNOWN_FRANCHISE",
+        },
+        { status: 400 }
+      );
+    }
+    const isPreLaunchFilter = filterHub?.lifecycle_status === "PRE_LAUNCH";
+
+    const players = await getPlayersForView({
+      franchise: gameFilter,
+      archetype: archetypeFilter,
+      limit: effectiveRenderLimit,
+      wishlistedGameId: isPreLaunchFilter ? filterHub!.game_id : undefined,
+    });
+    const ids = players.map((p) => p.player_id);
+    const [plays, wishes, memberships, invites] = await Promise.all([
+      getPlayEdges(ids),
+      getWishlistEdges(ids),
+      getMemberships(ids),
+      getInvitesAmong(ids),
+    ]);
+    const playsBy = groupBy(plays, (r) => r.player_id);
+    const wishBy = groupBy(wishes, (r) => r.player_id);
+    const memberBy = new Map(memberships.map((m) => [m.player_id, m]));
+
+    const drawnPerimeter: GraphNode[] = [];
+
     if (gameFilter === "ALL") {
-      // 1. 5 Pinned Core 2K Hubs (MACRO_HUB_POSITIONS)
-      const gameById = new Map(games.map((g) => [g.game_id, g]));
-      for (const [hubId, spec] of Object.entries(MACRO_HUB_POSITIONS)) {
-        const dbGame = gameById.get(hubId);
-        nodes.push({
-          id: hubId,
-          name: spec.title,
-          type: "GAME",
-          franchise: spec.franchise,
-          label: spec.label,
-          lifecycle_status: dbGame?.lifecycle_status ?? "LIVE",
-          current_season: dbGame?.current_season ?? "Season 1",
-          val: spec.val,
-          color: spec.color,
-          fx: spec.fx,
-          fy: spec.fy,
-          fz: spec.fz,
-        });
+      // Every parent hub in Spanner Games, grouped into its studio sector.
+      const sampleCount = new Map<string, number>();
+      for (const p of players) {
+        sampleCount.set(p.primary_franchise, (sampleCount.get(p.primary_franchise) || 0) + 1);
       }
-
-      // 2. Outer Pinned Social Anchors: Top 6 Creators + Top 6 Crews
-      for (const anchor of MACRO_CREATOR_ANCHORS) {
-        const cr = creatorById.get(anchor.id);
-        nodes.push({
-          id: anchor.id,
-          name: cr?.handle || anchor.name,
-          type: "CREATOR",
-          franchise: cr?.franchise || anchor.franchise,
-          platform: cr?.platform || "YouTube",
-          val: 26,
-          color: anchor.color,
-          creator_data: cr || {
-            creator_id: anchor.id,
-            handle: anchor.name,
-            name: anchor.name,
-            platform: "YouTube",
-            franchise: anchor.franchise,
-          },
-          fx: anchor.fx,
-          fy: anchor.fy,
-        });
-      }
-
-      const topSixClans: ClanRow[] = clans.slice(0, 6);
-      topSixClans.forEach((clan, idx) => {
-        const coord = MACRO_CREW_COORDS[idx] || MACRO_CREW_COORDS[0];
-        nodes.push({
-          id: clan.clan_id,
-          name: clan.name,
-          type: "CLAN",
-          franchise: clan.franchise || coord.franchise,
-          rank_tier: clan.tier || "Pro-Am",
-          val: 26,
-          color: "#00F59B",
-          fx: coord.fx,
-          fy: coord.fy,
-        });
-      });
-
-      // 3. Top 5 Flagship Offers at MACRO_OFFER_OFFSETS
-      const usedOfferIds = new Set<string>();
-      MACRO_OFFER_OFFSETS.forEach((offset) => {
-        const match =
-          pure2KOffers.find(
-            (o) =>
-              !usedOfferIds.has(o.offer_id) &&
-              o.target_franchise === offset.franchise
-          ) ||
-          pure2KOffers.find((o) => !usedOfferIds.has(o.offer_id));
-        if (match) {
-          usedOfferIds.add(match.offer_id);
-          nodes.push(offerNode(match, offset.dx, offset.dy));
-        }
-      });
-    } else {
-      // Single Franchise Selected: Primary Hub + Mode Satellites + Creators + Crew + Wide Offer Orbit
-      const franchiseGames = games.filter(
-        (g) =>
-          g.franchise === gameFilter ||
-          g.game_id === HUB_ID_BY_FRANCHISE[gameFilter]
-      );
-      const mainHub =
-        franchiseGames.find((g) => g.is_parent_hub) || franchiseGames[0];
-      const surfaces = franchiseGames.filter(
-        (g) => mainHub && g.game_id !== mainHub.game_id
-      );
-
-      if (mainHub) {
-        nodes.push({
-          id: mainHub.game_id,
-          name: mainHub.title,
-          type: "GAME",
-          franchise: mainHub.franchise,
-          label: to2KDivisionLabel(mainHub.franchise),
-          val: 42,
-          color: FRANCHISE_COLORS[mainHub.franchise] || "#E4002B",
-          lifecycle_status: mainHub.lifecycle_status ?? undefined,
-          current_season: mainHub.current_season ?? undefined,
-          fx: 0,
-          fy: -30,
-        });
-      }
-
-      surfaces.forEach((g, idx) => {
-        const count = Math.max(1, surfaces.length);
-        const angle = (idx / count) * Math.PI + Math.PI * 0.25;
-        const radius = 190;
-        nodes.push({
-          id: g.game_id,
-          name: g.title,
-          type: "GAME",
-          franchise: g.franchise,
-          label: to2KDivisionLabel(g.franchise),
-          val: g.lifecycle_status === "LIVE" ? 30 : 22,
-          color:
-            g.lifecycle_status === "LIVE"
-              ? FRANCHISE_COLORS[g.franchise] || "#00D2FF"
-              : "#6B7280",
-          lifecycle_status: g.lifecycle_status ?? undefined,
-          current_season: g.current_season ?? undefined,
-          fx: Math.round(Math.cos(angle) * radius),
-          fy: Math.round(Math.sin(angle) * radius) + 50,
-        });
-      });
-
-      const relevantCreators = creators.filter(
-        (c) => c.franchise === gameFilter || c.franchise === "NBA2K"
-      );
-      relevantCreators.slice(0, 2).forEach((c, idx) => {
-        nodes.push({
-          id: c.creator_id,
-          name: c.handle || c.name,
-          type: "CREATOR",
-          franchise: c.franchise ?? gameFilter,
-          platform: c.platform,
-          creator_data: c,
-          val: 26,
-          color: "#00F0FF",
-          fx: idx === 0 ? -280 : 280,
-          fy: 130,
-        });
-      });
-
-      const matchingClan =
-        clans.find((cl) => cl.franchise === gameFilter) || clans[0];
-      if (matchingClan) {
-        nodes.push({
-          id: matchingClan.clan_id,
-          name: matchingClan.name,
-          type: "CLAN",
-          franchise: matchingClan.franchise,
-          rank_tier: matchingClan.tier || "Pro-Am",
-          val: 26,
-          color: "#00F59B",
-          fx: 0,
-          fy: 210,
-        });
-      }
-
-      const franchiseOffers = pure2KOffers
-        .filter(
-          (o) => o.target_franchise === gameFilter || o.target_franchise === "NBA2K"
-        )
-        .slice(0, 5);
-
-      const offerCount = Math.max(1, franchiseOffers.length);
-      franchiseOffers.forEach((o, idx) => {
-        const angle = (idx / offerCount) * 2 * Math.PI - Math.PI / 2;
-        const radius = 480;
-        nodes.push(
-          offerNode(
-            o,
-            Math.round(Math.cos(angle) * radius),
-            Math.round(Math.sin(angle) * radius)
-          )
+      for (const studio of STUDIOS) {
+        // Largest hub (by sampled players) in the middle of the sector, the
+        // rest alternating outward.
+        const sorted = games
+          .filter((g) => g.is_parent_hub && studioForLabel(g.label) === studio)
+          .sort((a, b) => (sampleCount.get(b.franchise) || 0) - (sampleCount.get(a.franchise) || 0));
+        const hubs: GameRow[] = new Array(sorted.length);
+        const center = (sorted.length - 1) / 2;
+        const slots = Array.from({ length: sorted.length }, (_, i) => i).sort(
+          (a, b) => Math.abs(a - center) - Math.abs(b - center) || a - b
         );
+        sorted.forEach((g, k) => {
+          hubs[slots[k]] = g;
+        });
+        const mid = slots[0] ?? 0;
+        const angles = sectorAngles(studio, hubs.length);
+        hubs.forEach((g, i) => {
+          const r = hubs.length > 4 && Math.abs(i - mid) % 2 === 1 ? 450 : 340;
+          const n = sampleCount.get(g.franchise) || 0;
+          nodes.push(gameNode(g, polar(angles[i], r), Math.min(46, 26 + Math.sqrt(n) * 1.6)));
+        });
+
+        // Perimeter anchors for this studio: top crews, creators and offers.
+        const crews = clans.filter((c) => idx.studioOf(c.franchise) === studio).slice(0, 2);
+        const studioCreators = creators.filter((c) => idx.studioOf(c.franchise) === studio).slice(0, 3);
+        const studioOffers = offers.filter((o) => idx.studioOf(o.target_franchise) === studio).slice(0, 3);
+        const anchors: GraphNode[] = [
+          ...crews.map((c) => crewNode(c, idx)),
+          ...studioCreators.map((c) => creatorNode(c, idx)),
+          ...studioOffers.map((o) => offerNode(o)),
+        ];
+        const aAngles = sectorAngles(studio, anchors.length, 1.25);
+        anchors.forEach((a, i) => {
+          const pos = polar(aAngles[i], 640);
+          drawnPerimeter.push({ ...a, fx: pos.x, fy: pos.y });
+        });
+      }
+    } else {
+      const hub = filterHub!;
+      nodes.push(gameNode(hub, { x: 0, y: -30 }, 42));
+      const surfaces = games.filter(
+        (g) => g.franchise === gameFilter && g.game_id !== hub.game_id
+      );
+      surfaces.forEach((g, i) => {
+        const angle = (i / Math.max(1, surfaces.length)) * 180 + 45;
+        const pos = polar(angle, 190);
+        nodes.push(gameNode(g, { x: pos.x, y: pos.y + 50 }, 28));
+      });
+      const anchors: GraphNode[] = [
+        ...clans.filter((c) => c.franchise === gameFilter).slice(0, 3).map((c) => crewNode(c, idx)),
+        ...creators.filter((c) => c.franchise === gameFilter).slice(0, 2).map((c) => creatorNode(c, idx)),
+        ...offers.filter((o) => o.target_franchise === gameFilter).slice(0, 5).map((o) => offerNode(o)),
+      ];
+      anchors.forEach((a, i) => {
+        const pos = polar((i / Math.max(1, anchors.length)) * 360 - 90, 480);
+        drawnPerimeter.push({ ...a, fx: pos.x, fy: pos.y });
       });
     }
+    nodes.push(...drawnPerimeter);
 
-    // ======================================================================
-    // PLAYER NODES & STRICT EDGE BUDGET (MAX 1 HUB + 1 BRIDGE + 1 PERIMETER)
-    // ======================================================================
-    const offerNodes = nodes.filter((n) => n.type === "OFFER");
-    const gameNodes = nodes.filter((n) => n.type === "GAME");
-    const creatorNodes = nodes.filter((n) => n.type === "CREATOR");
-    const clanNodes = nodes.filter((n) => n.type === "CLAN");
     const drawnIds = new Set(nodes.map((n) => n.id));
+    const hubIdOf = (franchise?: string | null) =>
+      franchise ? idx.hubByFranchise.get(franchise)?.game_id : undefined;
+    const offerNodes = drawnPerimeter.filter((n) => n.type === "OFFER");
+    const isCrossView = view === "cross-franchise";
 
     players.forEach((p: any, i: number) => {
-      const spend: number = p.lifetime_spend_usd || 0;
-      const divisionLabel = to2KDivisionLabel(p.primary_franchise);
-
-      nodes.push({
-        id: p.player_id,
-        name: p.gamer_tag || p.display_name,
-        type: "PLAYER",
-        franchise: p.primary_franchise,
-        label: divisionLabel,
-        archetype: p.primary_archetype,
-        spend,
-        churn_risk: p.churn_risk_score,
-        tilt: p.tilt_sensitivity,
-        loss_streak: p.recent_loss_streak,
-        gravity_score: Number(p.game_telemetry?.gravity_score ?? 0),
-        game_telemetry: p.game_telemetry,
-        purchased_items: p.purchased_items,
-        followed_creators: p.followed_creators,
-        primary_creator_influence: p.primary_creator_influence ?? undefined,
-        country: p.country ?? undefined,
-        country_code: p.country_code ?? undefined,
-        country_flag: p.country_flag ?? undefined,
-        dma_market: p.dma_market ?? undefined,
-        lat: p.lat ?? undefined,
-        lng: p.lng ?? undefined,
-        val: spend >= 2500 ? 14 : spend >= 500 ? 9 : 6,
-        color: archetypeColor(p.primary_archetype),
+      const myPlays = playsBy.get(p.player_id) || [];
+      const myWish = (wishBy.get(p.player_id) || []).map((w) => w.game_id);
+      const membership = memberBy.get(p.player_id);
+      const node = playerNode(p, idx, gameById, {
+        plays: myPlays,
+        wishlists: myWish,
+        membership,
       });
+      nodes.push(node);
 
-      // ------------------------------------------------------------------
-      // EDGE 1 (MAX 1): Primary Hub Edge (PLAYS_GAME, value: 2)
-      // ------------------------------------------------------------------
-      let primaryHubId = "game-nba2k27";
+      // EDGE 1: primary title (PLAYS_GAME), or WISHLISTED for a pre-launch filter.
       if (gameFilter === "ALL") {
-        primaryHubId = resolvePrimaryMacroHubForPlayer(p);
-        if (!drawnIds.has(primaryHubId)) {
-          primaryHubId = "game-nba2k27";
+        const hubId = hubIdOf(p.primary_franchise);
+        if (hubId && drawnIds.has(hubId)) {
+          links.push({ source: p.player_id, target: hubId, label: "PLAYS_GAME", value: 2 });
         }
+      } else {
         links.push({
           source: p.player_id,
-          target: primaryHubId,
-          label: "PLAYS_GAME",
-          value: 2,
-        });
-      } else if (gameNodes.length > 0) {
-        const primaryHub =
-          gameNodes.find((g) => g.fx === 0 && g.fy === -30) || gameNodes[0];
-        primaryHubId = primaryHub.id;
-        links.push({
-          source: p.player_id,
-          target: primaryHub.id,
-          label: "PLAYS_GAME",
+          target: filterHub!.game_id,
+          label: isPreLaunchFilter ? "WISHLISTED" : "PLAYS_GAME",
           value: 2,
         });
       }
 
-      // ------------------------------------------------------------------
-      // EDGE 2 (MAX 1): Cross-Franchise / 2K26->2K27 Migration Bridge Edge (value: 1)
-      // ------------------------------------------------------------------
+      // EDGE 2 (macro only): strongest real cross-title PLAYS_GAME edge,
+      // preferring a title from another studio.
       if (gameFilter === "ALL") {
-        let bridgeHubId: string | null = null;
-
-        if (primaryHubId === "game-nba2k26") {
-          bridgeHubId = "game-nba2k27";
-        } else if (
-          primaryHubId === "game-nba2k27" &&
-          p.game_telemetry?.nba2k26_veteran &&
-          i % 3 === 0
-        ) {
-          bridgeHubId = "game-nba2k26";
-        } else if (Array.isArray(p.franchises_played) && p.franchises_played.length > 1) {
-          for (const f of p.franchises_played) {
-            const candidateHub = mapFranchiseToMacroHub(f);
-            if (candidateHub !== primaryHubId && drawnIds.has(candidateHub)) {
-              bridgeHubId = candidateHub;
-              break;
-            }
-          }
-        }
-
-        if (bridgeHubId && drawnIds.has(bridgeHubId)) {
-          const isCrossView = view === "cross-franchise";
+        const myStudio = node.studio;
+        const candidates = myPlays
+          .map((e) => ({ e, g: gameById.get(e.game_id) }))
+          .filter(
+            (c) =>
+              c.g &&
+              c.g.franchise !== p.primary_franchise &&
+              drawnIds.has(hubIdOf(c.g.franchise) || "")
+          )
+          .sort((a, b) => {
+            const aCross = studioForLabel(a.g!.label) !== myStudio ? 1 : 0;
+            const bCross = studioForLabel(b.g!.label) !== myStudio ? 1 : 0;
+            return bCross - aCross || b.e.spend_usd - a.e.spend_usd || b.e.hours_played - a.e.hours_played;
+          });
+        const best = candidates[0];
+        if (best) {
+          const crossStudio = studioForLabel(best.g!.label) !== myStudio;
           links.push({
             source: p.player_id,
-            target: bridgeHubId,
-            label: "CROSS_FRANCHISE_PLAY",
+            target: hubIdOf(best.g!.franchise)!,
+            label: crossStudio ? "CROSS_STUDIO_PLAY" : "CROSS_FRANCHISE_PLAY",
             value: 1,
             isMultiHopBridge: isCrossView && i % 4 === 0,
             hopStep: isCrossView ? 2 : undefined,
-            isTriggerStream: i % 10 === 0,
           });
+        }
+
+        // EDGE 3: WISHLISTED intent for a pre-launch title (GTA VI).
+        for (const gid of myWish) {
+          if (drawnIds.has(gid)) {
+            links.push({ source: p.player_id, target: gid, label: "WISHLISTED", value: 1 });
+          }
         }
       }
 
-      // ------------------------------------------------------------------
-      // EDGE 3 (MAX 1): Single Highest-Value Offer / Creator / Crew Edge
-      // ------------------------------------------------------------------
-      let addedPerimeterEdge = false;
-
-      // Priority A: Creator affinity spoke (for 1/3 of cohort with matched creator)
-      if (!addedPerimeterEdge && i % 3 === 0 && creatorNodes.length > 0) {
-        const matchedCreator =
-          creatorNodes.find((c) => c.id === p.primary_creator_influence) ||
-          creatorNodes.find((c) => (p.followed_creators || []).includes(c.id));
-        if (matchedCreator) {
-          links.push({
-            source: p.player_id,
-            target: matchedCreator.id,
-            label: "FOLLOWS_CREATOR",
-            value: 1.5,
-            isTriggerStream: i % 15 === 0,
-          });
-          addedPerimeterEdge = true;
-        }
+      // EDGE 4: real crew membership when the crew is drawn.
+      if (membership && drawnIds.has(membership.clan_id)) {
+        links.push({
+          source: p.player_id,
+          target: membership.clan_id,
+          label: "MEMBER_OF_CLAN",
+          value: 1.6,
+        });
       }
 
-      // Priority B: Crew membership spoke (for 1/3 of cohort with matched crew)
-      if (!addedPerimeterEdge && i % 3 === 1 && clanNodes.length > 0) {
-        const matchedClan =
-          clanNodes.find((cl) => cl.id === p.game_telemetry?.crew_id) ||
-          clanNodes[i % clanNodes.length];
-        if (matchedClan) {
-          links.push({
-            source: p.player_id,
-            target: matchedClan.id,
-            label: "MEMBER_OF_CLAN",
-            value: 1.6,
-            isTriggerStream: i % 13 === 0,
-          });
-          addedPerimeterEdge = true;
-        }
+      // EDGE 5: real creator follow when the creator is drawn.
+      const followed = [p.primary_creator_influence, ...(p.followed_creators || [])].find(
+        (cid: string | null | undefined) => cid && drawnIds.has(cid)
+      );
+      if (followed) {
+        links.push({ source: p.player_id, target: followed, label: "FOLLOWS_CREATOR", value: 1.5 });
       }
 
-      // Priority C: Highest-value owned SKU or Archetype-Affinity Offer
-      if (!addedPerimeterEdge && offerNodes.length > 0) {
+      // EDGE 6: owned SKU (purchased_items.offer_id) when the offer is drawn.
+      if (offerNodes.length > 0) {
         const ownedIds = new Set<string>(
-          (p.purchased_items || [])
-            .map((it: any) => it?.offer_id)
-            .filter(Boolean)
+          (p.purchased_items || []).map((it: any) => it?.offer_id).filter(Boolean)
         );
-        const drawnOwned = offerNodes.filter((off) => ownedIds.has(off.id));
-
-        if (drawnOwned.length > 0) {
-          drawnOwned.sort((a, b) => (b.spend || 0) - (a.spend || 0));
-          const topSku = drawnOwned[0];
-          links.push({
-            source: p.player_id,
-            target: topSku.id,
-            label: "OWNS_SKU",
-            value: 2.0,
-            isTriggerStream: spend >= 1500 && i % 6 === 0,
-          });
-          addedPerimeterEdge = true;
-        } else if (p.tilt_sensitivity >= 0.7 && p.recent_loss_streak >= 3) {
-          const recoveryOffer =
-            offerNodes.find((off) => (off.spend || 0) <= 10) || offerNodes[0];
-          if (recoveryOffer) {
-            links.push({
-              source: p.player_id,
-              target: recoveryOffer.id,
-              label: "STARTER_PACK_INTENT",
-              value: 1.8,
-              isTriggerStream: p.churn_risk_score >= 0.65 && i % 5 === 0,
-            });
-            addedPerimeterEdge = true;
-          }
-        } else {
-          const candidates = offerNodes.filter((off) => {
-            const o = off.offer_data as OfferRow | undefined;
-            return o && o.affinity_archetype === p.primary_archetype;
-          });
-          const targetOffer =
-            candidates.length > 0
-              ? candidates[i % candidates.length]
-              : offerNodes[i % offerNodes.length];
-          if (targetOffer) {
-            links.push({
-              source: p.player_id,
-              target: targetOffer.id,
-              label: "MONETIZATION_GRAVITY",
-              value: 1.4,
-            });
-            addedPerimeterEdge = true;
-          }
+        const owned = offerNodes
+          .filter((off) => ownedIds.has(off.id))
+          .sort((a, b) => (b.spend || 0) - (a.spend || 0))[0];
+        if (owned) {
+          links.push({ source: p.player_id, target: owned.id, label: "OWNS_SKU", value: 2 });
         }
       }
     });
+
+    // EDGE 7: INVITED between players that are both on the canvas.
+    for (const inv of invites) {
+      const toGame = gameById.get(inv.to_game_id);
+      links.push({
+        source: inv.player_id,
+        target: inv.invitee_id,
+        label: `INVITED → ${toGame?.title || inv.to_game_id}${inv.accepted ? " (accepted)" : ""}`,
+        value: 1.4,
+        isTriggerStream: inv.accepted,
+      });
+    }
 
     return NextResponse.json({
       nodes,
       links,
       is_live: true,
       graph: GRAPH_NAME,
-      is_sampled: players.length >= RENDER_LIMIT,
+      is_sampled: players.length >= effectiveRenderLimit,
       execution_ms: Date.now() - started,
     });
   } catch (error: any) {
     if (error instanceof SpannerUnavailableError) {
       console.error("[graph/view] Spanner unavailable:", error.message);
       return NextResponse.json(
-        { error: error.message, error_kind: "SPANNER_UNAVAILABLE", is_live: false },
+        {
+          error: `Cloud Spanner ${process.env.SPANNER_INSTANCE_ID || ""}/${process.env.SPANNER_DATABASE_ID || ""}: ${error.message}`,
+          error_kind: "SPANNER_UNAVAILABLE",
+          is_live: false,
+        },
         { status: 503 }
       );
     }

@@ -33,6 +33,8 @@ import {
   SavedAudience,
   SegmentationLens,
 } from "@/lib/types";
+import { summarizePlayers } from "@/lib/segment";
+import { buildLensContext, classifyNodeForLens, computeKeystoneCaptains } from "@/lib/lens";
 import {
   ArrowLeft,
   Database,
@@ -92,6 +94,10 @@ function CourtsideApp() {
   const [executionMs, setExecutionMs] = useState<number>(0);
   const [modelUsed, setModelUsed] = useState<string>("live-telemetry-eval");
   const [builderError, setBuilderError] = useState<string | null>(null);
+  // Graph workspace load errors (Spanner / API) are shown on the canvas, never hidden.
+  const [graphError, setGraphError] = useState<string | null>(null);
+  // Manual segmentation: players picked with Shift+click on the canvas.
+  const [manualIds, setManualIds] = useState<Set<string>>(new Set());
 
   // Saved Audiences count
   const [savedAudiencesCount, setSavedAudiencesCount] = useState<number>(3);
@@ -155,7 +161,15 @@ function CourtsideApp() {
           cache: "no-store",
         });
         const data = await res.json();
-        if (res.ok && data.nodes) {
+        if (!res.ok) {
+          setGraphError(
+            `Graph view failed (HTTP ${res.status}): ${data?.error || "unknown error"}`
+          );
+          return;
+        }
+        if (data.nodes) {
+          setGraphError(null);
+          setManualIds(new Set());
           const nextGraph = { nodes: data.nodes, links: data.links || [] };
           setGraphData(nextGraph);
           setBaseGraphData(nextGraph);
@@ -170,8 +184,9 @@ function CourtsideApp() {
             }
           }
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error("Error fetching graph view:", e);
+        setGraphError(`Graph view request failed: ${e?.message || String(e)}`);
       }
     },
     []
@@ -236,12 +251,11 @@ function CourtsideApp() {
           renderedCount: metrics.rendered_count || 0,
           isSampled: metrics.is_sampled,
           estimatedTotal: metrics.matched_count || 0,
-          dominantArchetype:
-            metrics.dominant_archetype || "MYCAREER_STORY_CASUAL",
-          avgSpend: metrics.avg_spend_usd || 180,
-          avgChurn: metrics.avg_churn_risk || 0.38,
-          avgTilt: metrics.avg_tilt || 0.42,
-          highChurnCount: metrics.high_churn_count || 0,
+          dominantArchetype: metrics.dominant_archetype || "",
+          avgSpend: metrics.avg_spend_usd,
+          avgChurn: metrics.avg_churn_risk,
+          avgTilt: metrics.avg_tilt,
+          highChurnCount: metrics.high_churn_count,
           isLive: true,
           source: metrics.spanner_source,
           isMultiHop: metrics.is_multi_hop,
@@ -269,7 +283,7 @@ function CourtsideApp() {
     const onCustomQuery = (ev: Event) => {
       const detail = (ev as CustomEvent)?.detail;
       if (detail?.query) {
-        runAudienceQuery(detail.query, detail.franchise || "NBA2K", [], true);
+        runAudienceQuery(detail.query, detail.franchise || "ALL", [], true);
       }
     };
     const onSelectPlayerEvent = (ev: Event) => {
@@ -328,8 +342,14 @@ function CourtsideApp() {
         const res = await fetch(`/api/graph/view?${params.toString()}`, {
           cache: "no-store",
         });
-        if (!res.ok) return;
         const data = await res.json();
+        if (!res.ok) {
+          setGraphError(
+            `Social hops failed (HTTP ${res.status}): ${data?.error || "unknown error"}`
+          );
+          return;
+        }
+        setGraphError(null);
         if (data?.nodes?.length) {
           const nextGraph = { nodes: data.nodes, links: data.links || [] };
           setGraphData(nextGraph);
@@ -337,51 +357,55 @@ function CourtsideApp() {
           setCurrentView("social-hops");
           setSegmentationLens("SOCIAL_HOPS");
           setIsSegmentedView(true);
+          setManualIds(new Set());
           setHighlightBridges(false);
           setIsInspectorOpen(true);
 
           const summary = data.social_hop_summary || {};
-          const egoTag = summary.ego_gamer_tag || "CrewAnchor";
-          const h1 = Number(summary.hop1_count ?? 12);
-          const h2 = Number(summary.hop2_count ?? 28);
-          const h3 = Number(summary.hop3_count ?? 38);
-          const reach = Number(summary.total_network_reach ?? 1 + h1 + h2 + h3);
+          const egoTag = String(summary.ego_gamer_tag || "");
+          const h1 = Number(summary.hop1_count || 0);
+          const h2 = Number(summary.hop2_count || 0);
+          const h3 = Number(summary.hop3_count || 0);
+          const reach = Number(summary.total_network_reach || nextGraph.nodes.length);
+          const stats = summarizePlayers(
+            nextGraph.nodes.filter((n: GraphNode) => n.type === "PLAYER")
+          );
+          const edgeKinds: string[] = summary.edge_kinds || [];
 
           setCohortContext({
             query:
               hopDepth === "1"
-                ? `1° Direct Co-Play Squad (@${egoTag} · ${h1} Teammates)`
+                ? `1° ties of @${egoTag} (${h1} players)`
                 : hopDepth === "2"
-                ? `1° + 2° Friends-of-Squad Network (@${egoTag} · ${1 + h1 + h2} Players)`
-                : `1° · 2° · 3° Interpersonal Co-Play Graph (@${egoTag} · ${reach} Reach)`,
+                ? `1°–2° network of @${egoTag} (${1 + h1 + h2} players)`
+                : `1°–3° network of @${egoTag} (${reach} players)`,
             franchise: selectedGame,
             matchedCount: reach,
             renderedCount: nextGraph.nodes.length,
             estimatedTotal: reach,
-            dominantArchetype: "REC_CREW_CAPTAIN",
-            avgSpend: 235,
-            avgChurn: 0.36,
-            avgTilt: 0.39,
-            highChurnCount: h3,
+            dominantArchetype: stats.dominantArchetype,
+            avgSpend: stats.avgSpend,
+            avgChurn: stats.avgChurn,
+            avgTilt: stats.avgTilt,
+            highChurnCount: stats.highChurnCount,
             isLive: true,
             isMultiHop: true,
             multiHopMetadata: {
               hops: hopDepth === "1" ? 1 : hopDepth === "2" ? 2 : 3,
-              patternLabel: `0° @${egoTag} → ${h1} (1° Co-Play Squad) → ${h2} (2° Friends-of-Squad) → ${h3} (3° Weak-Tie Holdouts)`,
-              summary: `Interpersonal co-play network with $${Math.round(
-                Number(summary.squad_var_usd || 3480)
-              ).toLocaleString()} Squad Value-at-Risk across 3 degrees of influence.`,
+              patternLabel: `0° @${egoTag} → ${h1} (1°) → ${h2} (2°) → ${h3} (3°)`,
+              summary: `Real ${edgeKinds.join(" / ") || "social"} edges from Spanner; 1° ties spend $${Math.round(
+                Number(summary.squad_spend_usd || 0)
+              ).toLocaleString()} lifetime.`,
               steps: [
-                `0° Seed (@${egoTag})`,
-                `1° Direct Squad (${h1})`,
-                ...(hopDepth !== "1" ? [`2° Friends-of-Squad (${h2})`] : []),
-                ...(hopDepth === "all" || hopDepth === "3"
-                  ? [`3° Weak-Tie Bridges (${h3})`]
-                  : []),
+                `0° @${egoTag}`,
+                `1° ties (${h1})`,
+                ...(hopDepth !== "1" ? [`2° ties (${h2})`] : []),
+                ...(hopDepth === "all" || hopDepth === "3" ? [`3° ties (${h3})`] : []),
               ],
               bridgeNodes: nextGraph.nodes
-                .slice(1, 7)
-                .map((n: any) => `@${String(n.name).replace(/\s*\(\d°.*\)$/, "")}`),
+                .filter((n: any) => n.type === "PLAYER" && n.id !== summary.ego_player_id)
+                .slice(0, 6)
+                .map((n: any) => `@${String(n.name).replace(/\s*\(\d°\)$/, "")}`),
             },
           });
 
@@ -465,7 +489,7 @@ function CourtsideApp() {
       if (recommendedOffer && recommendedOffer.title) {
         setOfferPreset({
           title: recommendedOffer.title,
-          priceUsd: recommendedOffer.priceUsd || 4.99,
+          priceUsd: recommendedOffer.priceUsd,
         });
         setCreativeOfferTitle(recommendedOffer.title);
       }
@@ -477,46 +501,36 @@ function CourtsideApp() {
         return;
       }
 
+      // Same CATE lens rules as the canvas and the inspector (src/lib/lens.ts),
+      // so the pruned graph always matches the counts on the buttons.
+      const playerNodes = sourceGraph.nodes.filter((n) => n.type === "PLAYER");
+      const lensCtx = buildLensContext(playerNodes);
+      const captains = computeKeystoneCaptains(sourceGraph.nodes, sourceGraph.links);
       const allowedPlayerIds = new Set<string>();
-      sourceGraph.nodes.forEach((n) => {
-        if (n.type !== "PLAYER") return;
-        const pTel = n.game_telemetry || {};
-        const quad = String(pTel.uplift_quadrant || "PERSUADABLE");
-        const action = String(
-          pTel.decision_action || "DISPATCH_PERSONALIZED_OFFER"
-        );
-        const role = String(pTel.crew_role || "MEMBER");
-
-        if (segment === "CAPTAIN") {
-          if (
-            action === "SEED_CREW_CAPTAIN" ||
-            role === "CAPTAIN" ||
-            n.archetype === "REC_CREW_CAPTAIN"
-          ) {
-            allowedPlayerIds.add(n.id);
-          }
-        } else if (segment === "PERSUADABLE") {
-          if (quad === "PERSUADABLE" || action === "SEED_CREW_CAPTAIN") {
-            allowedPlayerIds.add(n.id);
-          }
-        } else if (segment === "SURE_THING") {
-          if (quad === "SURE_THING") allowedPlayerIds.add(n.id);
-        } else if (segment === "SLEEPING_DOG") {
-          if (quad === "SLEEPING_DOG") allowedPlayerIds.add(n.id);
-        }
+      playerNodes.forEach((n) => {
+        const bucket = classifyNodeForLens(n, captains, "CATE_UPLIFT", lensCtx)?.bucketId;
+        if (segment === "CAPTAIN" && bucket === "SEED_CREW_CAPTAIN") allowedPlayerIds.add(n.id);
+        else if (
+          segment === "PERSUADABLE" &&
+          (bucket === "PERSUADABLE" || bucket === "SEED_CREW_CAPTAIN")
+        )
+          allowedPlayerIds.add(n.id);
+        else if (segment === "SURE_THING" && bucket === "SURE_THING_D2C") allowedPlayerIds.add(n.id);
+        else if (segment === "SLEEPING_DOG" && bucket === "SLEEPING_DOG") allowedPlayerIds.add(n.id);
       });
 
+      const playerIdSet = new Set(playerNodes.map((n) => n.id));
       const connectedNonPlayerIds = new Set<string>();
       const filteredLinks = sourceGraph.links.filter((l: any) => {
         const s = typeof l.source === "object" ? l.source.id : String(l.source);
         const t = typeof l.target === "object" ? l.target.id : String(l.target);
         const sIsAllowedPlayer = allowedPlayerIds.has(s);
         const tIsAllowedPlayer = allowedPlayerIds.has(t);
-        if (sIsAllowedPlayer && !t.startsWith("p-")) {
+        if (sIsAllowedPlayer && !playerIdSet.has(t)) {
           connectedNonPlayerIds.add(t);
           return true;
         }
-        if (tIsAllowedPlayer && !s.startsWith("p-")) {
+        if (tIsAllowedPlayer && !playerIdSet.has(s)) {
           connectedNonPlayerIds.add(s);
           return true;
         }
@@ -537,123 +551,179 @@ function CourtsideApp() {
     [baseGraphData, graphData]
   );
 
+  // Manual segmentation: Shift+click toggles a player; "Build segment" turns the
+  // picked players (plus the titles / crews / creators they connect to on the
+  // canvas) into a cohort whose analytics are computed from their Spanner rows.
+  const toggleManualSelect = useCallback((node: GraphNode) => {
+    setManualIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(node.id)) next.delete(node.id);
+      else next.add(node.id);
+      return next;
+    });
+  }, []);
+
+  const buildManualSegment = useCallback(() => {
+    const idOf = (v: any) => (typeof v === "object" && v ? v.id : String(v));
+    const nodeById = new Map(graphData.nodes.map((n) => [n.id, n]));
+    const picked = graphData.nodes.filter(
+      (n) => n.type === "PLAYER" && manualIds.has(n.id)
+    );
+    if (picked.length === 0) return;
+    const keep = new Set(picked.map((n) => n.id));
+    const segLinks = graphData.links
+      .map((l) => ({ ...l, source: idOf(l.source), target: idOf(l.target) }))
+      .filter((l) => {
+        const sIn = keep.has(l.source as string);
+        const tIn = keep.has(l.target as string);
+        if (!sIn && !tIn) return false;
+        const sPlayer = nodeById.get(l.source as string)?.type === "PLAYER";
+        const tPlayer = nodeById.get(l.target as string)?.type === "PLAYER";
+        // Player-to-player edges only when both ends were picked.
+        return sPlayer && tPlayer ? sIn && tIn : true;
+      });
+    segLinks.forEach((l) => {
+      keep.add(l.source as string);
+      keep.add(l.target as string);
+    });
+    const segNodes = graphData.nodes.filter((n) => keep.has(n.id));
+    const stats = summarizePlayers(picked);
+    const studioLabel = stats.studioMix
+      .map((m) => `${m.studio === "ROCKSTAR" ? "Rockstar" : m.studio === "ZYNGA" ? "Zynga" : "2K"} ${m.players}`)
+      .join(" · ");
+    const nextGraph = { nodes: segNodes, links: segLinks };
+    setGraphData(nextGraph);
+    setBaseGraphData(nextGraph);
+    setCohortContext({
+      query: `Manual segment · ${picked.length} players (${studioLabel})`,
+      franchise: selectedGame,
+      matchedCount: picked.length,
+      renderedCount: picked.length,
+      estimatedTotal: picked.length,
+      isSampled: false,
+      dominantArchetype: stats.dominantArchetype,
+      avgSpend: stats.avgSpend,
+      avgChurn: stats.avgChurn,
+      avgTilt: stats.avgTilt,
+      highChurnCount: stats.highChurnCount,
+      isLive: true,
+      isManualSegment: true,
+      source: "Spanner Players + PLAYS_GAME (canvas selection)",
+    });
+    setIsSegmentedView(true);
+    setSelectedNode(null);
+    setIsInspectorOpen(true);
+    setManualIds(new Set());
+  }, [graphData, manualIds, selectedGame]);
+
+  // Graph Twins: every number shown comes from /api/audiences/lookalike, which
+  // ranks all players in Spanner by cosine similarity to the seed centroid.
+  const applyTwinsPayload = useCallback(
+    (twinsPayload: any, seedLabel: string, selectPlayerId?: string) => {
+      const nextGraph = {
+        nodes: twinsPayload.graph_data?.nodes || [],
+        links: twinsPayload.graph_data?.links || [],
+      };
+      setGraphData(nextGraph);
+      setBaseGraphData(nextGraph);
+      setShowLanding(false);
+      setCurrentView("audience-cohorts");
+      setIsSegmentedView(true);
+      setHighlightBridges(false);
+      setIsInspectorOpen(true);
+      setManualIds(new Set());
+      setGraphError(null);
+
+      const added = Number(twinsPayload.added_count);
+      const range = twinsPayload.similarity_range;
+      const rangeText = range
+        ? `cosine ${Number(range.min).toFixed(3)}–${Number(range.max).toFixed(3)}`
+        : "no players selected";
+      setCohortContext({
+        query: `Graph twins of ${seedLabel} (+${added.toLocaleString()})`,
+        franchise: selectedGame,
+        matchedCount: added,
+        renderedCount: Number(twinsPayload.rendered_count || 0),
+        isSampled: Number(twinsPayload.rendered_count || 0) < added,
+        estimatedTotal: added,
+        dominantArchetype: twinsPayload.twins_dominant_archetype || "",
+        avgSpend: twinsPayload.twins_avg_spend_usd ?? undefined,
+        avgChurn: twinsPayload.twins_avg_churn ?? undefined,
+        highChurnCount: twinsPayload.twins_high_churn_count ?? undefined,
+        isLive: true,
+        isMultiHop: true,
+        source: "Spanner (all players scored)",
+        multiHopMetadata: {
+          hops: 1,
+          patternLabel: `${Number(twinsPayload.seed_count)} seed players → ${added.toLocaleString()} twins (${twinsPayload.selection}, ${rangeText})`,
+          summary: `${twinsPayload.method} Scored ${Number(twinsPayload.players_scored).toLocaleString()} players.`,
+          steps: [
+            `${Number(twinsPayload.seed_count)} seeds`,
+            `${Number(twinsPayload.players_scored).toLocaleString()} players scored`,
+            `+${added.toLocaleString()} twins`,
+          ],
+          bridgeNodes: (twinsPayload.top_twins || [])
+            .slice(0, 6)
+            .map((t: any) => `@${String(t.gamer_tag).replace(/^@/, "")}`),
+        },
+      });
+      if (selectPlayerId) {
+        const found = nextGraph.nodes.find((n: any) => n.id === selectPlayerId);
+        setSelectedNode(found || null);
+      } else {
+        setSelectedNode(null);
+      }
+    },
+    [selectedGame]
+  );
+
   const handleFindGraphTwins = useCallback(
     async (seedNode?: GraphNode | null) => {
+      const playerNodes = graphData.nodes.filter((n) => n.type === "PLAYER");
+      // Seed = the selected player, otherwise every player of the current cohort on canvas.
+      const seedIds =
+        seedNode && seedNode.type === "PLAYER"
+          ? [seedNode.id]
+          : playerNodes.slice(0, 500).map((n) => n.id);
+      if (seedIds.length === 0) {
+        setGraphError("Graph Twins needs a seed: select a player or load a cohort first.");
+        return;
+      }
       setIsFindingTwins(true);
       try {
-        const playerNodes = graphData.nodes.filter((n) => n.type === "PLAYER");
-        const seedIds =
-          seedNode && seedNode.type === "PLAYER"
-            ? [
-                seedNode.id,
-                ...playerNodes
-                  .filter((n) => n.id !== seedNode.id)
-                  .slice(0, 5)
-                  .map((n) => n.id),
-              ]
-            : playerNodes.slice(0, 6).map((n) => n.id);
-
-        const seedArchs = Array.from(
-          new Set(
-            [
-              seedNode?.archetype ? String(seedNode.archetype) : null,
-              cohortContext?.dominantArchetype
-                ? String(cohortContext.dominantArchetype)
-                : null,
-              ...playerNodes
-                .slice(0, 4)
-                .map((n) => (n.archetype ? String(n.archetype) : null)),
-            ].filter(Boolean) as string[]
-          )
-        );
-
         const res = await fetch("/api/audiences/lookalike", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            seed_query:
-              cohortContext?.query ||
-              seedNode?.name ||
-              "NBA 2K27 High-Uplift Cohort",
-            seed_player_ids: seedIds.length > 0 ? seedIds : ["p-2k-101"],
-            seed_archetypes:
-              seedArchs.length > 0 ? seedArchs : ["REC_CREW_CAPTAIN"],
-            target_franchise: selectedGame,
+            seed_player_ids: seedIds,
             matched_count:
-              cohortContext?.matchedCount || playerNodes.length || 681,
-            expansion_pct: 25,
-            offer_price_usd: offerPreset?.priceUsd || 4.99,
+              seedNode && seedNode.type === "PLAYER"
+                ? undefined
+                : cohortContext?.matchedCount || playerNodes.length,
+            expansion_pct: seedNode && seedNode.type === "PLAYER" ? undefined : 25,
           }),
         });
-
         const twinsPayload = await res.json();
-        if (res.ok && twinsPayload?.graph_data?.nodes?.length) {
-          const nextGraph = {
-            nodes: twinsPayload.graph_data.nodes,
-            links: twinsPayload.graph_data.links || [],
-          };
-          setGraphData(nextGraph);
-          setBaseGraphData(nextGraph);
-          setShowLanding(false);
-          setCurrentView("audience-cohorts");
-          setIsSegmentedView(true);
-          setHighlightBridges(false);
-          setIsInspectorOpen(true);
-
-          const addedCount = Number(
-            twinsPayload.added_count || twinsPayload.expanded_count || 170
+        if (!res.ok || !twinsPayload?.ok) {
+          setGraphError(
+            `Graph Twins failed (HTTP ${res.status}): ${twinsPayload?.error || "unknown error"}`
           );
-          const expandedTotal = Number(
-            twinsPayload.expanded_total ||
-              (cohortContext?.matchedCount || 681) + addedCount
-          );
-          const avgSimPct = (
-            Number(twinsPayload.avg_cosine_similarity || 0.942) * 100
-          ).toFixed(1);
-
-          setCohortContext({
-            query: `ScaNN Graph Twins (+${addedCount} Twins · ${avgSimPct}% Cosine Match)`,
-            franchise: selectedGame,
-            matchedCount: expandedTotal,
-            renderedCount: nextGraph.nodes.filter(
-              (n: any) => n.type === "PLAYER"
-            ).length,
-            estimatedTotal: expandedTotal,
-            dominantArchetype:
-              twinsPayload.top_twins?.[0]?.archetype ||
-              cohortContext?.dominantArchetype ||
-              "REC_CREW_CAPTAIN",
-            avgSpend: cohortContext?.avgSpend || 245,
-            avgChurn: cohortContext?.avgChurn || 0.34,
-            avgTilt: cohortContext?.avgTilt || 0.36,
-            highChurnCount: cohortContext?.highChurnCount || 48,
-            isLive: true,
-            isMultiHop: true,
-            multiHopMetadata: {
-              hops: 2,
-              patternLabel: `Seed Cohort → Shared Crew / Creator Halo → +${addedCount} ScaNN Graph Twins (${avgSimPct}% Match)`,
-              summary: `Expanded seed cohort via Vertex AI gemini-embedding-001 (3,072-d) + 1-hop Crew/Creator overlap (+$${Math.round(
-                Number(twinsPayload.incremental_bookings_usd || 12400) / 1000
-              )}K Est. Bookings).`,
-              steps: [
-                "Seed High-Uplift Cohort",
-                "1-Hop Shared Crew & Creator Halo",
-                `+${addedCount} ScaNN 3,072-d Graph Twins`,
-              ],
-              bridgeNodes: (twinsPayload.top_twins || [])
-                .slice(0, 6)
-                .map((t: any) => `@${String(t.gamer_tag).replace(/^@/, "")}`),
-            },
-          });
-          setSelectedNode(null);
+          return;
         }
-      } catch (err) {
+        applyTwinsPayload(
+          twinsPayload,
+          seedNode && seedNode.type === "PLAYER"
+            ? `@${seedNode.name}`
+            : cohortContext?.query || `${seedIds.length} players`
+        );
+      } catch (err: any) {
         console.error("Failed to expand Graph Twins:", err);
+        setGraphError(`Graph Twins request failed: ${err?.message || String(err)}`);
       } finally {
         setIsFindingTwins(false);
       }
     },
-    [graphData.nodes, cohortContext, selectedGame, offerPreset]
+    [graphData.nodes, cohortContext, applyTwinsPayload]
   );
 
   const handleGenerateBrief = async (fgResult: FocusGroupResult) => {
@@ -668,7 +738,7 @@ function CourtsideApp() {
             fgResult.target_cohort_query ||
             cohortContext?.query ||
             "NBA 2K27 Season 1 Retention Segment",
-          audience_size: cohortContext?.matchedCount || 284,
+          audience_size: cohortContext?.matchedCount,
           focus_group_result: fgResult,
         }),
       });
@@ -761,8 +831,8 @@ function CourtsideApp() {
           onOpenFocusGroup={() => setIsFocusGroupOpen(true)}
           onSaveAudience={() => setIsSaveSheetOpen(true)}
           isSearching={isSearching}
-          matchedCount={cohortContext?.matchedCount || 284}
-          renderedCount={cohortContext?.renderedCount || 64}
+          matchedCount={cohortContext?.matchedCount ?? 0}
+          renderedCount={cohortContext?.renderedCount ?? 0}
           executionMs={executionMs}
           translateMs={translateMs}
           modelUsed={modelUsed}
@@ -815,6 +885,7 @@ function CourtsideApp() {
           onClose={() => setIsSaveSheetOpen(false)}
           cohortContext={cohortContext}
           generatedGql={generatedGql}
+          seedPlayerIds={graphData.nodes.filter((n) => n.type === "PLAYER").map((n) => n.id)}
         />
 
         <SavedAudiencesDrawer
@@ -823,7 +894,7 @@ function CourtsideApp() {
           onSelectAudience={(aud: SavedAudience) => {
             runAudienceQuery(
               aud.nl_query,
-              (aud.franchise as GameFranchise) || "NBA2K",
+              (aud.franchise as GameFranchise) || "ALL",
               [],
               true
             );
@@ -833,9 +904,8 @@ function CourtsideApp() {
               query: aud.nl_query,
               matchedCount: aud.matched_count,
               estimatedTotal: aud.matched_count,
-              dominantArchetype:
-                aud.dominant_archetype || "MYCAREER_STORY_CASUAL",
-              avgSpend: aud.avg_spend || 180,
+              dominantArchetype: aud.dominant_archetype || "",
+              avgSpend: aud.avg_spend ?? undefined,
               isLive: true,
             });
             setIsActivationDagOpen(true);
@@ -865,7 +935,7 @@ function CourtsideApp() {
             cohortContext?.query?.slice(0, 72) ||
             "Season 2 Cliff · Active Crew Mates"
           }
-          matchedCount={cohortContext?.matchedCount || 284}
+          matchedCount={cohortContext?.matchedCount ?? 0}
           selectedChannels={[
             "IN_GAME_INBOX",
             "2K_ACCOUNT_EMAIL",
@@ -1029,9 +1099,44 @@ function CourtsideApp() {
               clusterByLabel={clusterByLabel}
               highlightBridges={highlightBridges}
               segmentationLens={segmentationLens}
+              manualSelectionIds={manualIds}
+              onToggleManualSelect={toggleManualSelect}
             />
           )}
         </div>
+
+        {graphError && (
+          <div
+            role="alert"
+            className="absolute top-3 left-1/2 -translate-x-1/2 z-40 max-w-[640px] rounded-xl border border-rose-500/40 bg-rose-950/80 px-3.5 py-2 text-[11.5px] text-rose-100 shadow-2xl"
+          >
+            {graphError}
+          </div>
+        )}
+
+        {manualIds.size > 0 && (
+          <div
+            className="absolute top-14 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-2xl border border-white/[0.12] bg-[#0B0E15]/95 px-3 py-1.5 text-[11.5px] text-white shadow-2xl"
+            data-testid="manual-segment-chip"
+          >
+            <span className="font-mono tabular-nums">{manualIds.size} selected</span>
+            <span className="h-3 w-px bg-white/15" />
+            <button
+              type="button"
+              onClick={buildManualSegment}
+              className="rounded-lg bg-white px-2.5 py-1 text-[11px] font-semibold text-black hover:bg-white/90"
+            >
+              Build segment
+            </button>
+            <button
+              type="button"
+              onClick={() => setManualIds(new Set())}
+              className="rounded-lg px-2 py-1 text-[11px] text-gray-300 hover:bg-white/10 hover:text-white"
+            >
+              Clear
+            </button>
+          </div>
+        )}
 
         {/* Floating Bottom-Center NL Search Bar */}
         {(currentView === "audience-cohorts" ||
@@ -1059,7 +1164,7 @@ function CourtsideApp() {
               setIsSegmentedView(true);
               setIsInspectorOpen(true);
               setCohortContext({
-                query: queryPrompt || "Segmented 2K Cohort",
+                query: queryPrompt || "Segmented cohort",
                 franchise: selectedGame,
                 matchedCount:
                   metrics?.matched_count || newGraphData.nodes.length,
@@ -1068,12 +1173,11 @@ function CourtsideApp() {
                 isSampled: metrics?.is_sampled,
                 estimatedTotal:
                   metrics?.matched_count || newGraphData.nodes.length,
-                dominantArchetype:
-                  metrics?.dominant_archetype || "MYCAREER_STORY_CASUAL",
-                avgSpend: metrics?.avg_spend_usd || 185,
-                avgChurn: metrics?.avg_churn_risk || 0.38,
-                avgTilt: metrics?.avg_tilt || 0.42,
-                highChurnCount: metrics?.high_churn_count || 0,
+                dominantArchetype: metrics?.dominant_archetype || "",
+                avgSpend: metrics?.avg_spend_usd,
+                avgChurn: metrics?.avg_churn_risk,
+                avgTilt: metrics?.avg_tilt,
+                highChurnCount: metrics?.high_churn_count,
                 isLive: true,
                 source: metrics?.spanner_source,
                 isMultiHop: metrics?.is_multi_hop,
@@ -1201,68 +1305,7 @@ function CourtsideApp() {
         }}
         onOpenGraphTwins={(twinsPayload, selectPlayerId) => {
           if (twinsPayload?.graph_data?.nodes?.length) {
-            const nextGraph = {
-              nodes: twinsPayload.graph_data.nodes,
-              links: twinsPayload.graph_data.links || [],
-            };
-            setGraphData(nextGraph);
-            setBaseGraphData(nextGraph);
-            setShowLanding(false);
-            setCurrentView("audience-cohorts");
-            setIsSegmentedView(true);
-            setHighlightBridges(true);
-            setIsInspectorOpen(true);
-            const addedCount = Number(
-              twinsPayload.added_count || twinsPayload.expanded_count || 185
-            );
-            const expandedTotal = Number(
-              twinsPayload.expanded_total ||
-                (cohortContext?.matchedCount || 681) + addedCount
-            );
-            const avgSimPct = (
-              Number(twinsPayload.avg_cosine_similarity || 0.942) * 100
-            ).toFixed(1);
-            setCohortContext({
-              query: `ScaNN Graph Twins (+${addedCount} Twins · ${avgSimPct}% Cosine Match)`,
-              franchise: selectedGame,
-              matchedCount: expandedTotal,
-              renderedCount: nextGraph.nodes.filter((n: any) => n.type === "PLAYER")
-                .length,
-              estimatedTotal: expandedTotal,
-              dominantArchetype:
-                twinsPayload.top_twins?.[0]?.archetype ||
-                cohortContext?.dominantArchetype ||
-                "REC_CREW_CAPTAIN",
-              avgSpend: cohortContext?.avgSpend || 245,
-              avgChurn: cohortContext?.avgChurn || 0.34,
-              avgTilt: cohortContext?.avgTilt || 0.36,
-              highChurnCount: cohortContext?.highChurnCount || 48,
-              isLive: true,
-              isMultiHop: true,
-              multiHopMetadata: {
-                hops: 2,
-                patternLabel: `Seed Buyers → Shared Crew / Creator Halo → +${addedCount} ScaNN Graph Twins (${avgSimPct}% Match)`,
-                summary: `Expanded high-uplift Focus Group buyers via Vertex AI gemini-embedding-001 (3,072-d) + 1-hop Crew/Creator overlap (+$${Math.round(
-                  Number(twinsPayload.incremental_bookings_usd || 12400) / 1000
-                )}K Est. Bookings).`,
-                steps: [
-                  "Focus Group High-Uplift Buyers",
-                  "1-Hop Shared Crew & Creator Halo",
-                  `+${addedCount} ScaNN 3,072-d Graph Twins`,
-                ],
-                bridgeNodes: (twinsPayload.top_twins || [])
-                  .slice(0, 6)
-                  .map((t: any) => `@${String(t.gamer_tag).replace(/^@/, "")}`),
-              },
-            });
-            if (selectPlayerId) {
-              const found = nextGraph.nodes.find(
-                (n: any) => n.id === selectPlayerId
-              );
-              if (found) setSelectedNode(found);
-            } else {
-              setSelectedNode(null);
-            }
+            applyTwinsPayload(twinsPayload, "Focus Group buyers", selectPlayerId);
             setIsFocusGroupOpen(false);
           }
         }}
@@ -1299,6 +1342,7 @@ function CourtsideApp() {
         onClose={() => setIsSaveSheetOpen(false)}
         cohortContext={cohortContext}
         generatedGql={generatedGql}
+        seedPlayerIds={graphData.nodes.filter((n) => n.type === "PLAYER").map((n) => n.id)}
       />
 
       <SavedAudiencesDrawer
@@ -1307,7 +1351,7 @@ function CourtsideApp() {
         onSelectAudience={(aud: SavedAudience) => {
           runAudienceQuery(
             aud.nl_query,
-            (aud.franchise as GameFranchise) || "NBA2K",
+            (aud.franchise as GameFranchise) || "ALL",
             [],
             true
           );
@@ -1317,9 +1361,8 @@ function CourtsideApp() {
             query: aud.nl_query,
             matchedCount: aud.matched_count,
             estimatedTotal: aud.matched_count,
-            dominantArchetype:
-              aud.dominant_archetype || "MYCAREER_STORY_CASUAL",
-            avgSpend: aud.avg_spend || 180,
+            dominantArchetype: aud.dominant_archetype || "",
+            avgSpend: aud.avg_spend ?? undefined,
             isLive: true,
           });
           setIsActivationDagOpen(true);
@@ -1339,7 +1382,7 @@ function CourtsideApp() {
           cohortContext?.query?.slice(0, 72) ||
           "Season 2 Cliff · Active Crew Mates"
         }
-        matchedCount={cohortContext?.matchedCount || 284}
+        matchedCount={cohortContext?.matchedCount ?? 0}
         selectedChannels={[
           "IN_GAME_INBOX",
           "2K_ACCOUNT_EMAIL",

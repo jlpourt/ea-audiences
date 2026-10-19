@@ -55,9 +55,12 @@ function stripLeadingCount(title: string): string {
 export function CoreFindingCard({
   onOpenPlayer,
   onLoadCohort,
+  eyebrow = "Core finding",
 }: {
-  onOpenPlayer: () => void;
+  /** Omit to hide the "See one player" CTA (Take-Two command center). */
+  onOpenPlayer?: () => void;
   onLoadCohort: (query: string, franchise: string) => void;
+  eyebrow?: string;
 }) {
   const { data, error, loading, reload } = useLiveJson<CoreFindingResponse>("/api/insights/core-finding?franchise=NBA2K");
   const f = data ? pickFinding(data) : null;
@@ -79,7 +82,7 @@ export function CoreFindingCard({
           <div className="mb-4 flex items-center gap-2.5 text-[12px]">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-soft)] px-2.5 py-1 font-medium text-[var(--accent)]">
               <span className="v2-live-dot" style={{ background: "var(--accent)" }} />
-              Core finding
+              {eyebrow}
             </span>
             {data && (
               <span className="text-[var(--text-faint)] v2-tabular">
@@ -109,6 +112,7 @@ export function CoreFindingCard({
                 {stripLeadingCount(f.title)}
               </motion.p>
               <div className="mt-6 flex flex-wrap items-center gap-2.5">
+                {onOpenPlayer && (
                 <Magnetic inline strength={0.2} max={6}>
                   <button
                     type="button"
@@ -119,6 +123,7 @@ export function CoreFindingCard({
                     <ArrowRight size={14} strokeWidth={2} className="transition-transform duration-200 ease-out group-hover:translate-x-0.5" />
                   </button>
                 </Magnetic>
+                )}
                 <button
                   type="button"
                   onClick={() => onLoadCohort(f.queryToRun, f.franchise)}

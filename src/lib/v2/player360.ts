@@ -11,6 +11,7 @@
  * Zero fallbacks: any Spanner failure throws `Player360QueryError` carrying the
  * failing query label so the route can answer 503 with exact diagnostics.
  */
+import { FRANCHISE_TITLE, studioOfFranchise, type Studio } from "./plays";
 import { GCP_CONFIG } from "@/lib/config";
 import { runRawGql, toNumber, GRAPH_NAME } from "@/lib/gcp/spanner-client";
 
@@ -160,6 +161,9 @@ export interface P360Node {
   churned?: boolean;
   churned_recent?: boolean;
   keystone?: boolean;
+  /** Neighbor players only: the other label whose titles they also play
+   *  (ROCKSTAR > ZYNGA), else their home label. Drives the cross-label colour. */
+  studio?: Studio;
   churn_risk?: number;
   same_crew?: boolean;
   /** 0..1 tie strength to the center (neighbors) or relative weight. */
@@ -228,11 +232,54 @@ export interface Player360Response {
     players_like_you_bought: P360LikeYouItem[];
     players_like_you_method: string;
   };
+  /** Present only on the Take-Two portfolio database (2K + Rockstar + Zynga). */
+  cross_label?: P360CrossLabel;
   gql: string;
   gql_steps: P360QueryStep[];
   source: { service: "Cloud Spanner"; project: string; instance: string; database: string; graph: string };
   latency_ms: number;
 }
+
+export interface P360CrossLabel {
+  home_studio: Studio;
+  titles: { franchise: string; title: string; studio: Studio; spend_usd: number; last_played: string | null }[];
+  /** Friends (FRIENDS_WITH) who also play another label's titles. */
+  friends: { total: number; rockstar: number; zynga: number; twok: number };
+  /** Co-play partners (PLAYED_WITH) whose home label differs from the player's. */
+  coplay_other_label: number;
+  gta6_wishlisted: boolean;
+  invites: { sent_accepted: number; joined_by_invite: number };
+}
+
+const weekAgoFor = (asOf: Date) => asOf.getTime() - 7 * 86400000;
+
+let portfolioSchema: Promise<boolean> | null = null;
+/** True when the database carries the Take-Two portfolio extension (Invited table). Cached per process. */
+export function hasPortfolio(): Promise<boolean> {
+  portfolioSchema ??= runRawGql(`SELECT COUNT(*) AS n FROM information_schema.tables WHERE table_name = 'Invited'`)
+    .then((r) => Number(r[0]?.n ?? 0) > 0)
+    .catch((e) => {
+      portfolioSchema = null;
+      throw e;
+    });
+  return portfolioSchema;
+}
+
+const QX = {
+  titles: `
+    SELECT g.franchise AS franchise, ANY_VALUE(h.title) AS title, ANY_VALUE(h.label) AS label,
+           SUM(IFNULL(pg.spend_usd, 0)) AS spend, MAX(pg.last_played_timestamp) AS last_played
+    FROM PlaysGame pg
+    JOIN Games g ON g.game_id = pg.game_id
+    JOIN Games h ON h.franchise = g.franchise AND h.is_parent_hub = true
+    WHERE pg.player_id = @pid
+    GROUP BY g.franchise
+    ORDER BY spend DESC`,
+  extras: `
+    SELECT (SELECT COUNT(*) FROM Wishlisted WHERE player_id = @pid AND game_id = 'game-gta6') AS wish,
+           (SELECT COUNT(*) FROM Invited WHERE player_id = @pid AND accepted) AS sent_accepted,
+           (SELECT COUNT(*) FROM Invited WHERE invitee_id = @pid AND accepted) AS joined_by_invite`,
+};
 
 export interface FeaturedPlayerResponse {
   player_id: string;
@@ -385,6 +432,7 @@ const Q = {
            LAX_INT64(p.game_telemetry.myplayer_ovr) AS ovr,
            p.session_min_7d AS s7, p.session_min_prev_7d AS sp7,
            p.churned_at AS churned_at, p.last_active_at AS last_active_at,
+           p.primary_franchise AS primary_franchise,
            p.community_id AS community_id`,
 
   crew: `
@@ -440,6 +488,7 @@ const Q = {
     MATCH (p:Player {player_id: @pid})-[e:PLAYED_WITH]-(n:Player)
     RETURN n.player_id AS id, n.gamer_tag AS gamer_tag, n.churned_at AS churned_at,
            n.churn_risk_score AS churn_risk, n.session_min_7d AS s7, n.session_min_prev_7d AS sp7,
+           n.primary_franchise AS home, n.franchises_played AS frs,
            e.games_together_30d AS g30, e.games_together_total AS gtot,
            e.same_crew AS same_crew, e.last_played_at AS last_at
     ORDER BY g30 DESC, gtot DESC
@@ -450,6 +499,7 @@ const Q = {
     MATCH (p:Player {player_id: @pid})-[e:FRIENDS_WITH]-(n:Player)
     RETURN n.player_id AS id, n.gamer_tag AS gamer_tag, n.churned_at AS churned_at,
            n.churn_risk_score AS churn_risk, n.session_min_7d AS s7, n.session_min_prev_7d AS sp7,
+           n.primary_franchise AS home, n.franchises_played AS frs,
            e.since AS since
     ORDER BY since ASC
     LIMIT 1000`,
@@ -459,6 +509,7 @@ const Q = {
     MATCH (p:Player {player_id: @pid})-[e:MESSAGED]-(n:Player)
     RETURN n.player_id AS id, n.gamer_tag AS gamer_tag, n.churned_at AS churned_at,
            n.churn_risk_score AS churn_risk, n.session_min_7d AS s7, n.session_min_prev_7d AS sp7,
+           n.primary_franchise AS home, n.franchises_played AS frs,
            e.msg_count_30d AS msgs, e.last_msg_at AS last_at
     ORDER BY msgs DESC
     LIMIT 1000`,
@@ -528,6 +579,9 @@ const Q = {
 interface NeighborAgg {
   id: string;
   gamer_tag: string;
+  /** Neighbor's home franchise and every franchise they play. */
+  home: string | null;
+  frs: string[];
   churned_at: string | null;
   churn_risk: number;
   session_ratio: number | null;
@@ -730,6 +784,8 @@ export async function getPlayer360(playerId: string, hops: 1 | 2): Promise<Playe
       a = {
         id,
         gamer_tag: String(r.gamer_tag ?? id),
+        home: r.home ? String(r.home) : null,
+        frs: Array.isArray(r.frs) ? r.frs.map(String) : [],
         churned_at: ts(r.churned_at),
         churn_risk: num(r.churn_risk) ?? 0,
         session_ratio: sessionRatio(num(r.s7), num(r.sp7)),
@@ -945,6 +1001,13 @@ export async function getPlayer360(playerId: string, hops: 1 | 2): Promise<Playe
       churned: churnedMs !== null,
       churned_recent: churnedMs !== null && churnedMs >= churnCutoff,
       keystone: nKeystone,
+      studio: n.frs.some((f) => studioOfFranchise(f) === "ROCKSTAR")
+        ? "ROCKSTAR"
+        : n.frs.some((f) => studioOfFranchise(f) === "ZYNGA")
+          ? "ZYNGA"
+          : n.home
+            ? studioOfFranchise(n.home)
+            : undefined,
       churn_risk: n.churn_risk,
       same_crew: n.same_crew || (!!activeCrew && nc?.clan_id === activeCrew.clan_id),
       weight: round(n.tie),
@@ -1044,9 +1107,45 @@ export async function getPlayer360(playerId: string, hops: 1 | 2): Promise<Playe
     keystone: topDecile,
   };
 
+  // ---- Across labels (portfolio DB only) ----------------------------------
+  let cross_label: P360CrossLabel | undefined;
+  if (await hasPortfolio()) {
+    const [titleRows, extraRows] = await Promise.all([
+      log.run("across labels: titles + spend", QX.titles, { pid }),
+      log.run("across labels: GTA VI wishlist + invites", QX.extras, { pid }),
+    ]);
+    const home = studioOfFranchise(String(pr.primary_franchise ?? ""));
+    const playsLabel = (frs: unknown, st: Studio) =>
+      Array.isArray(frs) && frs.some((f) => studioOfFranchise(String(f)) === st);
+    const fw = fwRows as any[];
+    cross_label = {
+      home_studio: home,
+      titles: titleRows.map((r: any) => {
+        const label = String(r.label);
+        return {
+          franchise: String(r.franchise),
+          title: String(r.title),
+          studio: (label === "ROCKSTAR" ? "ROCKSTAR" : label === "ZYNGA" ? "ZYNGA" : "2K") as Studio,
+          spend_usd: round(num(r.spend) ?? 0, 2),
+          last_played: r.last_played ? String(r.last_played) : null,
+        };
+      }),
+      friends: {
+        total: fw.length,
+        rockstar: fw.filter((r) => playsLabel(r.frs, "ROCKSTAR")).length,
+        zynga: fw.filter((r) => playsLabel(r.frs, "ZYNGA")).length,
+        twok: fw.filter((r) => playsLabel(r.frs, "2K")).length,
+      },
+      coplay_other_label: (pwRows as any[]).filter((r) => r.home && studioOfFranchise(String(r.home)) !== home).length,
+      gta6_wishlisted: (num(extraRows[0]?.wish) ?? 0) > 0,
+      invites: { sent_accepted: num(extraRows[0]?.sent_accepted) ?? 0, joined_by_invite: num(extraRows[0]?.joined_by_invite) ?? 0 },
+    };
+  }
+
   return {
     player,
     hops,
+    cross_label,
     pillars: {
       crew: { crews, matches, seasons: Array.from(seasonMap.values()) },
       creator: { accounts, streams: Array.from(streamMap.values()), creators: Array.from(creatorMap.values()) },
@@ -1093,6 +1192,7 @@ const QF = {
     ${G}
     MATCH (p:Player)-[m:MEMBER_OF]->(c:Crew)
     WHERE m.is_active AND m.crew_centrality >= @p90
+      AND c.franchise NOT IN ('GTAO', 'RDO', 'WWF', 'MATCHFACTORY', 'TOONBLAST', 'CSR2', 'EMPIRES', 'ZPOKER')
       AND p.churned_at IS NULL
       AND p.session_min_prev_7d > 0
       AND p.session_min_7d / p.session_min_prev_7d < 0.7
@@ -1100,7 +1200,7 @@ const QF = {
            m.crew_centrality AS centrality,
            p.session_min_7d / p.session_min_prev_7d AS ratio
     ORDER BY centrality DESC
-    LIMIT 25`,
+    LIMIT 200`,
   richness: `
     ${G}
     MATCH (p:Player)-[e:PLAYED_WITH]-(n:Player)
@@ -1147,6 +1247,30 @@ export async function getFeaturedPlayer(): Promise<FeaturedPlayerResponse> {
     log.run("candidate creator pillar size", QF.pillars, { ids }),
     log.run("candidate branded purchases", QF.branded, { ids }),
   ]);
+  // Portfolio DB: prefer a keystone who is still active this week in a Rockstar or Zynga
+  // title (the cross-label story). No effect on the 2K-only database.
+  const crossMap = new Map<string, { last: number; franchise: string; rockstar: boolean }>();
+  if (await hasPortfolio()) {
+    const rows = await log.run(
+      "candidate activity in Rockstar / Zynga titles",
+      `SELECT pg.player_id AS player_id, g.label AS label, MAX(pg.last_played_timestamp) AS last_other,
+              ANY_VALUE(g.franchise HAVING MAX pg.last_played_timestamp) AS franchise
+       FROM PlaysGame pg JOIN Games g ON g.game_id = pg.game_id
+       WHERE pg.player_id IN UNNEST(@ids) AND g.label IN ('ROCKSTAR', 'ZYNGA')
+       GROUP BY pg.player_id, g.label`,
+      { ids },
+    );
+    // Per player keep the most recent title this week, preferring Rockstar (the GTA story).
+    for (const r of rows) {
+      const id = String(r.player_id);
+      const last = Date.parse(String(r.last_other));
+      const rockstar = String(r.label) === "ROCKSTAR";
+      const cur = crossMap.get(id);
+      const better = !cur || (rockstar && last >= weekAgoFor(asOf) && !cur.rockstar) || (rockstar === cur.rockstar && last > cur.last);
+      if (better) crossMap.set(id, { last, franchise: String(r.franchise), rockstar });
+    }
+  }
+  const weekAgo = asOf.getTime() - 7 * 86400000;
   const richMap = new Map(rich.map((r) => [String(r.player_id), r]));
   const watchMap = new Map(watched.map((r) => [String(r.player_id), num(r.watched) ?? 0]));
   const brandMap = new Map(branded.map((r) => [String(r.player_id), num(r.branded) ?? 0]));
@@ -1164,7 +1288,8 @@ export async function getFeaturedPlayer(): Promise<FeaturedPlayerResponse> {
       0.012 * Math.min(neighbors, 30) +
       0.06 * Math.min(churned, 5) +
       (w > 0 ? 0.08 : 0) +
-      (b > 0 ? 0.08 : 0);
+      (b > 0 ? 0.08 : 0) +
+      ((crossMap.get(id)?.last ?? 0) >= weekAgo ? (crossMap.get(id)!.rockstar ? 0.3 : 0.2) : 0);
     return { r, id, neighbors, churned, score };
   });
   scored.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
@@ -1175,7 +1300,10 @@ export async function getFeaturedPlayer(): Promise<FeaturedPlayerResponse> {
   const reason =
     `Keystone of ${best.r.crew} (centrality ${centrality.toFixed(2)}). ` +
     `Sessions down ${drop}% week over week. ` +
-    `${best.churned} of ${best.neighbors} co-play neighbors churned in the last 14 days.`;
+    `${best.churned} of ${best.neighbors} co-play neighbors churned in the last 14 days.` +
+    ((crossMap.get(best.id)?.last ?? 0) >= weekAgo
+      ? ` Still playing ${FRANCHISE_TITLE[crossMap.get(best.id)!.franchise] ?? crossMap.get(best.id)!.franchise} this week.`
+      : "");
 
   return {
     player_id: best.id,

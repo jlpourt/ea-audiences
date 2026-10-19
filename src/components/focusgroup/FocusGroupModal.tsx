@@ -106,7 +106,7 @@ function useAnimatedNumber(
  */
 function extractPunchyHeadline(quote?: string | null, fallback?: string): string {
   if (!quote || !quote.trim()) {
-    return fallback || "Evaluating bundle value with Rec squadmates.";
+    return fallback || "";
   }
   const cleaned = quote.replace(/^["'“”]+|["'“”]+$/g, "").trim();
   const firstSentenceMatch = cleaned.match(/^[^.!?]+[.!?]?/);
@@ -228,8 +228,6 @@ const COUNTERFACTUAL_CHIPS: CounterfactualChip[] = [
   },
 ];
 
-const STANDBY_CREWS = ["Bucket Getters", "Dimers Only", "Green Light Gang", "Rim Runners"];
-const STANDBY_CREATORS = ["@Agent00", "@Troydan", "@KOT4Q", "@DBG"];
 
 export function FocusGroupModal({
   isOpen,
@@ -310,26 +308,23 @@ export function FocusGroupModal({
   const [isFindingTwins, setIsFindingTwins] = useState(false);
   const [twinsError, setTwinsError] = useState<string | null>(null);
   const [twinsResult, setTwinsResult] = useState<{
-    avg_cosine_similarity: number;
+    avg_cosine_similarity: number | null;
     added_count: number;
-    incremental_bookings_usd: number;
     rawPayload?: any;
     top_twins: Array<{
       player_id: string;
       gamer_tag: string;
       archetype: string;
-      myplayer_ovr: number;
-      crew_name: string;
-      creator_handle: string;
+      crew_name?: string;
       cosine_similarity: number;
-      est_ltv_usd: number;
+      lifetime_spend_usd: number;
     }>;
   } | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
-    fetch("/api/synthetic/focus-group?limit=20&franchise=NBA2K")
+    fetch(`/api/synthetic/focus-group?limit=20&franchise=${encodeURIComponent(initialFranchise || "ALL")}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (!cancelled && d?.personas?.length) {
@@ -387,39 +382,49 @@ export function FocusGroupModal({
     }
   }, [initialResult]);
 
-  // Live players from 2K graphData
+  // Players from the graph canvas. Only fields stored on the Spanner row are
+  // copied; nothing is defaulted (these are also sent to the focus-group API).
   const graphPlayers = useMemo(() => {
-    const playerNodes = graphData?.nodes?.filter((n) => n.type === "PLAYER") || [];
-    return playerNodes.slice(0, 20).map((n, idx) => ({
-      player_id: n.id,
-      gamer_tag: n.name,
-      archetype: n.archetype || "MYCAREER_STORY_CASUAL",
-      spend: n.spend,
-      crew_name: n.clan_name || (idx % 2 === 0 ? "Bucket Getters" : "Dimers Only"),
-      crew_tier: idx % 3 === 0 ? "Pro-Am" : "Rec",
-      crew_role:
-        n.archetype === "REC_CREW_CAPTAIN" || n.archetype === "PARK_REP_GRINDER"
-          ? "CAPTAIN"
-          : "MEMBER",
-      creator_handle:
-        n.primary_creator_influence ||
-        (idx % 3 === 0 ? "@Agent00" : idx % 3 === 1 ? "@Troydan" : "@DBG"),
-      myplayer_ovr: n.game_telemetry?.myplayer_ovr ?? 85,
-      myplayer_build: n.game_telemetry?.myplayer_build ?? "2-Way 3-Level Scorer",
-      vc_spend_90d: n.game_telemetry?.vc_spend_90d ?? n.spend ?? 65,
-      vc_balance: n.game_telemetry?.vc_balance ?? 15000,
-      loss_streak: n.game_telemetry?.loss_streak ?? n.loss_streak ?? 0,
-      rage_quits_7d: n.game_telemetry?.rage_quits_7d ?? 0,
-      season_pass_edition: n.game_telemetry?.season_pass_edition ?? "NONE",
-      season_pass_tier: n.game_telemetry?.season_pass_tier ?? 12,
-      myteam_galaxy_opal_count: n.game_telemetry?.myteam_galaxy_opal_count ?? 0,
-      park_win_pct: n.game_telemetry?.park_win_pct ?? 0.5,
-      nba2k26_veteran: n.game_telemetry?.nba2k26_veteran ?? false,
-      nba2k26_spend_usd: n.game_telemetry?.nba2k26_spend_usd ?? 0,
-      migrated_to_2k27: n.game_telemetry?.migrated_to_2k27 ?? false,
-      gravity_score: n.gravity_score ?? n.game_telemetry?.gravity_score ?? 0.5,
-      favorite_team: n.game_telemetry?.favorite_team ?? "Los Angeles Lakers",
-    }));
+    const nodes = graphData?.nodes || [];
+    const crewName = (clanId?: string) =>
+      clanId ? nodes.find((n) => n.id === clanId && n.type === "CLAN")?.name?.split(" · ")[0] : undefined;
+    const playerNodes = nodes.filter((n) => n.type === "PLAYER");
+    return playerNodes.slice(0, 20).map((n) => {
+      const t: Record<string, any> = n.game_telemetry || {};
+      const stored: Record<string, any> = {};
+      for (const k of [
+        "myplayer_ovr",
+        "myplayer_build",
+        "vc_spend_90d",
+        "vc_balance",
+        "loss_streak",
+        "rage_quits_7d",
+        "season_pass_edition",
+        "season_pass_tier",
+        "myteam_galaxy_opal_count",
+        "park_win_pct",
+        "nba2k26_veteran",
+        "nba2k26_spend_usd",
+        "migrated_to_2k27",
+        "favorite_team",
+        "gravity_score",
+      ]) {
+        if (t[k] !== undefined && t[k] !== null) stored[k] = t[k];
+      }
+      return {
+        player_id: n.id,
+        gamer_tag: n.name,
+        archetype: n.archetype,
+        franchise: n.franchise,
+        studio: n.studio,
+        spend: n.spend,
+        churn_risk: n.churn_risk,
+        crew_name: n.clan_name || crewName(n.clan_id) || t.crew_name || undefined,
+        crew_role: n.crew_role || t.crew_role || undefined,
+        creator_handle: n.primary_creator_influence || undefined,
+        ...stored,
+      } as any;
+    });
   }, [graphData]);
 
   const sampledPersonas = useMemo(() => {
@@ -433,29 +438,31 @@ export function FocusGroupModal({
     ];
   }, [graphPlayers, liveSpannerDefaults]);
 
-  // Seeded 80 crowd slots when in 100-Swarm mode before stream completes
+  // Crowd slots before the stream completes: real canvas players only (no
+  // synthetic names, crews, creators, OVR or willingness-to-pay).
   const displayCrowdAgents = useMemo<SwarmCrowdAgent[]>(() => {
     if (crowdAgents.length >= 80) return crowdAgents.slice(0, 80);
     const allNodes = graphData?.nodes?.filter((n) => n.type === "PLAYER") || [];
-    const seededCohortList: SwarmCrowdAgent[] = [...crowdAgents];
-    for (let i = crowdAgents.length; i < 80; i++) {
-      const node = allNodes[(i + 20) % Math.max(1, allNodes.length)];
-      const baseTag = node?.name || `Courtside2K_${101 + i}`;
-      seededCohortList.push({
-        player_id: node?.id || `crowd-${i}`,
-        gamer_tag: i < allNodes.length - 20 ? baseTag : `${baseTag.slice(0, 11)}${i + 1}`,
-        archetype: node?.archetype || "MYCAREER_STORY_CASUAL",
-        crew_name: STANDBY_CREWS[i % STANDBY_CREWS.length],
-        creator_handle: STANDBY_CREATORS[i % STANDBY_CREATORS.length],
-        myplayer_ovr: node?.game_telemetry?.myplayer_ovr || 78 + (i % 18),
+    const taken = new Set(crowdAgents.map((a) => a.player_id));
+    const seeded: SwarmCrowdAgent[] = [...crowdAgents];
+    for (const node of allNodes.slice(20)) {
+      if (seeded.length >= 80) break;
+      if (taken.has(node.id)) continue;
+      seeded.push({
+        player_id: node.id,
+        gamer_tag: node.name,
+        archetype: node.archetype || "",
+        crew_name: node.clan_name || undefined,
+        creator_handle: node.primary_creator_influence || undefined,
+        myplayer_ovr:
+          typeof node.game_telemetry?.myplayer_ovr === "number" ? node.game_telemetry.myplayer_ovr : undefined,
         round1_state: "EVALUATING",
         final_fsm_state: "EVALUATING",
         contagion_flipped: false,
         contagion_driver: "NONE",
-        willingness_to_pay_usd: 9.99,
       });
     }
-    return seededCohortList;
+    return seeded;
   }, [crowdAgents, graphData]);
 
   const handleSelectPreset = (p: OfferPreset) => {
@@ -498,7 +505,7 @@ export function FocusGroupModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           campaign_id: `fg-${Date.now()}`,
-          franchise: initialFranchise || "NBA2K",
+          franchise: initialFranchise || "ALL",
           creative_title: creativeTitle,
           price_usd: priceUsd,
           alt_price_usd: isBattleMode ? (altPriceUsd ?? 19.99) : null,
@@ -629,7 +636,7 @@ export function FocusGroupModal({
     );
     const baseResult: Partial<ExtendedFocusGroupResult> = currentResult || {
       campaign_id: `fg-${Date.now()}`,
-      franchise: initialFranchise || "NBA2K",
+      franchise: initialFranchise || "ALL",
       creative_title: creativeTitle,
       proposed_spend: priceUsd,
       reactions: existingReactions,
@@ -655,7 +662,7 @@ export function FocusGroupModal({
           counterfactual_event: promptInjection,
           creative_title: creativeTitle,
           price_usd: priceUsd,
-          franchise: initialFranchise || "NBA2K",
+          franchise: initialFranchise || "ALL",
           swarm_size: swarmSize,
         }),
       });
@@ -1027,23 +1034,15 @@ export function FocusGroupModal({
         convertedReactions.length > 0
           ? convertedReactions
           : activeReactions.slice(0, 6);
-      const seedGamerTags = seedPool.map((r) => r.gamer_tag).filter(Boolean);
       const seedPlayerIds = seedPool.map((r) => r.player_id).filter(Boolean);
-      const seedArchetypes = Array.from(
-        new Set(seedPool.map((r) => r.archetype).filter(Boolean))
-      );
 
       const res = await fetch("/api/audiences/lookalike", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          seed_query: cohortContext?.query || `${creativeTitle} High-Uplift Buyers`,
-          seed_gamer_tags: seedGamerTags,
           seed_player_ids: seedPlayerIds,
-          seed_archetypes: seedArchetypes,
-          target_franchise: initialFranchise || "NBA2K",
-          matched_count: cohortContext?.matchedCount ?? null,
-          expansion_pct: 25,
+          matched_count: cohortContext?.matchedCount ?? undefined,
+          expansion_pct: cohortContext?.matchedCount ? 25 : undefined,
         }),
       });
       const data = await res.json();
@@ -1052,18 +1051,13 @@ export function FocusGroupModal({
       }
       const topTwinsList = Array.isArray(data.top_twins) ? data.top_twins : [];
       const addedCount = data.added_count ?? data.expanded_count;
-      if (
-        typeof data.avg_cosine_similarity !== "number" ||
-        addedCount === undefined ||
-        addedCount === null ||
-        typeof data.incremental_bookings_usd !== "number"
-      ) {
-        throw new Error("Twin Finder response is missing avg_cosine_similarity / added_count / incremental_bookings_usd");
+      if (addedCount === undefined || addedCount === null) {
+        throw new Error("Twin Finder response is missing added_count");
       }
       setTwinsResult({
-        avg_cosine_similarity: Number(data.avg_cosine_similarity),
+        avg_cosine_similarity:
+          typeof data.avg_cosine_similarity === "number" ? data.avg_cosine_similarity : null,
         added_count: Number(addedCount),
-        incremental_bookings_usd: Number(data.incremental_bookings_usd),
         rawPayload: data,
         top_twins: topTwinsList,
       });
@@ -1711,12 +1705,11 @@ export function FocusGroupModal({
                       liveReactions[idx] || currentResult?.reactions?.[idx] || null;
                     const cardArchetype = reaction?.archetype || p.archetype;
                     const cardGamerTag = reaction?.gamer_tag || p.gamer_tag;
-                    const crewName =
-                      reaction?.crew_name || p.crew_name || "Bucket Getters";
-                    const ovr = reaction?.myplayer_ovr ?? p.myplayer_ovr ?? 85;
-                    const rawCreator =
-                      reaction?.creator_handle || p.creator_handle || "@Agent00";
+                    const crewName: string | undefined = reaction?.crew_name || p.crew_name;
+                    const ovr: number | undefined = reaction?.myplayer_ovr ?? p.myplayer_ovr;
+                    const rawCreator: string | undefined = reaction?.creator_handle || p.creator_handle;
                     const creatorHandle = (() => {
+                      if (!rawCreator) return undefined;
                       const clean = String(rawCreator)
                         .replace(/^creator-/i, "")
                         .replace(/^@/, "");
@@ -1791,7 +1784,7 @@ export function FocusGroupModal({
                           return "↳ via What-If";
                         }
                         if (reaction?.contagion_driver === "CREW_CAPTAIN") {
-                          return `↳ via ${crewName} Capt`;
+                          return crewName ? `↳ via ${crewName} captain` : "↳ via crew captain";
                         }
                       }
                       return null;
@@ -1809,17 +1802,13 @@ export function FocusGroupModal({
                         ? reaction?.round1_wtp_usd ?? reaction?.willingness_to_pay_usd
                         : activeRound === 3
                           ? reaction?.round3_wtp_usd ?? reaction?.willingness_to_pay_usd
-                          : reaction?.willingness_to_pay_usd) ??
-                      (Number(p.vc_spend_90d ?? p.spend ?? 0) >= 120
-                        ? 14.99
-                        : Number(p.vc_spend_90d ?? p.spend ?? 0) >= 50
-                          ? 9.99
-                          : 4.99);
+                          : reaction?.willingness_to_pay_usd) as number | undefined;
 
-                    const wtpRatioPct = Math.min(
-                      100,
-                      Math.max(8, Math.round((displayedWtp / Math.max(1, priceUsd)) * 100))
-                    );
+                    // WTP exists only once the live model has evaluated this persona.
+                    const wtpRatioPct =
+                      typeof displayedWtp === "number"
+                        ? Math.min(100, Math.max(8, Math.round((displayedWtp / Math.max(1, priceUsd)) * 100)))
+                        : null;
 
                     const statePillStyle =
                       state === "PURCHASED"
@@ -1838,9 +1827,10 @@ export function FocusGroupModal({
                     const isExpanded = expandedPersonaIdx === idx;
                     const punchyLine = extractPunchyHeadline(
                       displayedQuote,
-                      `${ovr} OVR · ${p.myplayer_build || "2-Way 3-Level Scorer"}`
+                      "No verdict yet"
                     );
 
+                    // Before evaluation the persona carries only stored player fields.
                     const personaForDrawer: FocusGroupReaction =
                       reaction ||
                       ({
@@ -1853,13 +1843,9 @@ export function FocusGroupModal({
                         round1_fsm_state: r1State,
                         final_fsm_state: r2State,
                         willingness_to_pay_usd: displayedWtp,
-                        verbatim_quote:
-                          displayedQuote ||
-                          `Evaluating ${creativeTitle} with ${crewName}.`,
-                        authenticity_rating: 0.94,
-                        churn_risk_score: 0.25,
-                        sentiment_score: 0.65,
-                      } as FocusGroupReaction);
+                        verbatim_quote: displayedQuote || "",
+                        churn_risk_score: p.churn_risk,
+                      } as unknown as FocusGroupReaction);
 
                     return (
                       <motion.div
@@ -1924,7 +1910,7 @@ export function FocusGroupModal({
                                 {cardGamerTag}
                               </span>
                               <span className="text-[10px] font-mono text-white/45 truncate">
-                                {ovr} OVR · {crewName}
+                                {[typeof ovr === "number" ? `${ovr} OVR` : null, crewName].filter(Boolean).join(" · ")}
                               </span>
                             </div>
 
@@ -1973,24 +1959,28 @@ export function FocusGroupModal({
                                 </span>
                               ) : null}
                               <span className="truncate font-sans text-[10px] text-white/45">
-                                {archetypeLabel(cardArchetype)} · {creatorHandle}
+                                {[archetypeLabel(cardArchetype), creatorHandle].filter(Boolean).join(" · ")}
                               </span>
                             </div>
 
                             <div className="flex items-center gap-1.5 shrink-0">
-                              <div className="w-12 h-1 rounded-full bg-white/[0.08] overflow-hidden hidden sm:block">
-                                <div
-                                  style={{ width: `${wtpRatioPct}%` }}
-                                  className={`h-full ${
-                                    displayedWtp >= priceUsd
-                                      ? "bg-win-green"
-                                      : "bg-vc-gold"
-                                  }`}
-                                />
-                              </div>
-                              <span className="text-white/80 tabular-nums">
-                                WTP ${displayedWtp.toFixed(2)}
-                              </span>
+                              {typeof displayedWtp === "number" && wtpRatioPct !== null ? (
+                                <>
+                                  <div className="w-12 h-1 rounded-full bg-white/[0.08] overflow-hidden hidden sm:block">
+                                    <div
+                                      style={{ width: `${wtpRatioPct}%` }}
+                                      className={`h-full ${
+                                        displayedWtp >= priceUsd ? "bg-win-green" : "bg-vc-gold"
+                                      }`}
+                                    />
+                                  </div>
+                                  <span className="text-white/80 tabular-nums">
+                                    WTP ${displayedWtp.toFixed(2)}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="text-white/40 tabular-nums">not evaluated</span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -2007,10 +1997,7 @@ export function FocusGroupModal({
                             >
                               <p className="text-xs text-white/90 leading-relaxed bg-black/35 border border-white/[0.06] rounded-lg px-3 py-2">
                                 &ldquo;
-                                {displayedQuote ||
-                                  `Evaluating ${creativeTitle} at $${priceUsd.toFixed(
-                                    2
-                                  )} with ${crewName} squadmates before locking in.`}
+                                {displayedQuote || "No verdict yet. Run the focus group to get this persona's live response."}
                                 &rdquo;
                               </p>
 
@@ -2096,65 +2083,43 @@ export function FocusGroupModal({
                       return {
                         id: p.player_id || `core-${idx}`,
                         gamer_tag: r?.gamer_tag || p.gamer_tag,
-                        ovr: p.myplayer_ovr || 85,
-                        crew_name: r?.crew_name || p.crew_name || "Bucket Getters",
-                        creator_handle:
-                          r?.creator_handle || p.creator_handle || "@Agent00",
+                        ovr: r?.myplayer_ovr ?? p.myplayer_ovr,
+                        crew_name: r?.crew_name || p.crew_name,
+                        creator_handle: r?.creator_handle || p.creator_handle,
                         r1,
                         r2,
                         r3,
                         flipped: Boolean(r?.contagion_flipped),
                         r3Flipped: Boolean(r?.round3_flipped || r2 !== r3),
                         isEvaluated: Boolean(r),
-                        personaRef:
-                          r ||
-                          ({
-                            player_id: p.player_id,
-                            gamer_tag: p.gamer_tag,
-                            archetype: p.archetype,
-                            crew_name: p.crew_name,
-                            creator_handle: p.creator_handle,
-                            myplayer_ovr: p.myplayer_ovr || 85,
-                            round1_fsm_state: "EVALUATING",
-                            final_fsm_state: "EVALUATING",
-                            willingness_to_pay_usd: 9.99,
-                            verbatim_quote: `Evaluating ${creativeTitle} with ${p.crew_name || "the squad"}.`,
-                            authenticity_rating: 0.92,
-                            churn_risk_score: 0.25,
-                            sentiment_score: 0.5,
-                          } as FocusGroupReaction),
+                        // Unevaluated players have no reaction yet; nothing is invented.
+                        personaRef: (r || null) as FocusGroupReaction | null,
                       };
                     }),
                     ...displayCrowdAgents.map((a) => {
                       const r2 = a.final_fsm_state;
                       const r3 = a.round3_state || r2;
-                      const crowdReaction: FocusGroupReaction = {
-                        player_id: a.player_id,
-                        gamer_tag: a.gamer_tag,
-                        archetype: a.archetype,
-                        crew_name: a.crew_name,
-                        creator_handle: a.creator_handle,
-                        myplayer_ovr: a.myplayer_ovr,
-                        round1_fsm_state: a.round1_state,
-                        final_fsm_state: a.final_fsm_state,
-                        round3_fsm_state: a.round3_state,
-                        round3_flipped: a.round3_flipped,
-                        contagion_flipped: a.contagion_flipped,
-                        contagion_driver: a.contagion_driver,
-                        contagion_source_tag: a.contagion_source_tag,
-                        willingness_to_pay_usd: a.willingness_to_pay_usd,
-                        verbatim_quote:
-                          a.verbatim_quote ||
-                          (r3 === "PURCHASED"
-                            ? `Locked in with ${a.crew_name} — value checks out at $${a.willingness_to_pay_usd.toFixed(2)}.`
-                            : r3 === "BOYCOTT"
-                              ? `Holding out with ${a.crew_name} until odds and VC value improve.`
-                              : `Checking with ${a.crew_name} and ${a.creator_handle} before spending VC.`),
-                        authenticity_rating: 0.91,
-                        churn_risk_score: 0.28,
-                        sentiment_score:
-                          r3 === "PURCHASED" ? 0.78 : r3 === "BOYCOTT" ? 0.18 : 0.48,
-                      };
+                      const isRealAgent = crowdAgents.some((c) => c.player_id === a.player_id);
+                      const crowdReaction: FocusGroupReaction | null =
+                        isRealAgent && typeof a.willingness_to_pay_usd === "number" && a.verbatim_quote
+                          ? ({
+                              player_id: a.player_id,
+                              gamer_tag: a.gamer_tag,
+                              archetype: a.archetype,
+                              crew_name: a.crew_name,
+                              creator_handle: a.creator_handle,
+                              myplayer_ovr: a.myplayer_ovr,
+                              round1_fsm_state: a.round1_state,
+                              final_fsm_state: a.final_fsm_state,
+                              round3_fsm_state: a.round3_state,
+                              round3_flipped: a.round3_flipped,
+                              contagion_flipped: a.contagion_flipped,
+                              contagion_driver: a.contagion_driver,
+                              contagion_source_tag: a.contagion_source_tag,
+                              willingness_to_pay_usd: a.willingness_to_pay_usd,
+                              verbatim_quote: a.verbatim_quote,
+                            } as FocusGroupReaction)
+                          : null;
                       return {
                         id: a.player_id,
                         gamer_tag: a.gamer_tag,
@@ -2166,7 +2131,7 @@ export function FocusGroupModal({
                         r3,
                         flipped: a.contagion_flipped,
                         r3Flipped: Boolean(a.round3_flipped || r2 !== r3),
-                        isEvaluated: crowdAgents.length > 0,
+                        isEvaluated: crowdAgents.some((c) => c.player_id === a.player_id),
                         personaRef: crowdReaction,
                       };
                     }),
@@ -2210,9 +2175,9 @@ export function FocusGroupModal({
                         key={`${agent.id}-${i}`}
                         role="button"
                         tabIndex={0}
-                        onClick={() => setInterrogatePersona(agent.personaRef)}
+                        onClick={() => agent.personaRef && setInterrogatePersona(agent.personaRef)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
+                          if ((e.key === "Enter" || e.key === " ") && agent.personaRef) {
                             e.preventDefault();
                             setInterrogatePersona(agent.personaRef);
                           }
@@ -2231,7 +2196,9 @@ export function FocusGroupModal({
                         </div>
                         <div className="flex items-center justify-between pt-0.5 text-[9px] text-white/45">
                           <span className="truncate">
-                            {agent.ovr} · {agent.crew_name}
+                            {[agent.ovr !== undefined ? `${agent.ovr} OVR` : null, agent.crew_name]
+                              .filter(Boolean)
+                              .join(" · ")}
                           </span>
                           <span
                             className={`font-semibold shrink-0 ml-1 ${

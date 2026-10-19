@@ -61,6 +61,7 @@ export interface LNode {
   churned?: boolean;
   churnedRecent?: boolean;
   keystone?: boolean;
+  studio?: "2K" | "ROCKSTAR" | "ZYNGA";
   muted?: boolean;
   weight: number;
   clickable: boolean;
@@ -537,6 +538,7 @@ export function computeLayout(data: Player360Response, stage: Stage): Layout {
       churned: n.churned,
       churnedRecent: n.churned_recent,
       keystone: n.keystone,
+      studio: n.studio,
       weight: n.weight,
       clickable: true,
       playerId: pid,

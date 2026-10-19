@@ -91,10 +91,9 @@ const FRANCHISES: { id: GameFranchise; label: string; dotColor: string }[] = [
   { id: "BL4", label: "Borderlands & Civ VII", dotColor: "#F28C28" },
 ];
 
-const AURA_THEMES: Record<
-  GameFranchise,
-  { primary: string; secondary: string; pulse: string }
-> = {
+const AURA_THEMES: Partial<
+  Record<GameFranchise, { primary: string; secondary: string; pulse: string }>
+> & { ALL: { primary: string; secondary: string; pulse: string } } = {
   ALL: {
     primary: "rgba(228, 0, 43, 0.18)", // 2K Crimson #E4002B
     secondary: "rgba(0, 210, 255, 0.13)", // Cyan #00D2FF

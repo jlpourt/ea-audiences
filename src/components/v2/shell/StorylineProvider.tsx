@@ -237,3 +237,10 @@ export function useRegisterShell() {
 export function useOptionalStoryline(): StorylineContextValue | null {
   return useContext(StorylineContext);
 }
+
+/** Renders children with NO storyline, so storyline-aware components (e.g.
+ *  Player360 in the Take-Two player drawer) keep their state local instead of
+ *  driving the 2K step machine. */
+export function StorylineIsolate({ children }: { children: ReactNode }) {
+  return <StorylineContext.Provider value={null}>{children}</StorylineContext.Provider>;
+}

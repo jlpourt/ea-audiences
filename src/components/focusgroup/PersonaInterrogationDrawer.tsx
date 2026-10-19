@@ -116,7 +116,7 @@ function formatProvenanceSource(p: EnrichedReaction): string {
   if (p.contagion_source_tag) return p.contagion_source_tag;
   if (p.contagion_source) return p.contagion_source;
   if (p.contagion_driver === "CREATOR_STREAM") {
-    return p.creator_handle || "@Agent00";
+    return p.creator_handle || "Creator stream";
   }
   if ((p.contagion_driver as string) === "REDDIT_THREAD") {
     return "r/NBA2K";
@@ -337,7 +337,8 @@ export function PersonaInterrogationDrawer({
   const r2State = p?.final_fsm_state || r1State;
   const r3State = p?.round3_fsm_state || null;
   const activeQuote = p?.round3_quote || p?.verbatim_quote || "";
-  const activeWtp = Number(p?.round3_wtp_usd ?? p?.willingness_to_pay_usd ?? 9.99);
+  const wtpRaw = p?.round3_wtp_usd ?? p?.willingness_to_pay_usd;
+  const activeWtp: number | null = typeof wtpRaw === "number" ? wtpRaw : null;
   const didFlip = Boolean(
     p?.contagion_flipped || p?.round3_flipped || r1State !== r2State || (r3State && r3State !== r2State)
   );
@@ -433,7 +434,7 @@ export function PersonaInterrogationDrawer({
                           {p.gamer_tag}
                         </h3>
                         <span className="text-[11px] font-mono text-win-green tabular">
-                          WTP ${activeWtp.toFixed(2)}
+                          {activeWtp !== null ? `WTP $${activeWtp.toFixed(2)}` : "WTP n/a"}
                         </span>
                       </div>
                       <div className="text-[11px] text-white/55 truncate">

@@ -356,6 +356,11 @@ export interface CrewChurnResponse {
 /* 1a. Churn exposure (Spanner GQL over undirected PLAYED_WITH)        */
 /* ------------------------------------------------------------------ */
 
+/** 2K players only. On the Take-Two portfolio database the crew metrics stay 2K (Rockstar / Zynga
+ *  players and crews are excluded); on the 2K-only database this matches every player. */
+export const TWOK_PLAYERS = `primary_franchise IN (SELECT franchise FROM Games WHERE is_parent_hub = true AND label NOT IN ('ROCKSTAR', 'ZYNGA'))`;
+const NON_2K_CREW_FRANCHISES = `('GTAO', 'RDO', 'WWF', 'MATCHFACTORY', 'TOONBLAST', 'CSR2', 'EMPIRES', 'ZPOKER')`;
+
 const EXPOSURE_LABELS = ["0%", "0–10%", "10–20%", "20–30%", "30–40%", "40–50%", "50%+"];
 
 /** Distribution: share of each ACTIVE player's co-play neighbors who churned in the last 14 days. */
@@ -367,7 +372,7 @@ WITH pairs AS (
   UNION ALL
   SELECT other_player_id AS a, player_id AS b FROM PlayedWith
 ),
-pl AS (SELECT player_id, churned_at FROM Players)
+pl AS (SELECT player_id, churned_at FROM Players WHERE ${TWOK_PLAYERS})
 SELECT IF(exposure = 0, 0, LEAST(6, CAST(CEIL(exposure * 10) AS INT64))) AS bucket, COUNT(*) AS players
 FROM (
   SELECT pairs.a AS player_id,
@@ -390,7 +395,7 @@ ORDER BY bucket`;
  * neighbor day) pair live; person-days are tallied per archetype for Mantel-Haenszel.
  */
 export const CHURN_NEIGHBOR_GQL = `-- Every (player, churned PLAYED_WITH neighbor) pair, undirected, with the neighbor's churn day index
-WITH ch AS (SELECT player_id, churned_at FROM Players WHERE churned_at IS NOT NULL)
+WITH ch AS (SELECT player_id, churned_at FROM Players WHERE churned_at IS NOT NULL AND ${TWOK_PLAYERS})
 SELECT pw.player_id AS player_id,
   DATE_DIFF(DATE(ch.churned_at, "UTC"), DATE(CAST(@as_of AS TIMESTAMP), "UTC"), DAY) + 89 AS nc
 FROM PlayedWith pw JOIN @{JOIN_METHOD=HASH_JOIN} ch ON ch.player_id = pw.other_player_id
@@ -401,7 +406,7 @@ FROM PlayedWith pw JOIN @{JOIN_METHOD=HASH_JOIN} ch ON ch.player_id = pw.player_
 
 export const CHURN_PLAYERS_SQL = `SELECT player_id, primary_archetype AS arch,
   IF(churned_at IS NULL, NULL, DATE_DIFF(DATE(churned_at, "UTC"), DATE(CAST(@as_of AS TIMESTAMP), "UTC"), DAY) + 89) AS c
-FROM Players`;
+FROM Players WHERE ${TWOK_PLAYERS}`;
 
 export async function getChurnExposure(asOf: string): Promise<{
   dist: ChurnExposureBucket[];
@@ -681,6 +686,7 @@ export const KEYSTONE_THRESHOLD = 0.9;
 export const KEYSTONE_GQL = `GRAPH ${GRAPH}
 MATCH (p:Player)-[m:MEMBER_OF_CLAN]->(c:Clan)<-[m2:MEMBER_OF_CLAN]-(mate:Player)
 WHERE m.is_active AND m.crew_centrality >= @threshold
+  AND c.franchise NOT IN ${NON_2K_CREW_FRANCHISES}
   AND p.churned_at IS NULL
   AND p.session_min_prev_7d > 0
   AND p.session_min_7d / p.session_min_prev_7d < 0.7

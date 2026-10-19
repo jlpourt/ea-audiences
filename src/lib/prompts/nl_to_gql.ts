@@ -12,14 +12,17 @@ You translate natural language marketing audience queries into valid 2K Identity
     - churned_at (TIMESTAMP · NULL = still active; set when the player actually churned), last_active_at (TIMESTAMP)
     - session_min_7d (INT64 · minutes played last 7 days), session_min_prev_7d (INT64 · minutes played the 7 days before)
   - Game (Table: Games)
-    - game_id ('game-nba2k27' | 'game-nba2k26' | 'game-nba2k-mobile' | 'game-wwe2k25' | 'game-pga2k25' | 'game-topspin2k25' | 'game-bl4' | 'game-civ7' | 'game-mafia-toc')
-    - title, franchise, label ('2K' | '2K_SPORTS' | '2K_CORE'), genre, active_players, is_parent_hub, lifecycle_status, current_season
+    - game_id ('game-nba2k27' | 'game-nba2k26' | 'game-nba2k-mobile' | 'game-wwe2k25' | 'game-pga2k25' | 'game-topspin2k25' | 'game-bl4' | 'game-civ7' | 'game-mafia-toc'
+      | Rockstar Games: 'game-gta-online' | 'game-red-dead-online' | 'game-gta6' (PRE_LAUNCH, no players yet; intent via WISHLISTED)
+      | Zynga: 'game-words-with-friends' | 'game-match-factory' | 'game-toon-blast' | 'game-csr2' | 'game-empires-puzzles' | 'game-zynga-poker')
+    - title, franchise, label ('2K' | '2K_SPORTS' | '2K_CORE' | 'ROCKSTAR' | 'ZYNGA'), genre, active_players, is_parent_hub, lifecycle_status, current_season
+    - Studio of a game: label 'ROCKSTAR' = Rockstar Games, 'ZYNGA' = Zynga, any other label = 2K.
   - Clan (Table: Clans · surfaced in UI as "Crews")
     - clan_id, name, franchise, region, tier ('Rec' | 'Pro-Am' | 'Comp'), member_count
   - Creator (Table: Creators)
     - creator_id, handle ('DBG' | 'Tydebo' | 'JoeKnows' | 'Agent00' | 'FlightReacts' | 'Troydan' | 'ChrisSmoove' | 'DukeDennis' | 'CashNasty' | 'KOT4Q' | 'Assemble' | 'Moxsy' | 'PotatoMcWhiskey'), name, platform, franchise, followers, avg_stream_viewers, conversion_affinity, signature_mode
   - Identity (Table: Identities)
-    - identity_id, platform ('2K Account' | 'PlayStation Network' | 'Xbox Live' | 'Steam' | 'Nintendo Switch 2' | 'Apple Game Center'), platform_handle, confidence_score
+    - identity_id, platform ('2K Account' | 'Rockstar Games Social Club' | 'Zynga Account' | 'PlayStation Network' | 'Xbox Live' | 'Steam' | 'Nintendo Switch 2' | 'Apple Game Center' | 'Google Play Games'), platform_handle, confidence_score
   - Offer (Table: Offers)
     - offer_id, offer_title, target_franchise, game_id, offer_type, category, price_usd, expected_conversion_boost, affinity_archetype
 
@@ -27,7 +30,10 @@ You translate natural language marketing audience queries into valid 2K Identity
   - (p:Player)-[m:MEMBER_OF_CLAN]->(c:Clan)  · edge properties: role ('CAPTAIN' | 'CO_CAPTAIN' | 'MEMBER'), joined_at, left_at (TIMESTAMP · NULL = still in crew), is_active (BOOL), crew_centrality (FLOAT64 0-1)
   - (p:Player)-[:FOLLOWS_CREATOR]->(c:Creator)
   - (p:Player)-[:HAS_IDENTITY]->(i:Identity)
-  - (p:Player)-[:PLAYS_GAME]->(g:Game)
+  - (p:Player)-[m:PLAYS_GAME]->(g:Game)  · edge properties: hours_played, spend_usd (FLOAT64, lifetime spend in that title), first_played_at, acquired_via ('ORGANIC' | 'FRIEND_INVITE' | 'CROSS_PROMO' | 'CREATOR')
+  - (p:Player)-[m:FRIENDS_WITH]-(f:Player)  · stored once per pair: ALWAYS match it undirected with -[m:FRIENDS_WITH]-
+  - (a:Player)-[m:INVITED]->(b:Player)  · a invited b into another title. edge properties: to_game_id, from_game_id, invited_at, accepted (BOOL)
+  - (p:Player)-[m:WISHLISTED]->(g:Game)  · wishlist intent (GTA VI: g.game_id = 'game-gta6'). edge properties: wishlisted_at, store
 
 ## JSON Telemetry Access Rules (CRITICAL)
 In 2K Identity Graph GoogleSQL GQL, fields inside \`p.game_telemetry\` MUST be wrapped in an explicit type cast:
@@ -122,11 +128,32 @@ RETURN p.player_id
    RETURN p.player_id
    \`\`\`
 
+6. **Take-Two Cross-Studio Pollination (2K x Rockstar Games x Zynga)**:
+   When the query asks about players moving between 2K, Rockstar Games (GTA Online, Red Dead Online, GTA VI) and Zynga (Words With Friends, Match Factory!, Toon Blast, CSR Racing 2, Empires & Puzzles, Zynga Poker), friends in other studios, invites, or GTA VI intent:
+   \`\`\`sql
+   GRAPH TakeTwoPlayerGraph
+   MATCH (p:Player)-[m1:INVITED]->(f:Player)-[m2:WISHLISTED]->(g:Game {game_id: 'game-gta6'})
+   WHERE p.primary_franchise = 'NBA2K'
+     AND m1.accepted = true
+     AND m1.to_game_id = 'game-gta-online'
+   RETURN p.player_id
+   \`\`\`
+   Example: "NBA 2K players with a friend who plays GTA Online but who do not play it yet":
+   \`\`\`sql
+   GRAPH TakeTwoPlayerGraph
+   MATCH (p:Player)-[m:FRIENDS_WITH]-(f:Player)-[m1:PLAYS_GAME]->(g:Game {game_id: 'game-gta-online'})
+   WHERE p.primary_franchise = 'NBA2K'
+     AND NOT 'GTAO' IN UNNEST(p.franchises_played)
+   RETURN DISTINCT p.player_id
+   \`\`\`
+
 ## Canonical Franchises & Archetypes
 - Franchises (\`p.primary_franchise\` or \`'X' IN UNNEST(p.franchises_played)\`):
   \`'NBA2K'\`, \`'NBA2K26'\`, \`'NBA2KMOBILE'\`, \`'WWE2K'\`, \`'PGA2K'\`, \`'TOPSPIN'\`, \`'CIV7'\`, \`'BL4'\`, \`'MAFIA'\`
+  Rockstar Games: \`'GTAO'\`, \`'RDO'\` (GTA VI = \`'GTA6'\` is pre-launch: use WISHLISTED, never PLAYS_GAME). Zynga: \`'WWF'\`, \`'MATCHFACTORY'\`, \`'TOONBLAST'\`, \`'CSR2'\`, \`'EMPIRES'\`, \`'ZPOKER'\`
 - Archetypes (\`p.primary_archetype\`):
   \`'MYTEAM_PACK_WHALE'\`, \`'PARK_REP_GRINDER'\`, \`'REC_CREW_CAPTAIN'\`, \`'MYCAREER_STORY_CASUAL'\`, \`'MYNBA_FRANCHISE_SIM'\`, \`'BUILD_LAB_THEORYCRAFTER'\`, \`'THE_W_LOYALIST'\`, \`'CROSS_LABEL_NOMAD'\`, \`'MOBILE_DAILY_RITUALIST'\`, \`'RAGE_QUIT_TILT_RISK'\`
+  Rockstar Games players: \`'GTAO_HEIST_CREW'\`, \`'GTAO_BUSINESS_GRINDER'\`, \`'CAR_MEET_ENTHUSIAST'\`, \`'RP_COMMUNITY_REGULAR'\`, \`'SHARK_CARD_SPENDER'\`, \`'RDO_FRONTIER_ROLEPLAYER'\`. Zynga players: \`'WORD_GAME_SOCIALITE'\`, \`'PUZZLE_DAILY_RITUALIST'\`, \`'MOBILE_RACER'\`, \`'SOCIAL_CASINO_REGULAR'\`, \`'RPG_PUZZLE_ALLIANCE'\`
 
 ## Output Format (Strict JSON)
 Return ONLY valid JSON with this shape:

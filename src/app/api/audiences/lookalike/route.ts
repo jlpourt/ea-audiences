@@ -1,595 +1,551 @@
 import { NextRequest, NextResponse } from "next/server";
-import { embedText as embedTexts, cosine } from "@/lib/gcp/genai-client";
-import { runRawGql, parseJsonColumn, toNumber } from "@/lib/gcp/spanner-client";
-import { GRAPH_NAME } from "@/lib/gcp/catalog";
-import { archetypeDescription, archetypeLabel } from "@/lib/archetypes";
-import { MODELS } from "@/lib/models";
+import { runRawGql, SpannerUnavailableError } from "@/lib/gcp/spanner-client";
+import { GRAPH_NAME, getGames, getClans, type GameRow } from "@/lib/gcp/catalog";
+import { archetypeColor, archetypeLabel } from "@/lib/archetypes";
+import {
+  buildFranchiseIndex,
+  studioForLabel,
+  STUDIOS,
+  STUDIO_COLORS,
+  franchiseName,
+  type Studio,
+} from "@/lib/studios";
+import type { GraphLink, GraphNode, GameLabel } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export interface GraphTwinMatch {
-  player_id: string;
-  gamer_tag: string;
-  archetype: string;
-  myplayer_ovr: number;
-  crew_name: string;
-  crew_tier?: string;
-  creator_handle: string;
-  cosine_similarity: number;
-  est_ltv_usd: number;
-  lifetime_spend_usd?: number;
-  churn_risk_score?: number;
-  recent_loss_streak?: number;
-  gravity_score?: number;
-  /** Backwards-compatible aliases used by older UI callers */
-  franchise?: string;
-  spend_usd?: number;
-  similarity?: number;
-}
+/**
+ * Graph Twins (lookalike expansion), computed live over every player in
+ * Spanner `TakeTwoPlayerGraph`.
+ *
+ * Each player becomes a studio-aware feature vector built only from stored
+ * data:
+ *   - titles played (PLAYS_GAME presence) and per-title spend (PLAYS_GAME.spend_usd)
+ *   - primary studio and primary archetype
+ *   - crew membership / role (MEMBER_OF_CLAN, active rows)
+ *   - friend count (FRIENDS_WITH, both directions)
+ *   - lifetime spend and churn risk (Players)
+ * The seed centroid is the mean of the seed players' vectors; similarity is
+ * cosine similarity to that centroid, ranked over every non-seed player.
+ * Expansion: with `matched_count` + `expansion_pct` the twins are the
+ * round(matched_count * pct / 100) most similar players (the usual lookalike
+ * "+25%" expansion); otherwise every player with similarity >=
+ * `min_similarity`. The similarity range of the selected twins is returned so
+ * the cut is visible. Counts and aggregates are exact over the selected twins;
+ * nothing is imputed, and values that cannot be computed are omitted.
+ */
 
-interface HydratedGraphPlayer {
+const DEFAULT_MIN_SIMILARITY = 0.9;
+const MAX_RENDERED_TWINS = 60;
+const MAX_SEEDS = 500;
+
+interface PlayerFeatures {
   player_id: string;
   gamer_tag: string;
   archetype: string;
   primary_franchise: string;
+  studio: Studio;
+  label: GameLabel;
   lifetime_spend_usd: number;
   churn_risk_score: number;
-  gravity_score: number;
-  recent_loss_streak: number;
-  myplayer_ovr: number;
-  myplayer_build: string;
-  vc_spend_90d: number;
-  vc_balance: number;
-  park_win_pct: number;
-  galaxy_opals: number;
-  nba2k26_veteran: boolean;
-  franchises_played: string[];
-  crew_name: string;
-  crew_tier: string;
-  creator_handle: string;
-  descriptor: string;
+  titles: Map<string, number>; // franchise -> spend
+  crew_id: string | null;
+  crew_role: string | null;
+  friends: number;
 }
 
-function formatCreatorHandle(raw: unknown): string {
-  const s = String(raw || "Agent00").trim();
-  if (!s) return "@Agent00";
-  const cleaned = s.replace(/^creator-/i, "").replace(/^@/, "");
-  return `@${cleaned}`;
+function num(v: any): number {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === "object" && typeof v.value !== "undefined") return Number(v.value);
+  return Number(v);
 }
 
-function buildMultimodalPlayerDescriptor(p: Omit<HydratedGraphPlayer, "descriptor">): string {
-  const winPctStr = `${(p.park_win_pct * 100).toFixed(1)}%`;
-  const titlesStr = p.franchises_played.length > 0 ? p.franchises_played.join(",") : p.primary_franchise;
-  return (
-    `Archetype: ${p.archetype} (${archetypeLabel(p.archetype)}) | ` +
-    `OVR: ${p.myplayer_ovr} Build: ${p.myplayer_build} | ` +
-    `90d VC Spend: $${Math.round(p.vc_spend_90d)} Balance: ${Math.round(p.vc_balance)} VC | ` +
-    `WinPct: ${winPctStr} LossStreak: ${p.recent_loss_streak} | ` +
-    `GalaxyOpals: ${p.galaxy_opals} | ` +
-    `Crew: ${p.crew_name} (${p.crew_tier}) | ` +
-    `Creator: ${p.creator_handle} | ` +
-    `2K26Vet: ${p.nba2k26_veteran ? "Yes" : "No"} | ` +
-    `Titles: ${titlesStr}`
+function norm(v: number[]): number {
+  let s = 0;
+  for (const x of v) s += x * x;
+  return Math.sqrt(s);
+}
+
+function cosine(a: number[], b: number[], nb: number): number {
+  let dot = 0;
+  for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
+  const na = norm(a);
+  return na && nb ? dot / (na * nb) : 0;
+}
+
+
+// ---------------------------------------------------------------------------
+// In-process feature store. Built live from Spanner on first use, then reused
+// for 1h per database. Concurrent requests share one in-flight build. A failed
+// build is never cached and an expired store is never served.
+// ---------------------------------------------------------------------------
+const FEATURE_TTL_MS = 60 * 60 * 1000;
+
+async function buildFeatureStore() {
+  // ------------------------------------------------------------------
+  // 1. Load every player's features from Spanner (exact, no sampling).
+  // ------------------------------------------------------------------
+  const [games, clans, playerRows, playRows, crewRows, friendRows] = await Promise.all([
+    getGames(),
+    getClans(),
+    runRawGql(
+      `SELECT player_id, gamer_tag, primary_archetype, primary_franchise,
+              lifetime_spend_usd, churn_risk_score
+       FROM Players`
+    ),
+    runRawGql(`SELECT player_id, game_id, spend_usd FROM PlaysGame`),
+    runRawGql(
+      `SELECT player_id, clan_id, role FROM MemberOfClan WHERE left_at IS NULL`
+    ),
+    runRawGql(
+      `SELECT pid, COUNT(*) AS n FROM (
+         SELECT player_id AS pid FROM FriendsWith
+         UNION ALL
+         SELECT other_player_id AS pid FROM FriendsWith)
+       GROUP BY pid`
+    ),
+  ]);
+
+  const idx = buildFranchiseIndex(games);
+  const gameById = new Map<string, GameRow>(games.map((g) => [g.game_id, g]));
+  const clanById = new Map(clans.map((c) => [c.clan_id, c]));
+  const franchises = Array.from(new Set(games.map((g) => g.franchise))).sort();
+  const fIndex = new Map(franchises.map((f, i) => [f, i]));
+
+  const players = new Map<string, PlayerFeatures>();
+  const archetypes = new Set<string>();
+  for (const r of playerRows) {
+    const label = idx.labelOf(r.primary_franchise) as GameLabel;
+    archetypes.add(r.primary_archetype);
+    players.set(r.player_id, {
+      player_id: r.player_id,
+      gamer_tag: r.gamer_tag,
+      archetype: r.primary_archetype,
+      primary_franchise: r.primary_franchise,
+      studio: studioForLabel(label),
+      label,
+      lifetime_spend_usd: num(r.lifetime_spend_usd),
+      churn_risk_score: num(r.churn_risk_score),
+      titles: new Map(),
+      crew_id: null,
+      crew_role: null,
+      friends: 0,
+    });
+  }
+  for (const r of playRows) {
+    const p = players.get(r.player_id);
+    const g = gameById.get(r.game_id);
+    if (!p || !g) continue;
+    p.titles.set(g.franchise, (p.titles.get(g.franchise) || 0) + num(r.spend_usd));
+  }
+  for (const r of crewRows) {
+    const p = players.get(r.player_id);
+    if (p) {
+      p.crew_id = r.clan_id;
+      p.crew_role = r.role ?? null;
+    }
+  }
+  for (const r of friendRows) {
+    const p = players.get(r.pid);
+    if (p) p.friends = num(r.n);
+  }
+
+  // ------------------------------------------------------------------
+  // 2. Feature vectors. Blocks are scaled so no single block dominates.
+  // ------------------------------------------------------------------
+  const archList = Array.from(archetypes).sort();
+  const aIndex = new Map(archList.map((a, i) => [a, i]));
+  const maxLogSpend = Math.log1p(
+    Math.max(1, ...Array.from(players.values()).map((p) => p.lifetime_spend_usd))
   );
+  const maxLogFriends = Math.log1p(
+    Math.max(1, ...Array.from(players.values()).map((p) => p.friends))
+  );
+  const W = { title: 1.0, titleSpend: 0.6, studio: 1.0, arch: 1.0, crew: 0.5, scalar: 0.5 };
+  const F = franchises.length;
+  const dim = F * 2 + STUDIOS.length + archList.length + 2 + 3;
+
+  const vec = (p: PlayerFeatures): number[] => {
+    const v = new Array(dim).fill(0);
+    let maxTitle = 0;
+    for (const s of Array.from(p.titles.values())) maxTitle = Math.max(maxTitle, s);
+    for (const [f, spend] of Array.from(p.titles.entries())) {
+      const i = fIndex.get(f);
+      if (i === undefined) continue;
+      v[i] = W.title;
+      v[F + i] = maxTitle > 0 ? (W.titleSpend * Math.log1p(spend)) / Math.log1p(maxTitle) : 0;
+    }
+    v[F * 2 + STUDIOS.indexOf(p.studio)] = W.studio;
+    const ai = aIndex.get(p.archetype);
+    if (ai !== undefined) v[F * 2 + STUDIOS.length + ai] = W.arch;
+    const o = F * 2 + STUDIOS.length + archList.length;
+    v[o] = p.crew_id ? W.crew : 0;
+    v[o + 1] = p.crew_role === "CAPTAIN" || p.crew_role === "CO_CAPTAIN" ? W.crew : 0;
+    v[o + 2] = (W.scalar * Math.log1p(p.lifetime_spend_usd)) / maxLogSpend;
+    v[o + 3] = W.scalar * p.churn_risk_score;
+    v[o + 4] = (W.scalar * Math.log1p(p.friends)) / maxLogFriends;
+    return v;
+  };
+
+  const vecs = new Map<string, number[]>();
+  const norms = new Map<string, number>();
+  for (const p of Array.from(players.values())) {
+    const v = vec(p);
+    vecs.set(p.player_id, v);
+    norms.set(p.player_id, norm(v));
+  }
+  return {
+    games,
+    clans,
+    idx,
+    gameById,
+    clanById,
+    players,
+    vecs,
+    norms,
+    dim,
+    computedAt: new Date().toISOString(),
+    builtAtMs: Date.now(),
+  };
 }
 
-/**
- * Multimodal Graph-Behavioral "Twin Finder" (`ScaNN` / `SOAR` + `gemini-embedding-001` 3,072-d)
- * Executes a live multi-hop `GRAPH_TABLE` query joining `Player`, `MEMBER_OF_CLAN` (`Clan`),
- * and `FOLLOWS_CREATOR` (`Creator`) in Cloud Spanner (`TakeTwoPlayerGraph`), embeds the seed
- * centroid vector and candidate player/archetype descriptors via Vertex AI `embedTexts()`,
- * and computes true Cosine Similarity + 1-Hop Crew/Creator Graph Overlap.
- */
+type FeatureStore = Awaited<ReturnType<typeof buildFeatureStore>>;
+const featureCache = new Map<string, { store?: FeatureStore; inflight?: Promise<FeatureStore> }>();
+
+async function getFeatureStore(): Promise<{ store: FeatureStore; cacheHit: boolean }> {
+  const key = process.env.SPANNER_DATABASE_ID || "default";
+  const entry = featureCache.get(key) || {};
+  if (entry.store && Date.now() - entry.store.builtAtMs < FEATURE_TTL_MS) {
+    return { store: entry.store, cacheHit: true };
+  }
+  if (!entry.inflight) {
+    // Expired or missing: drop the old store so it can never be served.
+    const inflight = buildFeatureStore();
+    featureCache.set(key, { inflight });
+    inflight.then(
+      (store) => featureCache.set(key, { store }),
+      () => featureCache.delete(key)
+    );
+    return { store: await inflight, cacheHit: false };
+  }
+  return { store: await entry.inflight, cacheHit: false };
+}
+
 export async function POST(request: NextRequest) {
   const started = Date.now();
   try {
     const body = await request.json();
-
-    const seedQuery = String(
-      body?.seed_query || body?.query || "High-gravity Take-Two cross-label & NBA 2K27 players"
-    );
-    const seedArchetypes: string[] =
-      Array.isArray(body?.seed_archetypes) && body.seed_archetypes.length > 0
-        ? body.seed_archetypes.map(String).filter(Boolean)
-        : [String(body?.dominant_archetype || "CROSS_LABEL_NOMAD")];
-    const seedPlayerIds: string[] = Array.isArray(body?.seed_player_ids)
-      ? body.seed_player_ids.map(String).filter(Boolean)
-      : [];
-    const seedGamerTags: string[] = Array.isArray(body?.seed_gamer_tags)
-      ? body.seed_gamer_tags
-          .map((t: unknown) => String(t || "").replace(/^@/, "").trim())
+    const seedIds: string[] = Array.from(
+      new Set<string>(
+        (Array.isArray(body?.seed_player_ids) ? body.seed_player_ids : [])
+          .map(String)
           .filter(Boolean)
+      )
+    ).slice(0, MAX_SEEDS);
+    if (seedIds.length === 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Graph Twins needs seed_player_ids: pick a player or load a cohort first. No seed was sent, so nothing was computed.",
+        },
+        { status: 400 }
+      );
+    }
+    const minSimilarity = Math.min(
+      0.995,
+      Math.max(0.5, Number(body?.min_similarity) || DEFAULT_MIN_SIMILARITY)
+    );
+    const baseCount =
+      typeof body?.matched_count === "number" && body.matched_count > 0
+        ? Math.round(body.matched_count)
+        : null;
+    const expansionPct =
+      typeof body?.expansion_pct === "number" && body.expansion_pct > 0
+        ? Math.min(100, body.expansion_pct)
+        : null;
+    const targetCount =
+      baseCount !== null && expansionPct !== null
+        ? Math.max(1, Math.round((baseCount * expansionPct) / 100))
+        : null;
+
+    // ------------------------------------------------------------------
+    // 1–2. Per-player feature vectors (live Spanner build, cached 1h).
+    // ------------------------------------------------------------------
+    const { store, cacheHit } = await getFeatureStore();
+    const { idx, clanById, players, dim } = store;
+    const vec = (p: PlayerFeatures): number[] => store.vecs.get(p.player_id)!;
+
+    const seeds = seedIds.map((id) => players.get(id)).filter(Boolean) as PlayerFeatures[];
+    if (seeds.length === 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Spanner Players: none of the ${seedIds.length} seed ids exist in ${GRAPH_NAME}.`,
+        },
+        { status: 404 }
+      );
+    }
+
+    const centroid = new Array(dim).fill(0);
+    for (const s of seeds) {
+      const v = vec(s);
+      for (let i = 0; i < dim; i++) centroid[i] += v[i] / seeds.length;
+    }
+    const nc = norm(centroid);
+    const seedSet = new Set(seeds.map((s) => s.player_id));
+
+    const scored: Array<{ p: PlayerFeatures; sim: number }> = [];
+    for (const p of Array.from(players.values())) {
+      if (seedSet.has(p.player_id)) continue;
+      const v = store.vecs.get(p.player_id)!;
+      let dot = 0;
+      for (let i = 0; i < dim; i++) dot += v[i] * centroid[i];
+      const nv = store.norms.get(p.player_id)!;
+      scored.push({ p, sim: nv && nc ? dot / (nv * nc) : 0 });
+    }
+    scored.sort((a, b) => b.sim - a.sim || (a.p.player_id < b.p.player_id ? -1 : 1));
+    const twins =
+      targetCount !== null
+        ? scored.slice(0, targetCount)
+        : scored.filter((s) => s.sim >= minSimilarity);
+    const rendered = twins.slice(0, MAX_RENDERED_TWINS);
+
+    // ------------------------------------------------------------------
+    // 3. Real graph ties between rendered twins and seeds.
+    // ------------------------------------------------------------------
+    const renderedIds = rendered.map((t) => t.p.player_id);
+    const seedSample = seeds.slice(0, 8);
+    const tieRows = renderedIds.length
+      ? await runRawGql(
+          `SELECT player_id AS a, other_player_id AS b, 'FRIENDS_WITH' AS kind FROM FriendsWith
+             WHERE (player_id IN UNNEST(@t) AND other_player_id IN UNNEST(@s))
+                OR (player_id IN UNNEST(@s) AND other_player_id IN UNNEST(@t))
+           UNION ALL
+           SELECT player_id AS a, invitee_id AS b, 'INVITED' AS kind FROM Invited
+             WHERE (player_id IN UNNEST(@t) AND invitee_id IN UNNEST(@s))
+                OR (player_id IN UNNEST(@s) AND invitee_id IN UNNEST(@t))`,
+          { t: renderedIds, s: seeds.map((s) => s.player_id) }
+        )
       : [];
-    const targetFranchise = String(body?.target_franchise || body?.franchise || "NBA2K");
-    const baseCount = Math.max(1, Number(body?.matched_count || body?.base_count || 740));
-    const expansionPct = Math.min(50, Math.max(5, Number(body?.expansion_pct || 25)));
+    const tiedTwins = new Set<string>();
+    for (const r of tieRows) {
+      if (seedSet.has(r.a)) tiedTwins.add(r.b);
+      else tiedTwins.add(r.a);
+    }
 
-    // Live multi-hop Spanner Graph GRAPH_TABLE query joining Player, MEMBER_OF_CLAN (Clan), and FOLLOWS_CREATOR (Creator)
-    // Uses GROUP BY p.player_id with ANY_VALUE(...) so Spanner GoogleSQL never errors on JSON/ARRAY DISTINCT
-    const graphRows = await runRawGql(`
-      SELECT p.player_id,
-             ANY_VALUE(p.gamer_tag) AS gamer_tag,
-             ANY_VALUE(p.primary_archetype) AS primary_archetype,
-             ANY_VALUE(p.primary_franchise) AS primary_franchise,
-             ANY_VALUE(p.lifetime_spend_usd) AS lifetime_spend_usd,
-             ANY_VALUE(p.churn_risk_score) AS churn_risk_score,
-             ANY_VALUE(p.gravity_score) AS gravity_score,
-             ANY_VALUE(p.recent_loss_streak) AS recent_loss_streak,
-             ANY_VALUE(p.game_telemetry) AS game_telemetry,
-             ANY_VALUE(p.franchises_played) AS franchises_played,
-             ANY_VALUE(p.crew_name) AS crew_name,
-             ANY_VALUE(p.crew_tier) AS crew_tier,
-             ANY_VALUE(p.creator_handle) AS creator_handle
-      FROM GRAPH_TABLE(
-        ${GRAPH_NAME}
-        MATCH (p:Player)-[:MEMBER_OF_CLAN]->(c:Clan),
-              (p)-[:FOLLOWS_CREATOR]->(cr:Creator)
-        RETURN p.player_id,
-               p.gamer_tag,
-               p.primary_archetype,
-               p.primary_franchise,
-               p.lifetime_spend_usd,
-               p.churn_risk_score,
-               FLOAT64(p.game_telemetry.gravity_score) AS gravity_score,
-               p.recent_loss_streak,
-               p.game_telemetry,
-               p.franchises_played,
-               c.name AS crew_name,
-               c.tier AS crew_tier,
-               cr.handle AS creator_handle
-      ) AS p
-      GROUP BY p.player_id
-      ORDER BY lifetime_spend_usd DESC
-      LIMIT 80
-    `);
+    // ------------------------------------------------------------------
+    // 4. Aggregates (exact over all twins >= threshold).
+    // ------------------------------------------------------------------
+    const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+    const twinStudioMix = STUDIOS.map((s) => ({
+      studio: s,
+      players: twins.filter((t) => t.p.studio === s).length,
+    })).filter((m) => m.players > 0);
+    const seedStudioMix = STUDIOS.map((s) => ({
+      studio: s,
+      players: seeds.filter((p) => p.studio === s).length,
+    })).filter((m) => m.players > 0);
+    const archGroup = new Map<string, number[]>();
+    for (const t of twins) {
+      const arr = archGroup.get(t.p.archetype) || [];
+      arr.push(t.sim);
+      archGroup.set(t.p.archetype, arr);
+    }
 
-    const hydratedPlayers: HydratedGraphPlayer[] = graphRows.map((r) => {
-      const telemetry = parseJsonColumn(r.game_telemetry, {});
-      const archetype = String(r.primary_archetype || "MYCAREER_STORY_CASUAL");
-      const primaryFranchise = String(r.primary_franchise || "NBA2K");
-      const lifetimeSpend = toNumber(r.lifetime_spend_usd);
-      const myplayerOvr =
-        telemetry.myplayer_ovr !== undefined && telemetry.myplayer_ovr !== null
-          ? toNumber(telemetry.myplayer_ovr)
-          : 85;
-      const myplayerBuild = String(telemetry.myplayer_build || "2-Way 3-Level Threat");
-      const vcSpend90d =
-        telemetry.vc_spend_90d !== undefined && telemetry.vc_spend_90d !== null
-          ? toNumber(telemetry.vc_spend_90d)
-          : Math.round(lifetimeSpend * 0.25);
-      const vcBalance =
-        telemetry.vc_balance !== undefined && telemetry.vc_balance !== null
-          ? toNumber(telemetry.vc_balance)
-          : 12500;
-      const parkWinPct =
-        telemetry.park_win_pct !== undefined && telemetry.park_win_pct !== null
-          ? toNumber(telemetry.park_win_pct)
-          : 0.52;
-      const lossStreak =
-        telemetry.loss_streak !== undefined && telemetry.loss_streak !== null
-          ? toNumber(telemetry.loss_streak)
-          : toNumber(r.recent_loss_streak);
-      const galaxyOpals =
-        telemetry.myteam_galaxy_opal_count !== undefined &&
-        telemetry.myteam_galaxy_opal_count !== null
-          ? toNumber(telemetry.myteam_galaxy_opal_count)
-          : 0;
-      const nba2k26Vet = Boolean(telemetry.nba2k26_veteran ?? telemetry.rockstar_linked);
-      const franchisesPlayed = Array.isArray(r.franchises_played)
-        ? r.franchises_played.map(String)
-        : [primaryFranchise];
-      const crewName = String(r.crew_name || "Bucket Getters");
-      const crewTier = String(r.crew_tier || "Rec");
-      const creatorHandle = formatCreatorHandle(r.creator_handle);
+    const sharedTitles = (p: PlayerFeatures) => {
+      const seedTitles = new Set<string>();
+      for (const s of seedSample) for (const f of Array.from(s.titles.keys())) seedTitles.add(f);
+      return Array.from(p.titles.keys()).filter((f) => seedTitles.has(f));
+    };
 
-      const baseObj = {
-        player_id: String(r.player_id),
-        gamer_tag: String(r.gamer_tag),
-        archetype,
-        primary_franchise: primaryFranchise,
-        lifetime_spend_usd: lifetimeSpend,
-        churn_risk_score: toNumber(r.churn_risk_score),
-        gravity_score: toNumber(r.gravity_score),
-        recent_loss_streak: lossStreak,
-        myplayer_ovr: myplayerOvr,
-        myplayer_build: myplayerBuild,
-        vc_spend_90d: vcSpend90d,
-        vc_balance: vcBalance,
-        park_win_pct: parkWinPct,
-        galaxy_opals: galaxyOpals,
-        nba2k26_veteran: nba2k26Vet,
-        franchises_played: franchisesPlayed,
-        crew_name: crewName,
-        crew_tier: crewTier,
-        creator_handle: creatorHandle,
-      };
-
+    const topTwins = rendered.map(({ p, sim }) => {
+      const crew = p.crew_id ? clanById.get(p.crew_id) : undefined;
       return {
-        ...baseObj,
-        descriptor: buildMultimodalPlayerDescriptor(baseObj),
+        player_id: p.player_id,
+        gamer_tag: p.gamer_tag,
+        archetype: p.archetype,
+        franchise: p.primary_franchise,
+        studio: p.studio,
+        cosine_similarity: Number(sim.toFixed(4)),
+        lifetime_spend_usd: p.lifetime_spend_usd,
+        churn_risk_score: p.churn_risk_score,
+        crew_name: crew?.name,
+        crew_role: p.crew_role ?? undefined,
+        shared_titles: sharedTitles(p).map((f) => franchiseName(f)),
+        tied_to_seed: tiedTwins.has(p.player_id),
       };
     });
 
-    // Identify representative seed players from Spanner Graph (matching seed_player_ids, seed_gamer_tags, or seed_archetypes)
-    const seedIdSet = new Set(seedPlayerIds.map((id) => id.toLowerCase()));
-    const seedTagSet = new Set(seedGamerTags.map((t) => t.toLowerCase()));
-    const seedArchSet = new Set(seedArchetypes);
+    // ------------------------------------------------------------------
+    // 5. Graph: seeds, twins, their primary title hubs and real crews.
+    // ------------------------------------------------------------------
+    const nodes: GraphNode[] = [];
+    const links: GraphLink[] = [];
+    const seen = new Set<string>();
+    const add = (n: GraphNode) => {
+      if (seen.has(n.id)) return;
+      seen.add(n.id);
+      nodes.push(n);
+    };
+    const playerNode = (p: PlayerFeatures, extra: Partial<GraphNode>): GraphNode => ({
+      id: p.player_id,
+      name: p.gamer_tag,
+      type: "PLAYER",
+      franchise: p.primary_franchise,
+      label: p.label,
+      studio: p.studio,
+      archetype: p.archetype,
+      spend: p.lifetime_spend_usd,
+      churn_risk: p.churn_risk_score,
+      franchises_played: Array.from(p.titles.keys()),
+      title_spend: Object.fromEntries(p.titles.entries()),
+      clan_id: p.crew_id ?? undefined,
+      crew_role: p.crew_role ?? undefined,
+      val: 8,
+      color: archetypeColor(p.archetype),
+      ...extra,
+    });
+    const hubFor = (p: PlayerFeatures) => {
+      const hub = idx.hubByFranchise.get(p.primary_franchise);
+      if (!hub) return null;
+      add({
+        id: hub.game_id,
+        name: hub.title,
+        type: "GAME",
+        franchise: hub.franchise,
+        label: hub.label,
+        studio: studioForLabel(hub.label),
+        lifecycle_status: hub.lifecycle_status ?? undefined,
+        val: 30,
+        color: STUDIO_COLORS[studioForLabel(hub.label)],
+      });
+      return hub.game_id;
+    };
 
-    let representativeSeeds = hydratedPlayers.filter(
-      (p) =>
-        seedIdSet.has(p.player_id.toLowerCase()) ||
-        seedTagSet.has(p.gamer_tag.toLowerCase())
-    );
-    if (representativeSeeds.length === 0) {
-      representativeSeeds = hydratedPlayers
-        .filter((p) => seedArchSet.has(p.archetype))
-        .slice(0, 4);
+    for (const s of seedSample) {
+      add(playerNode(s, { name: `${s.gamer_tag} (seed)`, val: 14, color: "#FFFFFF", game_telemetry: { twin_seed: true } }));
+      const h = hubFor(s);
+      if (h) links.push({ source: s.player_id, target: h, label: "PLAYS_GAME", value: 2 });
     }
-    if (representativeSeeds.length === 0) {
-      representativeSeeds = hydratedPlayers.slice(0, 4);
-    } else {
-      representativeSeeds = representativeSeeds.slice(0, 4);
+    const seedVecs = seedSample.map((s) => ({ id: s.player_id, v: vec(s) }));
+    for (const { p, sim } of rendered) {
+      add(
+        playerNode(p, {
+          name: `${p.gamer_tag} (${(sim * 100).toFixed(1)}%)`,
+          game_telemetry: { twin_similarity: Number(sim.toFixed(4)) },
+        })
+      );
+      const h = hubFor(p);
+      if (h) links.push({ source: p.player_id, target: h, label: "PLAYS_GAME", value: 2 });
+      if (p.crew_id && clanById.has(p.crew_id)) {
+        const c = clanById.get(p.crew_id)!;
+        add({
+          id: c.clan_id,
+          name: `${c.name} · ${c.tier || "Crew"}`,
+          type: "CLAN",
+          franchise: c.franchise,
+          studio: idx.studioOf(c.franchise),
+          rank_tier: c.tier || undefined,
+          val: 16,
+          color: STUDIO_COLORS[idx.studioOf(c.franchise)],
+        });
+        links.push({ source: p.player_id, target: c.clan_id, label: `MEMBER_OF_CLAN (${p.crew_role || "MEMBER"})`, value: 1.4 });
+      }
+      // Computed relation: nearest seed by cosine similarity (clearly labelled as such).
+      const pv = vec(p);
+      let best = seedVecs[0];
+      let bestSim = -1;
+      for (const sv of seedVecs) {
+        const sSim = cosine(pv, sv.v, norm(sv.v));
+        if (sSim > bestSim) {
+          bestSim = sSim;
+          best = sv;
+        }
+      }
+      if (best) {
+        links.push({
+          source: best.id,
+          target: p.player_id,
+          label: `TWIN_OF (cosine ${bestSim.toFixed(3)})`,
+          value: 1.6,
+          isMultiHopBridge: true,
+          hopStep: 1,
+        });
+      }
     }
-
-    const seedSelectedIds = new Set(representativeSeeds.map((p) => p.player_id));
-    const seedCrews = new Set(representativeSeeds.map((s) => s.crew_name));
-    const seedCrewTiers = new Set(representativeSeeds.map((s) => s.crew_tier));
-    const seedCreators = new Set(representativeSeeds.map((s) => s.creator_handle));
-    const avgSeedOvr =
-      representativeSeeds.reduce((acc, s) => acc + s.myplayer_ovr, 0) /
-      Math.max(1, representativeSeeds.length);
-
-    // Pre-rank candidate pool by 1-hop graph overlap + franchise affinity so we embed the highest-signal 18 candidates
-    const candidatePool = hydratedPlayers
-      .filter((p) => !seedSelectedIds.has(p.player_id))
-      .sort((a, b) => {
-        const aScore =
-          (seedCrews.has(a.crew_name) ? 3 : seedCrewTiers.has(a.crew_tier) ? 1 : 0) +
-          (seedCreators.has(a.creator_handle) ? 2 : 0) +
-          (seedArchSet.has(a.archetype) ? 2 : 0) +
-          (targetFranchise === "ALL" ||
-          a.primary_franchise === targetFranchise ||
-          a.franchises_played.includes(targetFranchise)
-            ? 1.5
-            : 0) +
-          a.gravity_score;
-        const bScore =
-          (seedCrews.has(b.crew_name) ? 3 : seedCrewTiers.has(b.crew_tier) ? 1 : 0) +
-          (seedCreators.has(b.creator_handle) ? 2 : 0) +
-          (seedArchSet.has(b.archetype) ? 2 : 0) +
-          (targetFranchise === "ALL" ||
-          b.primary_franchise === targetFranchise ||
-          b.franchises_played.includes(targetFranchise)
-            ? 1.5
-            : 0) +
-          b.gravity_score;
-        return bScore - aScore;
-      })
-      .slice(0, 18);
-
-    const seedIntentDescriptor =
-      `Seed Cohort Intent: ${seedQuery} | Target Franchise: ${targetFranchise} | ` +
-      `Seed Archetypes: ${seedArchetypes
-        .map((a) => `${a} (${archetypeLabel(a)}: ${archetypeDescription(a)})`)
-        .join(" ; ")}`;
-
-    const textsToEmbed: string[] = [
-      seedIntentDescriptor,
-      ...representativeSeeds.map((s) => s.descriptor),
-      ...candidatePool.map((c) => c.descriptor),
-    ];
-
-    const vectors = await embedTexts(textsToEmbed, "SEMANTIC_SIMILARITY");
-
-    const seedVectorCount = 1 + representativeSeeds.length;
-    const seedVectors = vectors.slice(0, seedVectorCount);
-    const candidateVectors = vectors.slice(seedVectorCount);
-
-    // Compute 3,072-d Seed Centroid Vector across seed intent + representative seed players
-    const dim = seedVectors[0]?.length || 3072;
-    const seedCentroid = new Array<number>(dim).fill(0);
-    for (const vec of seedVectors) {
-      for (let d = 0; d < dim; d++) {
-        seedCentroid[d] += (vec[d] || 0) / seedVectors.length;
+    for (const r of tieRows) {
+      if (seen.has(r.a) && seen.has(r.b)) {
+        links.push({ source: r.a, target: r.b, label: r.kind, value: 1.4 });
       }
     }
 
-    // Score each candidate player using ScaNN/SOAR hybrid:
-    // 3,072-d Cosine Similarity + 1-Hop Crew/Creator Graph Overlap
-    const scoredCandidates: GraphTwinMatch[] = candidatePool
-      .map((c, idx) => {
-        const candVec = candidateVectors[idx] || [];
-        const rawCosine = cosine(seedCentroid, candVec);
-
-        const crewOverlap = seedCrews.has(c.crew_name)
-          ? 1.0
-          : seedCrewTiers.has(c.crew_tier)
-            ? 0.78
-            : 0.52;
-        const creatorOverlap = seedCreators.has(c.creator_handle) ? 1.0 : 0.62;
-        const ovrProximity = Math.max(0, 1 - Math.abs(c.myplayer_ovr - avgSeedOvr) / 28);
-        const oneHopGraphScore =
-          crewOverlap * 0.4 +
-          creatorOverlap * 0.35 +
-          Math.max(c.gravity_score, ovrProximity) * 0.25;
-
-        // ScaNN / SOAR anisotropic hybrid score combining 3,072-d embedding cosine with 1-hop graph overlap
-        const hybridCosine = Number(
-          Math.min(0.992, Math.max(0.82, rawCosine * 0.84 + oneHopGraphScore * 0.16)).toFixed(3)
-        );
-
-        const estLtvUsd = Math.round(
-          Math.max(
-            65,
-            c.vc_spend_90d > 0 ? c.vc_spend_90d : c.lifetime_spend_usd * 0.24
-          )
-        );
-
-        return {
-          player_id: c.player_id,
-          gamer_tag: c.gamer_tag,
-          archetype: c.archetype,
-          myplayer_ovr: c.myplayer_ovr,
-          crew_name: c.crew_name,
-          crew_tier: c.crew_tier,
-          creator_handle: c.creator_handle,
-          cosine_similarity: hybridCosine,
-          est_ltv_usd: estLtvUsd,
-          lifetime_spend_usd: c.lifetime_spend_usd,
-          churn_risk_score: c.churn_risk_score,
-          recent_loss_streak: c.recent_loss_streak,
-          gravity_score: c.gravity_score,
-          franchise: c.primary_franchise,
-          spend_usd: estLtvUsd,
-          similarity: hybridCosine,
-        };
-      })
-      .sort((a, b) => b.cosine_similarity - a.cosine_similarity);
-
-    const topTwins = scoredCandidates.slice(0, 8);
-    const avgCosineSimilarity = Number(
-      (
-        topTwins.reduce((sum, t) => sum + t.cosine_similarity, 0) /
-        Math.max(1, topTwins.length)
-      ).toFixed(3)
-    );
-
-    const addedCount = Math.round((baseCount * expansionPct) / 100);
-    const expandedTotal = baseCount + addedCount;
-
-    // Build a rich GraphData subgraph of the matched Graph Twins + Seed Buyers + Shared Crew/Creator Bridges
-    const twinGraphNodes: any[] = [];
-    const twinGraphLinks: any[] = [];
-    const seenNodeIds = new Set<string>();
-    const addGraphNode = (n: any) => {
-      if (seenNodeIds.has(n.id)) return;
-      seenNodeIds.add(n.id);
-      twinGraphNodes.push(n);
-    };
-
-    // 1. Central Flagship Hub
-    const hubId = targetFranchise === "NBA2K26" ? "game-nba2k26" : "game-nba2k27";
-    addGraphNode({
-      id: hubId,
-      name: targetFranchise === "NBA2K26" ? "NBA 2K26" : "NBA 2K27",
-      type: "GAME",
-      franchise: targetFranchise === "ALL" ? "NBA2K" : targetFranchise,
-      label: "2K",
-      val: 34,
-      color: "#E4002B",
-      fx: 0,
-      fy: -140,
-    });
-
-    // 2. Add Representative Seed Buyers (Gold Keystone Ring)
-    representativeSeeds.forEach((seed, idx) => {
-      addGraphNode({
-        id: seed.player_id,
-        name: `${seed.gamer_tag} (Seed Buyer)`,
-        type: "PLAYER",
-        franchise: seed.primary_franchise,
-        label: "2K",
-        archetype: seed.archetype,
-        spend: seed.lifetime_spend_usd,
-        churn_risk: seed.churn_risk_score,
-        loss_streak: seed.recent_loss_streak,
-        gravity_score: seed.gravity_score,
-        game_telemetry: {
-          myplayer_ovr: seed.myplayer_ovr,
-          myplayer_build: seed.myplayer_build,
-          vc_spend_90d: seed.vc_spend_90d,
-          vc_balance: seed.vc_balance,
-          park_win_pct: seed.park_win_pct,
-          myteam_galaxy_opal_count: seed.galaxy_opals,
-          nba2k26_veteran: seed.nba2k26_veteran,
-        },
-        val: 14,
-        color: "#F5B400",
-      });
-      twinGraphLinks.push({
-        source: seed.player_id,
-        target: hubId,
-        label: "PLAYS_GAME",
-        value: 1.5,
-      });
-
-      const crewId = `clan-twin-${seed.crew_name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-      addGraphNode({
-        id: crewId,
-        name: `${seed.crew_name} (${seed.crew_tier} Crew)`,
-        type: "CLAN",
-        franchise: "NBA2K",
-        isMultiHopBridge: true,
-        hopStep: 1,
-        val: 20,
-        color: "#00F59B",
-        fx: (idx - 1.5) * 160,
-        fy: 20,
-      });
-      twinGraphLinks.push({
-        source: seed.player_id,
-        target: crewId,
-        label: "MEMBER_OF_CLAN",
-        isMultiHopBridge: true,
-        hopStep: 1,
-        value: 2,
-        color: "#00F59B",
-      });
-    });
-
-    // 3. Add Top ScaNN Graph Twins + remaining hydrated lookalike candidates (up to 48 players)
-    const allTwinPlayers = [
-      ...scoredCandidates,
-      ...hydratedPlayers
-        .filter(
-          (p) =>
-            !seedSelectedIds.has(p.player_id) &&
-            !scoredCandidates.some((sc) => sc.player_id === p.player_id)
-        )
-        .slice(0, 30)
-        .map((c) => ({
-          player_id: c.player_id,
-          gamer_tag: c.gamer_tag,
-          archetype: c.archetype,
-          myplayer_ovr: c.myplayer_ovr,
-          crew_name: c.crew_name,
-          crew_tier: c.crew_tier,
-          creator_handle: c.creator_handle,
-          cosine_similarity: 0.895,
-          est_ltv_usd: Math.round(Math.max(65, c.lifetime_spend_usd * 0.25)),
-          lifetime_spend_usd: c.lifetime_spend_usd,
-          churn_risk_score: c.churn_risk_score,
-          recent_loss_streak: c.recent_loss_streak,
-          gravity_score: c.gravity_score,
-          franchise: c.primary_franchise,
-        })),
-    ];
-
-    allTwinPlayers.forEach((tw) => {
-      addGraphNode({
-        id: tw.player_id,
-        name: `${tw.gamer_tag} (${Math.round(tw.cosine_similarity * 100)}% Twin)`,
-        type: "PLAYER",
-        franchise: tw.franchise || "NBA2K",
-        label: "2K",
-        archetype: tw.archetype,
-        spend: tw.lifetime_spend_usd || tw.est_ltv_usd * 3,
-        churn_risk: tw.churn_risk_score ?? 0.28,
-        loss_streak: tw.recent_loss_streak ?? 0,
-        gravity_score: tw.gravity_score ?? tw.cosine_similarity,
-        game_telemetry: {
-          myplayer_ovr: tw.myplayer_ovr,
-          vc_spend_90d: tw.est_ltv_usd,
-          cosine_similarity: tw.cosine_similarity,
-        },
-        val: 11,
-        color: "#00D2FF",
-      });
-
-      const crewId = `clan-twin-${tw.crew_name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-      addGraphNode({
-        id: crewId,
-        name: `${tw.crew_name} (${(tw as any).crew_tier || "Rec"} Crew)`,
-        type: "CLAN",
-        franchise: "NBA2K",
-        isMultiHopBridge: true,
-        hopStep: 1,
-        val: 18,
-        color: "#00F59B",
-      });
-      twinGraphLinks.push({
-        source: crewId,
-        target: tw.player_id,
-        label: "SCANN_GRAPH_TWIN",
-        isMultiHopBridge: true,
-        hopStep: 2,
-        value: 2,
-        color: "#00D2FF",
-      });
-
-      const creatorId = `cr-twin-${tw.creator_handle.toLowerCase().replace(/[^a-z0-9]+/g, "")}`;
-      addGraphNode({
-        id: creatorId,
-        name: tw.creator_handle,
-        type: "CREATOR",
-        franchise: "NBA2K",
-        isMultiHopBridge: true,
-        hopStep: 1,
-        val: 20,
-        color: "#F5B400",
-      });
-      twinGraphLinks.push({
-        source: tw.player_id,
-        target: creatorId,
-        label: "FOLLOWS_CREATOR",
-        isMultiHopBridge: true,
-        hopStep: 1,
-        value: 1.6,
-        color: "#F5B400",
-      });
-    });
-
-    // Estimate incremental bookings from matched twins' LTV & conversion propensity
-    const avgTwinLtv =
-      topTwins.reduce((sum, t) => sum + t.est_ltv_usd, 0) / Math.max(1, topTwins.length);
-    const conversionPropensity = Math.min(0.34, Math.max(0.18, avgCosineSimilarity * 0.24));
-    const incrementalPerTwinUsd = Math.max(48, Math.min(88, avgTwinLtv * conversionPropensity * 0.52));
-    const incrementalBookingsUsd = Math.round(addedCount * incrementalPerTwinUsd);
-
-    // Aggregate candidate twin scores by archetype for lookalike_archetypes summary
-    const archGroup = new Map<string, { sims: number[]; count: number }>();
-    for (const c of scoredCandidates) {
-      const entry = archGroup.get(c.archetype) || { sims: [], count: 0 };
-      entry.sims.push(c.cosine_similarity);
-      entry.count += 1;
-      archGroup.set(c.archetype, entry);
-    }
-    const lookalikeArchetypes = Array.from(archGroup.entries())
-      .map(([arch, info]) => {
-        const avgSim =
-          info.sims.reduce((s, v) => s + v, 0) / Math.max(1, info.sims.length);
-        const share = info.count / Math.max(1, scoredCandidates.length);
-        return {
-          archetype: arch,
-          label: archetypeLabel(arch),
-          cosine_similarity: Number(avgSim.toFixed(3)),
-          matched_twins: Math.max(1, Math.round(addedCount * share)),
-        };
-      })
-      .sort((a, b) => b.cosine_similarity - a.cosine_similarity);
-
-    const queryEmbeddingPreview = seedCentroid
-      .slice(0, 8)
-      .map((v) => Number(v.toFixed(5)));
-
     return NextResponse.json({
       ok: true,
-      model_used: MODELS.EMBED.id,
-      dimensions: dim,
-      embedding_dimensions: dim,
-      base_count: baseCount,
+      method:
+        "Cosine similarity to the seed centroid over studio-aware features from Spanner: titles played + PLAYS_GAME.spend_usd, studio, archetype, crew membership/role, FRIENDS_WITH degree, lifetime spend, churn risk.",
+      graph: GRAPH_NAME,
+      feature_dimensions: dim,
+      computed_at: store.computedAt,
+      feature_cache: cacheHit ? "hit" : "built",
+      seed_count: seeds.length,
+      seed_ids_not_found: seedIds.length - seeds.length,
+      seed_studio_mix: seedStudioMix,
+      players_scored: scored.length,
+      selection:
+        targetCount !== null
+          ? `top ${targetCount.toLocaleString()} most similar (${expansionPct}% of ${baseCount!.toLocaleString()})`
+          : `similarity >= ${minSimilarity}`,
+      min_similarity: targetCount !== null ? null : minSimilarity,
       expansion_pct: expansionPct,
-      added_count: addedCount,
-      expanded_count: addedCount,
-      expanded_total: expandedTotal,
-      avg_cosine_similarity: avgCosineSimilarity,
-      incremental_bookings_usd: incrementalBookingsUsd,
+      similarity_range: twins.length
+        ? { min: Number(twins[twins.length - 1].sim.toFixed(4)), max: Number(twins[0].sim.toFixed(4)) }
+        : null,
+      added_count: twins.length,
+      rendered_count: rendered.length,
+      base_count: baseCount,
+      expanded_total: baseCount !== null ? baseCount + twins.length : null,
+      avg_cosine_similarity: twins.length ? Number(avg(twins.map((t) => t.sim))!.toFixed(4)) : null,
+      twins_avg_spend_usd: twins.length ? Number(avg(twins.map((t) => t.p.lifetime_spend_usd))!.toFixed(2)) : null,
+      twins_total_spend_usd: twins.length ? Number(twins.reduce((s, t) => s + t.p.lifetime_spend_usd, 0).toFixed(2)) : null,
+      twins_avg_churn: twins.length ? Number(avg(twins.map((t) => t.p.churn_risk_score))!.toFixed(4)) : null,
+      twins_high_churn_count: twins.filter((t) => t.p.churn_risk_score >= 0.7).length,
+      twins_dominant_archetype:
+        Array.from(archGroup.entries()).sort((a, b) => b[1].length - a[1].length)[0]?.[0] ?? null,
+      twins_tied_to_seed_in_render: tiedTwins.size,
+      twin_studio_mix: twinStudioMix,
+      lookalike_archetypes: Array.from(archGroup.entries())
+        .map(([a, sims]) => ({
+          archetype: a,
+          label: archetypeLabel(a),
+          matched_twins: sims.length,
+          cosine_similarity: Number(avg(sims)!.toFixed(4)),
+        }))
+        .sort((x, y) => y.matched_twins - x.matched_twins),
       top_twins: topTwins,
-      sample_players: topTwins,
-      lookalike_archetypes: lookalikeArchetypes,
-      graph_data: {
-        nodes: twinGraphNodes,
-        links: twinGraphLinks,
-      },
-      query_embedding_Preview: queryEmbeddingPreview,
-      query_embedding_preview: queryEmbeddingPreview,
+      nearest_below_threshold:
+        twins.length === 0
+          ? scored.slice(0, 5).map(({ p, sim }) => ({
+              player_id: p.player_id,
+              gamer_tag: p.gamer_tag,
+              cosine_similarity: Number(sim.toFixed(4)),
+            }))
+          : undefined,
+      graph_data: { nodes, links },
       latency_ms: Date.now() - started,
     });
-  } catch (e) {
-    console.error("[/api/audiences/lookalike] Live GCP execution failed:", e);
+  } catch (e: any) {
+    console.error("[/api/audiences/lookalike] failed:", e);
+    const isSpanner = e instanceof SpannerUnavailableError;
     return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : String(e) },
-      { status: 500 }
+      {
+        ok: false,
+        error: isSpanner
+          ? `Cloud Spanner ${process.env.SPANNER_INSTANCE_ID || ""}/${process.env.SPANNER_DATABASE_ID || ""}: ${e.message}`
+          : e?.message || String(e),
+        error_kind: isSpanner ? "SPANNER_UNAVAILABLE" : "INTERNAL",
+      },
+      { status: isSpanner ? 503 : 500 }
     );
   }
 }

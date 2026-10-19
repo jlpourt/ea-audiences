@@ -10,6 +10,10 @@ interface PlaystyleRadarProps {
   telemetry?: Record<string, any>;
 }
 
+/**
+ * Behavioural bars for one player. Every bar is drawn only when its value is
+ * stored on the Spanner row; nothing is defaulted.
+ */
 export default function PlaystyleRadar({
   spend,
   churnRisk,
@@ -17,47 +21,37 @@ export default function PlaystyleRadar({
   archetype,
   telemetry,
 }: PlaystyleRadarProps) {
-  const ovr = Number(telemetry?.myplayer_ovr || 84);
-  const winPct = Number(telemetry?.park_win_pct || 0.54);
-  const gravity = Number(telemetry?.gravity_score || 0.48);
+  const isNum = (v: any) => typeof v === "number" && Number.isFinite(v);
+  const metrics: Array<{ label: string; value: number; raw: string; color: string }> = [];
 
-  const metrics = [
-    {
-      label: "MyPLAYER OVR Rating",
-      value: Math.min(100, Math.round(ovr)),
-      raw: `${ovr} OVR`,
-      color: "bg-twok-red",
-    },
-    {
-      label: "Park Win Rate",
-      value: Math.min(100, Math.round(winPct * 100)),
-      raw: `${Math.round(winPct * 100)}%`,
-      color: "bg-win-green",
-    },
-    {
-      label: "VC Monetization Velocity",
-      value: Math.min(100, Math.round((spend / 1000) * 100)),
-      raw: `$${Math.round(spend)}`,
-      color: "bg-vc-gold",
-    },
-    {
-      label: "Cross-2K Affinity",
-      value: Math.min(100, Math.round(gravity * 100)),
-      raw: `${Math.round(gravity * 100)}%`,
-      color: "bg-vc-gold",
-    },
-    {
-      label: "Rage-Quit Index",
-      value: Math.min(100, Math.round(tilt * 100)),
-      raw: `${Math.round(tilt * 100)} / 100`,
-      color: "bg-loss-red",
-    },
-  ];
+  if (isNum(telemetry?.myplayer_ovr)) {
+    const ovr = Number(telemetry!.myplayer_ovr);
+    metrics.push({ label: "MyPLAYER OVR", value: Math.min(100, Math.round(ovr)), raw: `${ovr} OVR`, color: "bg-twok-red" });
+  }
+  if (isNum(telemetry?.park_win_pct)) {
+    const w = Number(telemetry!.park_win_pct);
+    metrics.push({ label: "Park win rate", value: Math.min(100, Math.round(w * 100)), raw: `${Math.round(w * 100)}%`, color: "bg-win-green" });
+  }
+  if (isNum(spend)) {
+    // Bar scale: $1,000 lifetime = full bar (label shows the exact value).
+    metrics.push({ label: "Lifetime spend", value: Math.min(100, Math.round((spend / 1000) * 100)), raw: `$${Math.round(spend).toLocaleString()}`, color: "bg-vc-gold" });
+  }
+  if (isNum(telemetry?.gravity_score)) {
+    const g = Number(telemetry!.gravity_score);
+    metrics.push({ label: "Cross-2K gravity", value: Math.min(100, Math.round(g * 100)), raw: `${Math.round(g * 100)}%`, color: "bg-vc-gold" });
+  }
+  if (isNum(churnRisk)) {
+    metrics.push({ label: "Churn risk", value: Math.min(100, Math.round(churnRisk * 100)), raw: `${Math.round(churnRisk * 100)}%`, color: "bg-loss-red" });
+  }
+  if (isNum(tilt)) {
+    metrics.push({ label: "Rage-Quit Index", value: Math.min(100, Math.round(tilt * 100)), raw: `${Math.round(tilt * 100)} / 100`, color: "bg-loss-red" });
+  }
+  if (metrics.length === 0) return null;
 
   return (
     <div className="space-y-2.5 font-mono text-xs">
       <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-chalk-dim">
-        <span>NBA 2K27 Behavioral Telemetry</span>
+        <span>Behavioral telemetry</span>
         <span className="text-chalk">{archetype.replace(/_/g, " ")}</span>
       </div>
       <div className="space-y-2">

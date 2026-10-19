@@ -127,9 +127,13 @@ async function buildFindings(franchise: GameFranchise) {
              AVG(p.lifetime_spend_usd) AS avg_spend,
              AVG(p.churn_risk_score) AS avg_churn
     `),
+    // Baseline = 2K players only, so the Core Finding stays 2K even on the
+    // Take-Two portfolio database (Rockstar Games / Zynga players excluded).
     runRawGql(`
       SELECT COUNT(*) AS total_players, AVG(lifetime_spend_usd) AS avg_spend, AVG(churn_risk_score) AS avg_churn
       FROM Players
+      WHERE primary_franchise IN (
+        SELECT franchise FROM Games WHERE is_parent_hub = true AND label NOT IN ('ROCKSTAR', 'ZYNGA'))
     `),
   ]);
 

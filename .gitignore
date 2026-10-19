@@ -47,3 +47,12 @@ scripts/.smoke/
 
 # v2 BigQuery NDJSON staging (scripts/mirror_v2_bigquery.js)
 data/v2/_bq/
+
+# Take-Two portfolio extension: regenerate with scripts/generate_t2_portfolio.py (seed 2727)
+data/t2/*.json
+data/t2/*.ndjson
+data/t2/_bq/
+!data/t2/planted_truth.json
+!data/t2/games.json
+!data/t2/items.json
+!data/t2/spanner_counts.json

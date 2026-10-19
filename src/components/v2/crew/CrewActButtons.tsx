@@ -17,6 +17,7 @@
  */
 import dynamic from "next/dynamic";
 import { useCallback, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { FlaskConical, Send, Loader2, AlertTriangle } from "lucide-react";
 import { Pressable, springs, ease } from "@/components/v2/motion";
@@ -228,7 +229,10 @@ export function CrewActButtons({ kind, ids, label, channels, onPressureTest, onD
         )}
       </AnimatePresence>
 
-      {!onPressureTest && test && (
+      {!onPressureTest && test && typeof document !== "undefined" && createPortal(
+        // Portal to <body> with its own stacking context so the Focus Group sits above
+        // the deep-dive sheet (z-73) instead of being trapped beneath it.
+        <div style={{ position: "relative", zIndex: 90 }}>
         <FocusGroupModal
           isOpen={fgOpen}
           onClose={() => setFgOpen(false)}
@@ -241,6 +245,8 @@ export function CrewActButtons({ kind, ids, label, channels, onPressureTest, onD
           offerPreset={test.focus_group.offerPreset}
           targetCohort={test.focus_group.targetCohort}
         />
+        </div>,
+        document.body,
       )}
     </div>
   );
