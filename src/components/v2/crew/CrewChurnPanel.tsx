@@ -31,6 +31,8 @@ export interface CrewChurnPanelProps {
   onPressureTest?: (handoff: CrewFocusGroupHandoff, result: PressureTestResult) => void;
   onDispatched?: (result: DispatchResult) => void;
   showTimeline?: boolean;
+  /** Show the keystone Pressure-Test / Dispatch buttons. Default true. */
+  showActions?: boolean;
   className?: string;
 }
 
@@ -246,7 +248,9 @@ function KeystonesCard({
   data,
   onPressureTest,
   onDispatched,
+  showActions = true,
 }: {
+  showActions?: boolean;
   data: CrewChurnResponse;
   onPressureTest?: CrewChurnPanelProps["onPressureTest"];
   onDispatched?: CrewChurnPanelProps["onDispatched"];
@@ -324,7 +328,7 @@ function KeystonesCard({
         <span>at risk</span>
       </div>
 
-      <div className="mt-auto flex flex-col gap-2 border-t border-[var(--border)] pt-4">
+      {showActions && <div className="mt-auto flex flex-col gap-2 border-t border-[var(--border)] pt-4">
         <div className="text-[12px] text-[var(--text-dim)]">
           {data.retention_offer.title}
         </div>
@@ -335,14 +339,14 @@ function KeystonesCard({
           onPressureTest={onPressureTest}
           onDispatched={onDispatched}
         />
-      </div>
+      </div>}
     </Card>
   );
 }
 
 /* --------------------------- Panel --------------------------- */
 
-export function CrewChurnPanel({ limit = 12, onPressureTest, onDispatched, showTimeline = true, className }: CrewChurnPanelProps) {
+export function CrewChurnPanel({ limit = 12, onPressureTest, onDispatched, showTimeline = true, showActions = true, className }: CrewChurnPanelProps) {
   const { data, error, loading, reload } = useLive<CrewChurnResponse>(`/api/v2/crew/churn?limit=${limit}`);
 
   return (
@@ -391,7 +395,7 @@ export function CrewChurnPanel({ limit = 12, onPressureTest, onDispatched, showT
         <div className="grid gap-4 lg:grid-cols-3">
           <ExposureHistogram data={data} />
           <AnchorDependencyCard data={data} />
-          <KeystonesCard data={data} onPressureTest={onPressureTest} onDispatched={onDispatched} />
+          <KeystonesCard data={data} onPressureTest={onPressureTest} onDispatched={onDispatched} showActions={showActions} />
           {showTimeline && (
             <Card className="lg:col-span-2">
               <CrewTimeline

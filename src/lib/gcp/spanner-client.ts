@@ -272,9 +272,10 @@ export function mapPlayerRow(raw: any): PlayerRow {
 async function runGql(
   database: Database,
   sql: string,
-  params?: Record<string, any>
+  params?: Record<string, any>,
+  types?: Record<string, any>
 ): Promise<any[]> {
-  const [rows] = await database.run(params ? { sql, params } : { sql });
+  const [rows] = await database.run(params ? { sql, params, ...(types ? { types } : {}) } : { sql });
   return rows.map((r: any) => r.toJSON());
 }
 
@@ -555,10 +556,12 @@ export async function runSpannerGraphQuery(
  */
 export async function runRawGql(
   sql: string,
-  params?: Record<string, any>
+  params?: Record<string, any>,
+  /** Spanner param types; required for empty arrays / nulls. */
+  types?: Record<string, any>
 ): Promise<any[]> {
   try {
-    return await runGql(getDatabase(), sql, params);
+    return await runGql(getDatabase(), sql, params, types);
   } catch (e: any) {
     throw new SpannerUnavailableError(`Spanner query failed: ${e?.message || e}`, e);
   }

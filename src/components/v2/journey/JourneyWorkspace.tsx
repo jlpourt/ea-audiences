@@ -11,7 +11,7 @@
  *   2 Crew churn       B  churn exposure, anchor dependency, keystones
  *   3 Creators + brand B  incremental players, hubs, brand attach, social hops
  *   4 Spanner + BigQuery C crews that lost a core member, one federated query
- *   5 Synthetic testing D Curtis nodal flow: NBA vs WNBA vs College
+ *   5 Synthetic testing D keystone offer on Step 4's crews: neural-flow pressure test, then dispatch
  *   6 Act across Take-Two  audience -> plan -> pressure test -> launch (inline)
  *
  * Every panel is the same live component as before (Spanner Graph, BigQuery,
@@ -24,7 +24,9 @@ import { ArrowLeft, ArrowRight, Check, Database, X } from "lucide-react";
 import { Player360 } from "../player360";
 import { StorylineIsolate } from "../shell/StorylineProvider";
 import { ActionDrawer, type ForPlayerContext } from "../actions/ActionDrawer";
-import { BrandTab, ConceptTab, CreatorTab, CrewTab, LostTab } from "../deepdive/DeepDiveSheet";
+import { BrandTab, CreatorTab, CrewTab, TakeTwoLayer } from "../deepdive/DeepDiveSheet";
+import { CrewActPanel, LostCoreMemberCard } from "../crew";
+import type { CrossLabelCrewsResponse } from "@/app/api/v2/crosslabel/crews/route";
 import { WARM_FOR_STUDIO, type PlayId, type Studio as PlayStudio } from "@/lib/v2/plays";
 
 export type JourneyStep = "player" | "crew" | "creatorbrand" | "lost" | "concept" | "act";
@@ -33,8 +35,8 @@ export const JOURNEY_STEPS: { id: JourneyStep; section: string | null; label: st
   { id: "player", section: null, label: "Player", next: "Why their crew matters" },
   { id: "crew", section: "B", label: "Crew churn", next: "Creators and brand" },
   { id: "creatorbrand", section: "B", label: "Creators + brand", next: "Find these crews live" },
-  { id: "lost", section: "C", label: "Spanner + BigQuery", next: "What do we offer them" },
-  { id: "concept", section: "D", label: "Synthetic testing", next: "Act on a real Take-Two audience" },
+  { id: "lost", section: "C", label: "Spanner + BigQuery", next: "Test the keystone offer" },
+  { id: "concept", section: "D", label: "Synthetic testing", next: "Act across Take-Two" },
   { id: "act", section: null, label: "Act across Take-Two", next: "Back to the command center" },
 ];
 
@@ -66,6 +68,54 @@ function StepIntro({ eyebrow, title, line }: { eyebrow: string; title: string; l
   );
 }
 
+/** Across Take-Two bridge for Step 5: of the selected crews' members, who also plays Rockstar / Zynga (live). */
+function CrewsAcrossTakeTwo({ crewIds, onAct }: { crewIds: string[]; onAct: () => void }) {
+  const [data, setData] = useState<CrossLabelCrewsResponse | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const key = crewIds.join(",");
+  useEffect(() => {
+    if (!key) return;
+    const ac = new AbortController();
+    setData(null);
+    setErr(null);
+    fetch(`/api/v2/crosslabel/crews?ids=${encodeURIComponent(key)}`, { signal: ac.signal, cache: "no-store" })
+      .then(async (r) => {
+        const b = await r.json();
+        if (!r.ok) throw new Error(`${b.service ?? "api"}: ${b.message ?? b.error}`);
+        setData(b as CrossLabelCrewsResponse);
+      })
+      .catch((e) => e?.name !== "AbortError" && setErr(String(e.message ?? e)));
+    return () => ac.abort();
+  }, [key]);
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius)] border border-[color-mix(in_oklab,var(--warn)_35%,var(--border))] bg-[color-mix(in_oklab,var(--warn)_7%,var(--surface))] px-4 py-3">
+      <div className="flex min-w-0 items-start gap-2.5 text-[13px] leading-snug text-[var(--text)]">
+        <span className="mt-0.5 shrink-0 rounded-full bg-[var(--warn-soft)] px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[var(--warn)]">Across Take-Two</span>
+        <span>
+          {err ? (
+            <span className="text-[var(--bad)]">{err}</span>
+          ) : data ? (
+            <>
+              <b>{data.cross_label_members.toLocaleString("en-US")}</b> of the {data.members.toLocaleString("en-US")} players in these crews also play a Rockstar or Zynga title
+              {data.titles.length ? <> ({data.titles.slice(0, 3).map((t) => `${t.title} ${t.players}`).join(" · ")})</> : null}. 2K&apos;s inbox is one channel; Take-Two can
+              reach them where they already play.
+            </>
+          ) : (
+            "Checking where else these crews play..."
+          )}
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={onAct}
+        className="v2-press inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--accent)] px-3.5 py-1.5 text-[12.5px] font-medium text-[var(--text-on-accent)] shadow-[var(--shadow-accent)] hover:bg-[var(--accent-hover)]"
+      >
+        Act across Take-Two <ArrowRight size={13} />
+      </button>
+    </div>
+  );
+}
+
 export function JourneyWorkspace({
   state,
   onChange,
@@ -84,6 +134,8 @@ export function JourneyWorkspace({
   const [player, setPlayer] = useState<JourneyPlayer | null>(null);
   const [forPlayer, setForPlayer] = useState<ForPlayerContext | null>(null);
   const [visited, setVisited] = useState<Set<JourneyStep>>(new Set([step]));
+  /** Crews selected in Step 4 (Section C); Step 5's synthetic audience is built from them. */
+  const [testCrews, setTestCrews] = useState<string[]>([]);
   const routedFor = useRef<string | null>(null);
   const scroller = useRef<HTMLDivElement | null>(null);
 
@@ -98,6 +150,7 @@ export function JourneyWorkspace({
   useEffect(() => {
     if (open) return;
     setVisited(new Set());
+    setTestCrews([]);
     setForPlayer(null);
     routedFor.current = null;
   }, [open]);
@@ -267,7 +320,7 @@ export function JourneyWorkspace({
                 title={player ? `Why ${player.gamer_tag}'s crew matters` : "Why keystones matter"}
                 line={`${tag} is the kind of player a crew is built around. When a keystone fades, their neighbors churn faster: here is that effect across every 2K crew, measured live.`}
               />
-              <CrewTab onAct={actOn} />
+              <CrewTab onAct={actOn} showActions={false} />
             </div>
           )}
 
@@ -290,9 +343,18 @@ export function JourneyWorkspace({
               <StepIntro
                 eyebrow="Step 4 · C · Spanner + BigQuery"
                 title="Find every crew like theirs, this week"
-                line="One statement reads live crew membership from Spanner and joins retention and bookings history in BigQuery. Select crews and act on them without a separate analytics hop."
+                line="One statement reads live crew membership from Spanner and joins retention and bookings history in BigQuery. Select crews and press Act to test the keystone offer on them in Step 5, with no separate analytics hop."
               />
-              <LostTab onAct={actOn} />
+              <TakeTwoLayer>
+                One statement joins live Spanner crews with BigQuery history, with no separate analytics hop. Every cross-label Act uses the same pattern: audience from
+                Spanner, holdout and readout in BigQuery.
+              </TakeTwoLayer>
+              <LostCoreMemberCard
+                onAct={(ids) => {
+                  setTestCrews(ids);
+                  goTo("concept");
+                }}
+              />
             </div>
           )}
 
@@ -300,10 +362,30 @@ export function JourneyWorkspace({
             <div hidden={step !== "concept"} className="px-6 py-5">
               <StepIntro
                 eyebrow="Step 5 · D · Synthetic testing"
-                title="What do we offer them"
-                line="Curtis's nodal workflow for NBA 2K27: NBA vs WNBA vs College basketball, scored on synthetic twins built from real graph rows. Next, the same engine pressure-tests a real cross-label play."
+                title="Will a keystone offer hold these crews together?"
+                line={
+                  testCrews.length
+                    ? `The ${testCrews.length} crew${testCrews.length > 1 ? "s" : ""} you picked lost their most central player this week. Pressure-Test runs the keystone offer through the neural flow on synthetic players built from their real rows, with crew and creator influence. Then dispatch it.`
+                    : "Pick the crews that lost a core member in Step 4, then pressure-test the keystone offer on them here."
+                }
               />
-              <ConceptTab onAct={actOn} />
+              {testCrews.length ? (
+                <>
+                  <CrewActPanel crewIds={testCrews} />
+                  <CrewsAcrossTakeTwo crewIds={testCrews} onAct={() => goTo("act")} />
+                </>
+              ) : (
+                <div className="flex items-center justify-between gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] px-4 py-4 text-[13px] text-[var(--text-dim)]">
+                  No crews selected yet.
+                  <button
+                    type="button"
+                    onClick={() => goTo("lost")}
+                    className="v2-press inline-flex items-center gap-1.5 rounded-full border border-[var(--border-strong)] bg-[var(--surface-2)] px-3.5 py-1.5 text-[12.5px] text-[var(--text)]"
+                  >
+                    <ArrowLeft size={13} /> Pick crews in Step 4
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

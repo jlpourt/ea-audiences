@@ -84,7 +84,7 @@ export function TakeTwoLayer({
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const int = (n: number) => n.toLocaleString("en-US");
 
-export function CrewTab({ onAct }: { onAct: (p: PlayId, seg?: string) => void }) {
+export function CrewTab({ onAct, showActions = true }: { onAct: (p: PlayId, seg?: string) => void; showActions?: boolean }) {
   const { data, err } = useJson<AudienceResponse>("/api/v2/actions/audience?play=save_elsewhere&segment=fading_2k");
   return (
     <>
@@ -100,7 +100,7 @@ export function CrewTab({ onAct }: { onAct: (p: PlayId, seg?: string) => void })
           "Checking who is still active in other labels..."
         )}
       </TakeTwoLayer>
-      <CrewChurnPanel />
+      <CrewChurnPanel showActions={showActions} />
     </>
   );
 }
