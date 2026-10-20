@@ -200,6 +200,22 @@ export function JourneyWorkspace({
     else if (!player && !playerId) onChange({ play: "save_elsewhere", segment: "fading_2k" });
   }, [open, step, play, player, playerId, routeActForPlayer, onChange]);
 
+  // Reaching Step 5 via Next (not Step 4's Act): use Step 4's default selection,
+  // every crew that lost a core member this week (live, same endpoint as Step 4).
+  useEffect(() => {
+    if (!open || step !== "concept" || testCrews.length) return;
+    const ac = new AbortController();
+    fetch("/api/v2/crew/lost-core-member?days=7", { signal: ac.signal, cache: "no-store" })
+      .then(async (r) => {
+        const b = await r.json();
+        if (!r.ok) throw new Error(`${b.service ?? "api"}: ${b.message ?? b.error}`);
+        const ids = ((b.crews ?? []) as { clan_id: string }[]).map((c) => c.clan_id);
+        if (ids.length) setTestCrews(ids);
+      })
+      .catch((e) => e?.name !== "AbortError" && console.error("[journey] lost-core-member for Step 5", e));
+    return () => ac.abort();
+  }, [open, step, testCrews.length]);
+
   const goTo = (s: JourneyStep) => onChange({ step: s });
   const actOn = (p: PlayId, seg?: string) => {
     setForPlayer(null);
@@ -376,7 +392,7 @@ export function JourneyWorkspace({
                 </>
               ) : (
                 <div className="flex items-center justify-between gap-3 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] px-4 py-4 text-[13px] text-[var(--text-dim)]">
-                  No crews selected yet.
+                  Loading this week&apos;s crews from Step 4...
                   <button
                     type="button"
                     onClick={() => goTo("lost")}
