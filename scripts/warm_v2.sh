@@ -67,10 +67,10 @@ hit "player/featured"        "/api/v2/player/featured" || FAIL=1
 hit "crew/churn"             "/api/v2/crew/churn" || FAIL=1
 hit "crew/lost-core-member"  "/api/v2/crew/lost-core-member?days=7" || FAIL=1
 hit "creator/incremental"    "/api/v2/creator/incremental" || FAIL=1
-# Warm "Load cohort" for every core finding (NL->GQL translation + live Spanner
+# Warm "Load cohort" for the core finding the landing shows (churn_contagion) (NL->GQL translation + live Spanner
 # result, both cached in-process by /api/audiences/nl-query).
 curl -s -m 30 "${BASE_URL}/api/insights/core-finding?franchise=NBA2K" \
-  | python3 -c "import sys,json; d=json.load(sys.stdin); [print(f['queryToRun']) for f in d.get('findings',[]) if f.get('queryToRun')]" 2>/dev/null \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); fs=d.get('findings',[]); f=next((x for x in fs if x.get('category')=='churn_contagion'), d.get('finding')); print(f['queryToRun'])" 2>/dev/null \
   | while IFS= read -r q; do
       start=$(date +%s)
       code=$(curl -s -o /dev/null -w "%{http_code}" -m 240 -X POST "${BASE_URL}/api/audiences/nl-query" \
