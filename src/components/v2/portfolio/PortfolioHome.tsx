@@ -16,9 +16,9 @@
  * Everything reads GET /api/v2/portfolio (live Spanner graph). Errors render
  * the real service + message (no fallback numbers).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "framer-motion";
-import { ArrowRight, ArrowUpRight, ChevronRight, Code2, Database, Gift, Heart, Layers, LayoutGrid, Link2, Network, Users, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, ChevronRight, Code2, Database, Gift, Heart, LayoutGrid, Link2, Network, Users, X } from "lucide-react";
 import type { FriendPull, PortfolioFranchise, PortfolioResponse, Studio } from "@/app/api/v2/portfolio/route";
 import type { RetentionResponse } from "@/app/api/v2/portfolio/retention/route";
 import { Reveal, RevealItem, Ticker, ease } from "../motion";
@@ -27,12 +27,9 @@ import { PromptBar } from "../home/PromptBar";
 import { CoreFindingCard } from "../home/CoreFindingCard";
 import type { HomeProps } from "../home/Home";
 import { T2Mark } from "../shell/LabelSwitcher";
-import { Player360 } from "../player360";
-import { StorylineIsolate } from "../shell/StorylineProvider";
-import { ActionDrawer, type ForPlayerContext } from "../actions/ActionDrawer";
 import { PlaysRow, Playbook } from "../actions/PlaysRow";
-import { DEEP_TABS, DeepDiveSheet, type DeepTab } from "../deepdive/DeepDiveSheet";
-import { WARM_FOR_STUDIO, studioOfFranchise, type PlayId, type Studio as PlayStudio } from "@/lib/v2/plays";
+import { JOURNEY_STEPS, JourneyWorkspace, type JourneyState, type JourneyStep } from "../journey/JourneyWorkspace";
+import type { PlayId } from "@/lib/v2/plays";
 
 /* ------------------------------------------------------------------ studio */
 
@@ -1309,92 +1306,6 @@ function AnalyticsSheet({
   );
 }
 
-/** Player 360 in a near-full-screen drawer. Isolated from the 2K storyline so
- *  its ego -> pillars -> social -> metrics steps stay local. */
-function PlayerSheet({
-  open,
-  playerId,
-  onClose,
-  onAct,
-  onDeeper,
-}: {
-  open: boolean;
-  playerId: string | null;
-  onClose: () => void;
-  onAct: (p: { player_id: string; gamer_tag: string; home_studio: PlayStudio | null } | null) => void;
-  onDeeper: (playerId: string | null) => void;
-}) {
-  const [current, setCurrent] = useState<{ player_id: string; gamer_tag: string; home_studio: PlayStudio | null } | null>(null);
-  const reduce = useReducedMotion();
-  useEscape(open, onClose);
-  return (
-    <AnimatePresence>
-      {open && (
-          <motion.div
-            key="p-scrim"
-            className="fixed inset-0 z-[80] bg-[var(--overlay)] backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={onClose}
-          />
-      )}
-      {open && (
-          <motion.div
-            key="p-sheet"
-            role="dialog"
-            aria-label="Player 360"
-            className="fixed inset-4 z-[81] overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg)] shadow-[var(--shadow-lg)]"
-            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={reduce ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.985 }}
-            transition={{ type: "spring", stiffness: 360, damping: 34 }}
-          >
-            {/* Below Player 360's own 52px header row so its GQL toggle stays reachable. */}
-            <div className="absolute right-4 top-[60px] z-20 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => onDeeper(current?.player_id ?? null)}
-                className="v2-press inline-flex h-9 items-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--surface)] px-4 text-[13px] font-medium text-[var(--text)] hover:bg-[var(--surface-2)]"
-                title="Crew churn, creators, brand + crew, Spanner + BigQuery, synthetic testing"
-              >
-                <Layers size={14} /> Go deeper
-              </button>
-              <button
-                type="button"
-                onClick={() => onAct(current)}
-                disabled={!current}
-                className="v2-press inline-flex h-9 items-center gap-2 rounded-full bg-[var(--accent)] disabled:opacity-50 px-4 text-[13px] font-medium text-[var(--text-on-accent)] shadow-[var(--shadow-accent)] hover:bg-[var(--accent-hover)]"
-              >
-                Act on players like this
-                <ArrowRight size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close Player 360"
-                className="v2-press grid h-9 w-9 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--text-dim)] hover:text-[var(--text)]"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <div className="pointer-events-none absolute bottom-[104px] left-4 z-20 flex items-center gap-3 rounded-full border border-[var(--border)] bg-[color-mix(in_oklab,var(--surface)_85%,transparent)] px-3 py-1.5 text-[11px] text-[var(--text-dim)] backdrop-blur">
-              <span className="text-[var(--text-faint)]">Friends who also play</span>
-              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[var(--warn)]" />Rockstar titles</span>
-              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[var(--good)]" />Zynga titles</span>
-              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full border border-[var(--border-strong)] bg-[var(--surface-3)]" />one label only</span>
-              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[var(--bad)]" />churned</span>
-            </div>
-            <StorylineIsolate>
-              <Player360 key={playerId ?? "featured"} playerId={playerId} className="h-full" onAct={() => onAct(current)} onPlayerLoaded={setCurrent} />
-            </StorylineIsolate>
-          </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
 /* ------------------------------------------------------------------- page */
 
 export function PortfolioHome({ homeProps }: { homeProps: HomeProps }) {
@@ -1402,30 +1313,12 @@ export function PortfolioHome({ homeProps }: { homeProps: HomeProps }) {
   const present = useIsPresent();
   const { onSearch, isSearching, searchError, onDismissSearchError, userName = "Jamie" } = homeProps;
   const [tab, setTab] = useState<Tab | null>(null);
-  const [player, setPlayer] = useState<{ open: boolean; id: string | null; studio: PlayStudio }>({ open: false, id: null, studio: "2K" });
-  const [play, setPlay] = useState<PlayId | null>(null);
-  const [playSegment, setPlaySegment] = useState<string | null>(null);
-  const [deep, setDeep] = useState<{ tab: DeepTab | null; playerId: string | null }>({ tab: null, playerId: null });
-  const [forPlayer, setForPlayer] = useState<ForPlayerContext | null>(null);
-  const openPlay = (p: PlayId, seg: string | null = null, ctx: ForPlayerContext | null = null) => {
-    setForPlayer(ctx);
-    setPlaySegment(seg);
-    setPlay(p);
-  };
-  /** "Act on players like this": open the play whose live audience actually contains this player. */
-  const actForPlayer = async (cur: { player_id: string; gamer_tag: string; home_studio: PlayStudio | null } | null, fallbackStudio: PlayStudio) => {
-    if (!cur) return;
-    const studio = cur.home_studio ?? fallbackStudio;
-    const res = await fetch(`/api/v2/actions/for-player?id=${encodeURIComponent(cur.player_id)}`, { cache: "no-store" });
-    const body = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
-    if (!res.ok) {
-      openPlay("warm_intro", WARM_FOR_STUDIO[studio], { gamer_tag: cur.gamer_tag, matches: [], error: `${body.service ?? "api"}: ${body.message ?? body.error}` });
-      return;
-    }
-    const matches = (body.matches ?? []) as ForPlayerContext["matches"];
-    if (matches.length) openPlay(matches[0].play, matches[0].segment, { gamer_tag: cur.gamer_tag, matches });
-    else openPlay("warm_intro", WARM_FOR_STUDIO[studio], { gamer_tag: cur.gamer_tag, matches: [] });
-  };
+  const [journey, setJourney] = useState<JourneyState>({ open: false, step: "player", playerId: null, play: null, segment: null });
+  const patchJourney = useCallback((patch: Partial<JourneyState>) => setJourney((j) => ({ ...j, ...patch })), []);
+  /** Every "go deeper", "see one player" and "act" entry point opens the same workspace. */
+  const openJourney = (step: JourneyStep, extra: Partial<JourneyState> = {}) =>
+    setJourney({ open: true, step, playerId: null, play: null, segment: null, ...extra });
+  const openPlay = (p: PlayId, seg: string | null = null) => openJourney("act", { play: p, segment: seg });
   const [playbookKey, setPlaybookKey] = useState(0);
 
   // Start the live featured-player lookup (and, server-side, its 2-hop graph) as soon
@@ -1435,7 +1328,7 @@ export function PortfolioHome({ homeProps }: { homeProps: HomeProps }) {
     fetch("/api/v2/player/featured", { cache: "no-store" }).catch((e) => console.error("[prefetch] featured player", e));
   }, []);
   // The featured player (id null) is the 2K storyline keystone.
-  const openPlayer = (id: string | null, studio: PlayStudio = "2K") => setPlayer({ open: true, id, studio });
+  const openPlayer = (id: string | null) => openJourney("player", { playerId: id });
 
   return (
     <div className="relative">
@@ -1450,24 +1343,24 @@ export function PortfolioHome({ homeProps }: { homeProps: HomeProps }) {
           maskImage: "linear-gradient(to bottom, black 0%, black 62%, transparent 100%)",
         }}
       >
-        <ParticleField className="h-full w-full" palette="mono" active={present && !player.open} />
+        <ParticleField className="h-full w-full" palette="mono" active={present && !journey.open} />
       </motion.div>
 
       <div className="relative mx-auto w-full max-w-[1040px] px-8 pb-24 pt-10">
         <Greeting name={userName} />
 
         {/* Story order follows Ashmita's 2K agenda with a Take-Two layer:
-            A core finding -> (B-D deep dive) -> ask the graph -> across Take-Two -> act. */}
+            A core finding -> ask the graph -> across Take-Two -> act; every deeper view opens the one journey workspace (player -> B -> C -> D -> act). */}
         <Reveal manual className="mt-8 flex flex-col gap-8" delay={0.1} stagger={0.08} y={14}>
           <RevealItem className="flex flex-col gap-3">
             <CoreFindingCard eyebrow="2K core finding" onOpenPlayer={() => openPlayer(null)} onLoadCohort={(q, f) => onSearch(q, f)} />
             <div className="flex flex-wrap items-center gap-2">
               <span className="mr-1 text-[11.5px] font-medium uppercase tracking-[0.1em] text-[var(--text-faint)]">Go deeper</span>
-              {DEEP_TABS.map((t) => (
+              {JOURNEY_STEPS.filter((t) => t.section).map((t) => (
                 <button
                   key={t.id}
                   type="button"
-                  onClick={() => setDeep({ tab: t.id, playerId: null })}
+                  onClick={() => openJourney(t.id)}
                   className="v2-press inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-[12.5px] text-[var(--text-dim)] hover:border-[var(--border-strong)] hover:text-[var(--text)]"
                 >
                   <span className="grid h-4 w-4 place-items-center rounded-full bg-[var(--surface-3)] text-[9.5px] font-bold text-[var(--text-dim)]">{t.section}</span>
@@ -1516,7 +1409,7 @@ export function PortfolioHome({ homeProps }: { homeProps: HomeProps }) {
           tab={tab}
           onTab={setTab}
           onClose={() => setTab(null)}
-          onOpenPlayer={(id) => openPlayer(id, data.bridges.find((b) => b.player_id === id)?.studio ?? "2K")}
+          onOpenPlayer={(id) => openPlayer(id)}
           onExploreTitle={(x) => {
             setTab(null);
             onSearch(`Highest-value ${x.title} players`, x.franchise);
@@ -1528,41 +1421,15 @@ export function PortfolioHome({ homeProps }: { homeProps: HomeProps }) {
           playbookKey={playbookKey}
         />
       )}
-      <ActionDrawer
-        play={play}
-        initialSegment={playSegment}
-        forPlayer={forPlayer}
-        onSwitch={(p, seg) => openPlay(p, seg, forPlayer)}
-        onClose={() => setPlay(null)}
-        onOpenPlayer={(id, franchise) => openPlayer(id, franchise ? studioOfFranchise(franchise) : "2K")}
+      <JourneyWorkspace
+        state={journey}
+        onChange={patchJourney}
+        onClose={() => setJourney((j) => ({ ...j, open: false }))}
         onOpenInGraph={(nl) => {
-          setPlay(null);
+          setJourney((j) => ({ ...j, open: false }));
           onSearch(nl);
         }}
         onLaunched={() => setPlaybookKey((k) => k + 1)}
-      />
-      <DeepDiveSheet
-        tab={deep.tab}
-        playerId={deep.playerId}
-        onTab={(t) => setDeep((d) => ({ ...d, tab: t }))}
-        onClose={() => setDeep((d) => ({ ...d, tab: null }))}
-        onAct={(p, seg) => {
-          setDeep((d) => ({ ...d, tab: null }));
-          openPlay(p, seg ?? null);
-        }}
-      />
-      <PlayerSheet
-        open={player.open}
-        playerId={player.id}
-        onClose={() => setPlayer((p) => ({ ...p, open: false }))}
-        onAct={(cur) => {
-          setPlayer((p) => ({ ...p, open: false }));
-          void actForPlayer(cur, player.studio);
-        }}
-        onDeeper={(pid) => {
-          setPlayer((p) => ({ ...p, open: false }));
-          setDeep({ tab: "crew", playerId: pid });
-        }}
       />
     </div>
   );

@@ -3,9 +3,9 @@ import "./globals.css";
 import "../styles/tokens.css";
 
 export const metadata: Metadata = {
-  title: "2K Courtside | Audience Intelligence",
+  title: "Take-Two | Player Graph Command Center",
   description:
-    "Cross-title player identity, NBA 2K26 to 2K27 lifecycle cohorts, cross-franchise pollination, and courtside offer testing across the 2K portfolio.",
+    "One player graph across 2K, Rockstar Games and Zynga: 2K core findings, cross-label audiences, synthetic pressure testing and governed activation.",
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },
@@ -16,9 +16,9 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "2K Courtside | Audience Intelligence",
+    title: "Take-Two | Player Graph Command Center",
     description:
-      "2K portfolio player identity graph, lifecycle cohorts, and live offer testing.",
+      "One player graph across 2K, Rockstar Games and Zynga.",
     images: ["/brands/2k/og-courtside.jpg"],
   },
 };

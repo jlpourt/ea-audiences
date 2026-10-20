@@ -855,7 +855,10 @@ export function ActionDrawer({
   onOpenPlayer,
   onOpenInGraph,
   onLaunched,
+  embedded = false,
 }: {
+  /** Render inline (inside the journey workspace) instead of as a right-side drawer. */
+  embedded?: boolean;
   play: PlayId | null;
   initialSegment?: string | null;
   forPlayer?: ForPlayerContext | null;
@@ -1009,43 +1012,18 @@ export function ActionDrawer({
   };
 
   useEffect(() => {
-    if (!play) return;
+    if (!play || embedded) return;
     const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [play, onClose]);
+  }, [play, onClose, embedded]);
 
   const def = play ? PLAYS[play] : null;
   const canNext = step === 0 ? !!audience && audience.count > 0 : step === 1 ? !!plan && !planning : step === 2 ? !!agg && !!selected : false;
   const nextLabel = step === 0 ? "Draft the plan" : step === 1 ? "Pressure-test with 16 players" : "Review launch";
 
-  return (
+  const inner = play && def ? (
     <>
-    <AnimatePresence>
-      {play && (
-        <motion.div
-          key="act-scrim"
-          className="fixed inset-0 z-[75] bg-[var(--overlay)]"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          onClick={onClose}
-        />
-      )}
-    </AnimatePresence>
-      {/* Enter animation only. Layout-animated children (variant cards, flow) can keep an
-          exiting AnimatePresence child alive, leaving the scrim stuck; unmount instantly instead. */}
-      {play && def && (
-        <motion.aside
-          key="act-sheet"
-          role="dialog"
-          aria-label={`${def.name} action`}
-          className="fixed bottom-3 right-3 top-3 z-[76] flex w-[min(1040px,calc(100vw-24px))] flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg-elevated)] shadow-[var(--shadow-lg)]"
-          initial={reduce ? { opacity: 0 } : { x: "104%" }}
-          animate={reduce ? { opacity: 1 } : { x: 0 }}
-          transition={{ type: "spring", stiffness: 380, damping: 40 }}
-        >
           <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--border)] px-6 py-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-[11.5px] uppercase tracking-[0.1em] text-[var(--text-faint)]">
@@ -1055,6 +1033,24 @@ export function ActionDrawer({
                 {def.name} <span className="font-normal text-[var(--text-dim)]">· {def.hook}</span>
               </div>
             </div>
+            {embedded ? (
+              <div className="flex shrink-0 items-center gap-1 rounded-full bg-[var(--surface-2)] p-1" role="tablist" aria-label="Cross-franchise plays">
+                {(Object.keys(PLAYS) as PlayId[]).map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected={id === play}
+                    onClick={() => id !== play && onSwitch?.(id, PLAYS[id].segments[0].id)}
+                    className={`rounded-full px-3 py-1.5 text-[12px] transition-[background-color,color] duration-200 ${
+                      id === play ? "bg-[var(--surface)] text-[var(--text)] shadow-[var(--shadow-sm)]" : "text-[var(--text-dim)] hover:text-[var(--text)]"
+                    }`}
+                  >
+                    {PLAYS[id].name}
+                  </button>
+                ))}
+              </div>
+            ) : (
             <button
               type="button"
               onClick={onClose}
@@ -1063,6 +1059,7 @@ export function ActionDrawer({
             >
               <X size={16} />
             </button>
+            )}
           </div>
 
           {/* stepper */}
@@ -1152,6 +1149,48 @@ export function ActionDrawer({
               </button>
             </div>
           )}
+    </>
+  ) : null;
+
+  if (embedded) {
+    return inner ? (
+      <section
+        aria-label={`${def!.name} action`}
+        className="flex h-full min-h-[640px] flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg-elevated)]"
+      >
+        {inner}
+      </section>
+    ) : null;
+  }
+
+  return (
+    <>
+    <AnimatePresence>
+      {play && (
+        <motion.div
+          key="act-scrim"
+          className="fixed inset-0 z-[75] bg-[var(--overlay)]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          onClick={onClose}
+        />
+      )}
+    </AnimatePresence>
+      {/* Enter animation only. Layout-animated children (variant cards, flow) can keep an
+          exiting AnimatePresence child alive, leaving the scrim stuck; unmount instantly instead. */}
+      {play && def && (
+        <motion.aside
+          key="act-sheet"
+          role="dialog"
+          aria-label={`${def.name} action`}
+          className="fixed bottom-3 right-3 top-3 z-[76] flex w-[min(1040px,calc(100vw-24px))] flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg-elevated)] shadow-[var(--shadow-lg)]"
+          initial={reduce ? { opacity: 0 } : { x: "104%" }}
+          animate={reduce ? { opacity: 1 } : { x: 0 }}
+          transition={{ type: "spring", stiffness: 380, damping: 40 }}
+        >
+          {inner}
         </motion.aside>
       )}
     </>

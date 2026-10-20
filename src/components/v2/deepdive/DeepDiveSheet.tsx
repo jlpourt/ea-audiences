@@ -52,7 +52,7 @@ function useJson<T>(url: string | null) {
 }
 
 /** The Take-Two layer on every tab: one cross-label fact + the play that acts on it. */
-function TakeTwoLayer({
+export function TakeTwoLayer({
   children,
   action,
 }: {
@@ -84,7 +84,7 @@ function TakeTwoLayer({
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const int = (n: number) => n.toLocaleString("en-US");
 
-function CrewTab({ onAct }: { onAct: (p: PlayId, seg?: string) => void }) {
+export function CrewTab({ onAct }: { onAct: (p: PlayId, seg?: string) => void }) {
   const { data, err } = useJson<AudienceResponse>("/api/v2/actions/audience?play=save_elsewhere&segment=fading_2k");
   return (
     <>
@@ -105,7 +105,7 @@ function CrewTab({ onAct }: { onAct: (p: PlayId, seg?: string) => void }) {
   );
 }
 
-function CreatorTab() {
+export function CreatorTab() {
   const { data, err } = useJson<CrossLabelCreatorsResponse>("/api/v2/crosslabel/creators");
   const top = data?.creators.slice().sort((a, b) => b.cross_share - a.cross_share)[0];
   return (
@@ -138,7 +138,7 @@ function CreatorTab() {
   );
 }
 
-function BrandTab({ playerId, onAct }: { playerId: string | null; onAct: (p: PlayId, seg?: string) => void }) {
+export function BrandTab({ playerId, onAct }: { playerId: string | null; onAct: (p: PlayId, seg?: string) => void }) {
   return (
     <>
       <TakeTwoLayer action={{ label: "Act: Warm intro", onClick: () => onAct("warm_intro", "rockstar-nba2k") }}>
@@ -159,7 +159,7 @@ function BrandTab({ playerId, onAct }: { playerId: string | null; onAct: (p: Pla
   );
 }
 
-function LostTab({ onAct }: { onAct: (p: PlayId, seg?: string) => void }) {
+export function LostTab({ onAct }: { onAct: (p: PlayId, seg?: string) => void }) {
   const [crewIds, setCrewIds] = useState<string[] | null>(null);
   return (
     <>
@@ -177,7 +177,7 @@ function LostTab({ onAct }: { onAct: (p: PlayId, seg?: string) => void }) {
   );
 }
 
-function ConceptTab({ onAct }: { onAct: (p: PlayId, seg?: string) => void }) {
+export function ConceptTab({ onAct }: { onAct: (p: PlayId, seg?: string) => void }) {
   return (
     <>
       <TakeTwoLayer action={{ label: "Pressure-test a cross-label play", onClick: () => onAct("gta6_window", "day_one") }}>
