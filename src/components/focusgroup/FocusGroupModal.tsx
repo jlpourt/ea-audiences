@@ -1269,22 +1269,6 @@ export function FocusGroupModal({
 
             {/* Right: Inline Key Metric Pill + Deep Telemetry Shelf Toggle + Run Simulation CTA + Close */}
             <div className="flex items-center gap-2">
-              {stageMode === "neural" && (
-                <div className="hidden xl:flex items-center gap-2.5 px-3 py-1 rounded-lg bg-black/45 border border-white/[0.07] text-[11px] font-mono tabular-nums">
-                  <span className="text-win-green font-semibold">
-                    {activeBookingsK === null ? "—" : `+$${animatedBookingsStr}K`} 30d
-                  </span>
-                  <span className="text-white/20">·</span>
-                  <span className="text-white/85">
-                    {conversionLift === null ? "—" : `+${animatedConversionLiftStr}%`} Lift
-                  </span>
-                  <span className="text-white/20">·</span>
-                  <span className="text-[#00F5D4] font-semibold">
-                    {crewMultiplier === null ? "—" : `${animatedCrewCascadeStr}x`} Crew
-                  </span>
-                </div>
-              )}
-
               <button
                 type="button"
                 onClick={() => setIsRightShelfOpen((prev) => !prev)}
@@ -2751,11 +2735,9 @@ export function FocusGroupModal({
             />
             <span className="truncate">
               {hasStreamedAny
-                ? `${totalDenominator}-agent simulation ${isRunning ? "streaming" : "complete"} · ${
-                    conversionLift === null ? "lift pending" : `+${conversionLift.toFixed(1)}% conversion lift`
-                  } (${contagionFlipsCount} R2 social flips${
+                ? `${totalDenominator}-agent simulation ${isRunning ? "streaming" : "complete"} · ${contagionFlipsCount} R2 social flips${
                     round3FlipsCount > 0 ? ` · +${round3FlipsCount} R3 What-If rescues` : ""
-                  })`
+                  }`
                 : `Ready · ${swarmSize}-agent 2-round social contagion simulation`}
             </span>
           </div>

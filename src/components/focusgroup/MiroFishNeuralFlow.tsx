@@ -1865,7 +1865,7 @@ export default function MiroFishNeuralFlow({
                   Crew Captains
                 </div>
                 <div className="text-[10px] font-mono text-[#00F5D4] truncate tabular-nums">
-                  {effectiveMetrics.cascade === null ? "—" : `${fx(effectiveMetrics.cascade)}x`} Squad Cascade
+                  Squad influence
                 </div>
               </div>
             </div>
@@ -2004,9 +2004,7 @@ export default function MiroFishNeuralFlow({
                 <span className="px-2 py-0.5 rounded-full bg-win-green/20 border border-win-green/40 text-win-green font-mono text-[10px] font-semibold tabular-nums">
                   {hasLiveData ? `+${effectiveMetrics.flips.toLocaleString()}` : "—"} Flips
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-[#9B72CB]/20 border border-[#9B72CB]/40 text-[#E9D5FF] font-mono text-[10px] font-semibold tabular-nums">
-                  {effectiveMetrics.lift === null ? "—" : `+${fx(effectiveMetrics.lift)}%`} Lift
-                </span>
+
               </div>
             </div>
 
