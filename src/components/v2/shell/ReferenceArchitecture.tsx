@@ -4,7 +4,7 @@
  * <ReferenceArchitecture /> v2 reference architecture blueprint.
  *
  * Story: BigQuery is the open lakehouse at the center. Snowflake, Databricks
- * and Treasure Data plug into it where their data already lives (BigLake open
+ * and the CDP plug into it where their data already lives (BigLake open
  * formats, no copies). Spanner Graph sits beside it as the live player graph;
  * one EXTERNAL_QUERY joins both. Gemini agents (ADK on Vertex AI) reason over
  * both, Pub/Sub activates, and outcomes land back in BigQuery.
@@ -68,7 +68,7 @@ const STEPS: Step[] = [
     short: "Open lakehouse",
     badge: "NO RIP-AND-REPLACE",
     headline:
-      "Snowflake, Databricks and Treasure Data plug into BigQuery where the data already lives. BigLake reads open Iceberg and Delta tables in place, so nothing gets copied.",
+      "Snowflake, Databricks and your CDP plug into BigQuery where the data already lives. BigLake reads open Iceberg and Delta tables in place, so nothing gets copied.",
     nodes: ["sf", "dbx", "td", "bq"],
     wires: ["sf-bq", "dbx-bq", "td-bq"],
   },
@@ -173,11 +173,12 @@ function DatabricksMark() {
     </svg>
   );
 }
-function TreasureDataMark() {
+function CdpMark() {
   return (
     <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
-      <rect x="3" y="3" width="18" height="18" rx="5" stroke={C.td} strokeWidth="2" />
-      <path d="M7.5 9h6M10.5 9v7M14.5 9.5v6" stroke={C.td} strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="9" cy="9" r="3.2" stroke={C.td} strokeWidth="2" />
+      <path d="M3.5 19c.8-3 3-4.6 5.5-4.6s4.7 1.6 5.5 4.6" stroke={C.td} strokeWidth="2" strokeLinecap="round" />
+      <path d="M15.5 6.2a3 3 0 0 1 0 5.6M17.5 14.8c1.5.6 2.6 2 3 4.2" stroke={C.td} strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -508,7 +509,7 @@ export function ReferenceArchitectureModal({ open, onClose }: { open: boolean; o
                 {/* sources */}
                 <SourceNode id="sf" lit={lit("sf")} onHover={setHover} icon={<SnowflakeMark />} name="Snowflake" badge="WAREHOUSE" chips={["Iceberg tables", "BigLake", "no copy"]} />
                 <SourceNode id="dbx" lit={lit("dbx")} onHover={setHover} icon={<DatabricksMark />} name="Databricks" badge="LAKEHOUSE" chips={["Delta / Iceberg", "Unity Catalog"]} />
-                <SourceNode id="td" lit={lit("td")} onHover={setHover} icon={<TreasureDataMark />} name="Treasure Data" badge="CDP" chips={["unified profiles", "audience sync"]} />
+                <SourceNode id="td" lit={lit("td")} onHover={setHover} icon={<CdpMark />} name="CDP" badge="CUSTOMER DATA" chips={["unified profiles", "audience sync"]} />
 
                 {/* BigQuery: the center */}
                 <NodeCard id="bq" lit={lit("bq")} onHover={setHover} className="p-4">
