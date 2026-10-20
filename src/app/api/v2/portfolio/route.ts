@@ -172,7 +172,7 @@ const FRIEND_PULL_PAIRS: { source: Studio; franchise: string }[] = [
 ];
 const FRIEND_PULL_TARGETS = Array.from(new Set(FRIEND_PULL_PAIRS.map((p) => p.franchise)));
 
-export const PATH_GQL = `GRAPH TakeTwoPlayerGraph
+const PATH_GQL = `GRAPH TakeTwoPlayerGraph
 MATCH (a:Player {primary_franchise: 'NBA2K'})
       -[i:INVITED {to_game_id: 'game-gta-online', accepted: true}]->(b:Player)
       -[w:WISHLISTED {game_id: 'game-gta6'}]->(g6:Game)
